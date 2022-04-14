@@ -157,7 +157,7 @@ function Advanced () {
         rel='stylesheet'
       />
       <h1>TokenShit.xyz</h1>
-      <h2>Is this token🎯 or 💩</h2>
+      <h2>Is this token <span role="img" aria-label="Hit">🎯</span> or <span role="img" aria-label="Shit">💩</span></h2>
       <div className='cardContainer'>
         {db.map((character, index) => (
           <TinderCard

@@ -1,3 +1,4 @@
+/* eslint-disable jsx-a11y/heading-has-content */
 import React, { useState } from 'react'
 // import TinderCard from '../react-tinder-card/index'
 import TinderCard from 'react-tinder-card'
