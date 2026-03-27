@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useAppKitAccount } from "@reown/appkit/react";
 
 function getDeviceId(): string {
   try {
@@ -19,14 +20,17 @@ function getDeviceId(): string {
 }
 
 export default function VoteButtons({ assetId }: { assetId: string }) {
+  const { address, isConnected } = useAppKitAccount();
   const [hits, setHits] = useState(0);
   const [shits, setShits] = useState(0);
   const [userVote, setUserVote] = useState<"hit" | "shit" | null>(null);
   const [voting, setVoting] = useState(false);
   const [loaded, setLoaded] = useState(false);
 
+  const voterId = isConnected && address ? address : getDeviceId();
+
   useEffect(() => {
-    const deviceId = getDeviceId();
+    const deviceId = isConnected && address ? address : getDeviceId();
     fetch(`/api/votes?assetId=${encodeURIComponent(assetId)}&deviceId=${encodeURIComponent(deviceId)}`)
       .then((r) => r.json())
       .then((data) => {
@@ -36,7 +40,7 @@ export default function VoteButtons({ assetId }: { assetId: string }) {
       })
       .catch(() => {})
       .finally(() => setLoaded(true));
-  }, [assetId]);
+  }, [assetId, isConnected, address]);
 
   async function handleVote(vote: "hit" | "shit") {
     if (userVote || voting) return;
@@ -45,7 +49,12 @@ export default function VoteButtons({ assetId }: { assetId: string }) {
       const res = await fetch("/api/vote", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ assetId, vote, deviceId: getDeviceId() }),
+        body: JSON.stringify({
+          assetId,
+          vote,
+          deviceId: getDeviceId(),
+          ...(isConnected && address ? { wallet: address } : {}),
+        }),
       });
       if (res.ok) {
         const data = await res.json();

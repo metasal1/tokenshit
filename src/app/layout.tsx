@@ -4,6 +4,8 @@ import Script from "next/script";
 import Link from "next/link";
 import AnimatedLogo from "@/components/AnimatedLogo";
 import OnlineCounter from "@/components/OnlineCounter";
+import AppKitProvider from "@/components/AppKitProvider";
+import WalletButton from "@/components/WalletButton";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -60,6 +62,7 @@ export default function RootLayout({
         </Script>
       </head>
       <body className="min-h-full flex flex-col font-sans" suppressHydrationWarning>
+        <AppKitProvider>
         <nav className="sticky top-0 z-50 border-b border-border bg-background/80 backdrop-blur-xl">
           <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3">
             <Link href="/" className="flex items-center group">
@@ -79,6 +82,7 @@ export default function RootLayout({
                 Stats
               </Link>
               <OnlineCounter />
+              <WalletButton />
             </div>
           </div>
         </nav>
@@ -99,6 +103,7 @@ export default function RootLayout({
             </a>
           </p>
         </footer>
+        </AppKitProvider>
       </body>
     </html>
   );
