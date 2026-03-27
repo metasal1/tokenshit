@@ -1,0 +1,3 @@
+module.exports=[58449,a=>{"use strict";a.i(7997),a.i(99475),process.env.TOKENS_XYZ_API_KEY;var b=a.i(52425);let c={alt:"TokenShit",contentType:"image/png",runtime:"nodejs",size:{width:1200,height:630}};async function d(a){let{__metadata_id__:d,...e}=await a.params,f=(0,b.fillMetadataSegment)("/token/[assetId]",e,"opengraph-image",!1);return[function(a){let b={alt:a.alt,type:a.contentType||"image/png",url:f+"?ee6e3fc4ee738397"},{size:c}=a;return c&&(b.width=c.width,b.height=c.height),b}(c)]}a.s(["default",0,d],58449)},75480,a=>{a.n(a.i(58449))}];
+
+//# sourceMappingURL=src_app_token_%5BassetId%5D_opengraph-image--metadata_13kgbvx.js.map
