@@ -1,44 +1,56 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 interface User {
   id: string;
   solanaAddress: string;
-  twitterHandle?: string;
-  email?: string;
 }
 
-interface ReownAuthProps {
-  onAuthChange?: (user: User | null) => void;
-}
-
-export default function ReownAuth({ onAuthChange }: ReownAuthProps) {
+export default function ReownAuth() {
   const [user, setUser] = useState<User | null>(null);
   const [showModal, setShowModal] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
-  const handleConnect = () => {
-    setShowModal(true);
-  };
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
-  const handleSignIn = (method: 'wallet' | 'twitter') => {
-    // Create mock user
-    const mockUser: User = {
-      id: 'user_' + Math.random().toString(36).slice(2).substring(0, 8),
-      solanaAddress: method === 'wallet' 
-        ? 'sola' + Math.random().toString(36).slice(2).substring(0, 40)
-        : 'sola' + Math.random().toString(36).slice(2).substring(0, 40),
-      twitterHandle: method === 'twitter' ? '@user' : undefined,
+  if (!mounted) {
+    return (
+      <button
+        style={{
+          padding: '8px 16px',
+          fontSize: '13px',
+          fontWeight: '600',
+          borderRadius: '6px',
+          background: '#000',
+          color: '#fff',
+          border: '1.5px solid #fff',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '6px',
+          cursor: 'pointer',
+        }}
+      >
+        <span style={{ fontSize: '16px' }}>𝕏</span>
+        Sign In
+      </button>
+    );
+  }
+
+  const handleConnect = () => setShowModal(true);
+
+  const handleSignIn = (method: string) => {
+    const newUser: User = {
+      id: 'user_' + Math.random().toString(36).slice(2, 10),
+      solanaAddress: 'sola' + Math.random().toString(36).slice(2, 40),
     };
-    setUser(mockUser);
-    onAuthChange?.(mockUser);
+    setUser(newUser);
     setShowModal(false);
   };
 
-  const handleDisconnect = () => {
-    setUser(null);
-    onAuthChange?.(null);
-  };
+  const handleDisconnect = () => setUser(null);
 
   if (!user) {
     return (
@@ -58,22 +70,22 @@ export default function ReownAuth({ onAuthChange }: ReownAuthProps) {
             alignItems: 'center',
             gap: '6px',
             transition: 'all 0.2s',
-            fontFamily: 'system-ui, -apple-system, sans-serif',
           }}
           onMouseEnter={(e) => {
-            (e.target as HTMLButtonElement).style.background = '#fff';
-            (e.target as HTMLButtonElement).style.color = '#000';
+            const btn = e.target as HTMLButtonElement;
+            btn.style.background = '#fff';
+            btn.style.color = '#000';
           }}
           onMouseLeave={(e) => {
-            (e.target as HTMLButtonElement).style.background = '#000';
-            (e.target as HTMLButtonElement).style.color = '#fff';
+            const btn = e.target as HTMLButtonElement;
+            btn.style.background = '#000';
+            btn.style.color = '#fff';
           }}
         >
           <span style={{ fontSize: '16px' }}>𝕏</span>
           Sign In
         </button>
 
-        {/* Modal */}
         {showModal && (
           <div
             style={{
@@ -101,7 +113,7 @@ export default function ReownAuth({ onAuthChange }: ReownAuthProps) {
               <h2 style={{ color: '#fff', marginBottom: '24px', fontSize: '20px' }}>
                 Sign In to TOKENSHIT
               </h2>
-              
+
               <button
                 onClick={() => handleSignIn('twitter')}
                 style={{
@@ -115,14 +127,9 @@ export default function ReownAuth({ onAuthChange }: ReownAuthProps) {
                   fontSize: '14px',
                   fontWeight: '600',
                   cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '8px',
                 }}
               >
-                <span>𝕏</span>
-                Sign In with Twitter
+                <span>𝕏 Sign In with Twitter</span>
               </button>
 
               <button
@@ -177,9 +184,7 @@ export default function ReownAuth({ onAuthChange }: ReownAuthProps) {
         border: '1px solid rgba(34, 197, 94, 0.3)',
       }}
     >
-      <span style={{ fontSize: '12px', color: '#4ade80' }}>
-        ✓ Signed In
-      </span>
+      <span style={{ fontSize: '12px', color: '#4ade80' }}>✓ Signed In</span>
       <button
         onClick={handleDisconnect}
         style={{
