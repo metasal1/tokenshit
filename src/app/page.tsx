@@ -141,10 +141,10 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* 🎯 vs 💩 Leaderboard */}
+      {/* Leaderboard */}
       <section className="mx-auto max-w-7xl w-full px-4 pt-12 pb-6">
         <h2 className="text-2xl font-bold mb-6">
-          Today&apos;s Verdicts 🎯 vs 💩
+          Today&apos;s Verdicts
         </h2>
         <Leaderboard mostHit={leaderboard.mostHit} mostShit={leaderboard.mostShit} />
       </section>
