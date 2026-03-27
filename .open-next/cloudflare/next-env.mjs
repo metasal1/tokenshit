@@ -1,3 +1,3 @@
-export const production = {"TOKENS_XYZ_API_KEY":"tok_550c13c03339a7d47d63c3495f3c074e4d652ba573b920c09e2e11f505fcb296","TURSO_DATABASE_URL":"libsql://tokenshit-metasal1.aws-ap-northeast-1.turso.io","TURSO_AUTH_TOKEN":"eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicnciLCJnaWQiOiI4YWNhOGI0My1jMjU3LTQwMTAtYTc2ZC0yNThhODQ1ZTlhN2QiLCJpYXQiOjE3NzQ1NzU5MjQsInJpZCI6IjUzMzRmN2IwLTM0ZmYtNDcwZS05YzkzLWJiNzBmNmQzNjUzOSJ9.3Oj_UXRVyM8n1dynlZkPLPSGikY8DWPPmPNKRFlofXskvSlysFsEchCenyLV4u18Kn8xY1VSxeiHQ_IBa4UADA"};
-export const development = {"TOKENS_XYZ_API_KEY":"tok_550c13c03339a7d47d63c3495f3c074e4d652ba573b920c09e2e11f505fcb296","TURSO_DATABASE_URL":"libsql://tokenshit-metasal1.aws-ap-northeast-1.turso.io","TURSO_AUTH_TOKEN":"eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicnciLCJnaWQiOiI4YWNhOGI0My1jMjU3LTQwMTAtYTc2ZC0yNThhODQ1ZTlhN2QiLCJpYXQiOjE3NzQ1NzU5MjQsInJpZCI6IjUzMzRmN2IwLTM0ZmYtNDcwZS05YzkzLWJiNzBmNmQzNjUzOSJ9.3Oj_UXRVyM8n1dynlZkPLPSGikY8DWPPmPNKRFlofXskvSlysFsEchCenyLV4u18Kn8xY1VSxeiHQ_IBa4UADA"};
+export const production = {};
+export const development = {};
 export const test = {};

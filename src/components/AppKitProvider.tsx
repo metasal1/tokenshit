@@ -27,10 +27,8 @@ async function initAppKit() {
     features: {
       socials: ["x"],
       email: false,
-      wallets: false,
-      walletGuide: false,
       connectMethodsOrder: ["social"],
-    },
+    } as Record<string, unknown>,
     enableWalletConnect: false,
   });
 }

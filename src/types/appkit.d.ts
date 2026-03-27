@@ -4,7 +4,7 @@ declare module "react" {
   namespace JSX {
     interface IntrinsicElements {
       "appkit-button": React.DetailedHTMLProps<
-        React.HTMLAttributes<HTMLElement> & { size?: string },
+        React.HTMLAttributes<HTMLElement> & { size?: string; label?: string },
         HTMLElement
       >;
     }
