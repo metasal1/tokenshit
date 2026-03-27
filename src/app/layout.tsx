@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Monoton, Orbitron } from "next/font/google";
+import Script from "next/script";
 import Link from "next/link";
 import AnimatedLogo from "@/components/AnimatedLogo";
 import OnlineCounter from "@/components/OnlineCounter";
@@ -44,6 +45,20 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} ${monoton.variable} ${orbitron.variable} h-full antialiased`}
       suppressHydrationWarning
     >
+      <head>
+        <Script
+          src="https://www.googletagmanager.com/gtag/js?id=G-R0H3LP9LHZ"
+          strategy="afterInteractive"
+        />
+        <Script id="google-analytics" strategy="afterInteractive">
+          {`
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', 'G-R0H3LP9LHZ');
+          `}
+        </Script>
+      </head>
       <body className="min-h-full flex flex-col font-sans" suppressHydrationWarning>
         <nav className="sticky top-0 z-50 border-b border-border bg-background/80 backdrop-blur-xl">
           <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3">
