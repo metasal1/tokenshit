@@ -105,9 +105,10 @@
         "transform": "lodash/{{member}}"
       }
     },
-    "outputFileTracingRoot": "/Volumes/PRO-G40/workspace/tokenshit",
+    "outputFileTracingRoot": "/private/tmp/tokenshit",
     "allowedDevOrigins": [
-      "tokenshit.metasal.xyz"
+      "tokenshit.metasal.xyz",
+      "*.trycloudflare.com"
     ],
     "cacheComponents": false,
     "cacheLife": {
@@ -308,11 +309,11 @@
     "bundlePagesRouterDependencies": false,
     "configFileName": "next.config.ts",
     "turbopack": {
-      "root": "/Volumes/PRO-G40/workspace/tokenshit"
+      "root": "/private/tmp/tokenshit"
     },
     "distDirRoot": ".next"
   },
-  "appDir": "/Volumes/PRO-G40/workspace/tokenshit",
+  "appDir": "/private/tmp/tokenshit",
   "relativeAppDir": "",
   "files": [
     ".next/routes-manifest.json",
