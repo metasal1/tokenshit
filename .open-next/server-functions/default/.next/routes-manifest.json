@@ -107,6 +107,12 @@
       "namedRegex": "^/_not\\-found(?:/)?$"
     },
     {
+      "page": "/api/auth",
+      "regex": "^/api/auth(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/auth(?:/)?$"
+    },
+    {
       "page": "/api/curated",
       "regex": "^/api/curated(?:/)?$",
       "routeKeys": {},

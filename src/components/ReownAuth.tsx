@@ -29,7 +29,7 @@ export default function ReownAuth({ onAuthChange }: ReownAuthProps) {
     setLoading(false);
 
     // Subscribe to auth state changes
-    const unsubscribe = appKit.subscribeConnectedWallet((account) => {
+    const unsubscribe = appKit.subscribeConnectedWallet((account: any) => {
       if (account?.address) {
         const newUser: User = {
           id: account.address,
