@@ -102,6 +102,9 @@ export default function RootLayout({
               Tokens.xyz
             </a>
           </p>
+          <p className="mt-1 text-zinc-700 text-xs font-mono">
+            v{process.env.NEXT_PUBLIC_BUILD_VERSION || "dev"} · {process.env.NEXT_PUBLIC_BUILD_TIME || "local"}
+          </p>
         </footer>
         </AppKitProvider>
       </body>
