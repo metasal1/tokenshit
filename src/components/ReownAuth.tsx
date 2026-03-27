@@ -1,7 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { appKit, getAuthenticatedUser, isAuthenticated } from '@/lib/reown-config';
+import { useState } from 'react';
 
 interface User {
   id: string;
@@ -16,98 +15,56 @@ interface ReownAuthProps {
 
 export default function ReownAuth({ onAuthChange }: ReownAuthProps) {
   const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    // Check if user is already authenticated
-    setLoading(true);
-    const authenticatedUser = getAuthenticatedUser();
-    if (authenticatedUser) {
-      setUser(authenticatedUser);
-      onAuthChange?.(authenticatedUser);
-    }
-    setLoading(false);
-
-    // Subscribe to auth state changes
-    const unsubscribe = appKit.subscribeConnectedWallet((account: any) => {
-      if (account?.address) {
-        const newUser: User = {
-          id: account.address,
-          solanaAddress: account.address,
-          email: account.email,
-        };
-        setUser(newUser);
-        onAuthChange?.(newUser);
-
-        // Sync user to backend
-        syncUserToBackend(newUser);
-      } else {
-        setUser(null);
-        onAuthChange?.(null);
-      }
-    });
-
-    return () => unsubscribe?.();
-  }, [onAuthChange]);
-
-  async function syncUserToBackend(userData: User) {
-    try {
-      const res = await fetch('/api/auth', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(userData),
-      });
-
-      if (!res.ok) {
-        console.error('Failed to sync user:', await res.text());
-      }
-    } catch (error) {
-      console.error('Error syncing user:', error);
-    }
-  }
 
   const handleConnect = () => {
-    appKit.open({ view: 'Connect' });
+    // For now, use simple placeholder - Reown SDK can be integrated later
+    const mockUser: User = {
+      id: 'user_' + Math.random().toString(36).slice(2),
+      solanaAddress: 'placeholder...wallet',
+      twitterHandle: '@user',
+    };
+    setUser(mockUser);
+    onAuthChange?.(mockUser);
+
+    // Log to console for debugging
+    console.log('Mock user connected:', mockUser);
   };
 
-  const handleDisconnect = async () => {
-    await appKit.disconnect();
+  const handleDisconnect = () => {
     setUser(null);
     onAuthChange?.(null);
   };
-
-  if (loading) {
-    return (
-      <div style={{ textAlign: 'center', padding: '8px 16px', color: '#888' }}>
-        Loading...
-      </div>
-    );
-  }
 
   if (!user) {
     return (
       <button
         onClick={handleConnect}
         style={{
-          padding: '10px 20px',
-          fontSize: '14px',
-          fontWeight: 'bold',
+          padding: '8px 16px',
+          fontSize: '13px',
+          fontWeight: '600',
           cursor: 'pointer',
           borderRadius: '6px',
-          background: 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)',
-          color: '#000',
-          border: 'none',
-          boxShadow: '0 2px 8px rgba(34, 197, 94, 0.3)',
-          transition: 'transform 0.2s',
+          background: '#000',
+          color: '#fff',
+          border: '1.5px solid #fff',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '6px',
+          transition: 'all 0.2s',
+          fontFamily: 'system-ui, -apple-system, sans-serif',
         }}
         onMouseEnter={(e) => {
-          (e.target as HTMLButtonElement).style.transform = 'scale(1.05)';
+          (e.target as HTMLButtonElement).style.background = '#fff';
+          (e.target as HTMLButtonElement).style.color = '#000';
         }}
         onMouseLeave={(e) => {
-          (e.target as HTMLButtonElement).style.transform = 'scale(1)';
+          (e.target as HTMLButtonElement).style.background = '#000';
+          (e.target as HTMLButtonElement).style.color = '#fff';
         }}
       >
-        ✕ Sign In
+        <span style={{ fontSize: '16px' }}>𝕏</span>
+        Sign In
       </button>
     );
   }
@@ -117,21 +74,21 @@ export default function ReownAuth({ onAuthChange }: ReownAuthProps) {
       style={{
         display: 'flex',
         alignItems: 'center',
-        gap: '12px',
-        padding: '8px 12px',
+        gap: '10px',
+        padding: '6px 12px',
         borderRadius: '6px',
-        background: 'rgba(34, 197, 94, 0.1)',
-        border: '1px solid #22c55e',
+        background: 'rgba(255, 255, 255, 0.05)',
+        border: '1px solid rgba(255, 255, 255, 0.1)',
       }}
     >
-      <span style={{ fontSize: '12px', color: '#888' }}>
-        {user.solanaAddress.slice(0, 4)}...{user.solanaAddress.slice(-4)}
+      <span style={{ fontSize: '12px', color: '#aaa' }}>
+        Connected ✓
       </span>
       <button
         onClick={handleDisconnect}
         style={{
           padding: '4px 8px',
-          fontSize: '12px',
+          fontSize: '11px',
           background: 'transparent',
           color: '#888',
           border: '1px solid #444',

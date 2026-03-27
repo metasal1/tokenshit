@@ -76,7 +76,7 @@ export default function VoteButtons({ assetId }: { assetId: string }) {
   return (
     <div style={{ border: "1px solid #333", borderRadius: "12px", background: "#111", padding: "20px" }}>
       <p style={{ textAlign: "center", fontSize: "18px", fontWeight: "bold", color: "#fff", marginBottom: "16px" }}>
-        Hit or Shit? 🤔
+        Is this token 🎯 or 💩?
       </p>
       <div style={{ display: "flex", gap: "16px" }}>
         <button
@@ -90,8 +90,8 @@ export default function VoteButtons({ assetId }: { assetId: string }) {
             opacity: hasVoted && userVote !== "hit" ? 0.3 : 1,
           }}
         >
-          <span style={{ fontSize: "32px" }}>🔥</span>
-          <span style={{ color: "#4ade80" }}>Hit</span>
+          <span style={{ fontSize: "32px" }}>🎯</span>
+          <span style={{ color: "#4ade80" }}>Solid</span>
           <span style={{ fontSize: "14px", color: "#4ade80", fontFamily: "monospace" }}>
             {loaded ? hits : "—"}
           </span>
@@ -109,7 +109,7 @@ export default function VoteButtons({ assetId }: { assetId: string }) {
           }}
         >
           <span style={{ fontSize: "32px" }}>💩</span>
-          <span style={{ color: "#f87171" }}>Shit</span>
+          <span style={{ color: "#f87171" }}>Trash</span>
           <span style={{ fontSize: "14px", color: "#f87171", fontFamily: "monospace" }}>
             {loaded ? shits : "—"}
           </span>
@@ -117,7 +117,7 @@ export default function VoteButtons({ assetId }: { assetId: string }) {
       </div>
       {hasVoted && (
         <p style={{ textAlign: "center", fontSize: "12px", color: "#888", marginTop: "12px" }}>
-          You voted <strong style={{ color: userVote === "hit" ? "#4ade80" : "#f87171" }}>{userVote}</strong> today
+          You voted <strong style={{ color: userVote === "hit" ? "#4ade80" : "#f87171" }}>{userVote === "hit" ? "🎯" : "💩"}</strong> today
         </p>
       )}
     </div>
