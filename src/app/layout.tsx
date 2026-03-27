@@ -4,6 +4,7 @@ import Script from "next/script";
 import Link from "next/link";
 import AnimatedLogo from "@/components/AnimatedLogo";
 import OnlineCounter from "@/components/OnlineCounter";
+import ReownAuth from "@/components/ReownAuth";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -79,6 +80,7 @@ export default function RootLayout({
                 Stats
               </Link>
               <OnlineCounter />
+              <ReownAuth />
             </div>
           </div>
         </nav>
