@@ -7,6 +7,7 @@
   "/api/asset/[assetId]/risk/route": "app/api/asset/[assetId]/risk/route.js",
   "/api/asset/[assetId]/route": "app/api/asset/[assetId]/route.js",
   "/api/asset/[assetId]/variants/route": "app/api/asset/[assetId]/variants/route.js",
+  "/api/auth/route": "app/api/auth/route.js",
   "/api/curated/route": "app/api/curated/route.js",
   "/api/heartbeat/route": "app/api/heartbeat/route.js",
   "/api/market-snapshots/route": "app/api/market-snapshots/route.js",

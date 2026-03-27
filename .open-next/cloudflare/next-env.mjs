@@ -1,3 +1,3 @@
-export const production = {"TOKENS_XYZ_API_KEY":"***REMOVED_TOKEN***","TURSO_DATABASE_URL":"libsql://tokenshit-metasal1.aws-ap-northeast-1.turso.io","TURSO_AUTH_TOKEN":"***REMOVED_TOKEN***"};
-export const development = {"TOKENS_XYZ_API_KEY":"***REMOVED_TOKEN***","TURSO_DATABASE_URL":"libsql://tokenshit-metasal1.aws-ap-northeast-1.turso.io","TURSO_AUTH_TOKEN":"***REMOVED_TOKEN***"};
+export const production = {"TOKENS_XYZ_API_KEY":"***REMOVED_TOKEN***","TURSO_DATABASE_URL":"libsql://tokenshit-metasal1.aws-ap-northeast-1.turso.io","TURSO_AUTH_TOKEN":"***REMOVED_TOKEN***","NEXT_PUBLIC_REOWN_PROJECT_ID":"40007103045c669e27cab4504e2d3bf2","NEXT_PUBLIC_REOWN_CHAIN":"solana"};
+export const development = {"TOKENS_XYZ_API_KEY":"***REMOVED_TOKEN***","TURSO_DATABASE_URL":"libsql://tokenshit-metasal1.aws-ap-northeast-1.turso.io","TURSO_AUTH_TOKEN":"***REMOVED_TOKEN***","NEXT_PUBLIC_REOWN_PROJECT_ID":"40007103045c669e27cab4504e2d3bf2","NEXT_PUBLIC_REOWN_CHAIN":"solana"};
 export const test = {};
