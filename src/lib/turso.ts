@@ -1,5 +1,11 @@
-const TURSO_URL = process.env.TURSO_DATABASE_URL!.replace("libsql://", "https://");
-const TURSO_TOKEN = process.env.TURSO_AUTH_TOKEN!;
+const TURSO_URL = (process.env.TURSO_DATABASE_URL || "").replace("libsql://", "https://");
+const TURSO_TOKEN = process.env.TURSO_AUTH_TOKEN || "";
+
+function ensureConfigured() {
+  if (!TURSO_URL || !TURSO_TOKEN) {
+    throw new Error("Turso not configured (missing env vars)");
+  }
+}
 
 interface TursoResult {
   columns: string[];
