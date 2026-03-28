@@ -45,9 +45,13 @@ export default function RootLayout({
     <html
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} ${monoton.variable} ${orbitron.variable} h-full antialiased`}
+      style={{ colorScheme: 'dark' }}
       suppressHydrationWarning
     >
       <head>
+        <style dangerouslySetInnerHTML={{ __html: `
+          html, body { background: #0a0a0f; color: #e4e4e7; }
+        `}} />
         <Script
           src="https://www.googletagmanager.com/gtag/js?id=G-R0H3LP9LHZ"
           strategy="afterInteractive"

@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { usePrivy } from "@privy-io/react-auth";
+// Privy temporarily disabled
+// import { usePrivy } from "@privy-io/react-auth";
 
 function getDeviceId(): string {
   try {
@@ -20,9 +21,10 @@ function getDeviceId(): string {
 }
 
 export default function VoteButtons({ assetId }: { assetId: string }) {
-  const { authenticated, user } = usePrivy();
-  const address = user?.wallet?.address;
-  const isConnected = authenticated && !!address;
+  // Privy temporarily disabled - use device-only voting
+  const authenticated = false;
+  const address: string | undefined = undefined;
+  const isConnected = false;
   const [hits, setHits] = useState(0);
   const [shits, setShits] = useState(0);
   const [userVote, setUserVote] = useState<"hit" | "shit" | null>(null);
