@@ -1,42 +1,29 @@
-"use client";
+'use client'
 
-import { type ReactNode, useEffect } from "react";
+import { solanaAdapter, projectId, networks } from '@/config/appkit'
+import { createAppKit } from '@reown/appkit/react'
+import React, { type ReactNode } from 'react'
 
-let initialized = false;
-
-async function initAppKit() {
-  if (initialized || typeof window === "undefined") return;
-  initialized = true;
-
-  const { createAppKit } = await import("@reown/appkit/react");
-  const { SolanaAdapter } = await import("@reown/appkit-adapter-solana/react");
-  const { solana } = await import("@reown/appkit/networks");
-
-  const solanaAdapter = new SolanaAdapter({ wallets: [] });
-
-  createAppKit({
-    adapters: [solanaAdapter],
-    networks: [solana],
-    projectId: "4499e1781ee00a4aee0b53ee5d1df999",
-    metadata: {
-      name: "TokenShit",
-      description: "Every token is shit until proven otherwise",
-      url: "https://tokenshit.com",
-      icons: ["https://tokenshit.com/favicon.ico"],
-    },
-    features: {
-      socials: ["x"],
-      email: false,
-      connectMethodsOrder: ["social"],
-    } as Record<string, unknown>,
-    enableWalletConnect: false,
-  });
+const metadata = {
+  name: 'TokenShit',
+  description: 'Every token is shit until proven otherwise',
+  url: 'https://tokenshit.com',
+  icons: ['https://tokenshit.com/favicon.ico']
 }
 
-export default function AppKitProvider({ children }: { children: ReactNode }) {
-  useEffect(() => {
-    initAppKit();
-  }, []);
+createAppKit({
+  adapters: [solanaAdapter],
+  projectId,
+  networks,
+  metadata,
+  features: {
+    email: false,
+    socials: ['x'],
+    emailShowWallets: false,
+  },
+  allWallets: 'HIDE',
+})
 
-  return <>{children}</>;
+export default function AppKitProvider({ children }: { children: ReactNode }) {
+  return <>{children}</>
 }
