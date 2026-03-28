@@ -19,8 +19,7 @@ export default function PrivyAuthProvider({ children }: { children: ReactNode })
           showWalletLoginFirst: false,
         },
         embeddedWallets: {
-          ethereum: { createOnLogin: 'off' },
-          solana: { createOnLogin: 'off' },
+          solana: { createOnLogin: 'users-without-wallets' },
         },
       }}
     >
