@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useAppKitAccount } from "@reown/appkit/react";
+import { usePrivy } from "@privy-io/react-auth";
 
 function getDeviceId(): string {
   try {
@@ -20,7 +20,9 @@ function getDeviceId(): string {
 }
 
 export default function VoteButtons({ assetId }: { assetId: string }) {
-  const { address, isConnected } = useAppKitAccount();
+  const { authenticated, user } = usePrivy();
+  const address = user?.wallet?.address;
+  const isConnected = authenticated && !!address;
   const [hits, setHits] = useState(0);
   const [shits, setShits] = useState(0);
   const [userVote, setUserVote] = useState<"hit" | "shit" | null>(null);
