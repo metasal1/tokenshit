@@ -4,7 +4,7 @@ import Script from "next/script";
 import Link from "next/link";
 import AnimatedLogo from "@/components/AnimatedLogo";
 import OnlineCounter from "@/components/OnlineCounter";
-import PrivyAuthProvider from "@/components/PrivyAuthProvider";
+import AuthProvider from "@/components/AuthProvider";
 import WalletButton from "@/components/WalletButton";
 import "./globals.css";
 
@@ -66,7 +66,7 @@ export default function RootLayout({
         </Script>
       </head>
       <body className="min-h-full flex flex-col font-sans" suppressHydrationWarning>
-        <PrivyAuthProvider>
+        <AuthProvider>
         <nav className="sticky top-0 z-50 border-b border-border bg-background/80 backdrop-blur-xl">
           <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3">
             <Link href="/" className="flex items-center group">
@@ -115,7 +115,7 @@ export default function RootLayout({
             v{process.env.NEXT_PUBLIC_BUILD_VERSION || "dev"} · {process.env.NEXT_PUBLIC_BUILD_TIME || "local"}
           </p>
         </footer>
-        </PrivyAuthProvider>
+        </AuthProvider>
       </body>
     </html>
   );
