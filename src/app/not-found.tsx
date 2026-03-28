@@ -1,10 +1,11 @@
 import Link from "next/link";
+import PoopIcon from "@/components/PoopIcon";
 
 export default function NotFound() {
   return (
     <div className="flex flex-col items-center justify-center min-h-[70vh] px-4 text-center">
-      <div className="text-[120px] sm:text-[180px] leading-none mb-2 select-none animate-bounce">
-        💩
+      <div className="mb-2 select-none animate-bounce">
+        <PoopIcon className="w-32 h-32 sm:w-48 sm:h-48" />
       </div>
       <h1 className="text-4xl sm:text-6xl font-monoton mb-4">
         <span className="neon-text">4</span>
