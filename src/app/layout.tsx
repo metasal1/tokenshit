@@ -108,6 +108,9 @@ export default function RootLayout({
               Tokens.xyz
             </a>
           </p>
+          <p className="mt-2">
+            <a href="https://x.com/tokenshit_" target="_blank" rel="noopener noreferrer" className="text-zinc-500 hover:text-white transition-colors">𝕏 @tokenshit_</a>
+          </p>
           <p className="mt-1 text-zinc-700 text-xs font-mono">
             v{process.env.NEXT_PUBLIC_BUILD_VERSION || "dev"} · {process.env.NEXT_PUBLIC_BUILD_TIME || "local"}
           </p>

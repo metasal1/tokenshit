@@ -1,9 +1,14 @@
 'use client'
 
+import { useEffect, useState, type ComponentType } from 'react'
+
 export default function WalletButton() {
-  return (
-    <button className="shrink-0 bg-violet-600 hover:bg-violet-500 rounded-lg text-white px-3 py-1.5 text-xs font-semibold cursor-pointer transition-colors" disabled>
-      𝕏 Sign In (coming soon)
-    </button>
-  )
+  const [Inner, setInner] = useState<ComponentType | null>(null)
+
+  useEffect(() => {
+    import('./WalletButtonInner').then((mod) => setInner(() => mod.default))
+  }, [])
+
+  if (!Inner) return null
+  return <Inner />
 }
