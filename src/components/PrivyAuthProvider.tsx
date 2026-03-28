@@ -1,14 +1,17 @@
 'use client'
 
 import { PrivyProvider } from '@privy-io/react-auth'
-import { type ReactNode } from 'react'
+import { type ReactNode, useEffect, useState } from 'react'
 
 export default function PrivyAuthProvider({ children }: { children: ReactNode }) {
-  const appId = process.env.NEXT_PUBLIC_PRIVY_APP_ID || 'cmn9qofoh00z50cjuijtbyf10'
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => setMounted(true), [])
+
+  if (!mounted) return <>{children}</>
 
   return (
     <PrivyProvider
-      appId={appId}
+      appId="cmn9qofoh00z50cjuijtbyf10"
       config={{
         loginMethods: ['twitter'],
         appearance: {
