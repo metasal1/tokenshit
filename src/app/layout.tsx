@@ -68,20 +68,22 @@ export default function RootLayout({
             <Link href="/" className="flex items-center group">
               <AnimatedLogo size="nav" />
             </Link>
-            <div className="flex items-center gap-4 text-sm text-zinc-400">
+            <div className="flex items-center gap-4 text-sm text-zinc-400 min-w-0">
               <Link
                 href="/"
-                className="hover:text-foreground transition-colors"
+                className="hidden sm:inline hover:text-foreground transition-colors"
               >
                 Home
               </Link>
               <Link
                 href="/stats"
-                className="hover:text-foreground transition-colors"
+                className="hidden sm:inline hover:text-foreground transition-colors"
               >
                 Stats
               </Link>
-              <OnlineCounter />
+              <span className="hidden sm:inline">
+                <OnlineCounter />
+              </span>
               <WalletButton />
             </div>
           </div>
