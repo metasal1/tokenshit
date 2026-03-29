@@ -1,7 +1,49 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { usePrivy } from "@privy-io/react-auth";
+
+function EmojiDrop({ emoji, count = 20 }: { emoji: string; count?: number }) {
+  const [particles, setParticles] = useState<{ id: number; left: number; delay: number; size: number; duration: number }[]>([]);
+
+  useEffect(() => {
+    setParticles(
+      Array.from({ length: count }, (_, i) => ({
+        id: i,
+        left: Math.random() * 100,
+        delay: Math.random() * 0.5,
+        size: 16 + Math.random() * 24,
+        duration: 1 + Math.random() * 1.5,
+      }))
+    );
+  }, [count]);
+
+  return (
+    <div className="fixed inset-0 pointer-events-none z-[200] overflow-hidden">
+      {particles.map(p => (
+        <div
+          key={p.id}
+          style={{
+            position: "absolute",
+            left: `${p.left}%`,
+            top: "-40px",
+            fontSize: `${p.size}px`,
+            animation: `emojifall ${p.duration}s ease-in ${p.delay}s forwards`,
+          }}
+        >
+          {emoji}
+        </div>
+      ))}
+      <style>{`
+        @keyframes emojifall {
+          0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+          80% { opacity: 1; }
+          100% { transform: translateY(105vh) rotate(${Math.random() > 0.5 ? '' : '-'}360deg); opacity: 0; }
+        }
+      `}</style>
+    </div>
+  );
+}
 
 export default function VoteButtons({ assetId }: { assetId: string }) {
   const { ready, authenticated, user, login } = usePrivy();
@@ -13,6 +55,7 @@ export default function VoteButtons({ assetId }: { assetId: string }) {
   const [userVote, setUserVote] = useState<"hit" | "shit" | null>(null);
   const [voting, setVoting] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const [dropEmoji, setDropEmoji] = useState<string | null>(null);
 
   useEffect(() => {
     const voterId = twitterUsername || "";
@@ -50,6 +93,8 @@ export default function VoteButtons({ assetId }: { assetId: string }) {
         setHits(data.hits || 0);
         setShits(data.shits || 0);
         setUserVote(vote);
+        setDropEmoji(vote === "hit" ? "🎯" : "💩");
+        setTimeout(() => setDropEmoji(null), 3000);
       } else if (res.status === 409) {
         setUserVote(vote);
       }
@@ -75,7 +120,8 @@ export default function VoteButtons({ assetId }: { assetId: string }) {
   };
 
   return (
-    <div style={{ border: "1px solid #333", borderRadius: "12px", background: "#111", padding: "20px" }}>
+    <div style={{ border: "1px solid #333", borderRadius: "12px", background: "#111", padding: "20px", position: "relative" }}>
+      {dropEmoji && <EmojiDrop emoji={dropEmoji} />}
       <div style={{ textAlign: "center", marginBottom: "16px" }}>
         <p style={{ fontSize: "18px", fontWeight: "bold", color: "#fff" }}>
           Is this token 🎯 or 💩?
