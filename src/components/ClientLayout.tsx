@@ -6,6 +6,7 @@ import { toSolanaWalletConnectors } from '@privy-io/react-auth/solana';
 import Link from 'next/link';
 import AnimatedLogo from '@/components/AnimatedLogo';
 import OnlineCounter from '@/components/OnlineCounter';
+import PageTransition from '@/components/PageTransition';
 
 interface TokenBalance {
   mint: string;
@@ -312,7 +313,7 @@ function Layout({ children }: { children: React.ReactNode }) {
   return (
     <>
       {nav}
-      <main className="flex-1">{children}</main>
+      <main className="flex-1"><PageTransition>{children}</PageTransition></main>
       <footer className="border-t border-border py-6 text-center text-sm text-zinc-500">
         <p>💩 TokenShit — Every token is shit until proven otherwise.</p>
         <p className="mt-1 text-zinc-600">
