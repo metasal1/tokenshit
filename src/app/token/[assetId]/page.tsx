@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { apiFetch } from "@/lib/api";
 import { formatPrice, formatLargeNumber, formatPercent, percentColor, riskColor, riskBg, hitScoreRoast, hitScoreEmoji } from "@/lib/format";
 import VoteButtons from "@/components/VoteButtons";
+import TokenPageWrapper from "@/components/TokenPageWrapper";
 
 interface Props {
   params: Promise<{ assetId: string }>;
@@ -100,6 +101,7 @@ export default async function TokenPage({ params }: Props) {
   }));
 
   return (
+    <TokenPageWrapper assetId={assetId}>
     <div className="mx-auto max-w-7xl px-4 py-8">
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start gap-4 mb-8">
@@ -331,5 +333,6 @@ export default async function TokenPage({ params }: Props) {
         </div>
       </div>
     </div>
+    </TokenPageWrapper>
   );
 }
