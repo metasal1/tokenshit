@@ -4,19 +4,20 @@ import { tursoExecute } from "@/lib/turso";
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { assetId, vote, deviceId, wallet } = body;
+    const { assetId, vote, twitterUsername, deviceId } = body;
 
-    if (!assetId || !vote || !deviceId) {
+    // Prefer twitterUsername, fallback to deviceId for backwards compat
+    const voterId = twitterUsername || deviceId;
+
+    if (!assetId || !vote || !voterId) {
       return Response.json({ error: "Missing required fields" }, { status: 400 });
     }
 
-    // Use wallet address as voter identity if provided, otherwise deviceId
-    const voterId = wallet || deviceId;
     if (vote !== "hit" && vote !== "shit") {
       return Response.json({ error: "Vote must be 'hit' or 'shit'" }, { status: 400 });
     }
 
-    // Insert vote (UNIQUE constraint handles duplicates)
+    // Insert vote — UNIQUE constraint on (asset_id, device_id, voted_at) handles 1-per-day
     try {
       await tursoExecute(
         "INSERT INTO votes (asset_id, device_id, vote) VALUES (?, ?, ?)",

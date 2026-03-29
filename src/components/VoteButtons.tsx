@@ -1,39 +1,21 @@
 "use client";
 
 import { useState, useEffect } from "react";
-// Privy auth handled separately - VoteButtons uses device ID for voting
-
-function getDeviceId(): string {
-  try {
-    let id = localStorage.getItem("tokenshit_device_id");
-    if (!id) {
-      // Fallback for browsers without crypto.randomUUID
-      id = typeof crypto !== "undefined" && crypto.randomUUID
-        ? crypto.randomUUID()
-        : "xxxx-xxxx-xxxx".replace(/x/g, () => Math.floor(Math.random() * 16).toString(16));
-      localStorage.setItem("tokenshit_device_id", id);
-    }
-    return id;
-  } catch {
-    return "anon-" + Math.random().toString(36).slice(2);
-  }
-}
+import { usePrivy } from "@privy-io/react-auth";
 
 export default function VoteButtons({ assetId }: { assetId: string }) {
-  const authenticated = false;
-  const address: string | undefined = undefined;
-  const isConnected = false;
+  const { ready, authenticated, user, login } = usePrivy();
+  const twitterUsername = user?.twitter?.username;
+
   const [hits, setHits] = useState(0);
   const [shits, setShits] = useState(0);
   const [userVote, setUserVote] = useState<"hit" | "shit" | null>(null);
   const [voting, setVoting] = useState(false);
   const [loaded, setLoaded] = useState(false);
 
-  const voterId = isConnected && address ? address : getDeviceId();
-
   useEffect(() => {
-    const deviceId = isConnected && address ? address : getDeviceId();
-    fetch(`/api/votes?assetId=${encodeURIComponent(assetId)}&deviceId=${encodeURIComponent(deviceId)}`)
+    const voterId = twitterUsername || "";
+    fetch(`/api/votes?assetId=${encodeURIComponent(assetId)}&deviceId=${encodeURIComponent(voterId)}`)
       .then((r) => r.json())
       .then((data) => {
         setHits(data.hits || 0);
@@ -42,9 +24,13 @@ export default function VoteButtons({ assetId }: { assetId: string }) {
       })
       .catch(() => {})
       .finally(() => setLoaded(true));
-  }, [assetId, isConnected, address]);
+  }, [assetId, twitterUsername]);
 
   async function handleVote(vote: "hit" | "shit") {
+    if (!authenticated || !twitterUsername) {
+      login();
+      return;
+    }
     if (userVote || voting) return;
     setVoting(true);
     try {
@@ -54,8 +40,7 @@ export default function VoteButtons({ assetId }: { assetId: string }) {
         body: JSON.stringify({
           assetId,
           vote,
-          deviceId: getDeviceId(),
-          ...(isConnected && address ? { wallet: address } : {}),
+          twitterUsername,
         }),
       });
       if (res.ok) {
@@ -63,12 +48,15 @@ export default function VoteButtons({ assetId }: { assetId: string }) {
         setHits(data.hits || 0);
         setShits(data.shits || 0);
         setUserVote(vote);
+      } else if (res.status === 409) {
+        setUserVote(vote);
       }
     } catch {}
     setVoting(false);
   }
 
   const hasVoted = userVote !== null;
+  const needsLogin = !authenticated || !twitterUsername;
 
   const btnBase = {
     padding: "16px 0",
@@ -89,6 +77,11 @@ export default function VoteButtons({ assetId }: { assetId: string }) {
       <p style={{ textAlign: "center", fontSize: "18px", fontWeight: "bold", color: "#fff", marginBottom: "16px" }}>
         Is this token 🎯 or 💩?
       </p>
+      {needsLogin && (
+        <p style={{ textAlign: "center", fontSize: "12px", color: "#888", marginBottom: "12px" }}>
+          Sign in with X to vote (1 vote per token per day)
+        </p>
+      )}
       <div style={{ display: "flex", gap: "16px" }}>
         <button
           onClick={() => handleVote("hit")}
@@ -129,6 +122,7 @@ export default function VoteButtons({ assetId }: { assetId: string }) {
       {hasVoted && (
         <p style={{ textAlign: "center", fontSize: "12px", color: "#888", marginTop: "12px" }}>
           You voted <strong style={{ color: userVote === "hit" ? "#4ade80" : "#f87171" }}>{userVote === "hit" ? "🎯" : "💩"}</strong> today
+          {twitterUsername && <span style={{ color: "#666" }}> as @{twitterUsername}</span>}
         </p>
       )}
     </div>
