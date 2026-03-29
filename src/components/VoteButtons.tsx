@@ -125,83 +125,83 @@ export default function VoteButtons({ assetId }: { assetId: string }) {
   const hasVoted = userVote !== null;
   const needsLogin = !authenticated || !twitterUsername;
 
-  const btnBase = {
-    padding: "16px 0",
-    borderRadius: "12px",
-    fontSize: "18px",
-    fontWeight: "bold" as const,
-    cursor: (hasVoted || voting ? "not-allowed" : "pointer") as string,
-    display: "flex",
-    flexDirection: "column" as const,
-    alignItems: "center" as const,
-    gap: "4px",
-    flex: "1",
-    minHeight: "100px",
-  };
+  const [pressing, setPressing] = useState<"hit" | "shit" | null>(null);
 
   return (
-    <div style={{ border: "1px solid #333", borderRadius: "12px", background: "#111", padding: "20px", position: "relative" }}>
+    <div className="border border-zinc-800 rounded-xl bg-zinc-900/80 p-5 relative">
       {dropEmoji && <EmojiDrop emoji={dropEmoji} />}
-      <div style={{ textAlign: "center", marginBottom: "16px" }}>
-        <p style={{ fontSize: "18px", fontWeight: "bold", color: "#fff" }}>
+      <div className="text-center mb-4">
+        <p className="text-lg font-bold text-white">
           Is this token 🎯 or 💩?
         </p>
         {loaded && totalVotes > 0 && (
-          <p style={{ fontSize: "12px", color: "#666", marginTop: "4px" }}>
+          <p className="text-xs text-zinc-600 mt-1">
             {totalVotes.toLocaleString()} vote{totalVotes !== 1 ? "s" : ""} cast
           </p>
         )}
       </div>
       {needsLogin && (
-        <p style={{ textAlign: "center", fontSize: "12px", color: "#888", marginBottom: "12px" }}>
+        <p className="text-center text-xs text-zinc-500 mb-3">
           Sign in with X to vote (1 vote per token per day)
         </p>
       )}
-      <div style={{ display: "flex", gap: "16px" }}>
+      <div className="flex gap-4">
         <button
           onClick={() => handleVote("hit")}
+          onPointerDown={() => setPressing("hit")}
+          onPointerUp={() => setPressing(null)}
+          onPointerLeave={() => setPressing(null)}
           disabled={hasVoted || voting}
-          style={{
-            ...btnBase,
-            border: userVote === "hit" ? "3px solid #22c55e" : "3px solid #166534",
-            background: "#14532d",
-            color: "#4ade80",
-            opacity: hasVoted && userVote !== "hit" ? 0.3 : 1,
-          }}
+          className={`
+            flex-1 flex flex-col items-center gap-1 py-4 rounded-xl font-bold
+            border-[3px] min-h-[100px] select-none
+            transition-all duration-100 ease-out
+            ${userVote === "hit" ? "border-green-500 bg-green-900/60" : "border-green-900 bg-green-950"}
+            ${hasVoted && userVote !== "hit" ? "opacity-30" : ""}
+            ${!hasVoted && !voting ? "cursor-pointer active:scale-95 hover:border-green-500 hover:bg-green-900/40" : "cursor-not-allowed"}
+            ${pressing === "hit" && !hasVoted ? "scale-90 brightness-125" : ""}
+          `}
+          style={{ WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}
         >
-          <span style={{ fontSize: "32px" }}>🎯</span>
-          <span style={{ color: "#4ade80" }}>Hit</span>
-          <span style={{ fontSize: "14px", color: "#4ade80", fontFamily: "monospace" }}>
+          <span className="text-4xl">{voting && pressing === "hit" ? "⏳" : "🎯"}</span>
+          <span className="text-green-400 text-base">Hit</span>
+          <span className="text-sm text-green-400 font-mono">
             {loaded ? hits : "—"}
           </span>
         </button>
 
         <button
           onClick={() => handleVote("shit")}
+          onPointerDown={() => setPressing("shit")}
+          onPointerUp={() => setPressing(null)}
+          onPointerLeave={() => setPressing(null)}
           disabled={hasVoted || voting}
-          style={{
-            ...btnBase,
-            border: userVote === "shit" ? "3px solid #ef4444" : "3px solid #7f1d1d",
-            background: "#450a0a",
-            color: "#f87171",
-            opacity: hasVoted && userVote !== "shit" ? 0.3 : 1,
-          }}
+          className={`
+            flex-1 flex flex-col items-center gap-1 py-4 rounded-xl font-bold
+            border-[3px] min-h-[100px] select-none
+            transition-all duration-100 ease-out
+            ${userVote === "shit" ? "border-red-500 bg-red-900/60" : "border-red-900 bg-red-950"}
+            ${hasVoted && userVote !== "shit" ? "opacity-30" : ""}
+            ${!hasVoted && !voting ? "cursor-pointer active:scale-95 hover:border-red-500 hover:bg-red-900/40" : "cursor-not-allowed"}
+            ${pressing === "shit" && !hasVoted ? "scale-90 brightness-125" : ""}
+          `}
+          style={{ WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}
         >
-          <span style={{ fontSize: "32px" }}>💩</span>
-          <span style={{ color: "#f87171" }}>Shit</span>
-          <span style={{ fontSize: "14px", color: "#f87171", fontFamily: "monospace" }}>
+          <span className="text-4xl">{voting && pressing === "shit" ? "⏳" : "💩"}</span>
+          <span className="text-red-400 text-base">Shit</span>
+          <span className="text-sm text-red-400 font-mono">
             {loaded ? shits : "—"}
           </span>
         </button>
       </div>
       {hasVoted && (
-        <div style={{ textAlign: "center", marginTop: "12px" }}>
-          <p style={{ fontSize: "12px", color: "#888" }}>
-            You voted <strong style={{ color: userVote === "hit" ? "#4ade80" : "#f87171" }}>{userVote === "hit" ? "🎯" : "💩"}</strong> today
-            {twitterUsername && <span style={{ color: "#666" }}> as @{twitterUsername}</span>}
+        <div className="text-center mt-3">
+          <p className="text-xs text-zinc-500">
+            You voted <strong className={userVote === "hit" ? "text-green-400" : "text-red-400"}>{userVote === "hit" ? "🎯" : "💩"}</strong> today
+            {twitterUsername && <span className="text-zinc-600"> as @{twitterUsername}</span>}
           </p>
           {dropEmoji && (
-            <p style={{ fontSize: "11px", color: "#555", marginTop: "8px", animation: "pulse 1s infinite" }}>
+            <p className="text-[11px] text-zinc-600 mt-2 animate-pulse">
               Loading next token...
             </p>
           )}
