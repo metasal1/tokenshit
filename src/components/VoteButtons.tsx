@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { usePrivy } from "@privy-io/react-auth";
 
 function EmojiDrop({ emoji, count = 20 }: { emoji: string; count?: number }) {
@@ -47,6 +48,7 @@ function EmojiDrop({ emoji, count = 20 }: { emoji: string; count?: number }) {
 
 export default function VoteButtons({ assetId }: { assetId: string }) {
   const { ready, authenticated, user, login } = usePrivy();
+  const router = useRouter();
   const twitterUsername = user?.twitter?.username;
 
   const [hits, setHits] = useState(0);
@@ -95,6 +97,24 @@ export default function VoteButtons({ assetId }: { assetId: string }) {
         setUserVote(vote);
         setDropEmoji(vote === "hit" ? "🎯" : "💩");
         setTimeout(() => setDropEmoji(null), 3000);
+        // Navigate to random token after confetti
+        fetch("/api/adjacent-tokens?assetId=" + encodeURIComponent(assetId))
+          .then(r => r.json())
+          .then(d => {
+            // Pick a random token from the list
+            const candidates = [d.prev, d.next].filter(Boolean);
+            if (candidates.length > 0) {
+              const randomId = candidates[Math.floor(Math.random() * candidates.length)];
+              setTimeout(() => router.push(`/token/${randomId}`), 2000);
+            } else {
+              // Fallback: fetch full list
+              fetch("/api/random-token")
+                .then(r => r.json())
+                .then(d => { if (d.assetId) setTimeout(() => router.push(`/token/${d.assetId}`), 2000); })
+                .catch(() => {});
+            }
+          })
+          .catch(() => {});
       } else if (res.status === 409) {
         setUserVote(vote);
       }
@@ -175,10 +195,17 @@ export default function VoteButtons({ assetId }: { assetId: string }) {
         </button>
       </div>
       {hasVoted && (
-        <p style={{ textAlign: "center", fontSize: "12px", color: "#888", marginTop: "12px" }}>
-          You voted <strong style={{ color: userVote === "hit" ? "#4ade80" : "#f87171" }}>{userVote === "hit" ? "🎯" : "💩"}</strong> today
-          {twitterUsername && <span style={{ color: "#666" }}> as @{twitterUsername}</span>}
-        </p>
+        <div style={{ textAlign: "center", marginTop: "12px" }}>
+          <p style={{ fontSize: "12px", color: "#888" }}>
+            You voted <strong style={{ color: userVote === "hit" ? "#4ade80" : "#f87171" }}>{userVote === "hit" ? "🎯" : "💩"}</strong> today
+            {twitterUsername && <span style={{ color: "#666" }}> as @{twitterUsername}</span>}
+          </p>
+          {dropEmoji && (
+            <p style={{ fontSize: "11px", color: "#555", marginTop: "8px", animation: "pulse 1s infinite" }}>
+              Loading next token...
+            </p>
+          )}
+        </div>
       )}
     </div>
   );
