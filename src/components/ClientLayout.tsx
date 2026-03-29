@@ -123,7 +123,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     <PrivyProvider
       appId={appId}
       config={{
-        loginMethods: ['wallet', 'twitter'],
+        loginMethods: ['twitter'],
         appearance: {
           theme: 'dark',
         },
