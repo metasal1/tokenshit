@@ -2,6 +2,7 @@ import SearchBar from "@/components/SearchBar";
 import CuratedLists from "@/components/CuratedLists";
 import Leaderboard from "@/components/Leaderboard";
 import AnimatedLogo from "@/components/AnimatedLogo";
+import RandomTokenVote from "@/components/RandomTokenVote";
 import { apiFetch } from "@/lib/api";
 import { tursoExecute } from "@/lib/turso";
 
@@ -139,6 +140,14 @@ export default async function Home() {
             <SearchBar big />
           </div>
         </div>
+      </section>
+
+      {/* Quick Vote */}
+      <section className="mx-auto max-w-2xl w-full px-4 pt-12 pb-6">
+        <h2 className="text-2xl font-bold mb-4 text-center">
+          Quick Vote 🗳️
+        </h2>
+        <RandomTokenVote />
       </section>
 
       {/* Leaderboard */}
