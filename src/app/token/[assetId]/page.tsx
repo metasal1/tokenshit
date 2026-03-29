@@ -3,6 +3,7 @@ import { apiFetch } from "@/lib/api";
 import { formatPrice, formatLargeNumber, formatPercent, percentColor, riskColor, riskBg, hitScoreRoast, hitScoreEmoji } from "@/lib/format";
 import VoteButtons from "@/components/VoteButtons";
 import TokenPageWrapper from "@/components/TokenPageWrapper";
+import CollapsibleSection from "@/components/CollapsibleSection";
 
 interface Props {
   params: Promise<{ assetId: string }>;
@@ -168,10 +169,7 @@ export default async function TokenPage({ params }: Props) {
 
           {/* Markets */}
           {markets.length > 0 && (
-            <div className="rounded-xl border border-border bg-card overflow-hidden">
-              <div className="px-4 py-3 border-b border-border">
-                <h3 className="font-semibold text-foreground">Markets & Pools</h3>
-              </div>
+            <CollapsibleSection title="Markets & Pools" count={markets.length}>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
@@ -211,15 +209,12 @@ export default async function TokenPage({ params }: Props) {
                   </tbody>
                 </table>
               </div>
-            </div>
+            </CollapsibleSection>
           )}
 
           {/* Variants */}
           {variants.length > 0 && (
-            <div className="rounded-xl border border-border bg-card overflow-hidden">
-              <div className="px-4 py-3 border-b border-border">
-                <h3 className="font-semibold text-foreground">Token Variants</h3>
-              </div>
+            <CollapsibleSection title="Token Variants" count={variants.length}>
               <div className="divide-y divide-border">
                 {variants.map((v, i) => (
                   <div
@@ -247,7 +242,7 @@ export default async function TokenPage({ params }: Props) {
                   </div>
                 ))}
               </div>
-            </div>
+            </CollapsibleSection>
           )}
         </div>
 
