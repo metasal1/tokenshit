@@ -34,6 +34,10 @@ export default function PageTransition({ children }: { children: React.ReactNode
   const handleTouchMove = (e: React.TouchEvent) => {
     if (touchStartX.current === null) return;
     const diff = e.touches[0].clientX - touchStartX.current;
+    // Lock to horizontal — prevent vertical scroll during swipe
+    if (Math.abs(diff) > 10) {
+      e.preventDefault();
+    }
     setSwipeOffset(diff * 0.3);
   };
 
@@ -57,7 +61,7 @@ export default function PageTransition({ children }: { children: React.ReactNode
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
-      style={style}
+      style={{ ...style, touchAction: "pan-y", overflowX: "hidden" }}
     >
       {displayChildren}
     </div>
