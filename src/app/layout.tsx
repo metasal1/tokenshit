@@ -1,10 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Monoton, Orbitron } from "next/font/google";
 import Script from "next/script";
-import Link from "next/link";
-import AnimatedLogo from "@/components/AnimatedLogo";
-import OnlineCounter from "@/components/OnlineCounter";
-import ReownAuth from "@/components/ReownAuth";
+import ClientLayout from "@/components/ClientLayout";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -61,46 +58,7 @@ export default function RootLayout({
         </Script>
       </head>
       <body className="min-h-full flex flex-col font-sans" suppressHydrationWarning>
-        <nav className="sticky top-0 z-50 border-b border-border bg-background/80 backdrop-blur-xl">
-          <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3">
-            <Link href="/" className="flex items-center group">
-              <AnimatedLogo size="nav" />
-            </Link>
-            <div className="flex items-center gap-4 text-sm text-zinc-400">
-              <Link
-                href="/"
-                className="hover:text-foreground transition-colors"
-              >
-                Home
-              </Link>
-              <Link
-                href="/stats"
-                className="hover:text-foreground transition-colors"
-              >
-                Stats
-              </Link>
-              <OnlineCounter />
-              <ReownAuth />
-            </div>
-          </div>
-        </nav>
-        <main className="flex-1">{children}</main>
-        <footer className="border-t border-border py-6 text-center text-sm text-zinc-500">
-          <p>
-            💩 TokenShit — Every token is shit until proven otherwise.
-          </p>
-          <p className="mt-1 text-zinc-600">
-            Data powered by{" "}
-            <a
-              href="https://tokens.xyz"
-              className="text-neon-blue hover:underline"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Tokens.xyz
-            </a>
-          </p>
-        </footer>
+        <ClientLayout>{children}</ClientLayout>
       </body>
     </html>
   );
