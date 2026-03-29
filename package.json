@@ -9,8 +9,8 @@
     "lint": "eslint"
   },
   "dependencies": {
-    "@dynamic-labs/sdk-react-core": "^4.72.0",
-    "@dynamic-labs/solana": "^4.72.0",
+    "@privy-io/react-auth": "^3.18.0",
+    "@solana-program/memo": "^0.11.0",
     "lightweight-charts": "^5.1.0",
     "next": "^15.5.14",
     "react": "^18.3.1",
