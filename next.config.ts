@@ -1,7 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  allowedDevOrigins: ["tokenshit.metasal.xyz"],
+  allowedDevOrigins: ["tokenshit.metasal.xyz", "*.trycloudflare.com", "*.vercel.app"],
+
 };
 
 export default nextConfig;

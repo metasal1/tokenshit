@@ -4,11 +4,14 @@ import { tursoExecute } from "@/lib/turso";
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { assetId, vote, deviceId } = body;
+    const { assetId, vote, deviceId, wallet } = body;
 
     if (!assetId || !vote || !deviceId) {
       return Response.json({ error: "Missing required fields" }, { status: 400 });
     }
+
+    // Use wallet address as voter identity if provided, otherwise deviceId
+    const voterId = wallet || deviceId;
     if (vote !== "hit" && vote !== "shit") {
       return Response.json({ error: "Vote must be 'hit' or 'shit'" }, { status: 400 });
     }
@@ -17,7 +20,7 @@ export async function POST(request: NextRequest) {
     try {
       await tursoExecute(
         "INSERT INTO votes (asset_id, device_id, vote) VALUES (?, ?, ?)",
-        [assetId, deviceId, vote]
+        [assetId, voterId, vote]
       );
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
