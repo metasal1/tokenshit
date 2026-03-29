@@ -1,14 +1,48 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { DynamicContextProvider } from '@dynamic-labs/sdk-react-core';
-import { DynamicWidget } from '@dynamic-labs/sdk-react-core';
-import { SolanaWalletConnectors } from '@dynamic-labs/solana';
+import { PrivyProvider, usePrivy } from '@privy-io/react-auth';
+import { toSolanaWalletConnectors } from '@privy-io/react-auth/solana';
 import Link from 'next/link';
 import AnimatedLogo from '@/components/AnimatedLogo';
 import OnlineCounter from '@/components/OnlineCounter';
 
-export default function ClientLayout({ children }: { children: React.ReactNode }) {
+function LoginButton() {
+  const { ready, authenticated, user, login, logout } = usePrivy();
+
+  if (!ready) return null;
+
+  if (authenticated && user) {
+    // Show truncated wallet address or Twitter handle
+    const twitterHandle = user.twitter?.username;
+    const walletAddress = user.wallet?.address;
+    const displayLabel = twitterHandle
+      ? `@${twitterHandle}`
+      : walletAddress
+      ? `${walletAddress.slice(0, 4)}...${walletAddress.slice(-4)}`
+      : 'Connected';
+
+    return (
+      <button
+        onClick={() => logout()}
+        className="text-xs px-3 py-1.5 rounded-md border border-zinc-700 text-zinc-300 hover:text-white hover:border-zinc-500 transition-colors"
+      >
+        {displayLabel}
+      </button>
+    );
+  }
+
+  return (
+    <button
+      onClick={() => login()}
+      className="text-xs px-3 py-1.5 rounded-md border border-zinc-700 text-zinc-300 hover:text-white hover:border-zinc-500 transition-colors"
+    >
+      Log in
+    </button>
+  );
+}
+
+function Layout({ children }: { children: React.ReactNode }) {
   const [mounted, setMounted] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   useEffect(() => setMounted(true), []);
@@ -25,12 +59,12 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
           <Link href="/" className="hover:text-foreground transition-colors">Home</Link>
           <Link href="/stats" className="hover:text-foreground transition-colors">Stats</Link>
           <OnlineCounter />
-          {mounted && <DynamicWidget />}
+          {mounted && <LoginButton />}
         </div>
 
         {/* Mobile nav */}
         <div className="flex sm:hidden items-center gap-2">
-          {mounted && <DynamicWidget />}
+          {mounted && <LoginButton />}
           <button
             onClick={() => setMenuOpen(!menuOpen)}
             className="p-2 text-zinc-400 hover:text-white transition-colors"
@@ -65,7 +99,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     </nav>
   );
 
-  const content = (
+  return (
     <>
       {nav}
       <main className="flex-1">{children}</main>
@@ -80,17 +114,27 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
       </footer>
     </>
   );
+}
 
-  if (!mounted) return content;
+export default function ClientLayout({ children }: { children: React.ReactNode }) {
+  const appId = process.env.NEXT_PUBLIC_PRIVY_APP_ID || '';
 
   return (
-    <DynamicContextProvider
-      settings={{
-        environmentId: process.env.NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID || '',
-        walletConnectors: [SolanaWalletConnectors],
+    <PrivyProvider
+      appId={appId}
+      config={{
+        loginMethods: ['wallet', 'twitter'],
+        appearance: {
+          theme: 'dark',
+        },
+        externalWallets: {
+          solana: {
+            connectors: toSolanaWalletConnectors(),
+          },
+        },
       }}
     >
-      {content}
-    </DynamicContextProvider>
+      <Layout>{children}</Layout>
+    </PrivyProvider>
   );
 }
