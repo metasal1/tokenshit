@@ -276,10 +276,7 @@ export default async function TokenPage({ params }: Props) {
 
           {/* Risk Factors */}
           {riskFactors.length > 0 && (
-            <div className="rounded-xl border border-border bg-card overflow-hidden">
-              <div className="px-4 py-3 border-b border-border">
-                <h3 className="font-semibold text-foreground">Risk Breakdown</h3>
-              </div>
+            <CollapsibleSection title="Risk Breakdown" count={riskFactors.length}>
               <div className="divide-y divide-border">
                 {riskFactors.map((f, i) => (
                   <div key={i} className="px-4 py-3">
@@ -313,17 +310,18 @@ export default async function TokenPage({ params }: Props) {
                   </div>
                 ))}
               </div>
-            </div>
+            </CollapsibleSection>
           )}
 
           {/* Description */}
           {description && (
-            <div className="rounded-xl border border-border bg-card p-4">
-              <h3 className="font-semibold text-foreground mb-2">About</h3>
-              <p className="text-sm text-zinc-400 leading-relaxed">
-                {description}
-              </p>
-            </div>
+            <CollapsibleSection title="About">
+              <div className="p-4">
+                <p className="text-sm text-zinc-400 leading-relaxed">
+                  {description}
+                </p>
+              </div>
+            </CollapsibleSection>
           )}
         </div>
       </div>
