@@ -91,7 +91,7 @@ export default function VoteButtons({ assetId }: { assetId: string }) {
           }}
         >
           <span style={{ fontSize: "32px" }}>🎯</span>
-          <span style={{ color: "#4ade80" }}>Solid</span>
+          <span style={{ color: "#4ade80" }}>Hit</span>
           <span style={{ fontSize: "14px", color: "#4ade80", fontFamily: "monospace" }}>
             {loaded ? hits : "—"}
           </span>
@@ -109,7 +109,7 @@ export default function VoteButtons({ assetId }: { assetId: string }) {
           }}
         >
           <span style={{ fontSize: "32px" }}>💩</span>
-          <span style={{ color: "#f87171" }}>Trash</span>
+          <span style={{ color: "#f87171" }}>Shit</span>
           <span style={{ fontSize: "14px", color: "#f87171", fontFamily: "monospace" }}>
             {loaded ? shits : "—"}
           </span>

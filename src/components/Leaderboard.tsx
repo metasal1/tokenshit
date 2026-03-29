@@ -21,13 +21,13 @@ export default function Leaderboard({
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
       <LeaderList
-        title="🎯 Most Solid"
+        title="🎯 Most Hit"
         subtitle="Today's top tokens"
         entries={mostHit}
         type="hit"
       />
       <LeaderList
-        title="💩 Most Trash"
+        title="💩 Most Shit"
         subtitle="Today's biggest $HIT"
         entries={mostShit}
         type="shit"
