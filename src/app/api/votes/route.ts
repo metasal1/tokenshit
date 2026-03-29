@@ -21,6 +21,10 @@ export async function GET(request: NextRequest) {
             args: [assetId, deviceId],
           }]
         : []),
+      {
+        sql: "SELECT COUNT(*) FROM votes WHERE asset_id = ?",
+        args: [assetId],
+      },
     ];
 
     const results = await tursoBatch(statements);
@@ -32,11 +36,16 @@ export async function GET(request: NextRequest) {
       if (row[0] === "shit") shits = Number(row[1]);
     }
 
-    const userVote = deviceId && results[1]?.rows?.[0]?.[0]
-      ? (results[1].rows[0][0] as string)
+    const userVoteIdx = deviceId ? 1 : -1;
+    const totalIdx = deviceId ? 2 : 1;
+
+    const userVote = userVoteIdx >= 0 && results[userVoteIdx]?.rows?.[0]?.[0]
+      ? (results[userVoteIdx].rows[0][0] as string)
       : null;
 
-    return Response.json({ hits, shits, userVote });
+    const totalVotes = Number(results[totalIdx]?.rows?.[0]?.[0] || 0);
+
+    return Response.json({ hits, shits, userVote, totalVotes });
   } catch (e) {
     return Response.json({ error: String(e) }, { status: 500 });
   }

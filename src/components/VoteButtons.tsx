@@ -9,6 +9,7 @@ export default function VoteButtons({ assetId }: { assetId: string }) {
 
   const [hits, setHits] = useState(0);
   const [shits, setShits] = useState(0);
+  const [totalVotes, setTotalVotes] = useState(0);
   const [userVote, setUserVote] = useState<"hit" | "shit" | null>(null);
   const [voting, setVoting] = useState(false);
   const [loaded, setLoaded] = useState(false);
@@ -20,6 +21,7 @@ export default function VoteButtons({ assetId }: { assetId: string }) {
       .then((data) => {
         setHits(data.hits || 0);
         setShits(data.shits || 0);
+        setTotalVotes(data.totalVotes || 0);
         setUserVote(data.userVote || null);
       })
       .catch(() => {})
@@ -74,9 +76,16 @@ export default function VoteButtons({ assetId }: { assetId: string }) {
 
   return (
     <div style={{ border: "1px solid #333", borderRadius: "12px", background: "#111", padding: "20px" }}>
-      <p style={{ textAlign: "center", fontSize: "18px", fontWeight: "bold", color: "#fff", marginBottom: "16px" }}>
-        Is this token 🎯 or 💩?
-      </p>
+      <div style={{ textAlign: "center", marginBottom: "16px" }}>
+        <p style={{ fontSize: "18px", fontWeight: "bold", color: "#fff" }}>
+          Is this token 🎯 or 💩?
+        </p>
+        {loaded && totalVotes > 0 && (
+          <p style={{ fontSize: "12px", color: "#666", marginTop: "4px" }}>
+            {totalVotes.toLocaleString()} vote{totalVotes !== 1 ? "s" : ""} cast
+          </p>
+        )}
+      </div>
       {needsLogin && (
         <p style={{ textAlign: "center", fontSize: "12px", color: "#888", marginBottom: "12px" }}>
           Sign in with X to vote (1 vote per token per day)
