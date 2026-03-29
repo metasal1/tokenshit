@@ -17,10 +17,19 @@ interface TokenBalance {
   logoURI?: string;
 }
 
-function WalletPanel({ address, onClose }: { address: string; onClose: () => void }) {
+interface UserVote {
+  assetId: string;
+  vote: string;
+  date: string;
+}
+
+function WalletPanel({ address, twitterUsername, onClose }: { address: string; twitterUsername?: string; onClose: () => void }) {
   const [balance, setBalance] = useState<string | null>(null);
   const [tokens, setTokens] = useState<TokenBalance[]>([]);
   const [loadingTokens, setLoadingTokens] = useState(true);
+  const [userVotes, setUserVotes] = useState<UserVote[]>([]);
+  const [totalUserVotes, setTotalUserVotes] = useState(0);
+  const [loadingVotes, setLoadingVotes] = useState(true);
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
@@ -71,7 +80,21 @@ function WalletPanel({ address, onClose }: { address: string; onClose: () => voi
       })
       .catch(() => {})
       .finally(() => setLoadingTokens(false));
-  }, [address]);
+
+    // User vote history
+    if (twitterUsername) {
+      fetch(`/api/user-votes?username=${encodeURIComponent(twitterUsername)}`)
+        .then(r => r.json())
+        .then(d => {
+          setUserVotes(d.votes || []);
+          setTotalUserVotes(d.total || 0);
+        })
+        .catch(() => {})
+        .finally(() => setLoadingVotes(false));
+    } else {
+      setLoadingVotes(false);
+    }
+  }, [address, twitterUsername]);
 
   const copyAddress = useCallback(() => {
     navigator.clipboard.writeText(address);
@@ -139,6 +162,34 @@ function WalletPanel({ address, onClose }: { address: string; onClose: () => voi
             </div>
           )}
         </div>
+
+        {/* Vote History */}
+        {twitterUsername && (
+          <div className="mt-4 pt-4 border-t border-zinc-800">
+            <p className="text-xs text-zinc-500 mb-2 font-medium">
+              Your Votes {totalUserVotes > 0 && <span className="text-zinc-600">({totalUserVotes} total)</span>}
+            </p>
+            {loadingVotes ? (
+              <p className="text-xs text-zinc-600 text-center py-3">Loading votes...</p>
+            ) : userVotes.length === 0 ? (
+              <p className="text-xs text-zinc-600 text-center py-3">No votes yet</p>
+            ) : (
+              <div className="space-y-1.5 max-h-[150px] overflow-y-auto">
+                {userVotes.map((v, i) => (
+                  <a
+                    key={i}
+                    href={`/token/${v.assetId}`}
+                    className="flex items-center gap-2 bg-zinc-800/50 rounded-lg px-3 py-2 hover:bg-zinc-700/50 transition-colors"
+                  >
+                    <span className="text-base">{v.vote === 'hit' ? '🎯' : '💩'}</span>
+                    <span className="text-xs text-zinc-300 font-mono truncate flex-1">{v.assetId.slice(0, 8)}...{v.assetId.slice(-4)}</span>
+                    <span className="text-[10px] text-zinc-600 shrink-0">{v.date}</span>
+                  </a>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -185,7 +236,7 @@ function LoginButton() {
         )}
 
         {showWallet && walletAddress && (
-          <WalletPanel address={walletAddress} onClose={() => setShowWallet(false)} />
+          <WalletPanel address={walletAddress} twitterUsername={twitterHandle || undefined} onClose={() => setShowWallet(false)} />
         )}
       </div>
     );
