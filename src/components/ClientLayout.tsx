@@ -24,7 +24,7 @@ interface UserVote {
   date: string;
 }
 
-function WalletPanel({ address, twitterUsername, onClose }: { address: string; twitterUsername?: string; onClose: () => void }) {
+function WalletPanel({ address, twitterUsername, onClose, children }: { address: string; twitterUsername?: string; onClose: () => void; children?: React.ReactNode }) {
   const [balance, setBalance] = useState<string | null>(null);
   const [tokens, setTokens] = useState<TokenBalance[]>([]);
   const [loadingTokens, setLoadingTokens] = useState(true);
@@ -191,7 +191,87 @@ function WalletPanel({ address, twitterUsername, onClose }: { address: string; t
             )}
           </div>
         )}
+
+        {children}
       </div>
+    </div>
+  );
+}
+
+function ReferralTracker() {
+  const { authenticated, user } = usePrivy();
+
+  useEffect(() => {
+    // Capture ref param on load
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const ref = params.get('ref');
+      if (ref) {
+        localStorage.setItem('tokenshit_referrer', ref.toLowerCase());
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!authenticated || !user) return;
+    const referrer = localStorage.getItem('tokenshit_referrer');
+    if (!referrer) return;
+
+    const twitterUsername = user.twitter?.username?.toLowerCase();
+    if (!twitterUsername) return;
+    if (referrer === twitterUsername) {
+      localStorage.removeItem('tokenshit_referrer');
+      return;
+    }
+
+    fetch('/api/referral/track', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        referrerTwitter: referrer,
+        referredTwitter: twitterUsername,
+        referredWallet: user.wallet?.address || null,
+      }),
+    })
+      .then(() => localStorage.removeItem('tokenshit_referrer'))
+      .catch(() => {});
+  }, [authenticated, user]);
+
+  return null;
+}
+
+function ReferralButton({ twitterUsername }: { twitterUsername?: string }) {
+  const [copied, setCopied] = useState(false);
+  const [count, setCount] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!twitterUsername) return;
+    fetch(`/api/referral/stats?username=${encodeURIComponent(twitterUsername)}`)
+      .then(r => r.json())
+      .then(d => setCount(d.totalReferrals ?? 0))
+      .catch(() => {});
+  }, [twitterUsername]);
+
+  if (!twitterUsername) return null;
+
+  const link = `https://tokenshit.com/?ref=${twitterUsername}`;
+  const copy = () => {
+    navigator.clipboard.writeText(link);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <div className="mt-4 pt-4 border-t border-zinc-800">
+      <button
+        onClick={copy}
+        className="w-full text-left text-xs bg-zinc-800 hover:bg-zinc-700 rounded-lg px-3 py-2.5 transition-colors"
+      >
+        <span className="text-white font-medium">{copied ? '✓ Link Copied!' : 'Share & Earn 💩'}</span>
+        {count !== null && count > 0 && (
+          <span className="block text-[10px] text-zinc-500 mt-0.5">You&apos;ve referred {count} degen{count !== 1 ? 's' : ''}</span>
+        )}
+      </button>
     </div>
   );
 }
@@ -237,7 +317,9 @@ function LoginButton() {
         )}
 
         {showWallet && walletAddress && (
-          <WalletPanel address={walletAddress} twitterUsername={twitterHandle || undefined} onClose={() => setShowWallet(false)} />
+          <WalletPanel address={walletAddress} twitterUsername={twitterHandle || undefined} onClose={() => setShowWallet(false)}>
+            <ReferralButton twitterUsername={twitterHandle || undefined} />
+          </WalletPanel>
         )}
       </div>
     );
@@ -269,6 +351,7 @@ function Layout({ children }: { children: React.ReactNode }) {
         <div className="hidden sm:flex items-center gap-4 text-sm text-zinc-400">
           <Link href="/" className="hover:text-foreground transition-colors">Home</Link>
           <Link href="/stats" className="hover:text-foreground transition-colors">Stats</Link>
+          <Link href="/referrals" className="hover:text-foreground transition-colors">Referrals</Link>
           <OnlineCounter />
           {mounted && <LoginButton />}
         </div>
@@ -304,6 +387,7 @@ function Layout({ children }: { children: React.ReactNode }) {
         <div className="sm:hidden border-t border-border bg-background/95 backdrop-blur-xl px-4 py-3 flex flex-col gap-3 text-sm">
           <Link href="/" className="text-zinc-400 hover:text-foreground transition-colors" onClick={() => setMenuOpen(false)}>Home</Link>
           <Link href="/stats" className="text-zinc-400 hover:text-foreground transition-colors" onClick={() => setMenuOpen(false)}>Stats</Link>
+          <Link href="/referrals" className="text-zinc-400 hover:text-foreground transition-colors" onClick={() => setMenuOpen(false)}>Referrals</Link>
           <OnlineCounter />
         </div>
       )}
@@ -313,6 +397,7 @@ function Layout({ children }: { children: React.ReactNode }) {
   return (
     <>
       {nav}
+      <ReferralTracker />
       <main className="flex-1"><PageTransition>{children}</PageTransition></main>
       <footer className="border-t border-border py-6 text-center text-sm text-zinc-500">
         <p>💩 TokenShit — Every token is shit until proven otherwise.</p>
