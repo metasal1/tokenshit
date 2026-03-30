@@ -321,6 +321,10 @@ function Layout({ children }: { children: React.ReactNode }) {
           <a href="https://tokens.xyz" className="text-neon-blue hover:underline" target="_blank" rel="noopener noreferrer">
             Tokens.xyz
           </a>
+          {' · '}
+          <a href="https://x.com/tokenshit_" className="text-neon-blue hover:underline" target="_blank" rel="noopener noreferrer">
+            𝕏
+          </a>
         </p>
       </footer>
     </>
