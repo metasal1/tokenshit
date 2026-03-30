@@ -1,3 +1,5 @@
+-- Add referrals table for tracking user referrals
+
 CREATE TABLE IF NOT EXISTS referrals (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   referrer_twitter TEXT NOT NULL,

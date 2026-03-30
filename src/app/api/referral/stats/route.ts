@@ -1,36 +1,39 @@
-import { NextRequest, NextResponse } from "next/server";
+import { type NextRequest } from "next/server";
 import { tursoExecute } from "@/lib/turso";
 
-export const runtime = "edge";
-
-export async function GET(req: NextRequest) {
+export async function GET(request: NextRequest) {
   try {
-    const username = req.nextUrl.searchParams.get("username");
+    const { searchParams } = new URL(request.url);
+    const username = searchParams.get("username");
+
     if (!username) {
-      return NextResponse.json({ error: "Missing username" }, { status: 400 });
+      return Response.json(
+        { error: "Missing username parameter" },
+        { status: 400 }
+      );
     }
 
-    const handle = username.toLowerCase();
-
-    const countResult = await tursoExecute(
-      "SELECT COUNT(*) as cnt FROM referrals WHERE referrer_twitter = ?",
-      [handle]
-    );
-    const totalReferrals = Number(countResult.rows[0]?.[0] ?? 0);
-
-    const listResult = await tursoExecute(
-      "SELECT referred_twitter, created_at FROM referrals WHERE referrer_twitter = ? ORDER BY created_at DESC LIMIT 50",
-      [handle]
+    // Get referrals made by this user
+    const result = await tursoExecute(
+      "SELECT referred_twitter, created_at FROM referrals WHERE referrer_twitter = ? ORDER BY created_at DESC",
+      [username]
     );
 
-    const referrals = listResult.rows.map((r) => ({
-      referred_twitter: r[0],
-      created_at: r[1],
+    const referrals = result.rows.map((row) => ({
+      referred_twitter: row[0],
+      created_at: row[1],
     }));
 
-    return NextResponse.json({ totalReferrals, referrals });
-  } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Unknown error";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return Response.json({
+      totalReferrals: referrals.length,
+      username,
+      referrals,
+    });
+  } catch (error) {
+    console.error("Referral stats error:", error);
+    return Response.json(
+      { error: "Failed to fetch referral stats" },
+      { status: 500 }
+    );
   }
 }
