@@ -46,14 +46,19 @@ const fonts = [
 ];
 
 const logos = [
-  { src: "/logo-neon.jpg", label: "Neon Sign (JPG)", bg: "bg-black" },
+  { src: "/brand/logo-square.png", label: "Logo Square (PNG)" },
+  { src: "/brand/logo-banner.png", label: "Logo Banner (PNG)" },
+  { src: "/brand/logo-text.png", label: "Logo Text (PNG)" },
+  { src: "/brand/logo-icon.png", label: "Logo Icon — T$ (PNG)" },
 ];
 
 const assets = [
-  { path: "icon.svg", label: "Icon (SVG)" },
-  { path: "square-gradient.png", label: "Square Gradient" },
-  { path: "square-solid.png", label: "Square Solid" },
-  { path: "square-outline.png", label: "Square Outline" },
+  { path: "logo-text.svg", label: "Logo Text (SVG)" },
+  { path: "logo-icon.svg", label: "Logo Icon (SVG)" },
+  { path: "logo-square.png", label: "Logo Square (PNG)" },
+  { path: "logo-banner.png", label: "Logo Banner (PNG)" },
+  { path: "logo-icon.png", label: "T$ Icon (PNG)" },
+  { path: "twitter-header.png", label: "Twitter/X Header" },
   { path: "og-image.png", label: "OG Image" },
 ];
 
@@ -82,10 +87,9 @@ export default function BrandPage() {
           <div className="rounded-xl border border-border bg-background p-8 flex items-center justify-center">
             <AnimatedLogo size="nav" />
           </div>
-          {/* Static neon sign */}
           {logos.map((logo) => (
-            <div key={logo.src} className={`rounded-xl border border-border ${logo.bg} p-4 flex flex-col items-center gap-3`}>
-              <Image src={logo.src} alt={logo.label} width={400} height={200} className="rounded-lg object-contain" />
+            <div key={logo.src} className="rounded-xl border border-border bg-black p-4 flex flex-col items-center gap-3">
+              <Image src={logo.src} alt={logo.label} width={400} height={200} className="rounded-lg object-contain max-h-48" />
               <span className="text-xs text-zinc-500">{logo.label}</span>
             </div>
           ))}
