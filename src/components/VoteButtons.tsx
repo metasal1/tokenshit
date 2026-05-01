@@ -73,7 +73,7 @@ export default function VoteButtons({ assetId }: { assetId: string }) {
       .finally(() => setLoaded(true));
   }, [assetId, twitterUsername]);
 
-  async function handleVote(vote: "hit" | "shit") {
+  const handleVote = useCallback(async (vote: "hit" | "shit") => {
     if (!authenticated || !twitterUsername) {
       login();
       return;
@@ -97,17 +97,14 @@ export default function VoteButtons({ assetId }: { assetId: string }) {
         setUserVote(vote);
         setDropEmoji(vote === "hit" ? "🎯" : "💩");
         setTimeout(() => setDropEmoji(null), 3000);
-        // Navigate to random token after confetti
         fetch("/api/adjacent-tokens?assetId=" + encodeURIComponent(assetId))
           .then(r => r.json())
           .then(d => {
-            // Pick a random token from the list
             const candidates = [d.prev, d.next].filter(Boolean);
             if (candidates.length > 0) {
               const randomId = candidates[Math.floor(Math.random() * candidates.length)];
               setTimeout(() => router.push(`/token/${randomId}`), 2000);
             } else {
-              // Fallback: fetch full list
               fetch("/api/random-token")
                 .then(r => r.json())
                 .then(d => { if (d.assetId) setTimeout(() => router.push(`/token/${d.assetId}`), 2000); })
@@ -120,7 +117,26 @@ export default function VoteButtons({ assetId }: { assetId: string }) {
       }
     } catch {}
     setVoting(false);
-  }
+  }, [authenticated, twitterUsername, userVote, voting, assetId, login, router]);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)) return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      if (userVote || voting) return;
+      const key = e.key.toLowerCase();
+      if (key === "h") {
+        e.preventDefault();
+        handleVote("hit");
+      } else if (key === "s") {
+        e.preventDefault();
+        handleVote("shit");
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [handleVote, userVote, voting]);
 
   const hasVoted = userVote !== null;
   const needsLogin = !authenticated || !twitterUsername;
@@ -164,7 +180,10 @@ export default function VoteButtons({ assetId }: { assetId: string }) {
           style={{ WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}
         >
           <span className="text-4xl">{voting && pressing === "hit" ? "⏳" : "🎯"}</span>
-          <span className="text-green-400 text-base">Hit</span>
+          <span className="text-green-400 text-base">
+            Hit
+            <kbd className="hidden sm:inline-block ml-1.5 px-1 py-0.5 text-[10px] font-mono font-normal text-green-300/60 border border-green-800/60 rounded">H</kbd>
+          </span>
           <span className="text-sm text-green-400 font-mono">
             {loaded ? hits : "—"}
           </span>
@@ -188,7 +207,10 @@ export default function VoteButtons({ assetId }: { assetId: string }) {
           style={{ WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}
         >
           <span className="text-4xl">{voting && pressing === "shit" ? "⏳" : "💩"}</span>
-          <span className="text-red-400 text-base">Shit</span>
+          <span className="text-red-400 text-base">
+            Shit
+            <kbd className="hidden sm:inline-block ml-1.5 px-1 py-0.5 text-[10px] font-mono font-normal text-red-300/60 border border-red-800/60 rounded">S</kbd>
+          </span>
           <span className="text-sm text-red-400 font-mono">
             {loaded ? shits : "—"}
           </span>

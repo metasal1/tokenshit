@@ -18,6 +18,7 @@ export default function SearchBar({ big = false }: { big?: boolean }) {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
   const ref = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   useEffect(() => {
@@ -26,6 +27,23 @@ export default function SearchBar({ big = false }: { big?: boolean }) {
     }
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
+  useEffect(() => {
+    function handleKey(e: KeyboardEvent) {
+      const target = e.target as HTMLElement | null;
+      if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)) return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      if (e.key === "/") {
+        e.preventDefault();
+        inputRef.current?.focus();
+      } else if (e.key === "Escape" && document.activeElement === inputRef.current) {
+        inputRef.current?.blur();
+        setOpen(false);
+      }
+    }
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
   }, []);
 
   function search(q: string) {
@@ -65,16 +83,25 @@ export default function SearchBar({ big = false }: { big?: boolean }) {
       <form onSubmit={handleSubmit}>
         <div className="relative">
           <input
+            ref={inputRef}
             type="text"
             value={query}
             onChange={(e) => search(e.target.value)}
             onFocus={() => results.length > 0 && setOpen(true)}
             placeholder="Search tokens, contracts, symbols..."
             className={`w-full rounded-xl border border-border bg-card text-foreground placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-neon/50 focus:border-neon transition-all ${
-              big ? "px-6 py-4 text-lg" : "px-4 py-2.5 text-sm"
+              big ? "px-6 py-4 text-lg pr-20" : "px-4 py-2.5 text-sm pr-16"
             }`}
           />
           <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
+            {!query && (
+              <kbd
+                aria-hidden="true"
+                className="hidden sm:inline-block px-1.5 py-0.5 text-[10px] font-mono text-zinc-500 border border-zinc-700 rounded bg-zinc-900/60"
+              >
+                /
+              </kbd>
+            )}
             {loading && (
               <div className="h-4 w-4 animate-spin rounded-full border-2 border-zinc-600 border-t-neon" />
             )}

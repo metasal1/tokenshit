@@ -63,6 +63,37 @@ export default function SwipeableToken({ children, prevAssetId, nextAssetId }: P
     setTouchStartX(null);
   }, [touchStartX, offsetX, nextAssetId, prevAssetId, router]);
 
+  const goPrev = useCallback(() => {
+    if (!prevAssetId || transitioning) return;
+    setDirection("right");
+    setTransitioning(true);
+    setTimeout(() => router.push(`/token/${prevAssetId}`), 250);
+  }, [prevAssetId, transitioning, router]);
+
+  const goNext = useCallback(() => {
+    if (!nextAssetId || transitioning) return;
+    setDirection("left");
+    setTransitioning(true);
+    setTimeout(() => router.push(`/token/${nextAssetId}`), 250);
+  }, [nextAssetId, transitioning, router]);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)) return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      if (e.key === "ArrowLeft" && prevAssetId) {
+        e.preventDefault();
+        goPrev();
+      } else if (e.key === "ArrowRight" && nextAssetId) {
+        e.preventDefault();
+        goNext();
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [goPrev, goNext, prevAssetId, nextAssetId]);
+
   const exitTransform = transitioning
     ? direction === "left"
       ? "translateX(-100%)"
@@ -76,8 +107,26 @@ export default function SwipeableToken({ children, prevAssetId, nextAssetId }: P
       {/* Navigation hints */}
       {(prevAssetId || nextAssetId) && (
         <div className="flex justify-between px-4 py-2 text-xs text-zinc-600">
-          <span>{prevAssetId ? "← swipe right" : ""}</span>
-          <span>{nextAssetId ? "swipe left →" : ""}</span>
+          <span>
+            {prevAssetId ? (
+              <>
+                <span className="sm:hidden">← swipe right</span>
+                <span className="hidden sm:inline">
+                  <kbd className="px-1 py-0.5 font-mono text-[10px] border border-zinc-700 rounded">←</kbd> prev
+                </span>
+              </>
+            ) : ""}
+          </span>
+          <span>
+            {nextAssetId ? (
+              <>
+                <span className="sm:hidden">swipe left →</span>
+                <span className="hidden sm:inline">
+                  next <kbd className="px-1 py-0.5 font-mono text-[10px] border border-zinc-700 rounded">→</kbd>
+                </span>
+              </>
+            ) : ""}
+          </span>
         </div>
       )}
 
@@ -99,26 +148,20 @@ export default function SwipeableToken({ children, prevAssetId, nextAssetId }: P
       <div className="hidden sm:block">
         {prevAssetId && (
           <button
-            onClick={() => {
-              setDirection("right");
-              setTransitioning(true);
-              setTimeout(() => router.push(`/token/${prevAssetId}`), 250);
-            }}
+            onClick={goPrev}
             className="fixed left-4 top-1/2 -translate-y-1/2 z-40 bg-zinc-800/80 hover:bg-zinc-700 text-white rounded-full w-10 h-10 flex items-center justify-center backdrop-blur-sm border border-zinc-700 transition-colors"
-            aria-label="Previous token"
+            aria-label="Previous token (←)"
+            title="Previous token (←)"
           >
             ←
           </button>
         )}
         {nextAssetId && (
           <button
-            onClick={() => {
-              setDirection("left");
-              setTransitioning(true);
-              setTimeout(() => router.push(`/token/${nextAssetId}`), 250);
-            }}
+            onClick={goNext}
             className="fixed right-4 top-1/2 -translate-y-1/2 z-40 bg-zinc-800/80 hover:bg-zinc-700 text-white rounded-full w-10 h-10 flex items-center justify-center backdrop-blur-sm border border-zinc-700 transition-colors"
-            aria-label="Next token"
+            aria-label="Next token (→)"
+            title="Next token (→)"
           >
             →
           </button>

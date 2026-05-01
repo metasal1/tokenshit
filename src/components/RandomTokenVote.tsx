@@ -28,6 +28,20 @@ export default function RandomTokenVote() {
 
   useEffect(() => { fetchRandom(); }, []);
 
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)) return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      if (e.key.toLowerCase() === "r") {
+        e.preventDefault();
+        fetchRandom();
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, []);
+
   if (loading) {
     return (
       <div className="rounded-xl border border-border bg-card p-8 text-center">
@@ -58,9 +72,11 @@ export default function RandomTokenVote() {
         </div>
         <button
           onClick={fetchRandom}
-          className="text-xs px-3 py-1.5 rounded-md border border-zinc-700 text-zinc-400 hover:text-white hover:border-zinc-500 transition-colors"
+          title="Random token (R)"
+          className="text-xs px-3 py-1.5 rounded-md border border-zinc-700 text-zinc-400 hover:text-white hover:border-zinc-500 transition-colors flex items-center gap-1.5"
         >
-          🎲 Skip
+          <span>🎲 Skip</span>
+          <kbd className="hidden sm:inline-block px-1 py-0.5 text-[10px] font-mono text-zinc-500 border border-zinc-700 rounded">R</kbd>
         </button>
       </div>
       <div className="p-4">
