@@ -14,6 +14,9 @@ const LoginButton = dynamic(() => import('./AuthUI').then(m => ({ default: m.Log
 const ReferralTracker = dynamic(() => import('./AuthUI').then(m => ({ default: m.ReferralTracker })), {
   ssr: false,
 });
+const EmailSignupModal = dynamic(() => import('./EmailSignupModal'), {
+  ssr: false,
+});
 
 function Layout({ children }: { children: React.ReactNode }) {
   const [mounted, setMounted] = useState(false);
@@ -78,6 +81,7 @@ function Layout({ children }: { children: React.ReactNode }) {
     <>
       {nav}
       <ReferralTracker />
+      {mounted && <EmailSignupModal />}
       <main className="flex-1"><PageTransition>{children}</PageTransition></main>
       <footer className="border-t border-border py-6 text-center text-sm text-zinc-500">
         <p>💩 TokenShit — Every token is shit until proven otherwise.</p>
