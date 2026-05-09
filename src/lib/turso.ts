@@ -36,7 +36,11 @@ export async function tursoExecute(
   }
 
   const json = await res.json();
-  const result = json.results?.[0]?.response?.result;
+  const first = json.results?.[0];
+  if (first?.type === "error") {
+    throw new Error(`Turso SQL error: ${first.error?.message || "unknown"}`);
+  }
+  const result = first?.response?.result;
   if (!result) return { columns: [], rows: [] };
 
   return {
@@ -79,7 +83,10 @@ export async function tursoBatch(
   const json = await res.json();
   return json.results
     .filter((_: unknown, i: number) => i < statements.length)
-    .map((r: { response?: { result?: { cols?: { name: string }[]; rows?: { value: unknown }[][] } } }) => {
+    .map((r: { type?: string; error?: { message?: string }; response?: { result?: { cols?: { name: string }[]; rows?: { value: unknown }[][] } } }) => {
+      if (r.type === "error") {
+        throw new Error(`Turso SQL error: ${r.error?.message || "unknown"}`);
+      }
       const result = r.response?.result;
       if (!result) return { columns: [], rows: [] };
       return {
