@@ -1,5 +1,5 @@
 import { ImageResponse } from "next/og";
-import { readFile } from "node:fs/promises";
+import { loadMonoton } from "@/lib/og-font";
 
 export const runtime = "nodejs";
 export const alt = "TokenShit — Every token is shit until proven otherwise";
@@ -7,7 +7,7 @@ export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
 export default async function OGImage() {
-  const monoton = await readFile(new URL("./_fonts/Monoton-Regular.ttf", import.meta.url));
+  const monoton = await loadMonoton();
 
   return new ImageResponse(
     (
