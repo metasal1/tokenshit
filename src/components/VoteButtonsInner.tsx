@@ -100,18 +100,13 @@ export default function VoteButtons({ assetId }: { assetId: string }) {
         else sfx.shit();
         setDropEmoji(vote === "hit" ? "🎯" : "🚽");
         setTimeout(() => setDropEmoji(null), 3000);
-        fetch("/api/adjacent-tokens?assetId=" + encodeURIComponent(assetId))
+        const params = new URLSearchParams({ exclude: assetId });
+        if (twitterUsername) params.set("username", twitterUsername);
+        fetch(`/api/random-token?${params}`)
           .then(r => r.json())
           .then(d => {
-            const candidates = [d.prev, d.next].filter(Boolean);
-            if (candidates.length > 0) {
-              const randomId = candidates[Math.floor(Math.random() * candidates.length)];
-              setTimeout(() => { sfx.whoosh(); router.push(`/token/${randomId}`); }, 2000);
-            } else {
-              fetch("/api/random-token")
-                .then(r => r.json())
-                .then(d => { if (d.assetId) setTimeout(() => { sfx.whoosh(); router.push(`/token/${d.assetId}`); }, 2000); })
-                .catch(() => {});
+            if (d.assetId) {
+              setTimeout(() => { sfx.whoosh(); router.push(`/token/${d.assetId}`); }, 2000);
             }
           })
           .catch(() => {});

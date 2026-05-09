@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { usePrivy } from "@privy-io/react-auth";
 import VoteButtons from "./VoteButtons";
+import RandomTokenSkeleton from "./RandomTokenSkeleton";
 import { sfx } from "@/lib/sfx";
 
 interface TokenInfo {
@@ -13,13 +15,20 @@ interface TokenInfo {
 }
 
 export default function RandomTokenVote() {
+  const { user } = usePrivy();
   const [token, setToken] = useState<TokenInfo | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const fetchRandom = () => {
+  const username = user?.twitter?.username?.toLowerCase() || null;
+
+  const fetchRandom = (currentAssetId?: string | null) => {
     sfx.whoosh();
     setLoading(true);
-    fetch("/api/random-token-detail")
+    const params = new URLSearchParams();
+    if (username) params.set("username", username);
+    if (currentAssetId) params.set("exclude", currentAssetId);
+    const qs = params.toString();
+    fetch(`/api/random-token-detail${qs ? `?${qs}` : ""}`)
       .then(r => r.json())
       .then(d => {
         if (d.assetId) setToken(d);
@@ -28,7 +37,7 @@ export default function RandomTokenVote() {
       .finally(() => setLoading(false));
   };
 
-  useEffect(() => { fetchRandom(); }, []);
+  useEffect(() => { fetchRandom(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [username]);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -37,20 +46,15 @@ export default function RandomTokenVote() {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       if (e.key.toLowerCase() === "r") {
         e.preventDefault();
-        fetchRandom();
+        fetchRandom(token?.assetId);
       }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, []);
+    /* eslint-disable-next-line react-hooks/exhaustive-deps */
+  }, [token?.assetId, username]);
 
-  if (loading) {
-    return (
-      <div className="rounded-xl border border-border bg-card p-8 text-center">
-        <p className="text-zinc-500 text-sm">Loading random token...</p>
-      </div>
-    );
-  }
+  if (loading) return <RandomTokenSkeleton />;
 
   if (!token) return null;
 
@@ -73,7 +77,7 @@ export default function RandomTokenVote() {
           </div>
         </div>
         <button
-          onClick={fetchRandom}
+          onClick={() => fetchRandom(token.assetId)}
           title="Random token (R)"
           className="text-xs px-3 py-1.5 rounded-md border border-zinc-700 text-zinc-400 hover:text-white hover:border-zinc-500 transition-colors flex items-center gap-1.5"
         >
