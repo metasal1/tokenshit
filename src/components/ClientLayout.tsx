@@ -35,7 +35,15 @@ function Layout({ children }: { children: React.ReactNode }) {
   const [mounted, setMounted] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [categoryOpen, setCategoryOpen] = useState(false);
+  const [counts, setCounts] = useState<Record<string, number>>({});
   useEffect(() => setMounted(true), []);
+  useEffect(() => {
+    if (!mounted) return;
+    fetch('/api/category-counts')
+      .then((r) => r.json())
+      .then((d) => setCounts(d || {}))
+      .catch(() => {});
+  }, [mounted]);
 
   const nav = (
     <nav className="sticky top-0 z-50 border-b border-border bg-background/80 backdrop-blur-xl">
@@ -57,16 +65,19 @@ function Layout({ children }: { children: React.ReactNode }) {
               <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="6 9 12 15 18 9" /></svg>
             </button>
             {categoryOpen && (
-              <div className="absolute left-0 top-full pt-1.5 z-50 min-w-[180px]">
+              <div className="absolute left-0 top-full pt-1.5 z-50 min-w-[200px]">
                 <div className="bg-zinc-900 border border-zinc-700 rounded-lg shadow-xl overflow-hidden">
                   {CATEGORIES.map((c) => (
                     <Link
                       key={c.key}
                       href={`/c/${c.key}`}
-                      className="block px-3 py-2 text-sm text-zinc-300 hover:bg-zinc-800 hover:text-white transition-colors"
+                      className="flex items-center justify-between gap-3 px-3 py-2 text-sm text-zinc-300 hover:bg-zinc-800 hover:text-white transition-colors"
                       onClick={() => setCategoryOpen(false)}
                     >
-                      {c.label}
+                      <span>{c.label}</span>
+                      <span className="text-[11px] font-mono text-zinc-500 tabular-nums">
+                        {counts[c.key] != null ? counts[c.key] : '·'}
+                      </span>
                     </Link>
                   ))}
                 </div>
@@ -116,10 +127,13 @@ function Layout({ children }: { children: React.ReactNode }) {
             <Link
               key={c.key}
               href={`/c/${c.key}`}
-              className="text-zinc-400 hover:text-foreground transition-colors pl-2"
+              className="flex items-center justify-between text-zinc-400 hover:text-foreground transition-colors pl-2 pr-1"
               onClick={() => setMenuOpen(false)}
             >
-              {c.label}
+              <span>{c.label}</span>
+              <span className="text-[11px] font-mono text-zinc-600 tabular-nums">
+                {counts[c.key] != null ? counts[c.key] : '·'}
+              </span>
             </Link>
           ))}
           <Link href="/stats" className="text-zinc-400 hover:text-foreground transition-colors mt-2" onClick={() => setMenuOpen(false)}>Stats</Link>

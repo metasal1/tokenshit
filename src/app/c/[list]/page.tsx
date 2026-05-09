@@ -7,6 +7,16 @@ import TokenCard from "@/components/TokenCard";
 
 export const revalidate = 60;
 
+async function getCount(key: string): Promise<number> {
+  try {
+    const data = await apiFetch(`/assets/curated?list=${key}&groupBy=asset`);
+    const assets = data?.assets || data?.results || data?.items || [];
+    return Array.isArray(assets) ? assets.length : 0;
+  } catch {
+    return 0;
+  }
+}
+
 interface Props {
   params: Promise<{ list: string }>;
 }
@@ -41,13 +51,24 @@ export default async function CategoryPage({ params }: Props) {
   const cat = getCategory(list);
   if (!cat) notFound();
 
-  let assets: RawAsset[] = [];
-  try {
-    const data = await apiFetch(`/assets/curated?list=${cat.key}&groupBy=asset`);
-    assets = (data?.assets || data?.results || data?.items || []) as RawAsset[];
-  } catch {
-    assets = [];
-  }
+  // Fetch this list's assets + counts for every other list (for the tab strip)
+  // in parallel. Each /assets/curated response is cached for 60s by Next.js.
+  const [assets, ...siblingCounts] = await Promise.all([
+    (async (): Promise<RawAsset[]> => {
+      try {
+        const data = await apiFetch(`/assets/curated?list=${cat.key}&groupBy=asset`);
+        return (data?.assets || data?.results || data?.items || []) as RawAsset[];
+      } catch {
+        return [];
+      }
+    })(),
+    ...CATEGORIES.filter((c) => c.key !== cat.key).map((c) => getCount(c.key)),
+  ]);
+
+  const countMap: Record<string, number> = { [cat.key]: assets.length };
+  CATEGORIES.filter((c) => c.key !== cat.key).forEach((c, i) => {
+    countMap[c.key] = siblingCounts[i];
+  });
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8">
@@ -62,19 +83,25 @@ export default async function CategoryPage({ params }: Props) {
 
       {/* Category tabs */}
       <div className="flex items-center gap-2 overflow-x-auto pb-3 mb-6 -mx-4 px-4 scrollbar-none">
-        {CATEGORIES.map((c) => (
-          <Link
-            key={c.key}
-            href={`/c/${c.key}`}
-            className={`shrink-0 rounded-lg px-3.5 py-1.5 text-sm font-medium transition-all ${
-              c.key === cat.key
-                ? "bg-neon text-black"
-                : "bg-card border border-border text-zinc-400 hover:text-foreground hover:border-zinc-600"
-            }`}
-          >
-            {c.label}
-          </Link>
-        ))}
+        {CATEGORIES.map((c) => {
+          const isActive = c.key === cat.key;
+          return (
+            <Link
+              key={c.key}
+              href={`/c/${c.key}`}
+              className={`shrink-0 rounded-lg px-3.5 py-1.5 text-sm font-medium transition-all flex items-center gap-2 ${
+                isActive
+                  ? "bg-neon text-black"
+                  : "bg-card border border-border text-zinc-400 hover:text-foreground hover:border-zinc-600"
+              }`}
+            >
+              <span>{c.label}</span>
+              <span className={`text-[11px] font-mono tabular-nums ${isActive ? "text-black/60" : "text-zinc-600"}`}>
+                {countMap[c.key] ?? 0}
+              </span>
+            </Link>
+          );
+        })}
       </div>
 
       {/* Grid */}
