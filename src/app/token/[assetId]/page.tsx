@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { apiFetch } from "@/lib/api";
-import { formatPrice, formatLargeNumber, formatPercent, percentColor, riskColor, riskBg, hitScoreRoast, hitScoreEmoji } from "@/lib/format";
+import { formatPrice, formatLargeNumber, formatPercent, percentColor, riskColor, riskBg, hitScoreRoast, hitScoreIcon } from "@/lib/format";
 import VoteButtons from "@/components/VoteButtons";
 import TokenPageWrapper from "@/components/TokenPageWrapper";
 import CollapsibleSection from "@/components/CollapsibleSection";
@@ -251,7 +251,10 @@ export default async function TokenPage({ params }: Props) {
           {/* $HIT Score */}
           <div className={`rounded-xl border border-border p-6 ${riskBg(riskScore)}`}>
             <div className="text-center mb-4">
-              <div className="text-4xl mb-2">{hitScoreEmoji(riskScore)}</div>
+              {(() => {
+                const { Icon, className } = hitScoreIcon(riskScore);
+                return <Icon className={`w-10 h-10 mx-auto mb-2 ${className}`} strokeWidth={2} />;
+              })()}
               <h3 className="text-lg font-bold text-foreground">$HIT Score</h3>
             </div>
             <div className="flex items-center justify-center mb-4">
