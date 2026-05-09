@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { usePrivy } from '@privy-io/react-auth';
+import { sfx } from '@/lib/sfx';
 
 const STORAGE_KEY = 'tokenshit_email_state';
 const DISMISS_COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000;
@@ -82,6 +83,7 @@ export default function EmailSignupModal() {
       }
       writeState({ ...readState(), collected: true });
       setDone(true);
+      sfx.chime();
       window.setTimeout(() => setOpen(false), 1500);
     } catch {
       setError('Network error');

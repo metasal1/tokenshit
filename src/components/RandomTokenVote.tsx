@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import VoteButtons from "./VoteButtons";
+import { sfx } from "@/lib/sfx";
 
 interface TokenInfo {
   assetId: string;
@@ -16,6 +17,7 @@ export default function RandomTokenVote() {
   const [loading, setLoading] = useState(true);
 
   const fetchRandom = () => {
+    sfx.whoosh();
     setLoading(true);
     fetch("/api/random-token-detail")
       .then(r => r.json())
@@ -75,8 +77,8 @@ export default function RandomTokenVote() {
           title="Random token (R)"
           className="text-xs px-3 py-1.5 rounded-md border border-zinc-700 text-zinc-400 hover:text-white hover:border-zinc-500 transition-colors flex items-center gap-1.5"
         >
-          <span>🎲 Skip</span>
-          <kbd className="hidden sm:inline-block px-1 py-0.5 text-[10px] font-mono text-zinc-500 border border-zinc-700 rounded">R</kbd>
+          <span>Skip</span>
+          <kbd className="hidden sm:inline-flex items-center justify-center min-w-[20px] h-[20px] px-1.5 text-[11px] font-mono font-bold text-zinc-300 bg-zinc-800 border border-zinc-700 border-b-2 rounded">R</kbd>
         </button>
       </div>
       <div className="p-4">

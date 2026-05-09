@@ -17,6 +17,15 @@ const ReferralTracker = dynamic(() => import('./AuthUI').then(m => ({ default: m
 const EmailSignupModal = dynamic(() => import('./EmailSignupModal'), {
   ssr: false,
 });
+const ShortcutsModal = dynamic(() => import('./ShortcutsModal'), {
+  ssr: false,
+});
+const SoundToggle = dynamic(() => import('./SoundToggle'), {
+  ssr: false,
+});
+const LoginChime = dynamic(() => import('./LoginChime'), {
+  ssr: false,
+});
 
 function Layout({ children }: { children: React.ReactNode }) {
   const [mounted, setMounted] = useState(false);
@@ -36,11 +45,13 @@ function Layout({ children }: { children: React.ReactNode }) {
           <Link href="/stats" className="hover:text-foreground transition-colors">Stats</Link>
           <Link href="/referrals" className="hover:text-foreground transition-colors">Referrals</Link>
           <OnlineCounter />
+          {mounted && <SoundToggle />}
           {mounted && <LoginButton />}
         </div>
 
         {/* Mobile nav */}
         <div className="flex sm:hidden items-center gap-2">
+          {mounted && <SoundToggle />}
           {mounted && <LoginButton />}
           <button
             onClick={() => setMenuOpen(!menuOpen)}
@@ -81,7 +92,9 @@ function Layout({ children }: { children: React.ReactNode }) {
     <>
       {nav}
       <ReferralTracker />
+      {mounted && <LoginChime />}
       {mounted && <EmailSignupModal />}
+      {mounted && <ShortcutsModal />}
       <main className="flex-1"><PageTransition>{children}</PageTransition></main>
       <footer className="border-t border-border py-6 text-center text-sm text-zinc-500">
         <p>TokenShit — Every token is shit until proven otherwise.</p>
@@ -94,6 +107,13 @@ function Layout({ children }: { children: React.ReactNode }) {
           <a href="https://x.com/tokenshit_" className="text-neon-blue hover:underline" target="_blank" rel="noopener noreferrer">
             𝕏
           </a>
+          {' · '}
+          <button
+            onClick={() => window.dispatchEvent(new CustomEvent('tokenshit:show-shortcuts'))}
+            className="text-zinc-500 hover:text-zinc-300 underline-offset-2 hover:underline"
+          >
+            shortcuts
+          </button>
         </p>
       </footer>
     </>

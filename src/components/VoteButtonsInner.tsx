@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { usePrivy } from "@privy-io/react-auth";
+import { sfx } from "@/lib/sfx";
 
 function EmojiDrop({ emoji, count = 20 }: { emoji: string; count?: number }) {
   const [particles, setParticles] = useState<{ id: number; left: number; delay: number; size: number; duration: number }[]>([]);
@@ -95,6 +96,8 @@ export default function VoteButtons({ assetId }: { assetId: string }) {
         setHits(data.hits || 0);
         setShits(data.shits || 0);
         setUserVote(vote);
+        if (vote === "hit") sfx.hit();
+        else sfx.shit();
         setDropEmoji(vote === "hit" ? "🎯" : "🚽");
         setTimeout(() => setDropEmoji(null), 3000);
         fetch("/api/adjacent-tokens?assetId=" + encodeURIComponent(assetId))
@@ -103,11 +106,11 @@ export default function VoteButtons({ assetId }: { assetId: string }) {
             const candidates = [d.prev, d.next].filter(Boolean);
             if (candidates.length > 0) {
               const randomId = candidates[Math.floor(Math.random() * candidates.length)];
-              setTimeout(() => router.push(`/token/${randomId}`), 2000);
+              setTimeout(() => { sfx.whoosh(); router.push(`/token/${randomId}`); }, 2000);
             } else {
               fetch("/api/random-token")
                 .then(r => r.json())
-                .then(d => { if (d.assetId) setTimeout(() => router.push(`/token/${d.assetId}`), 2000); })
+                .then(d => { if (d.assetId) setTimeout(() => { sfx.whoosh(); router.push(`/token/${d.assetId}`); }, 2000); })
                 .catch(() => {});
             }
           })
@@ -180,9 +183,9 @@ export default function VoteButtons({ assetId }: { assetId: string }) {
           style={{ WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}
         >
           <span className="text-4xl">{voting && pressing === "hit" ? "⏳" : "🎯"}</span>
-          <span className="text-green-400 text-base">
+          <span className="text-green-400 text-base flex items-center gap-2">
             Hit
-            <kbd className="hidden sm:inline-block ml-1.5 px-1 py-0.5 text-[10px] font-mono font-normal text-green-300/60 border border-green-800/60 rounded">H</kbd>
+            <kbd className="hidden sm:inline-flex items-center justify-center min-w-[22px] h-[22px] px-1.5 text-[11px] font-mono font-bold text-green-200 bg-green-950/80 border border-green-700 border-b-2 rounded shadow-sm">H</kbd>
           </span>
           <span className="text-sm text-green-400 font-mono">
             {loaded ? hits : "—"}
@@ -207,9 +210,9 @@ export default function VoteButtons({ assetId }: { assetId: string }) {
           style={{ WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}
         >
           <span className="text-4xl font-black tracking-tight text-red-500" style={{ textShadow: "0 0 12px rgba(239,68,68,0.5)" }}>{voting && pressing === "shit" ? "⏳" : "$HIT"}</span>
-          <span className="text-red-400 text-base">
+          <span className="text-red-400 text-base flex items-center gap-2">
             Shit
-            <kbd className="hidden sm:inline-block ml-1.5 px-1 py-0.5 text-[10px] font-mono font-normal text-red-300/60 border border-red-800/60 rounded">S</kbd>
+            <kbd className="hidden sm:inline-flex items-center justify-center min-w-[22px] h-[22px] px-1.5 text-[11px] font-mono font-bold text-red-200 bg-red-950/80 border border-red-700 border-b-2 rounded shadow-sm">S</kbd>
           </span>
           <span className="text-sm text-red-400 font-mono">
             {loaded ? shits : "—"}
