@@ -3,8 +3,8 @@ import AnimatedLogo from "@/components/AnimatedLogo";
 import Image from "next/image";
 
 export const metadata: Metadata = {
-  title: "Brand — TokenShit",
-  description: "TokenShit brand guidelines, logos, colors, and assets.",
+  title: "Brand — TOKENSHIT",
+  description: "TOKENSHIT brand guidelines, logos, colors, and assets.",
 };
 
 const colors = [
@@ -64,7 +64,7 @@ export default function BrandPage() {
       <section className="text-center space-y-6">
         <AnimatedLogo size="hero" />
         <p className="text-zinc-400 text-lg max-w-xl mx-auto">
-          Brand guidelines, assets, and resources for TokenShit — the real-time 
+          Brand guidelines, assets, and resources for TOKENSHIT — the real-time 
           Solana token sentiment tracker.
         </p>
       </section>
@@ -73,7 +73,7 @@ export default function BrandPage() {
       <section className="space-y-6">
         <h2 className="font-orbitron text-2xl text-neon">LOGO</h2>
         <p className="text-zinc-400">
-          The TokenShit logo uses <strong className="text-foreground">Monoton</strong> with 
+          The TOKENSHIT logo uses <strong className="text-foreground">Monoton</strong> with 
           a signature green neon <span className="text-neon font-bold">$</span> replacing 
           the &quot;S&quot;. The dollar sign pulses — it never sits still.
         </p>

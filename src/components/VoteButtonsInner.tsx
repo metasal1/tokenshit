@@ -3,7 +3,12 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { usePrivy } from "@privy-io/react-auth";
+import { Target, Skull, Loader2 } from "lucide-react";
 import { sfx } from "@/lib/sfx";
+
+// Inline SVG-data-URI cursors so desktop users get a target/skull pointer over the vote area.
+const HIT_CURSOR = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 24 24' fill='none' stroke='%2339ff14' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Ccircle cx='12' cy='12' r='6'/%3E%3Ccircle cx='12' cy='12' r='2'/%3E%3C/svg%3E") 14 14, crosshair`;
+const SHIT_CURSOR = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 24 24' fill='none' stroke='%23ef4444' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='9' cy='12' r='1'/%3E%3Ccircle cx='15' cy='12' r='1'/%3E%3Cpath d='M8 20v2h8v-2'/%3E%3Cpath d='M12.5 17l-.5-1-.5 1h1z'/%3E%3Cpath d='M16 20a2 2 0 0 0 1.56-3.25 8 8 0 1 0-11.12 0A2 2 0 0 0 8 20'/%3E%3C/svg%3E") 14 14, pointer`;
 
 function EmojiDrop({ emoji, count = 20 }: { emoji: string; count?: number }) {
   const [particles, setParticles] = useState<{ id: number; left: number; delay: number; size: number; duration: number }[]>([]);
@@ -106,7 +111,9 @@ export default function VoteButtons({ assetId }: { assetId: string }) {
           .then(r => r.json())
           .then(d => {
             if (d.assetId) {
-              setTimeout(() => { sfx.whoosh(); router.push(`/token/${d.assetId}`); }, 2000);
+              const next = `/token/${d.assetId}`;
+              router.prefetch(next);
+              setTimeout(() => { sfx.whoosh(); router.push(next); }, 500);
             }
           })
           .catch(() => {});
@@ -172,12 +179,21 @@ export default function VoteButtons({ assetId }: { assetId: string }) {
             transition-all duration-100 ease-out
             ${userVote === "hit" ? "border-green-500 bg-green-900/60" : "border-green-900 bg-green-950"}
             ${hasVoted && userVote !== "hit" ? "opacity-30" : ""}
-            ${!hasVoted && !voting ? "cursor-pointer active:scale-95 hover:border-green-500 hover:bg-green-900/40" : "cursor-not-allowed"}
+            ${!hasVoted && !voting ? "active:scale-95 hover:border-green-500 hover:bg-green-900/40" : "cursor-not-allowed"}
             ${pressing === "hit" && !hasVoted ? "scale-90 brightness-125" : ""}
           `}
-          style={{ WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}
+          style={{
+            WebkitTapHighlightColor: "transparent",
+            touchAction: "manipulation",
+            cursor: !hasVoted && !voting ? HIT_CURSOR : undefined,
+          }}
         >
-          <span className="text-4xl">{voting && pressing === "hit" ? "⏳" : "🎯"}</span>
+          <span className="flex items-center justify-center h-10">
+            {voting && pressing === "hit"
+              ? <Loader2 className="w-9 h-9 text-green-400 animate-spin" />
+              : <Target className="w-10 h-10 text-green-400 drop-shadow-[0_0_10px_rgba(57,255,20,0.6)]" strokeWidth={2.25} />
+            }
+          </span>
           <span className="text-green-400 text-base flex items-center gap-2">
             Hit
             <kbd className="hidden sm:inline-flex items-center justify-center min-w-[22px] h-[22px] px-1.5 text-[11px] font-mono font-bold text-green-200 bg-green-950/80 border border-green-700 border-b-2 rounded shadow-sm">H</kbd>
@@ -199,12 +215,21 @@ export default function VoteButtons({ assetId }: { assetId: string }) {
             transition-all duration-100 ease-out
             ${userVote === "shit" ? "border-red-500 bg-red-900/60" : "border-red-900 bg-red-950"}
             ${hasVoted && userVote !== "shit" ? "opacity-30" : ""}
-            ${!hasVoted && !voting ? "cursor-pointer active:scale-95 hover:border-red-500 hover:bg-red-900/40" : "cursor-not-allowed"}
+            ${!hasVoted && !voting ? "active:scale-95 hover:border-red-500 hover:bg-red-900/40" : "cursor-not-allowed"}
             ${pressing === "shit" && !hasVoted ? "scale-90 brightness-125" : ""}
           `}
-          style={{ WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}
+          style={{
+            WebkitTapHighlightColor: "transparent",
+            touchAction: "manipulation",
+            cursor: !hasVoted && !voting ? SHIT_CURSOR : undefined,
+          }}
         >
-          <span className="text-4xl font-black tracking-tight text-red-500" style={{ textShadow: "0 0 12px rgba(239,68,68,0.5)" }}>{voting && pressing === "shit" ? "⏳" : "$HIT"}</span>
+          <span className="flex items-center justify-center h-10">
+            {voting && pressing === "shit"
+              ? <Loader2 className="w-9 h-9 text-red-400 animate-spin" />
+              : <Skull className="w-10 h-10 text-red-500 drop-shadow-[0_0_10px_rgba(239,68,68,0.6)]" strokeWidth={2.25} />
+            }
+          </span>
           <span className="text-red-400 text-base flex items-center gap-2">
             Shit
             <kbd className="hidden sm:inline-flex items-center justify-center min-w-[22px] h-[22px] px-1.5 text-[11px] font-mono font-bold text-red-200 bg-red-950/80 border border-red-700 border-b-2 rounded shadow-sm">S</kbd>

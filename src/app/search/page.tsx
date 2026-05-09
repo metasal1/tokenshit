@@ -10,7 +10,7 @@ interface Props {
 export async function generateMetadata({ searchParams }: Props): Promise<Metadata> {
   const { q } = await searchParams;
   return {
-    title: q ? `"${q}" — TokenShit Search` : "Search — TokenShit",
+    title: q ? `"${q}" — TOKENSHIT Search` : "Search — TOKENSHIT",
   };
 }
 

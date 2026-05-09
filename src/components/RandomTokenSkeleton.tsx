@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { Target, Skull } from 'lucide-react';
 
 const MESSAGES = [
   'Sniffing the blockchain…',
@@ -54,11 +55,11 @@ export default function RandomTokenSkeleton() {
 
         <div className="flex gap-4">
           <div className="flex-1 min-h-[100px] rounded-xl border-[3px] border-green-900/60 bg-green-950/40 flex flex-col items-center justify-center gap-2 loading-rise">
-            <span className="text-3xl opacity-40">🎯</span>
+            <Target className="w-9 h-9 text-green-500/60" strokeWidth={2.25} />
             <div className="skeleton h-2.5 w-10 rounded" />
           </div>
           <div className="flex-1 min-h-[100px] rounded-xl border-[3px] border-red-900/60 bg-red-950/40 flex flex-col items-center justify-center gap-2 loading-rise" style={{ animationDelay: '0.15s' }}>
-            <span className="text-2xl font-black tracking-tight text-red-500/50">$HIT</span>
+            <Skull className="w-9 h-9 text-red-500/60" strokeWidth={2.25} />
             <div className="skeleton h-2.5 w-10 rounded" />
           </div>
         </div>

@@ -16,11 +16,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     const name = data?.asset?.name || data?.name || assetId;
     const symbol = data?.asset?.symbol || data?.symbol || "";
     return {
-      title: `${name} (${symbol}) — TokenShit`,
+      title: `${name} (${symbol}) — TOKENSHIT`,
       description: `Check the shit score for ${name}. Price, risk, markets, and more.`,
     };
   } catch {
-    return { title: `Token — TokenShit` };
+    return { title: `Token — TOKENSHIT` };
   }
 }
 

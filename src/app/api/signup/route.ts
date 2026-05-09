@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
 
     // Fire email + TG ping in parallel; don't fail the request if one errors.
     const tgLines = [
-      "🆕 <b>New TokenShit signup</b>",
+      "🆕 <b>New TOKENSHIT signup</b>",
       `📧 ${escapeHtml(email)}`,
       twitterHandle ? `🐦 <a href="https://x.com/${escapeHtml(twitterHandle)}">@${escapeHtml(twitterHandle)}</a>` : null,
       walletAddress ? `💰 <code>${escapeHtml(truncWallet(walletAddress))}</code>` : null,

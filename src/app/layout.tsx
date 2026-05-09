@@ -27,7 +27,7 @@ const orbitron = Orbitron({
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://tokenshit.com"),
-  title: "TokenShit — Every token is shit until proven otherwise",
+  title: "TOKENSHIT — Every token is shit until proven otherwise",
   description:
     "Solana token explorer with attitude. Search tokens, check risk scores, and find out which ones are certified $HIT.",
 };

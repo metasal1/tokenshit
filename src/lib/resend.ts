@@ -1,5 +1,5 @@
 const RESEND_API_KEY = process.env.RESEND_API_KEY || "";
-const RESEND_FROM = process.env.RESEND_FROM_EMAIL || "TokenShit <hello@tokenshit.com>";
+const RESEND_FROM = process.env.RESEND_FROM_EMAIL || "TOKENSHIT <hello@tokenshit.com>";
 
 export interface ResendEmail {
   to: string;
@@ -37,8 +37,8 @@ export async function sendEmail(email: ResendEmail): Promise<{ id?: string; erro
 
 export function welcomeEmail(twitterHandle?: string | null): { subject: string; html: string; text: string } {
   const greeting = twitterHandle ? `gm @${twitterHandle}` : "gm degen";
-  const subject = "Welcome to TokenShit";
-  const text = `${greeting}\n\nThanks for signing up to TokenShit — every token is shit until proven otherwise.\n\nVote on tokens daily, climb the leaderboard, and refer friends.\n\nhttps://tokenshit.com\n\n— TokenShit`;
+  const subject = "Welcome to TOKENSHIT";
+  const text = `${greeting}\n\nThanks for signing up to TOKENSHIT — every token is shit until proven otherwise.\n\nVote on tokens daily, climb the leaderboard, and refer friends.\n\nhttps://tokenshit.com\n\n— TOKENSHIT`;
   const html = `<!doctype html>
 <html>
   <body style="margin:0;padding:0;background:#09090b;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#e4e4e7;">
@@ -50,7 +50,7 @@ export function welcomeEmail(twitterHandle?: string | null): { subject: string; 
               <td style="padding:32px 28px;">
                 <h1 style="margin:0 0 16px;font-size:24px;color:#fafafa;">${greeting}</h1>
                 <p style="margin:0 0 16px;font-size:15px;line-height:1.6;color:#d4d4d8;">
-                  Thanks for joining <strong>TokenShit</strong> — every token is shit until proven otherwise.
+                  Thanks for joining <strong>TOKENSHIT</strong> — every token is shit until proven otherwise.
                 </p>
                 <p style="margin:0 0 24px;font-size:15px;line-height:1.6;color:#d4d4d8;">
                   Vote daily, climb the leaderboard, and refer friends.
