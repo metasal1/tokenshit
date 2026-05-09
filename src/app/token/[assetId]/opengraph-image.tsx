@@ -1,6 +1,5 @@
 import { ImageResponse } from "next/og";
 import { readFile } from "node:fs/promises";
-import { join } from "node:path";
 
 export const runtime = "nodejs";
 export const alt = "TokenShit";
@@ -63,7 +62,7 @@ export default async function OGImage({ params }: { params: Promise<{ assetId: s
     ? change24h >= 0 ? "#4ade80" : "#ef4444"
     : "#71717a";
 
-  const monoton = await readFile(join(process.cwd(), "src/app/_fonts/Monoton-Regular.ttf"));
+  const monoton = await readFile(new URL("../../_fonts/Monoton-Regular.ttf", import.meta.url));
 
   return new ImageResponse(
     (
