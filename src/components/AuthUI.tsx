@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { usePrivy } from '@privy-io/react-auth';
+import { sfx } from '@/lib/sfx';
 
 interface TokenBalance {
   mint: string;
@@ -224,7 +225,18 @@ export function ReferralTracker() {
         referredWallet: user.wallet?.address || null,
       }),
     })
-      .then(() => localStorage.removeItem('tokenshit_referrer'))
+      .then(async (res) => {
+        const data = await res.json().catch(() => ({}));
+        // Only fire the celebratory toast on a fresh, successful track —
+        // not on 409 ("already referred by someone else") or any other failure.
+        if (res.ok && data?.success) {
+          window.dispatchEvent(
+            new CustomEvent('tokenshit:referred', { detail: { referrer } })
+          );
+          sfx.chime();
+        }
+        localStorage.removeItem('tokenshit_referrer');
+      })
       .catch(() => {});
   }, [authenticated, user]);
 

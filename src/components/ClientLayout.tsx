@@ -27,6 +27,9 @@ const SoundToggle = dynamic(() => import('./SoundToggle'), {
 const LoginChime = dynamic(() => import('./LoginChime'), {
   ssr: false,
 });
+const ReferralToast = dynamic(() => import('./ReferralToast'), {
+  ssr: false,
+});
 
 function Layout({ children }: { children: React.ReactNode }) {
   const [mounted, setMounted] = useState(false);
@@ -132,6 +135,7 @@ function Layout({ children }: { children: React.ReactNode }) {
       {nav}
       <ReferralTracker />
       {mounted && <LoginChime />}
+      {mounted && <ReferralToast />}
       {mounted && <EmailSignupModal />}
       {mounted && <ShortcutsModal />}
       <main className="flex-1"><PageTransition>{children}</PageTransition></main>
