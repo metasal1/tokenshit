@@ -235,17 +235,20 @@ function ReferralButton({ twitterUsername }: { twitterUsername?: string }) {
   const [copied, setCopied] = useState(false);
   const [count, setCount] = useState<number | null>(null);
 
+  // Referrals are stored lowercased — match the same casing for lookups and links.
+  const handle = twitterUsername?.toLowerCase();
+
   useEffect(() => {
-    if (!twitterUsername) return;
-    fetch(`/api/referral/stats?username=${encodeURIComponent(twitterUsername)}`)
+    if (!handle) return;
+    fetch(`/api/referral/stats?username=${encodeURIComponent(handle)}`)
       .then(r => r.json())
       .then(d => setCount(d.totalReferrals ?? 0))
       .catch(() => {});
-  }, [twitterUsername]);
+  }, [handle]);
 
-  if (!twitterUsername) return null;
+  if (!handle) return null;
 
-  const link = `https://tokenshit.com/?ref=${twitterUsername}`;
+  const link = `https://tokenshit.com/?ref=${handle}`;
   const copy = () => {
     navigator.clipboard.writeText(link);
     setCopied(true);

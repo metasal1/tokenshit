@@ -4,7 +4,7 @@ import { tursoExecute } from "@/lib/turso";
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const username = searchParams.get("username");
+    const username = searchParams.get("username")?.toLowerCase().trim();
 
     if (!username) {
       return Response.json(

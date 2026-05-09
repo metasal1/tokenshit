@@ -33,16 +33,18 @@ export default function ReferralsPage() {
       .catch(e => console.error('Failed to fetch leaderboard:', e))
       .finally(() => setLoading(false));
 
-    // Fetch user stats if authenticated
-    if (authenticated && user?.twitter?.username) {
-      fetch(`/api/referral/stats?username=${encodeURIComponent(user.twitter.username)}`)
+    // Fetch user stats if authenticated. Referrals are stored lowercased
+    // (the tracker normalizes ?ref=… on capture) so the lookup must match.
+    const handle = user?.twitter?.username?.toLowerCase();
+    if (authenticated && handle) {
+      fetch(`/api/referral/stats?username=${encodeURIComponent(handle)}`)
         .then(r => r.json())
         .then(d => setUserStats(d))
         .catch(e => console.error('Failed to fetch user stats:', e));
     }
   }, [authenticated, user]);
 
-  const twitterHandle = user?.twitter?.username;
+  const twitterHandle = user?.twitter?.username?.toLowerCase();
   const referralLink = twitterHandle ? `https://tokenshit.com/?ref=${twitterHandle}` : null;
 
   const copyLink = () => {

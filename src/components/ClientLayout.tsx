@@ -28,15 +28,10 @@ const LoginChime = dynamic(() => import('./LoginChime'), {
   ssr: false,
 });
 
-// Surface the most popular categories directly in the nav; the rest live in the
-// "More" dropdown (desktop) and the mobile hamburger.
-const TOP_NAV_CATEGORIES = ['majors', 'stocks', 'etfs'];
-const MORE_CATEGORIES = CATEGORIES.filter((c) => !TOP_NAV_CATEGORIES.includes(c.key));
-
 function Layout({ children }: { children: React.ReactNode }) {
   const [mounted, setMounted] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [moreOpen, setMoreOpen] = useState(false);
+  const [categoryOpen, setCategoryOpen] = useState(false);
   useEffect(() => setMounted(true), []);
 
   const nav = (
@@ -49,48 +44,34 @@ function Layout({ children }: { children: React.ReactNode }) {
         {/* Desktop nav */}
         <div className="hidden sm:flex items-center gap-4 text-sm text-zinc-400">
           <Link href="/" className="hover:text-foreground transition-colors">Home</Link>
-          {TOP_NAV_CATEGORIES.map((key) => {
-            const c = CATEGORIES.find((x) => x.key === key)!;
-            return (
-              <Link
-                key={c.key}
-                href={`/c/${c.key}`}
-                className="hover:text-foreground transition-colors"
-              >
-                {c.navLabel || c.label}
-              </Link>
-            );
-          })}
-          <div className="relative" onMouseLeave={() => setMoreOpen(false)}>
+          <div className="relative" onMouseLeave={() => setCategoryOpen(false)}>
             <button
-              onClick={() => setMoreOpen((v) => !v)}
-              onMouseEnter={() => setMoreOpen(true)}
+              onClick={() => setCategoryOpen((v) => !v)}
+              onMouseEnter={() => setCategoryOpen(true)}
               className="hover:text-foreground transition-colors flex items-center gap-1"
             >
-              More
+              Category
               <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="6 9 12 15 18 9" /></svg>
             </button>
-            {moreOpen && (
-              <div className="absolute right-0 top-full pt-1.5 z-50 min-w-[160px]">
+            {categoryOpen && (
+              <div className="absolute left-0 top-full pt-1.5 z-50 min-w-[180px]">
                 <div className="bg-zinc-900 border border-zinc-700 rounded-lg shadow-xl overflow-hidden">
-                  {MORE_CATEGORIES.map((c) => (
+                  {CATEGORIES.map((c) => (
                     <Link
                       key={c.key}
                       href={`/c/${c.key}`}
                       className="block px-3 py-2 text-sm text-zinc-300 hover:bg-zinc-800 hover:text-white transition-colors"
-                      onClick={() => setMoreOpen(false)}
+                      onClick={() => setCategoryOpen(false)}
                     >
                       {c.label}
                     </Link>
                   ))}
-                  <div className="border-t border-zinc-800">
-                    <Link href="/stats" className="block px-3 py-2 text-sm text-zinc-300 hover:bg-zinc-800 hover:text-white transition-colors" onClick={() => setMoreOpen(false)}>Stats</Link>
-                    <Link href="/referrals" className="block px-3 py-2 text-sm text-zinc-300 hover:bg-zinc-800 hover:text-white transition-colors" onClick={() => setMoreOpen(false)}>Referrals</Link>
-                  </div>
                 </div>
               </div>
             )}
           </div>
+          <Link href="/stats" className="hover:text-foreground transition-colors">Stats</Link>
+          <Link href="/referrals" className="hover:text-foreground transition-colors">Referrals</Link>
           <OnlineCounter />
           {mounted && <SoundToggle />}
           {mounted && <LoginButton />}
@@ -127,7 +108,7 @@ function Layout({ children }: { children: React.ReactNode }) {
       {menuOpen && (
         <div className="sm:hidden border-t border-border bg-background/95 backdrop-blur-xl px-4 py-3 flex flex-col gap-3 text-sm">
           <Link href="/" className="text-zinc-400 hover:text-foreground transition-colors" onClick={() => setMenuOpen(false)}>Home</Link>
-          <p className="text-[10px] uppercase tracking-wider text-zinc-600 mt-2 font-semibold">Categories</p>
+          <p className="text-[10px] uppercase tracking-wider text-zinc-600 mt-2 font-semibold">Category</p>
           {CATEGORIES.map((c) => (
             <Link
               key={c.key}
@@ -138,9 +119,8 @@ function Layout({ children }: { children: React.ReactNode }) {
               {c.label}
             </Link>
           ))}
-          <p className="text-[10px] uppercase tracking-wider text-zinc-600 mt-2 font-semibold">More</p>
-          <Link href="/stats" className="text-zinc-400 hover:text-foreground transition-colors pl-2" onClick={() => setMenuOpen(false)}>Stats</Link>
-          <Link href="/referrals" className="text-zinc-400 hover:text-foreground transition-colors pl-2" onClick={() => setMenuOpen(false)}>Referrals</Link>
+          <Link href="/stats" className="text-zinc-400 hover:text-foreground transition-colors mt-2" onClick={() => setMenuOpen(false)}>Stats</Link>
+          <Link href="/referrals" className="text-zinc-400 hover:text-foreground transition-colors" onClick={() => setMenuOpen(false)}>Referrals</Link>
           <OnlineCounter />
         </div>
       )}

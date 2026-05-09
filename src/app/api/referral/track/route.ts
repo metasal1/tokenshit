@@ -4,7 +4,11 @@ import { tursoExecute } from "@/lib/turso";
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { referrerTwitter, referredTwitter, referredWallet } = body;
+    // Normalize handles to lowercase so capitalization differences (e.g. "Metasal_"
+    // vs "metasal_") don't fragment the leaderboard or hide referrals from stats.
+    const referrerTwitter = String(body.referrerTwitter || "").toLowerCase().trim();
+    const referredTwitter = String(body.referredTwitter || "").toLowerCase().trim();
+    const referredWallet = body.referredWallet || null;
 
     if (!referrerTwitter || !referredTwitter) {
       return Response.json(
