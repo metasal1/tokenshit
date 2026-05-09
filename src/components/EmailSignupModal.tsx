@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { usePrivy } from '@privy-io/react-auth';
+import { X } from 'lucide-react';
 import { sfx } from '@/lib/sfx';
 
 const STORAGE_KEY = 'tokenshit_email_state';
@@ -106,10 +107,10 @@ export default function EmailSignupModal() {
           </h3>
           <button
             onClick={() => close(true)}
-            className="text-zinc-400 hover:text-white text-xl leading-none -mt-1"
+            className="text-zinc-400 hover:text-white transition-colors -mt-1"
             aria-label="Close"
           >
-            &times;
+            <X className="w-5 h-5" />
           </button>
         </div>
 

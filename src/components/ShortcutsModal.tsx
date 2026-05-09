@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import { X } from 'lucide-react';
 
 type Shortcut = { keys: string[]; label: string };
 type Group = { title: string; items: Shortcut[] };
@@ -76,10 +77,10 @@ export default function ShortcutsModal() {
           <h3 className="text-white font-semibold text-lg">Keyboard shortcuts</h3>
           <button
             onClick={close}
-            className="text-zinc-400 hover:text-white text-xl leading-none"
+            className="text-zinc-400 hover:text-white transition-colors"
             aria-label="Close"
           >
-            &times;
+            <X className="w-5 h-5" />
           </button>
         </div>
 

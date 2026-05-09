@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { Search } from "lucide-react";
 
 interface Result {
   assetId: string;
@@ -108,21 +109,9 @@ export default function SearchBar({ big = false }: { big?: boolean }) {
             <button
               type="submit"
               className="text-zinc-500 hover:text-neon transition-colors"
+              aria-label="Search"
             >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className={big ? "h-6 w-6" : "h-4 w-4"}
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={2}
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                />
-              </svg>
+              <Search className={big ? "h-6 w-6" : "h-4 w-4"} strokeWidth={2} />
             </button>
           </div>
         </div>
