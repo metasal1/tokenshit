@@ -56,7 +56,6 @@ export default async function SearchPage({ searchParams }: Props) {
 
       {!q && (
         <div className="text-center py-20">
-          <div className="text-6xl mb-4">💩</div>
           <h2 className="text-2xl font-bold text-foreground mb-2">
             Search for a token
           </h2>

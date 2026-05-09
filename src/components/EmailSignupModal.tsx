@@ -118,7 +118,7 @@ export default function EmailSignupModal() {
         ) : (
           <>
             <p className="text-sm text-zinc-400 mb-4">
-              Drop your email for daily winners, new features, and the occasional 💩 drop. No spam.
+              Drop your email for daily winners, new features, and the occasional drop. No spam.
             </p>
             <input
               type="email"

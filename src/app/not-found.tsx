@@ -3,10 +3,7 @@ import Link from "next/link";
 export default function NotFound() {
   return (
     <div className="flex flex-col items-center justify-center min-h-[70vh] px-4 text-center">
-      <div className="text-[120px] sm:text-[180px] leading-none mb-2 select-none animate-bounce">
-        💩
-      </div>
-      <h1 className="text-4xl sm:text-6xl font-monoton mb-4">
+      <h1 className="text-7xl sm:text-9xl font-monoton mb-4">
         <span className="neon-text">4</span>
         <span className="neon-dollar">0</span>
         <span className="neon-text">4</span>

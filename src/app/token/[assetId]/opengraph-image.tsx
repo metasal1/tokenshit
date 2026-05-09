@@ -1,4 +1,6 @@
 import { ImageResponse } from "next/og";
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
 
 export const runtime = "nodejs";
 export const alt = "TokenShit";
@@ -61,6 +63,8 @@ export default async function OGImage({ params }: { params: Promise<{ assetId: s
     ? change24h >= 0 ? "#4ade80" : "#ef4444"
     : "#71717a";
 
+  const monoton = await readFile(join(process.cwd(), "src/app/_fonts/Monoton-Regular.ttf"));
+
   return new ImageResponse(
     (
       <div
@@ -75,11 +79,10 @@ export default async function OGImage({ params }: { params: Promise<{ assetId: s
         }}
       >
         {/* Top bar — branding */}
-        <div style={{ display: "flex", alignItems: "baseline", marginBottom: 40 }}>
-          <span style={{ fontSize: 36, fontWeight: 900, color: "#fff8e7" }}>TOKEN</span>
-          <span style={{ fontSize: 36, fontWeight: 900, color: "#39ff14", textShadow: "0 0 20px rgba(57,255,20,0.6)" }}>$</span>
-          <span style={{ fontSize: 36, fontWeight: 900, color: "#fff8e7" }}>HIT</span>
-          <span style={{ fontSize: 28, marginLeft: 10 }}>💩</span>
+        <div style={{ display: "flex", alignItems: "baseline", marginBottom: 40, fontFamily: "Monoton", letterSpacing: "0.02em" }}>
+          <span style={{ fontSize: 56, color: "#fff8e7", textShadow: "0 0 6px #fff8e7, 0 0 16px #f0c040" }}>TOKEN</span>
+          <span style={{ fontSize: 56, color: "#39ff14", textShadow: "0 0 6px #39ff14, 0 0 16px #39ff14, 0 0 32px #0fa" }}>$</span>
+          <span style={{ fontSize: 56, color: "#fff8e7", textShadow: "0 0 6px #fff8e7, 0 0 16px #f0c040" }}>HIT</span>
         </div>
 
         {/* Main content */}
@@ -156,6 +159,16 @@ export default async function OGImage({ params }: { params: Promise<{ assetId: s
         </div>
       </div>
     ),
-    { ...size }
+    {
+      ...size,
+      fonts: [
+        {
+          name: "Monoton",
+          data: monoton,
+          style: "normal",
+          weight: 400,
+        },
+      ],
+    }
   );
 }

@@ -1,11 +1,15 @@
 import { ImageResponse } from "next/og";
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
 
 export const runtime = "nodejs";
 export const alt = "TokenShit — Every token is shit until proven otherwise";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
-export default function OGImage() {
+export default async function OGImage() {
+  const monoton = await readFile(join(process.cwd(), "src/app/_fonts/Monoton-Regular.ttf"));
+
   return new ImageResponse(
     (
       <div
@@ -17,33 +21,50 @@ export default function OGImage() {
           alignItems: "center",
           justifyContent: "center",
           background: "linear-gradient(135deg, #0a0a12 0%, #111 50%, #0a0a12 100%)",
-          fontFamily: "sans-serif",
         }}
       >
         <div
           style={{
-            fontSize: 120,
-            fontWeight: 900,
+            fontFamily: "Monoton",
+            fontSize: 180,
             display: "flex",
             alignItems: "baseline",
+            letterSpacing: "0.02em",
           }}
         >
-          <span style={{ color: "#fff8e7", textShadow: "0 0 40px rgba(240,192,64,0.5)" }}>
+          <span style={{ color: "#fff8e7", textShadow: "0 0 8px #fff8e7, 0 0 24px #fff8e7, 0 0 60px #f0c040, 0 0 100px #f0c040" }}>
             TOKEN
           </span>
-          <span style={{ color: "#39ff14", textShadow: "0 0 60px rgba(57,255,20,0.8), 0 0 120px rgba(0,255,170,0.4)" }}>
+          <span style={{ color: "#39ff14", textShadow: "0 0 8px #39ff14, 0 0 24px #39ff14, 0 0 60px #0fa, 0 0 120px #0fa" }}>
             $
           </span>
-          <span style={{ color: "#fff8e7", textShadow: "0 0 40px rgba(240,192,64,0.5)" }}>
+          <span style={{ color: "#fff8e7", textShadow: "0 0 8px #fff8e7, 0 0 24px #fff8e7, 0 0 60px #f0c040, 0 0 100px #f0c040" }}>
             HIT
           </span>
-          <span style={{ fontSize: 90, marginLeft: 20 }}>💩</span>
         </div>
-        <p style={{ color: "#71717a", fontSize: 32, marginTop: 20 }}>
+        <p
+          style={{
+            color: "#a1a1aa",
+            fontSize: 32,
+            marginTop: 40,
+            fontFamily: "sans-serif",
+            letterSpacing: "0.02em",
+          }}
+        >
           Every token is shit until proven otherwise
         </p>
       </div>
     ),
-    { ...size }
+    {
+      ...size,
+      fonts: [
+        {
+          name: "Monoton",
+          data: monoton,
+          style: "normal",
+          weight: 400,
+        },
+      ],
+    }
   );
 }

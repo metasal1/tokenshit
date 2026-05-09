@@ -57,7 +57,7 @@ export default function ReferralsPage() {
     <div className="min-h-full bg-background">
       <div className="mx-auto max-w-7xl px-4 py-12">
         <div className="mb-12">
-          <h1 className="text-4xl font-bold text-white mb-2">Spread the Shit 💩</h1>
+          <h1 className="text-4xl font-bold text-white mb-2">Spread the Shit</h1>
           <p className="text-zinc-400">Refer your degens and earn bragging rights</p>
         </div>
 
@@ -138,7 +138,7 @@ export default function ReferralsPage() {
                           {index === 0 && <span className="text-lg">🥇</span>}
                           {index === 1 && <span className="text-lg">🥈</span>}
                           {index === 2 && <span className="text-lg">🥉</span>}
-                          {index > 2 && <span className="text-lg">💩</span>}
+                          {index > 2 && <span className="text-zinc-600 text-sm font-mono">·</span>}
                         </div>
                       </td>
                       <td className="px-4 py-3">

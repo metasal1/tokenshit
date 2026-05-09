@@ -9,7 +9,6 @@ export default function AnimatedLogo({ size = "hero" }: { size?: "hero" | "nav" 
       <span className="neon-text">TOKEN</span>
       <span className="neon-dollar">$</span>
       <span className="neon-text">HIT</span>
-      {isHero && <span className="inline-block ml-3 text-5xl">💩</span>}
     </span>
   );
 }

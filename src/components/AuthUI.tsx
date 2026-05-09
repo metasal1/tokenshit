@@ -174,7 +174,7 @@ function WalletPanel({ address, twitterUsername, onClose, children }: { address:
                     href={`/token/${v.assetId}`}
                     className="flex items-center gap-2 bg-zinc-800/50 rounded-lg px-3 py-2 hover:bg-zinc-700/50 transition-colors"
                   >
-                    <span className="text-base">{v.vote === 'hit' ? '🎯' : '💩'}</span>
+                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${v.vote === 'hit' ? 'bg-green-500/15 text-green-400' : 'bg-red-500/15 text-red-400'}`}>{v.vote === 'hit' ? 'HIT' : 'SHIT'}</span>
                     <span className="text-xs text-zinc-300 font-mono truncate flex-1">{v.assetId.slice(0, 8)}...{v.assetId.slice(-4)}</span>
                     <span className="text-[10px] text-zinc-600 shrink-0">{v.date}</span>
                   </a>
@@ -258,7 +258,7 @@ function ReferralButton({ twitterUsername }: { twitterUsername?: string }) {
         onClick={copy}
         className="w-full text-left text-xs bg-zinc-800 hover:bg-zinc-700 rounded-lg px-3 py-2.5 transition-colors"
       >
-        <span className="text-white font-medium">{copied ? '✓ Link Copied!' : 'Share & Earn 💩'}</span>
+        <span className="text-white font-medium">{copied ? '✓ Link Copied!' : 'Share & Earn'}</span>
         {count !== null && count > 0 && (
           <span className="block text-[10px] text-zinc-500 mt-0.5">You&apos;ve referred {count} degen{count !== 1 ? 's' : ''}</span>
         )}

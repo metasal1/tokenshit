@@ -7,7 +7,7 @@ const VoteButtonsInner = dynamic(() => import('./VoteButtonsInner'), {
   loading: () => (
     <div className="border border-zinc-800 rounded-xl bg-zinc-900/80 p-5">
       <div className="text-center mb-4">
-        <p className="text-lg font-bold text-white">Is this token 🎯 or 💩?</p>
+        <p className="text-lg font-bold text-white">Is this token a <span className="text-green-400">HIT</span> or <span className="text-red-400">SHIT</span>?</p>
       </div>
       <div className="flex gap-4">
         <div className="flex-1 min-h-[100px] rounded-xl border-[3px] border-green-900 bg-green-950" />

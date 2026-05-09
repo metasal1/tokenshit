@@ -188,7 +188,7 @@ export default async function StatsPage() {
 
         <div className="rounded-xl border border-border bg-card overflow-hidden">
           <div className="px-4 py-3 border-b border-border bg-red-500/5">
-            <h3 className="font-bold text-red-400">💩 All-Time Most Shit</h3>
+            <h3 className="font-bold text-red-400">All-Time Most Shit</h3>
           </div>
           <div className="divide-y divide-border">
             {stats.topShit.length === 0 && (
@@ -228,8 +228,8 @@ export default async function StatsPage() {
               <thead>
                 <tr className="border-b border-border text-zinc-500 text-xs uppercase">
                   <th className="text-left px-4 py-3">Date</th>
-                  <th className="text-right px-4 py-3">🔥 Hits</th>
-                  <th className="text-right px-4 py-3">💩 Shits</th>
+                  <th className="text-right px-4 py-3">Hits</th>
+                  <th className="text-right px-4 py-3">Shits</th>
                   <th className="text-right px-4 py-3">Total</th>
                 </tr>
               </thead>

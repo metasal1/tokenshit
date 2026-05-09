@@ -21,13 +21,13 @@ export default function Leaderboard({
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
       <LeaderList
-        title="🎯 Most Hit"
+        title="Most Hit"
         subtitle="Today's top tokens"
         entries={mostHit}
         type="hit"
       />
       <LeaderList
-        title="💩 Most Shit"
+        title="Most Shit"
         subtitle="Today's biggest $HIT"
         entries={mostShit}
         type="shit"
@@ -87,10 +87,10 @@ function LeaderList({
                 {e.symbol}
               </div>
             </div>
-            <div className={`font-mono font-bold ${color} flex items-center gap-1`}>
+            <div className={`font-mono font-bold ${color} flex items-center gap-1.5`}>
               <span>{type === "hit" ? e.hits : e.shits}</span>
-              <span className="text-xl">
-                {type === "hit" ? "🎯" : "💩"}
+              <span className="text-[10px] tracking-wide uppercase opacity-70">
+                {type === "hit" ? "hits" : "shits"}
               </span>
             </div>
           </Link>

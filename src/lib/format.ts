@@ -60,5 +60,5 @@ export function hitScoreEmoji(score: number | undefined | null): string {
   if (score >= 45) return "🌶️";
   if (score >= 30) return "⚠️";
   if (score >= 15) return "🚨";
-  return "💩";
+  return "☠️";
 }

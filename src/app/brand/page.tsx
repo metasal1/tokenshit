@@ -182,7 +182,7 @@ export default function BrandPage() {
                 <li>Shilling tokens or giving financial advice</li>
                 <li>Corporate or sanitized</li>
                 <li>Taking ourselves too seriously</li>
-                <li>Afraid of the 💩 emoji</li>
+                <li>Sanitizing the word &quot;shit&quot; out of our brand</li>
               </ul>
             </div>
           </div>

@@ -95,7 +95,7 @@ export default function VoteButtons({ assetId }: { assetId: string }) {
         setHits(data.hits || 0);
         setShits(data.shits || 0);
         setUserVote(vote);
-        setDropEmoji(vote === "hit" ? "🎯" : "💩");
+        setDropEmoji(vote === "hit" ? "🎯" : "🚽");
         setTimeout(() => setDropEmoji(null), 3000);
         fetch("/api/adjacent-tokens?assetId=" + encodeURIComponent(assetId))
           .then(r => r.json())
@@ -148,7 +148,7 @@ export default function VoteButtons({ assetId }: { assetId: string }) {
       {dropEmoji && <EmojiDrop emoji={dropEmoji} />}
       <div className="text-center mb-4">
         <p className="text-lg font-bold text-white">
-          Is this token 🎯 or 💩?
+          Is this token a <span className="text-green-400">HIT</span> or <span className="text-red-400">SHIT</span>?
         </p>
         {loaded && totalVotes > 0 && (
           <p className="text-xs text-zinc-600 mt-1">
@@ -206,7 +206,7 @@ export default function VoteButtons({ assetId }: { assetId: string }) {
           `}
           style={{ WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}
         >
-          <span className="text-4xl">{voting && pressing === "shit" ? "⏳" : "💩"}</span>
+          <span className="text-4xl font-black tracking-tight text-red-500" style={{ textShadow: "0 0 12px rgba(239,68,68,0.5)" }}>{voting && pressing === "shit" ? "⏳" : "$HIT"}</span>
           <span className="text-red-400 text-base">
             Shit
             <kbd className="hidden sm:inline-block ml-1.5 px-1 py-0.5 text-[10px] font-mono font-normal text-red-300/60 border border-red-800/60 rounded">S</kbd>
@@ -219,7 +219,7 @@ export default function VoteButtons({ assetId }: { assetId: string }) {
       {hasVoted && (
         <div className="text-center mt-3">
           <p className="text-xs text-zinc-500">
-            You voted <strong className={userVote === "hit" ? "text-green-400" : "text-red-400"}>{userVote === "hit" ? "🎯" : "💩"}</strong> today
+            You voted <strong className={userVote === "hit" ? "text-green-400" : "text-red-400"}>{userVote === "hit" ? "HIT" : "SHIT"}</strong> today
             {twitterUsername && <span className="text-zinc-600"> as @{twitterUsername}</span>}
           </p>
           {dropEmoji && (

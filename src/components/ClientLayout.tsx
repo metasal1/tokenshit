@@ -84,7 +84,7 @@ function Layout({ children }: { children: React.ReactNode }) {
       {mounted && <EmailSignupModal />}
       <main className="flex-1"><PageTransition>{children}</PageTransition></main>
       <footer className="border-t border-border py-6 text-center text-sm text-zinc-500">
-        <p>💩 TokenShit — Every token is shit until proven otherwise.</p>
+        <p>TokenShit — Every token is shit until proven otherwise.</p>
         <p className="mt-1 text-zinc-600">
           Data powered by{' '}
           <a href="https://tokens.xyz" className="text-neon-blue hover:underline" target="_blank" rel="noopener noreferrer">
