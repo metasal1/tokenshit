@@ -102,6 +102,12 @@ export default async function CategoryPage({ params }: Props) {
             </Link>
           );
         })}
+        <div className="shrink-0 rounded-lg px-3.5 py-1.5 text-sm font-semibold border border-neon/40 bg-neon/5 text-neon flex items-center gap-2">
+          <span>Total</span>
+          <span className="text-[11px] font-mono tabular-nums text-neon/70">
+            {Object.values(countMap).reduce((a, b) => a + b, 0)}
+          </span>
+        </div>
       </div>
 
       {/* Grid */}

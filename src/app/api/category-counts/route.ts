@@ -2,7 +2,7 @@ import { apiFetch } from "@/lib/api";
 import { CATEGORIES } from "@/lib/categories";
 
 const CACHE_TTL_MS = 5 * 60 * 1000;
-let cache: Record<string, number> | null = null;
+let cache: { counts: Record<string, number>; total: number } | null = null;
 let cacheTime = 0;
 
 async function countOne(key: string): Promise<[string, number]> {
@@ -20,7 +20,9 @@ export async function GET() {
     return Response.json(cache);
   }
   const entries = await Promise.all(CATEGORIES.map((c) => countOne(c.key)));
-  cache = Object.fromEntries(entries);
+  const counts = Object.fromEntries(entries);
+  const total = Object.values(counts).reduce((a, b) => a + b, 0);
+  cache = { counts, total };
   cacheTime = Date.now();
   return Response.json(cache);
 }

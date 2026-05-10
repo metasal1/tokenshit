@@ -37,12 +37,16 @@ function Layout({ children }: { children: React.ReactNode }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [categoryOpen, setCategoryOpen] = useState(false);
   const [counts, setCounts] = useState<Record<string, number>>({});
+  const [total, setTotal] = useState<number | null>(null);
   useEffect(() => setMounted(true), []);
   useEffect(() => {
     if (!mounted) return;
     fetch('/api/category-counts')
       .then((r) => r.json())
-      .then((d) => setCounts(d || {}))
+      .then((d) => {
+        setCounts(d?.counts || {});
+        setTotal(typeof d?.total === 'number' ? d.total : null);
+      })
       .catch(() => {});
   }, [mounted]);
 
@@ -81,6 +85,12 @@ function Layout({ children }: { children: React.ReactNode }) {
                       </span>
                     </Link>
                   ))}
+                  <div className="flex items-center justify-between gap-3 px-3 py-2 text-sm text-neon border-t border-zinc-800 bg-neon/5">
+                    <span className="font-semibold">Total</span>
+                    <span className="text-[11px] font-mono tabular-nums">
+                      {total != null ? total : '·'}
+                    </span>
+                  </div>
                 </div>
               </div>
             )}
@@ -124,6 +134,12 @@ function Layout({ children }: { children: React.ReactNode }) {
               </span>
             </Link>
           ))}
+          <div className="flex items-center justify-between text-neon pl-2 pr-1 pt-1 border-t border-zinc-800 mt-1">
+            <span className="font-semibold text-sm">Total</span>
+            <span className="text-[11px] font-mono tabular-nums">
+              {total != null ? total : '·'}
+            </span>
+          </div>
           <Link href="/stats" className="text-zinc-400 hover:text-foreground transition-colors mt-2" onClick={() => setMenuOpen(false)}>Stats</Link>
           <Link href="/referrals" className="text-zinc-400 hover:text-foreground transition-colors" onClick={() => setMenuOpen(false)}>Referrals</Link>
           <OnlineCounter />
