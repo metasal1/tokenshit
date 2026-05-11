@@ -66,6 +66,7 @@ export default function VoteButtons({ assetId, name, symbol }: { assetId: string
   const [loaded, setLoaded] = useState(false);
   const [dropEmoji, setDropEmoji] = useState<string | null>(null);
   const [pressing, setPressing] = useState<"hit" | "shit" | null>(null);
+  const [nextUrl, setNextUrl] = useState<string | null>(null);
 
   useEffect(() => {
     setDeviceId(getDeviceId());
@@ -124,7 +125,7 @@ export default function VoteButtons({ assetId, name, symbol }: { assetId: string
             if (d.assetId) {
               const next = `/token/${d.assetId}`;
               router.prefetch(next);
-              setTimeout(() => { sfx.whoosh(); router.push(next); }, 500);
+              setNextUrl(next);
             }
           })
           .catch(() => {});
@@ -256,20 +257,31 @@ export default function VoteButtons({ assetId, name, symbol }: { assetId: string
             {twitterUsername && <span className="text-zinc-600"> as @{twitterUsername}</span>}
           </p>
 
-          {/* Share to X */}
-          <a
-            href={tweetUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className={`flex items-center justify-center gap-2 w-full py-2 rounded-lg text-xs font-semibold transition-colors border ${
-              userVote === "hit"
-                ? "bg-green-950/40 border-green-800/60 text-green-400 hover:bg-green-900/50"
-                : "bg-red-950/40 border-red-800/60 text-red-400 hover:bg-red-900/50"
-            }`}
-          >
-            <Share2 className="w-3.5 h-3.5" />
-            Share on X
-          </a>
+          <div className="flex gap-2">
+            {/* Share to X */}
+            <a
+              href={tweetUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-semibold transition-colors border ${
+                userVote === "hit"
+                  ? "bg-green-950/40 border-green-800/60 text-green-400 hover:bg-green-900/50"
+                  : "bg-red-950/40 border-red-800/60 text-red-400 hover:bg-red-900/50"
+              }`}
+            >
+              <Share2 className="w-3.5 h-3.5" />
+              Share
+            </a>
+
+            {/* Next token */}
+            <button
+              onClick={() => { if (nextUrl) { sfx.whoosh(); router.push(nextUrl); } }}
+              disabled={!nextUrl}
+              className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-semibold border border-zinc-700 text-zinc-300 hover:text-white hover:border-zinc-500 transition-colors disabled:opacity-40 disabled:cursor-wait"
+            >
+              Next token →
+            </button>
+          </div>
 
           {/* Login nudge for anonymous voters */}
           {isAnonymous && (
@@ -279,12 +291,6 @@ export default function VoteButtons({ assetId, name, symbol }: { assetId: string
             >
               Sign in with X to save your history & climb the leaderboard →
             </button>
-          )}
-
-          {dropEmoji && (
-            <p className="text-[11px] text-zinc-600 text-center animate-pulse">
-              Loading next token...
-            </p>
           )}
         </div>
       )}
