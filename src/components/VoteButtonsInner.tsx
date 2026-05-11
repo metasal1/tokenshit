@@ -3,10 +3,10 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { usePrivy } from "@privy-io/react-auth";
-import { Target, Skull, Loader2 } from "lucide-react";
+import { Target, Skull, Loader2, Share2 } from "lucide-react";
 import { sfx } from "@/lib/sfx";
+import { getDeviceId, incrementAnonVoteCount } from "@/lib/device-id";
 
-// Inline SVG-data-URI cursors so desktop users get a target/skull pointer over the vote area.
 const HIT_CURSOR = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 24 24' fill='none' stroke='%2339ff14' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Ccircle cx='12' cy='12' r='6'/%3E%3Ccircle cx='12' cy='12' r='2'/%3E%3C/svg%3E") 14 14, crosshair`;
 const SHIT_CURSOR = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 24 24' fill='none' stroke='%23ef4444' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='9' cy='12' r='1'/%3E%3Ccircle cx='15' cy='12' r='1'/%3E%3Cpath d='M8 20v2h8v-2'/%3E%3Cpath d='M12.5 17l-.5-1-.5 1h1z'/%3E%3Cpath d='M16 20a2 2 0 0 0 1.56-3.25 8 8 0 1 0-11.12 0A2 2 0 0 0 8 20'/%3E%3C/svg%3E") 14 14, pointer`;
 
@@ -52,11 +52,12 @@ function EmojiDrop({ emoji, count = 20 }: { emoji: string; count?: number }) {
   );
 }
 
-export default function VoteButtons({ assetId }: { assetId: string }) {
-  const { ready, authenticated, user, login } = usePrivy();
+export default function VoteButtons({ assetId, name, symbol }: { assetId: string; name?: string; symbol?: string }) {
+  const { ready, user, login } = usePrivy();
   const router = useRouter();
   const twitterUsername = user?.twitter?.username;
 
+  const [deviceId, setDeviceId] = useState("");
   const [hits, setHits] = useState(0);
   const [shits, setShits] = useState(0);
   const [totalVotes, setTotalVotes] = useState(0);
@@ -66,8 +67,13 @@ export default function VoteButtons({ assetId }: { assetId: string }) {
   const [dropEmoji, setDropEmoji] = useState<string | null>(null);
 
   useEffect(() => {
-    const voterId = twitterUsername || "";
-    fetch(`/api/votes?assetId=${encodeURIComponent(assetId)}&deviceId=${encodeURIComponent(voterId)}`)
+    setDeviceId(getDeviceId());
+  }, []);
+
+  useEffect(() => {
+    const voter = twitterUsername || deviceId;
+    if (!voter) return;
+    fetch(`/api/votes?assetId=${encodeURIComponent(assetId)}&deviceId=${encodeURIComponent(voter)}`)
       .then((r) => r.json())
       .then((data) => {
         setHits(data.hits || 0);
@@ -77,14 +83,13 @@ export default function VoteButtons({ assetId }: { assetId: string }) {
       })
       .catch(() => {})
       .finally(() => setLoaded(true));
-  }, [assetId, twitterUsername]);
+  }, [assetId, twitterUsername, deviceId]);
 
   const handleVote = useCallback(async (vote: "hit" | "shit") => {
-    if (!authenticated || !twitterUsername) {
-      login();
-      return;
-    }
     if (userVote || voting) return;
+    const voter = twitterUsername || deviceId;
+    if (!voter) return;
+
     setVoting(true);
     try {
       const res = await fetch("/api/vote", {
@@ -93,7 +98,7 @@ export default function VoteButtons({ assetId }: { assetId: string }) {
         body: JSON.stringify({
           assetId,
           vote,
-          twitterUsername,
+          ...(twitterUsername ? { twitterUsername } : { deviceId }),
         }),
       });
       if (res.ok) {
@@ -105,6 +110,11 @@ export default function VoteButtons({ assetId }: { assetId: string }) {
         else sfx.shit();
         setDropEmoji(vote === "hit" ? "🎯" : "🚽");
         setTimeout(() => setDropEmoji(null), 3000);
+
+        if (!twitterUsername) {
+          incrementAnonVoteCount();
+        }
+
         const params = new URLSearchParams({ exclude: assetId });
         if (twitterUsername) params.set("username", twitterUsername);
         fetch(`/api/random-token?${params}`)
@@ -122,7 +132,7 @@ export default function VoteButtons({ assetId }: { assetId: string }) {
       }
     } catch {}
     setVoting(false);
-  }, [authenticated, twitterUsername, userVote, voting, assetId, login, router]);
+  }, [twitterUsername, deviceId, userVote, voting, assetId, router]);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -131,22 +141,26 @@ export default function VoteButtons({ assetId }: { assetId: string }) {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       if (userVote || voting) return;
       const key = e.key.toLowerCase();
-      if (key === "h") {
-        e.preventDefault();
-        handleVote("hit");
-      } else if (key === "s") {
-        e.preventDefault();
-        handleVote("shit");
-      }
+      if (key === "h") { e.preventDefault(); handleVote("hit"); }
+      else if (key === "s") { e.preventDefault(); handleVote("shit"); }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, [handleVote, userVote, voting]);
 
+  if (!ready) return null;
+
   const hasVoted = userVote !== null;
-  const needsLogin = !authenticated || !twitterUsername;
+  const isAnonymous = !twitterUsername;
 
   const [pressing, setPressing] = useState<"hit" | "shit" | null>(null);
+
+  const tokenUrl = `https://tokenshit.com/token/${assetId}`;
+  const displayName = name && symbol ? `$${symbol}` : name || assetId.slice(0, 8);
+  const tweetText = userVote
+    ? `I voted ${userVote === "hit" ? "🎯 HIT" : "💀 SHIT"} on ${displayName} on @tokenshit_\n\n${tokenUrl}`
+    : "";
+  const tweetUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(tweetText)}`;
 
   return (
     <div className="border border-zinc-800 rounded-xl bg-zinc-900/80 p-5 relative">
@@ -161,11 +175,7 @@ export default function VoteButtons({ assetId }: { assetId: string }) {
           </p>
         )}
       </div>
-      {needsLogin && (
-        <p className="text-center text-xs text-zinc-500 mb-3">
-          Sign in with X to vote (1 vote per token per day)
-        </p>
-      )}
+
       <div className="flex gap-4">
         <button
           onClick={() => handleVote("hit")}
@@ -239,14 +249,41 @@ export default function VoteButtons({ assetId }: { assetId: string }) {
           </span>
         </button>
       </div>
+
       {hasVoted && (
-        <div className="text-center mt-3">
-          <p className="text-xs text-zinc-500">
+        <div className="mt-3 space-y-2">
+          <p className="text-xs text-zinc-500 text-center">
             You voted <strong className={userVote === "hit" ? "text-green-400" : "text-red-400"}>{userVote === "hit" ? "HIT" : "SHIT"}</strong> today
             {twitterUsername && <span className="text-zinc-600"> as @{twitterUsername}</span>}
           </p>
+
+          {/* Share to X */}
+          <a
+            href={tweetUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={`flex items-center justify-center gap-2 w-full py-2 rounded-lg text-xs font-semibold transition-colors border ${
+              userVote === "hit"
+                ? "bg-green-950/40 border-green-800/60 text-green-400 hover:bg-green-900/50"
+                : "bg-red-950/40 border-red-800/60 text-red-400 hover:bg-red-900/50"
+            }`}
+          >
+            <Share2 className="w-3.5 h-3.5" />
+            Share on X
+          </a>
+
+          {/* Login nudge for anonymous voters */}
+          {isAnonymous && (
+            <button
+              onClick={() => login()}
+              className="w-full text-center text-[11px] text-zinc-500 hover:text-zinc-300 transition-colors py-1.5 rounded-lg border border-zinc-800 hover:border-zinc-600"
+            >
+              Sign in with X to save your history & climb the leaderboard →
+            </button>
+          )}
+
           {dropEmoji && (
-            <p className="text-[11px] text-zinc-600 mt-2 animate-pulse">
+            <p className="text-[11px] text-zinc-600 text-center animate-pulse">
               Loading next token...
             </p>
           )}

@@ -86,7 +86,7 @@ export default function RandomTokenVote() {
         </button>
       </div>
       <div className="p-4">
-        <VoteButtons assetId={token.assetId} />
+        <VoteButtons assetId={token.assetId} name={token.name} symbol={token.symbol} />
       </div>
     </div>
   );

@@ -17,6 +17,6 @@ const VoteButtonsInner = dynamic(() => import('./VoteButtonsInner'), {
   ),
 });
 
-export default function VoteButtons({ assetId }: { assetId: string }) {
-  return <VoteButtonsInner assetId={assetId} />;
+export default function VoteButtons({ assetId, name, symbol }: { assetId: string; name?: string; symbol?: string }) {
+  return <VoteButtonsInner assetId={assetId} name={name} symbol={symbol} />;
 }

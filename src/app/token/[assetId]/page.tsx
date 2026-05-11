@@ -160,7 +160,7 @@ export default async function TokenPage({ params }: Props) {
 
       {/* Vote */}
       <div className="mb-8">
-        <VoteButtons assetId={assetId} />
+        <VoteButtons assetId={assetId} name={name} symbol={symbol} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
