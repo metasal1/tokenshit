@@ -97,6 +97,7 @@ function Layout({ children }: { children: React.ReactNode }) {
           </div>
           <Link href="/stats" className="hover:text-foreground transition-colors">Stats</Link>
           <Link href="/referrals" className="hover:text-foreground transition-colors">Referrals</Link>
+          <a href="https://x.com/tokenshit_" target="_blank" rel="noopener noreferrer" className="hover:text-foreground transition-colors text-base leading-none">𝕏</a>
           <OnlineCounter />
           {mounted && <SoundToggle />}
           {mounted && <LoginButton />}
@@ -142,6 +143,7 @@ function Layout({ children }: { children: React.ReactNode }) {
           </div>
           <Link href="/stats" className="text-zinc-400 hover:text-foreground transition-colors mt-2" onClick={() => setMenuOpen(false)}>Stats</Link>
           <Link href="/referrals" className="text-zinc-400 hover:text-foreground transition-colors" onClick={() => setMenuOpen(false)}>Referrals</Link>
+          <a href="https://x.com/tokenshit_" target="_blank" rel="noopener noreferrer" className="text-zinc-400 hover:text-foreground transition-colors">𝕏 @tokenshit_</a>
           <OnlineCounter />
         </div>
       )}
