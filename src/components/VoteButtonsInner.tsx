@@ -65,6 +65,7 @@ export default function VoteButtons({ assetId, name, symbol }: { assetId: string
   const [voting, setVoting] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [dropEmoji, setDropEmoji] = useState<string | null>(null);
+  const [pressing, setPressing] = useState<"hit" | "shit" | null>(null);
 
   useEffect(() => {
     setDeviceId(getDeviceId());
@@ -152,8 +153,6 @@ export default function VoteButtons({ assetId, name, symbol }: { assetId: string
 
   const hasVoted = userVote !== null;
   const isAnonymous = !twitterUsername;
-
-  const [pressing, setPressing] = useState<"hit" | "shit" | null>(null);
 
   const tokenUrl = `https://tokenshit.com/token/${assetId}`;
   const displayName = name && symbol ? `$${symbol}` : name || assetId.slice(0, 8);
