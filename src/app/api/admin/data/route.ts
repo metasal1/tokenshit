@@ -3,7 +3,7 @@ import { createRemoteJWKSet, jwtVerify } from "jose";
 import { tursoBatch } from "@/lib/turso";
 
 const PRIVY_APP_ID = process.env.NEXT_PUBLIC_PRIVY_APP_ID || "";
-const ADMIN_TWITTER = "tokenshit_"; // owner account
+const ADMIN_PRIVY_ID = process.env.ADMIN_PRIVY_ID || "";
 
 export const dynamic = "force-dynamic";
 
@@ -16,14 +16,8 @@ async function verifyPrivyToken(token: string): Promise<string | null> {
       issuer: "privy.io",
       audience: PRIVY_APP_ID,
     });
-    // Privy embeds linked accounts in the token; the twitter username lives at
-    // payload.twitter?.username or we fall back to checking the sub against known IDs.
-    // The safest check is the linked-accounts claim.
-    const linked = (payload as Record<string, unknown>)["linked_accounts"] as
-      | { type: string; username?: string }[]
-      | undefined;
-    const twitterHandle = linked?.find((a) => a.type === "twitter_oauth")?.username?.toLowerCase();
-    return twitterHandle ?? null;
+    // Return the Privy user ID (sub)
+    return (payload.sub as string) ?? null;
   } catch {
     return null;
   }
@@ -34,9 +28,13 @@ export async function GET(req: NextRequest) {
   const token = auth?.startsWith("Bearer ") ? auth.slice(7) : null;
   if (!token) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
-  const twitterHandle = await verifyPrivyToken(token);
-  if (twitterHandle !== ADMIN_TWITTER) {
-    return Response.json({ error: "Forbidden" }, { status: 403 });
+  const privyId = await verifyPrivyToken(token);
+  if (!privyId) return Response.json({ error: "Unauthorized" }, { status: 401 });
+
+  const allowedIds = (ADMIN_PRIVY_ID || "").split(",").map((s) => s.trim()).filter(Boolean);
+  if (allowedIds.length > 0 && !allowedIds.includes(privyId)) {
+    // Return the id so it can be added to ADMIN_PRIVY_ID env var
+    return Response.json({ error: "Forbidden", yourPrivyId: privyId }, { status: 403 });
   }
 
   const results = await tursoBatch([
