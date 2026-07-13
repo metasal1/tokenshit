@@ -30,6 +30,13 @@ export const metadata: Metadata = {
   title: "TOKENSHIT — Every token is shit until proven otherwise",
   description:
     "Solana token explorer with attitude. Search tokens, check risk scores, and find out which ones are certified $HIT.",
+  alternates: {
+    canonical: "/",
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
 };
 
 export default function RootLayout({
@@ -45,7 +52,7 @@ export default function RootLayout({
     >
       <head>
         <Script
-          src="https://www.googletagmanager.com/gtag/js?id=G-R0H3LP9LHZ"
+          src="https://www.googletagmanager.com/gtag/js?id=G-XTVEWC915F"
           strategy="afterInteractive"
         />
         <Script id="google-analytics" strategy="afterInteractive">
@@ -53,7 +60,7 @@ export default function RootLayout({
             window.dataLayer = window.dataLayer || [];
             function gtag(){dataLayer.push(arguments);}
             gtag('js', new Date());
-            gtag('config', 'G-R0H3LP9LHZ');
+            gtag('config', 'G-XTVEWC915F');
           `}
         </Script>
       </head>
