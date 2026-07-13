@@ -30,6 +30,13 @@ export const metadata: Metadata = {
   title: "TOKENSHIT — Every token is shit until proven otherwise",
   description:
     "Solana token explorer with attitude. Search tokens, check risk scores, and find out which ones are certified $HIT.",
+  alternates: {
+    canonical: "/",
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
 };
 
 export default function RootLayout({
