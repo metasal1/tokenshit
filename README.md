@@ -24,7 +24,7 @@ A Solana token explorer with attitude. Search tokens, check risk scores, and fin
 - **Backend:** Cloudflare Workers + Turso Database
 - **APIs:** [Tokens.xyz API](https://tokens.xyz) for token data
 - **Hosting:** Cloudflare Workers
-- **Analytics:** Google Analytics (G-R0H3LP9LHZ)
+- **Analytics:** Google Analytics (G-XTVEWC915F)
 
 ## Deployment
 
