@@ -1,56 +1,348 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import dynamic from 'next/dynamic';
+import { useEffect, useState, useCallback } from 'react';
+import { PrivyProvider, usePrivy } from '@privy-io/react-auth';
+import { toSolanaWalletConnectors } from '@privy-io/react-auth/solana';
 import Link from 'next/link';
 import AnimatedLogo from '@/components/AnimatedLogo';
 import OnlineCounter from '@/components/OnlineCounter';
 import PageTransition from '@/components/PageTransition';
-import PrivyShell from '@/components/PrivyShell';
-import { ChevronDown, Menu, X } from 'lucide-react';
-import { CATEGORIES } from '@/lib/categories';
+import { CanvasShell, CanvasHeaderFx } from '@/components/CanvasShell';
 
-const LoginButton = dynamic(() => import('./AuthUI').then(m => ({ default: m.LoginButton })), {
-  ssr: false,
-});
-const ReferralTracker = dynamic(() => import('./AuthUI').then(m => ({ default: m.ReferralTracker })), {
-  ssr: false,
-});
-const EmailSignupModal = dynamic(() => import('./EmailSignupModal'), {
-  ssr: false,
-});
-const ShortcutsModal = dynamic(() => import('./ShortcutsModal'), {
-  ssr: false,
-});
-const SoundToggle = dynamic(() => import('./SoundToggle'), {
-  ssr: false,
-});
-const LoginChime = dynamic(() => import('./LoginChime'), {
-  ssr: false,
-});
-const ReferralToast = dynamic(() => import('./ReferralToast'), {
-  ssr: false,
-});
+interface TokenBalance {
+  mint: string;
+  symbol: string;
+  name: string;
+  amount: number;
+  decimals: number;
+  uiAmount: string;
+  logoURI?: string;
+}
+
+interface UserVote {
+  assetId: string;
+  vote: string;
+  date: string;
+}
+
+function WalletPanel({ address, twitterUsername, onClose, children }: { address: string; twitterUsername?: string; onClose: () => void; children?: React.ReactNode }) {
+  const [balance, setBalance] = useState<string | null>(null);
+  const [tokens, setTokens] = useState<TokenBalance[]>([]);
+  const [loadingTokens, setLoadingTokens] = useState(true);
+  const [userVotes, setUserVotes] = useState<UserVote[]>([]);
+  const [totalUserVotes, setTotalUserVotes] = useState(0);
+  const [loadingVotes, setLoadingVotes] = useState(true);
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    // SOL balance
+    fetch('https://viviyan-bkj12u-fast-mainnet.helius-rpc.com', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        jsonrpc: '2.0', id: 1, method: 'getBalance', params: [address],
+      }),
+    })
+      .then(r => r.json())
+      .then(d => setBalance((d.result?.value / 1e9).toFixed(4)))
+      .catch(() => setBalance('Error'));
+
+    // Token balances via Helius DAS
+    fetch('https://viviyan-bkj12u-fast-mainnet.helius-rpc.com', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        jsonrpc: '2.0', id: 2, method: 'getAssetsByOwner',
+        params: { ownerAddress: address, displayOptions: { showFungible: true, showNativeBalance: false } },
+      }),
+    })
+      .then(r => r.json())
+      .then(d => {
+        const items = d.result?.items || [];
+        const fungible: TokenBalance[] = items
+          .filter((item: any) => item.interface === 'FungibleToken' || item.interface === 'FungibleAsset')
+          .map((item: any) => {
+            const info = item.token_info || {};
+            const decimals = info.decimals || 0;
+            const rawAmount = info.balance || 0;
+            const uiAmount = (rawAmount / Math.pow(10, decimals));
+            return {
+              mint: item.id,
+              symbol: info.symbol || item.content?.metadata?.symbol || '???',
+              name: item.content?.metadata?.name || info.symbol || 'Unknown',
+              amount: rawAmount,
+              decimals,
+              uiAmount: uiAmount > 1 ? uiAmount.toLocaleString(undefined, { maximumFractionDigits: 2 }) : uiAmount.toFixed(Math.min(decimals, 6)),
+              logoURI: item.content?.links?.image || item.content?.files?.[0]?.uri,
+            };
+          })
+          .filter((t: TokenBalance) => t.amount > 0)
+          .sort((a: TokenBalance, b: TokenBalance) => b.amount - a.amount);
+        setTokens(fungible);
+      })
+      .catch(() => {})
+      .finally(() => setLoadingTokens(false));
+
+    // User vote history
+    if (twitterUsername) {
+      fetch(`/api/user-votes?username=${encodeURIComponent(twitterUsername)}`)
+        .then(r => r.json())
+        .then(d => {
+          setUserVotes(d.votes || []);
+          setTotalUserVotes(d.total || 0);
+        })
+        .catch(() => {})
+        .finally(() => setLoadingVotes(false));
+    } else {
+      setLoadingVotes(false);
+    }
+  }, [address, twitterUsername]);
+
+  const copyAddress = useCallback(() => {
+    navigator.clipboard.writeText(address);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }, [address]);
+
+  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(address)}&bgcolor=18181b&color=ffffff`;
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-start justify-center pt-16 sm:pt-24 bg-black/60 backdrop-blur-sm" onClick={onClose}>
+      <div
+        className="bg-zinc-900 border border-zinc-700 rounded-xl p-5 max-w-sm w-full mx-4 shadow-2xl max-h-[80vh] overflow-y-auto"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="flex justify-between items-center mb-3">
+          <h3 className="text-white font-semibold text-lg">Your Wallet</h3>
+          <button onClick={onClose} className="text-zinc-400 hover:text-white text-xl">&times;</button>
+        </div>
+
+        {/* QR + Address row */}
+        <div className="flex gap-3 items-start mb-4">
+          <img src={qrUrl} alt="Wallet QR" className="rounded-lg shrink-0" width={100} height={100} />
+          <div className="flex-1 min-w-0">
+            <p className="text-xs text-zinc-500 mb-1">Solana Address</p>
+            <button
+              onClick={copyAddress}
+              className="w-full text-left text-[10px] text-zinc-300 bg-zinc-800 rounded-md px-2 py-1.5 font-mono break-all hover:bg-zinc-700 transition-colors leading-tight"
+            >
+              {address}
+              <span className="ml-1 text-zinc-500">{copied ? '✓' : '📋'}</span>
+            </button>
+            <div className="mt-2">
+              <p className="text-xs text-zinc-500">SOL Balance</p>
+              <p className="text-xl font-bold text-white">
+                {balance === null ? '...' : `◎ ${balance}`}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Token Balances */}
+        <div>
+          <p className="text-xs text-zinc-500 mb-2 font-medium">Token Balances</p>
+          {loadingTokens ? (
+            <p className="text-xs text-zinc-600 text-center py-3">Loading tokens...</p>
+          ) : tokens.length === 0 ? (
+            <p className="text-xs text-zinc-600 text-center py-3">No tokens found</p>
+          ) : (
+            <div className="space-y-1.5 max-h-[200px] overflow-y-auto">
+              {tokens.map(t => (
+                <div key={t.mint} className="flex items-center gap-2 bg-zinc-800/50 rounded-lg px-3 py-2">
+                  {t.logoURI ? (
+                    <img src={t.logoURI} alt="" className="w-6 h-6 rounded-full shrink-0" onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                  ) : (
+                    <div className="w-6 h-6 rounded-full bg-zinc-700 shrink-0 flex items-center justify-center text-[8px] text-zinc-400">{t.symbol[0]}</div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs text-white font-medium truncate">{t.symbol}</p>
+                    <p className="text-[10px] text-zinc-500 truncate">{t.name}</p>
+                  </div>
+                  <p className="text-xs text-zinc-300 font-mono shrink-0">{t.uiAmount}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Vote History */}
+        {twitterUsername && (
+          <div className="mt-4 pt-4 border-t border-zinc-800">
+            <p className="text-xs text-zinc-500 mb-2 font-medium">
+              Your Votes {totalUserVotes > 0 && <span className="text-zinc-600">({totalUserVotes} total)</span>}
+            </p>
+            {loadingVotes ? (
+              <p className="text-xs text-zinc-600 text-center py-3">Loading votes...</p>
+            ) : userVotes.length === 0 ? (
+              <p className="text-xs text-zinc-600 text-center py-3">No votes yet</p>
+            ) : (
+              <div className="space-y-1.5 max-h-[150px] overflow-y-auto">
+                {userVotes.map((v, i) => (
+                  <a
+                    key={i}
+                    href={`/token/${v.assetId}`}
+                    className="flex items-center gap-2 bg-zinc-800/50 rounded-lg px-3 py-2 hover:bg-zinc-700/50 transition-colors"
+                  >
+                    <span className="text-base">{v.vote === 'hit' ? '🎯' : '💩'}</span>
+                    <span className="text-xs text-zinc-300 font-mono truncate flex-1">{v.assetId.slice(0, 8)}...{v.assetId.slice(-4)}</span>
+                    <span className="text-[10px] text-zinc-600 shrink-0">{v.date}</span>
+                  </a>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function ReferralTracker() {
+  const { authenticated, user } = usePrivy();
+
+  useEffect(() => {
+    // Capture ref param on load
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const ref = params.get('ref');
+      if (ref) {
+        localStorage.setItem('tokenshit_referrer', ref.toLowerCase());
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!authenticated || !user) return;
+    const referrer = localStorage.getItem('tokenshit_referrer');
+    if (!referrer) return;
+
+    const twitterUsername = user.twitter?.username?.toLowerCase();
+    if (!twitterUsername) return;
+    if (referrer === twitterUsername) {
+      localStorage.removeItem('tokenshit_referrer');
+      return;
+    }
+
+    fetch('/api/referral/track', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        referrerTwitter: referrer,
+        referredTwitter: twitterUsername,
+        referredWallet: user.wallet?.address || null,
+      }),
+    })
+      .then(() => localStorage.removeItem('tokenshit_referrer'))
+      .catch(() => {});
+  }, [authenticated, user]);
+
+  return null;
+}
+
+function ReferralButton({ twitterUsername }: { twitterUsername?: string }) {
+  const [copied, setCopied] = useState(false);
+  const [count, setCount] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!twitterUsername) return;
+    fetch(`/api/referral/stats?username=${encodeURIComponent(twitterUsername)}`)
+      .then(r => r.json())
+      .then(d => setCount(d.totalReferrals ?? 0))
+      .catch(() => {});
+  }, [twitterUsername]);
+
+  if (!twitterUsername) return null;
+
+  const link = `https://tokenshit.com/?ref=${twitterUsername}`;
+  const copy = () => {
+    navigator.clipboard.writeText(link);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <div className="mt-4 pt-4 border-t border-zinc-800">
+      <button
+        onClick={copy}
+        className="w-full text-left text-xs bg-zinc-800 hover:bg-zinc-700 rounded-lg px-3 py-2.5 transition-colors"
+      >
+        <span className="text-white font-medium">{copied ? '✓ Link Copied!' : 'Share & Earn 💩'}</span>
+        {count !== null && count > 0 && (
+          <span className="block text-[10px] text-zinc-500 mt-0.5">You&apos;ve referred {count} degen{count !== 1 ? 's' : ''}</span>
+        )}
+      </button>
+    </div>
+  );
+}
+
+function LoginButton() {
+  const { ready, authenticated, user, login, logout } = usePrivy();
+  const [showWallet, setShowWallet] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
+
+  if (!ready) return null;
+
+  if (authenticated && user) {
+    const twitterHandle = user.twitter?.username;
+    const walletAddress = user.wallet?.address;
+    const displayLabel = twitterHandle ? `@${twitterHandle}` : 'Connected';
+
+    return (
+      <div className="relative">
+        <button
+          onClick={() => setShowMenu(!showMenu)}
+          className="text-xs px-3 py-1.5 rounded-md border border-zinc-700 text-zinc-300 hover:text-white hover:border-zinc-500 transition-colors"
+        >
+          {displayLabel}
+        </button>
+
+        {showMenu && (
+          <div className="absolute right-0 top-full mt-1 bg-zinc-900 border border-zinc-700 rounded-lg shadow-xl z-50 min-w-[140px]">
+            {walletAddress && (
+              <button
+                onClick={() => { setShowWallet(true); setShowMenu(false); }}
+                className="w-full text-left text-xs px-4 py-2.5 text-zinc-300 hover:bg-zinc-800 hover:text-white transition-colors rounded-t-lg"
+              >
+                💰 Wallet
+              </button>
+            )}
+            <button
+              onClick={() => { logout(); setShowMenu(false); }}
+              className="w-full text-left text-xs px-4 py-2.5 text-zinc-300 hover:bg-zinc-800 hover:text-white transition-colors rounded-b-lg"
+            >
+              🚪 Log out
+            </button>
+          </div>
+        )}
+
+        {showWallet && walletAddress && (
+          <WalletPanel address={walletAddress} twitterUsername={twitterHandle || undefined} onClose={() => setShowWallet(false)}>
+            <ReferralButton twitterUsername={twitterHandle || undefined} />
+          </WalletPanel>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <button
+      onClick={() => login()}
+      className="text-xs px-3 py-1.5 rounded-md border border-zinc-700 text-zinc-300 hover:text-white hover:border-zinc-500 transition-colors"
+    >
+      Log in
+    </button>
+  );
+}
 
 function Layout({ children }: { children: React.ReactNode }) {
   const [mounted, setMounted] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [categoryOpen, setCategoryOpen] = useState(false);
-  const [counts, setCounts] = useState<Record<string, number>>({});
-  const [total, setTotal] = useState<number | null>(null);
   useEffect(() => setMounted(true), []);
-  useEffect(() => {
-    if (!mounted) return;
-    fetch('/api/category-counts')
-      .then((r) => r.json())
-      .then((d) => {
-        setCounts(d?.counts || {});
-        setTotal(typeof d?.total === 'number' ? d.total : null);
-      })
-      .catch(() => {});
-  }, [mounted]);
 
   const nav = (
+    <CanvasHeaderFx>
     <nav className="sticky top-0 z-50 border-b border-border bg-background/80 backdrop-blur-xl">
       <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3">
         <Link href="/" className="flex items-center group shrink-0">
@@ -60,59 +352,34 @@ function Layout({ children }: { children: React.ReactNode }) {
         {/* Desktop nav */}
         <div className="hidden sm:flex items-center gap-4 text-sm text-zinc-400">
           <Link href="/" className="hover:text-foreground transition-colors">Home</Link>
-          <div className="relative" onMouseLeave={() => setCategoryOpen(false)}>
-            <button
-              onClick={() => setCategoryOpen((v) => !v)}
-              onMouseEnter={() => setCategoryOpen(true)}
-              className="hover:text-foreground transition-colors flex items-center gap-1"
-            >
-              Category
-              <ChevronDown className="w-3 h-3" strokeWidth={2.5} />
-            </button>
-            {categoryOpen && (
-              <div className="absolute left-0 top-full pt-1.5 z-50 min-w-[200px]">
-                <div className="bg-zinc-900 border border-zinc-700 rounded-lg shadow-xl overflow-hidden">
-                  {CATEGORIES.map((c) => (
-                    <Link
-                      key={c.key}
-                      href={`/c/${c.key}`}
-                      className="flex items-center justify-between gap-3 px-3 py-2 text-sm text-zinc-300 hover:bg-zinc-800 hover:text-white transition-colors"
-                      onClick={() => setCategoryOpen(false)}
-                    >
-                      <span>{c.label}</span>
-                      <span className="text-[11px] font-mono text-zinc-500 tabular-nums">
-                        {counts[c.key] != null ? counts[c.key] : '·'}
-                      </span>
-                    </Link>
-                  ))}
-                  <div className="flex items-center justify-between gap-3 px-3 py-2 text-sm text-neon border-t border-zinc-800 bg-neon/5">
-                    <span className="font-semibold">Total</span>
-                    <span className="text-[11px] font-mono tabular-nums">
-                      {total != null ? total : '·'}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
           <Link href="/stats" className="hover:text-foreground transition-colors">Stats</Link>
           <Link href="/referrals" className="hover:text-foreground transition-colors">Referrals</Link>
-          <a href="https://x.com/tokenshit_" target="_blank" rel="noopener noreferrer" className="hover:text-foreground transition-colors text-base leading-none">𝕏</a>
           <OnlineCounter />
-          {mounted && <SoundToggle />}
           {mounted && <LoginButton />}
         </div>
 
         {/* Mobile nav */}
         <div className="flex sm:hidden items-center gap-2">
-          {mounted && <SoundToggle />}
           {mounted && <LoginButton />}
           <button
             onClick={() => setMenuOpen(!menuOpen)}
             className="p-2 text-zinc-400 hover:text-white transition-colors"
-            aria-label={menuOpen ? 'Close menu' : 'Open menu'}
+            aria-label="Menu"
           >
-            {menuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              {menuOpen ? (
+                <>
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </>
+              ) : (
+                <>
+                  <line x1="3" y1="6" x2="21" y2="6" />
+                  <line x1="3" y1="12" x2="21" y2="12" />
+                  <line x1="3" y1="18" x2="21" y2="18" />
+                </>
+              )}
+            </svg>
           </button>
         </div>
       </div>
@@ -121,72 +388,64 @@ function Layout({ children }: { children: React.ReactNode }) {
       {menuOpen && (
         <div className="sm:hidden border-t border-border bg-background/95 backdrop-blur-xl px-4 py-3 flex flex-col gap-3 text-sm">
           <Link href="/" className="text-zinc-400 hover:text-foreground transition-colors" onClick={() => setMenuOpen(false)}>Home</Link>
-          <p className="text-[10px] uppercase tracking-wider text-zinc-600 mt-2 font-semibold">Category</p>
-          {CATEGORIES.map((c) => (
-            <Link
-              key={c.key}
-              href={`/c/${c.key}`}
-              className="flex items-center justify-between text-zinc-400 hover:text-foreground transition-colors pl-2 pr-1"
-              onClick={() => setMenuOpen(false)}
-            >
-              <span>{c.label}</span>
-              <span className="text-[11px] font-mono text-zinc-600 tabular-nums">
-                {counts[c.key] != null ? counts[c.key] : '·'}
-              </span>
-            </Link>
-          ))}
-          <div className="flex items-center justify-between text-neon pl-2 pr-1 pt-1 border-t border-zinc-800 mt-1">
-            <span className="font-semibold text-sm">Total</span>
-            <span className="text-[11px] font-mono tabular-nums">
-              {total != null ? total : '·'}
-            </span>
-          </div>
-          <Link href="/stats" className="text-zinc-400 hover:text-foreground transition-colors mt-2" onClick={() => setMenuOpen(false)}>Stats</Link>
+          <Link href="/stats" className="text-zinc-400 hover:text-foreground transition-colors" onClick={() => setMenuOpen(false)}>Stats</Link>
           <Link href="/referrals" className="text-zinc-400 hover:text-foreground transition-colors" onClick={() => setMenuOpen(false)}>Referrals</Link>
-          <a href="https://x.com/tokenshit_" target="_blank" rel="noopener noreferrer" className="text-zinc-400 hover:text-foreground transition-colors">𝕏 @tokenshit_</a>
           <OnlineCounter />
         </div>
       )}
     </nav>
+    </CanvasHeaderFx>
   );
 
   return (
-    <>
+    <CanvasShell>
       {nav}
       <ReferralTracker />
-      {mounted && <LoginChime />}
-      {mounted && <ReferralToast />}
-      {mounted && <EmailSignupModal />}
-      {mounted && <ShortcutsModal />}
       <main className="flex-1"><PageTransition>{children}</PageTransition></main>
       <footer className="border-t border-border py-6 text-center text-sm text-zinc-500">
-        <p>TOKENSHIT — Every token is shit until proven otherwise.</p>
-        <p className="mt-1 text-zinc-600">
-          Data powered by{' '}
+        <p>TokenShit — Every token is shit until proven otherwise.</p>
+        <p className="mt-2 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-zinc-600">
           <a href="https://tokens.xyz" className="text-neon-blue hover:underline" target="_blank" rel="noopener noreferrer">
-            Tokens.xyz
+            Powered by Tokens.xyz
           </a>
-          {' · '}
-          <a href="https://x.com/tokenshit_" className="text-neon-blue hover:underline" target="_blank" rel="noopener noreferrer">
-            𝕏
+          <span className="text-zinc-700">·</span>
+          <a href="https://github.com/solana-foundation/tokens" className="text-zinc-500 hover:text-zinc-300 transition-colors" target="_blank" rel="noopener noreferrer">
+            SF registry
           </a>
-          {' · '}
-          <button
-            onClick={() => window.dispatchEvent(new CustomEvent('tokenshit:show-shortcuts'))}
-            className="text-zinc-500 hover:text-zinc-300 underline-offset-2 hover:underline"
-          >
-            shortcuts
-          </button>
+          <span className="text-zinc-700">·</span>
+          <a href="https://memes.sal.fun" className="text-zinc-500 hover:text-zinc-300 transition-colors" target="_blank" rel="noopener noreferrer">
+            memes.sal.fun
+          </a>
         </p>
       </footer>
-    </>
+    </CanvasShell>
   );
 }
 
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
+  const appId = process.env.NEXT_PUBLIC_PRIVY_APP_ID || '';
+
   return (
-    <PrivyShell>
+    <PrivyProvider
+      appId={appId}
+      config={{
+        loginMethods: ['twitter'],
+        appearance: {
+          theme: 'dark',
+        },
+        embeddedWallets: {
+          solana: {
+            createOnLogin: 'all-users',
+          },
+        },
+        externalWallets: {
+          solana: {
+            connectors: toSolanaWalletConnectors(),
+          },
+        },
+      }}
+    >
       <Layout>{children}</Layout>
-    </PrivyShell>
+    </PrivyProvider>
   );
 }
