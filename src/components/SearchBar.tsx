@@ -3,13 +3,14 @@
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Search } from "lucide-react";
+import { isSolanaMint } from "@/lib/lists";
 
 interface Result {
   assetId: string;
   name: string;
   symbol: string;
   logo?: string;
+  mint?: string;
 }
 
 export default function SearchBar({ big = false }: { big?: boolean }) {
@@ -17,9 +18,9 @@ export default function SearchBar({ big = false }: { big?: boolean }) {
   const [results, setResults] = useState<Result[]>([]);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [hint, setHint] = useState("");
   const router = useRouter();
   const ref = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   useEffect(() => {
@@ -30,25 +31,9 @@ export default function SearchBar({ big = false }: { big?: boolean }) {
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
 
-  useEffect(() => {
-    function handleKey(e: KeyboardEvent) {
-      const target = e.target as HTMLElement | null;
-      if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)) return;
-      if (e.metaKey || e.ctrlKey || e.altKey) return;
-      if (e.key === "/") {
-        e.preventDefault();
-        inputRef.current?.focus();
-      } else if (e.key === "Escape" && document.activeElement === inputRef.current) {
-        inputRef.current?.blur();
-        setOpen(false);
-      }
-    }
-    window.addEventListener("keydown", handleKey);
-    return () => window.removeEventListener("keydown", handleKey);
-  }, []);
-
   function search(q: string) {
     setQuery(q);
+    setHint("");
     if (timerRef.current) clearTimeout(timerRef.current);
     if (!q.trim()) {
       setResults([]);
@@ -58,9 +43,44 @@ export default function SearchBar({ big = false }: { big?: boolean }) {
     timerRef.current = setTimeout(async () => {
       setLoading(true);
       try {
-        const res = await fetch(`/api/search?q=${encodeURIComponent(q)}&limit=8`);
+        const trimmed = q.trim();
+        // Mint paste → resolve
+        if (isSolanaMint(trimmed)) {
+          const res = await fetch(
+            `/api/resolve?mint=${encodeURIComponent(trimmed)}`
+          );
+          const data = await res.json();
+          const assetId = data.assetId || data.asset?.assetId;
+          if (assetId) {
+            const a = data.asset || data;
+            setResults([
+              {
+                assetId,
+                name: a.name || assetId,
+                symbol: a.symbol || "",
+                logo: a.imageUrl || a.logo,
+                mint: trimmed,
+              },
+            ]);
+            setHint("Resolved mint → canonical asset");
+            setOpen(true);
+            setLoading(false);
+            return;
+          }
+          setHint("Mint not in Tokens registry");
+          setResults([]);
+          setOpen(false);
+          setLoading(false);
+          return;
+        }
+
+        const res = await fetch(
+          `/api/search?q=${encodeURIComponent(trimmed)}&limit=8`
+        );
         const data = await res.json();
-        const items = Array.isArray(data) ? data : data.results || data.assets || [];
+        const items = Array.isArray(data)
+          ? data
+          : data.results || data.assets || [];
         setResults(items.slice(0, 8));
         setOpen(items.length > 0);
       } catch {
@@ -68,15 +88,27 @@ export default function SearchBar({ big = false }: { big?: boolean }) {
       } finally {
         setLoading(false);
       }
-    }, 300);
+    }, 280);
   }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (query.trim()) {
-      setOpen(false);
-      router.push(`/search?q=${encodeURIComponent(query.trim())}`);
+    const trimmed = query.trim();
+    if (!trimmed) return;
+    setOpen(false);
+    if (isSolanaMint(trimmed)) {
+      // go via resolve path on token if first result
+      if (results[0]?.assetId) {
+        const mintQ = results[0].mint
+          ? `?mint=${encodeURIComponent(results[0].mint)}`
+          : "";
+        router.push(`/token/${results[0].assetId}${mintQ}`);
+        return;
+      }
+      router.push(`/search?q=${encodeURIComponent(trimmed)}`);
+      return;
     }
+    router.push(`/search?q=${encodeURIComponent(trimmed)}`);
   }
 
   return (
@@ -84,25 +116,16 @@ export default function SearchBar({ big = false }: { big?: boolean }) {
       <form onSubmit={handleSubmit}>
         <div className="relative">
           <input
-            ref={inputRef}
             type="text"
             value={query}
             onChange={(e) => search(e.target.value)}
             onFocus={() => results.length > 0 && setOpen(true)}
-            placeholder="Search tokens, contracts, symbols..."
+            placeholder="Search name, symbol, or paste a mint…"
             className={`w-full rounded-xl border border-border bg-card text-foreground placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-neon/50 focus:border-neon transition-all ${
-              big ? "px-6 py-4 text-lg pr-20" : "px-4 py-2.5 text-sm pr-16"
+              big ? "px-6 py-4 text-lg" : "px-4 py-2.5 text-sm"
             }`}
           />
           <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
-            {!query && (
-              <kbd
-                aria-hidden="true"
-                className="hidden sm:inline-block px-1.5 py-0.5 text-[10px] font-mono text-zinc-500 border border-zinc-700 rounded bg-zinc-900/60"
-              >
-                /
-              </kbd>
-            )}
             {loading && (
               <div className="h-4 w-4 animate-spin rounded-full border-2 border-zinc-600 border-t-neon" />
             )}
@@ -111,17 +134,37 @@ export default function SearchBar({ big = false }: { big?: boolean }) {
               className="text-zinc-500 hover:text-neon transition-colors"
               aria-label="Search"
             >
-              <Search className={big ? "h-6 w-6" : "h-4 w-4"} strokeWidth={2} />
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className={big ? "h-6 w-6" : "h-4 w-4"}
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                />
+              </svg>
             </button>
           </div>
         </div>
       </form>
+      {hint && (
+        <p className="mt-1.5 text-[11px] text-zinc-500 text-left px-1">{hint}</p>
+      )}
       {open && results.length > 0 && (
         <div className="absolute top-full left-0 right-0 mt-2 rounded-xl border border-border bg-card shadow-2xl shadow-black/50 overflow-hidden z-50">
           {results.map((r) => (
             <Link
-              key={r.assetId}
-              href={`/token/${r.assetId}`}
+              key={`${r.assetId}-${r.mint || ""}`}
+              href={
+                r.mint
+                  ? `/token/${r.assetId}?mint=${encodeURIComponent(r.mint)}`
+                  : `/token/${r.assetId}`
+              }
               onClick={() => setOpen(false)}
               className="flex items-center gap-3 px-4 py-3 hover:bg-card-hover transition-colors border-b border-border last:border-0"
             >
@@ -138,7 +181,14 @@ export default function SearchBar({ big = false }: { big?: boolean }) {
               )}
               <div>
                 <div className="font-medium text-foreground">{r.name}</div>
-                <div className="text-xs text-zinc-500">{r.symbol}</div>
+                <div className="text-xs text-zinc-500">
+                  {r.symbol}
+                  {r.mint ? (
+                    <span className="ml-2 font-mono text-zinc-600">
+                      mint {r.mint.slice(0, 4)}…
+                    </span>
+                  ) : null}
+                </div>
               </div>
             </Link>
           ))}

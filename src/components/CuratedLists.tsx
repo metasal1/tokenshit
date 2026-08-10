@@ -2,16 +2,7 @@
 
 import { useState, useEffect } from "react";
 import TokenCard from "./TokenCard";
-
-const LISTS = [
-  { key: "majors", label: "Majors" },
-  { key: "lsts", label: "LSTs" },
-  { key: "currencies", label: "Currencies" },
-  { key: "rwas", label: "RWAs" },
-  { key: "stocks", label: "Stocks" },
-  { key: "metals", label: "Metals" },
-  { key: "etfs", label: "ETFs" },
-];
+import { CURATED_LISTS } from "@/lib/lists";
 
 interface AssetItem {
   assetId: string;
@@ -22,23 +13,26 @@ interface AssetItem {
   priceChange24h?: number;
   marketCap?: number;
   volume24h?: number;
-  mints?: string[];
-  variants?: Array<{ mint?: string }>;
+  mint?: string;
+  isVariant?: boolean;
 }
 
 export default function CuratedLists({
   initialAssets,
+  initialList = "majors",
 }: {
   initialAssets?: AssetItem[];
+  initialList?: string;
 }) {
-  const [active, setActive] = useState("majors");
+  const [active, setActive] = useState(initialList);
   const [assets, setAssets] = useState<AssetItem[]>(initialAssets ?? []);
   const [loading, setLoading] = useState(!initialAssets);
+  const [count, setCount] = useState(initialAssets?.length ?? 0);
 
   useEffect(() => {
-    // Skip fetch for initial "majors" tab if we already have server data
-    if (active === "majors" && initialAssets) {
+    if (active === initialList && initialAssets && initialAssets.length > 0) {
       setAssets(initialAssets);
+      setCount(initialAssets.length);
       setLoading(false);
       return;
     }
@@ -56,25 +50,29 @@ export default function CuratedLists({
 
         if (cancelled) return;
 
-        // Map API shape to our AssetItem shape
         const items: AssetItem[] = raw.map((a) => ({
           assetId: a.assetId,
           name: a.name,
           symbol: a.symbol,
-          logo: a.imageUrl || a.primaryVariant?.market?.logoURI || a.logo || undefined,
+          logo: a.imageUrl || a.logo || a.primaryVariant?.market?.logoURI || undefined,
           price: a.stats?.price ?? a.price ?? undefined,
-          priceChange24h: a.stats?.priceChange24hPercent ?? a.priceChange24h ?? undefined,
+          priceChange24h:
+            a.stats?.priceChange24hPercent ?? a.priceChange24h ?? undefined,
           marketCap: a.stats?.marketCap ?? a.marketCap ?? undefined,
           volume24h: a.stats?.volume24hUSD ?? a.volume24h ?? undefined,
+          mint: a.mint,
+          isVariant: a.isVariant,
         }));
 
         if (!cancelled) {
           setAssets(items);
+          setCount(data.count ?? items.length);
           setLoading(false);
         }
       } catch {
         if (!cancelled) {
           setAssets([]);
+          setCount(0);
           setLoading(false);
         }
       }
@@ -82,12 +80,12 @@ export default function CuratedLists({
     return () => {
       cancelled = true;
     };
-  }, [active, initialAssets]);
+  }, [active, initialAssets, initialList]);
 
   return (
     <section>
-      <div className="flex items-center gap-2 overflow-x-auto pb-2 mb-6 scrollbar-none">
-        {LISTS.map((l) => (
+      <div className="flex items-center gap-2 overflow-x-auto pb-2 mb-2 scrollbar-none">
+        {CURATED_LISTS.map((l) => (
           <button
             key={l.key}
             onClick={() => setActive(l.key)}
@@ -101,6 +99,12 @@ export default function CuratedLists({
           </button>
         ))}
       </div>
+      {!loading && (
+        <p className="text-xs text-zinc-600 mb-4">
+          {count} asset{count === 1 ? "" : "s"}
+          {active === "lsts" ? " · expanded from Foundation LST registry" : ""}
+        </p>
+      )}
       {loading ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {Array.from({ length: 8 }).map((_, i) => (
@@ -126,9 +130,9 @@ export default function CuratedLists({
         </p>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {assets.map((a) => (
+          {assets.map((a, i) => (
             <TokenCard
-              key={a.assetId}
+              key={`${a.assetId}-${a.mint || a.symbol}-${i}`}
               assetId={a.assetId}
               name={a.name}
               symbol={a.symbol}
@@ -137,6 +141,8 @@ export default function CuratedLists({
               priceChange24h={a.priceChange24h}
               marketCap={a.marketCap}
               volume24h={a.volume24h}
+              mint={a.mint}
+              isVariant={a.isVariant}
             />
           ))}
         </div>

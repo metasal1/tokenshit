@@ -1,14 +1,15 @@
 import { type NextRequest } from "next/server";
-import { apiFetch } from "@/lib/api";
+import { fetchCuratedList } from "@/lib/curatedAssets";
 
 export async function GET(request: NextRequest) {
   const list = request.nextUrl.searchParams.get("list") || "majors";
-  const groupBy = request.nextUrl.searchParams.get("groupBy") || "asset";
   try {
-    const data = await apiFetch(
-      `/assets/curated?list=${encodeURIComponent(list)}&groupBy=${groupBy}`
-    );
-    return Response.json(data);
+    const assets = await fetchCuratedList(list);
+    return Response.json({
+      listId: list,
+      assets,
+      count: assets.length,
+    });
   } catch (e) {
     return Response.json({ error: String(e) }, { status: 500 });
   }

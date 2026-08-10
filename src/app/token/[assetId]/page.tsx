@@ -1,12 +1,16 @@
 import type { Metadata } from "next";
 import { apiFetch } from "@/lib/api";
-import { formatPrice, formatLargeNumber, formatPercent, percentColor, riskColor, riskBg, hitScoreRoast, hitScoreIcon } from "@/lib/format";
+import { formatPrice, formatLargeNumber, formatPercent, percentColor, riskColor, riskBg, hitScoreRoast, hitScoreEmoji } from "@/lib/format";
 import VoteButtons from "@/components/VoteButtons";
 import TokenPageWrapper from "@/components/TokenPageWrapper";
 import CollapsibleSection from "@/components/CollapsibleSection";
+import TokenNews from "@/components/TokenNews";
+import { isSolanaMint } from "@/lib/lists";
+import { redirect } from "next/navigation";
 
 interface Props {
   params: Promise<{ assetId: string }>;
+  searchParams: Promise<{ mint?: string }>;
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -16,16 +20,35 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     const name = data?.asset?.name || data?.name || assetId;
     const symbol = data?.asset?.symbol || data?.symbol || "";
     return {
-      title: `${name} (${symbol}) — TOKENSHIT`,
+      title: `${name} (${symbol}) — TokenShit`,
       description: `Check the shit score for ${name}. Price, risk, markets, and more.`,
     };
   } catch {
-    return { title: `Token — TOKENSHIT` };
+    return { title: `Token — TokenShit` };
   }
 }
 
-export default async function TokenPage({ params }: Props) {
-  const { assetId } = await params;
+export default async function TokenPage({ params, searchParams }: Props) {
+  let { assetId } = await params;
+  const sp = await searchParams;
+  const mintParam = sp.mint || "";
+
+  // Paste mint in URL path → resolve to canonical asset
+  if (isSolanaMint(assetId)) {
+    try {
+      const resolved = await apiFetch(
+        `/assets/resolve?mint=${encodeURIComponent(assetId)}`
+      );
+      const canon = resolved.assetId || resolved.asset?.assetId;
+      if (canon) {
+        redirect(
+          `/token/${encodeURIComponent(canon)}?mint=${encodeURIComponent(assetId)}`
+        );
+      }
+    } catch {
+      /* fall through */
+    }
+  }
 
   let data: Record<string, unknown> = {};
   let riskData: Record<string, unknown> = {};
@@ -104,6 +127,12 @@ export default async function TokenPage({ params }: Props) {
   return (
     <TokenPageWrapper assetId={assetId}>
     <div className="mx-auto max-w-7xl px-4 py-8">
+      {mintParam ? (
+        <div className="mb-4 rounded-lg border border-neon/30 bg-neon/5 px-4 py-2 text-xs text-zinc-300 font-mono break-all">
+          Mint focus: {mintParam}
+          <span className="text-zinc-500"> · votes score the canonical asset ({assetId})</span>
+        </div>
+      ) : null}
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start gap-4 mb-8">
         <div className="flex items-center gap-4">
@@ -160,7 +189,7 @@ export default async function TokenPage({ params }: Props) {
 
       {/* Vote */}
       <div className="mb-8">
-        <VoteButtons assetId={assetId} name={name} symbol={symbol} />
+        <VoteButtons assetId={assetId} symbol={symbol} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -251,10 +280,7 @@ export default async function TokenPage({ params }: Props) {
           {/* $HIT Score */}
           <div className={`rounded-xl border border-border p-6 ${riskBg(riskScore)}`}>
             <div className="text-center mb-4">
-              {(() => {
-                const { Icon, className } = hitScoreIcon(riskScore);
-                return <Icon className={`w-10 h-10 mx-auto mb-2 ${className}`} strokeWidth={2} />;
-              })()}
+              <div className="text-4xl mb-2">{hitScoreEmoji(riskScore)}</div>
               <h3 className="text-lg font-bold text-foreground">$HIT Score</h3>
             </div>
             <div className="flex items-center justify-center mb-4">
@@ -276,6 +302,8 @@ export default async function TokenPage({ params }: Props) {
               &ldquo;{hitScoreRoast(riskScore)}&rdquo;
             </p>
           </div>
+
+          <TokenNews assetId={assetId} symbol={symbol} name={name} />
 
           {/* Risk Factors */}
           {riskFactors.length > 0 && (

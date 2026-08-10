@@ -1,22 +1,19 @@
 import { apiFetch } from "@/lib/api";
 import { tursoExecute } from "@/lib/turso";
+import { fetchCuratedList } from "@/lib/curatedAssets";
 import Link from "next/link";
-import {
-  BarChart3, Trophy, Droplet, DollarSign, Building2, TrendingUp,
-  Coins, PieChart, Sigma, Target, Skull, type LucideIcon,
-} from "lucide-react";
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 60;
 
-const LISTS: { key: string; label: string; Icon: LucideIcon; iconClass: string }[] = [
-  { key: "majors",     label: "Majors",     Icon: Trophy,      iconClass: "text-yellow-400" },
-  { key: "lsts",       label: "LSTs",       Icon: Droplet,     iconClass: "text-cyan-400" },
-  { key: "currencies", label: "Currencies", Icon: DollarSign,  iconClass: "text-green-400" },
-  { key: "rwas",       label: "RWAs",       Icon: Building2,   iconClass: "text-orange-300" },
-  { key: "stocks",     label: "Stocks",     Icon: TrendingUp,  iconClass: "text-blue-400" },
-  { key: "metals",     label: "Metals",     Icon: Coins,       iconClass: "text-amber-300" },
-  { key: "etfs",       label: "ETFs",       Icon: PieChart,    iconClass: "text-violet-400" },
+const LISTS = [
+  { key: "majors", label: "Crypto", emoji: "" },
+  { key: "lsts", label: "Staking", emoji: "" },
+  { key: "currencies", label: "Stables", emoji: "" },
+  { key: "rwas", label: "Treasuries", emoji: "" },
+  { key: "stocks", label: "Stocks", emoji: "" },
+  { key: "metals", label: "Metals", emoji: "" },
+  { key: "etfs", label: "ETFs", emoji: "" },
 ];
 
 async function getStats() {
@@ -25,8 +22,7 @@ async function getStats() {
       Promise.all(
         LISTS.map(async (l) => {
           try {
-            const data = await apiFetch(`/assets/curated?list=${l.key}&groupBy=asset`);
-            const assets = Array.isArray(data) ? data : data?.assets || data?.results || data?.items || [];
+            const assets = await fetchCuratedList(l.key);
             return { ...l, count: assets.length };
           } catch {
             return { ...l, count: 0 };
@@ -116,9 +112,8 @@ export default async function StatsPage() {
   return (
     <div className="mx-auto max-w-5xl px-4 py-12">
       <div className="mb-8">
-        <h1 className="text-4xl font-black mb-2 flex items-center gap-3">
-          <BarChart3 className="w-9 h-9 text-neon drop-shadow-[0_0_10px_rgba(57,255,20,0.5)]" strokeWidth={2.25} />
-          Statistics
+        <h1 className="text-4xl font-black mb-2">
+          📊 Statistics
         </h1>
         <p className="text-zinc-400">The numbers behind the shit.</p>
       </div>
@@ -135,24 +130,20 @@ export default async function StatsPage() {
       <div className="mb-10">
         <h2 className="text-2xl font-bold mb-4">Tokens by Category</h2>
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-          {stats.categories.map((c) => {
-            const Icon = c.Icon;
-            return (
-              <Link
-                key={c.key}
-                href={`/c/${c.key}`}
-                className="rounded-xl border border-border bg-card p-4 flex items-center gap-3 hover:border-zinc-600 hover:bg-card-hover transition-colors group"
-              >
-                <Icon className={`w-7 h-7 shrink-0 ${c.iconClass} group-hover:drop-shadow-[0_0_8px_currentColor] transition-[filter]`} strokeWidth={2.25} />
-                <div>
-                  <div className="font-semibold text-foreground">{c.label}</div>
-                  <div className="text-sm font-mono text-zinc-400">{c.count} tokens</div>
-                </div>
-              </Link>
-            );
-          })}
+          {stats.categories.map((c) => (
+            <div
+              key={c.key}
+              className="rounded-xl border border-border bg-card p-4 flex items-center gap-3"
+            >
+              <span className="text-2xl">{c.emoji}</span>
+              <div>
+                <div className="font-semibold text-foreground">{c.label}</div>
+                <div className="text-sm font-mono text-zinc-400">{c.count} tokens</div>
+              </div>
+            </div>
+          ))}
           <div className="rounded-xl border border-neon/30 bg-neon/5 p-4 flex items-center gap-3">
-            <Sigma className="w-7 h-7 shrink-0 text-neon drop-shadow-[0_0_8px_rgba(57,255,20,0.6)]" strokeWidth={2.25} />
+            <span className="text-2xl">🧮</span>
             <div>
               <div className="font-semibold text-neon">Total</div>
               <div className="text-sm font-mono text-zinc-400">{stats.totalTokens} tokens</div>
@@ -165,7 +156,7 @@ export default async function StatsPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
         <div className="rounded-xl border border-border bg-card overflow-hidden">
           <div className="px-4 py-3 border-b border-border bg-green-500/5">
-            <h3 className="font-bold text-green-400 flex items-center gap-2"><Target className="w-4 h-4" strokeWidth={2.5} /> All-Time Most Hit</h3>
+            <h3 className="font-bold text-green-400">🔥 All-Time Most Hit</h3>
           </div>
           <div className="divide-y divide-border">
             {stats.topHit.length === 0 && (
@@ -197,7 +188,7 @@ export default async function StatsPage() {
 
         <div className="rounded-xl border border-border bg-card overflow-hidden">
           <div className="px-4 py-3 border-b border-border bg-red-500/5">
-            <h3 className="font-bold text-red-400 flex items-center gap-2"><Skull className="w-4 h-4" strokeWidth={2.5} /> All-Time Most Shit</h3>
+            <h3 className="font-bold text-red-400">💩 All-Time Most Shit</h3>
           </div>
           <div className="divide-y divide-border">
             {stats.topShit.length === 0 && (
@@ -237,8 +228,8 @@ export default async function StatsPage() {
               <thead>
                 <tr className="border-b border-border text-zinc-500 text-xs uppercase">
                   <th className="text-left px-4 py-3">Date</th>
-                  <th className="text-right px-4 py-3">Hits</th>
-                  <th className="text-right px-4 py-3">Shits</th>
+                  <th className="text-right px-4 py-3">🔥 Hits</th>
+                  <th className="text-right px-4 py-3">💩 Shits</th>
                   <th className="text-right px-4 py-3">Total</th>
                 </tr>
               </thead>

@@ -21,9 +21,13 @@ export async function GET() {
     const [categoryCounts, voteStats] = await Promise.all([
       Promise.all(
         lists.map(async (list) => {
-          const data = await apiFetchRaw(`/assets/curated?list=${list}&groupBy=asset`);
-          const assets = Array.isArray(data) ? data : data?.assets || data?.results || data?.items || [];
-          return { list, count: assets.length };
+          try {
+            const { fetchCuratedList } = await import("@/lib/curatedAssets");
+            const assets = await fetchCuratedList(list);
+            return { list, count: assets.length };
+          } catch {
+            return { list, count: 0 };
+          }
         })
       ),
       (async () => {
