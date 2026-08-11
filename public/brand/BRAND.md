@@ -63,9 +63,8 @@ Don't: hashtags on X, auto-post, lame daily meme spam, corporate announce-speak.
 | Square outline | `/brand/square-outline.png` |
 | Square gradient | `/brand/square-gradient.png` |
 | Logo | `/logo.jpg` |
-| Neon logo | `/logo-neon.jpg` |
 | Banner | `/banner.jpeg` |
-| Treasury poster | `/posters/treasury-reloaded.png` |
+| X banner 1500×500 | `/brand/x-banner.jpg` |
 
 ## CSS
 
@@ -79,5 +78,3 @@ Don't: hashtags on X, auto-post, lame daily meme spam, corporate announce-speak.
 ```
 
 Primary CTA: `bg-neon text-black font-semibold`
-
-| X banner 1500×500 | `/brand/x-banner.jpg` |

@@ -77,7 +77,12 @@ export function shitChartUrl(): string {
 }
 
 export function treasurySolscanUrl(): string {
-  return `https://solscan.io/account/${TREASURY_ADDRESS}`;
+  return `https://sol.new/portfolio/${TREASURY_ADDRESS}`;
+}
+
+/** @deprecated alias — portfolio lives on sol.new */
+export function treasuryPortfolioUrl(): string {
+  return treasurySolscanUrl();
 }
 
 export function mintSolscanUrl(): string {

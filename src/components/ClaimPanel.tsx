@@ -465,7 +465,7 @@ export default function ClaimPanel() {
           target="_blank"
           rel="noopener noreferrer"
         >
-          Treasury on Solscan ↗
+          Treasury on sol.new ↗
         </a>
       </div>
     </section>

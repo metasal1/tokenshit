@@ -15,7 +15,7 @@ import HeaderTicker from '@/components/HeaderTicker';
 import SfxMuteToggle from '@/components/SfxMuteToggle';
 import PwaProvider from '@/components/PwaProvider';
 import ShitBalanceBadge from '@/components/ShitBalanceBadge';
-import { TREASURY_ADDRESS } from '@/lib/shit-token';
+import { TREASURY_ADDRESS, treasurySolscanUrl } from '@/lib/shit-token';
 
 interface TokenBalance {
   mint: string;
@@ -447,7 +447,7 @@ function Layout({ children }: { children: React.ReactNode }) {
             </svg>
           </a>
           <span className="text-zinc-700">·</span>
-          <a href={`https://solscan.io/account/${TREASURY_ADDRESS}`} className="text-zinc-500 hover:text-zinc-300 transition-colors font-mono text-xs" target="_blank" rel="noopener noreferrer">
+          <a href={treasurySolscanUrl()} className="text-zinc-500 hover:text-zinc-300 transition-colors font-mono text-xs" target="_blank" rel="noopener noreferrer">
             Treasury
           </a>
         </p>

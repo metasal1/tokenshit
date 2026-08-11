@@ -14,6 +14,7 @@ import {
   SHIT_SYMBOL,
   TREASURY_ADDRESS,
   X_HANDLE,
+  treasurySolscanUrl,
 } from "@/lib/shit-token";
 import { BUY_FEE_BPS } from "@/lib/buy-fee";
 import type { Metadata } from "next";
@@ -97,7 +98,7 @@ export default function ClaimPage() {
           <div className="flex flex-col gap-0.5">
             <span className="text-zinc-600">treasury</span>
             <a
-              href={`https://solscan.io/account/${TREASURY_ADDRESS}`}
+              href={treasurySolscanUrl()}
               className="break-all text-zinc-200 hover:text-neon active:text-neon"
               target="_blank"
               rel="noopener noreferrer"
