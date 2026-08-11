@@ -1,9 +1,8 @@
 import { tursoExecute } from "@/lib/turso";
-import { fetchCuratedList } from "@/lib/curatedAssets";
 import { resolveAssetMeta } from "@/lib/resolveMeta";
 import Link from "next/link";
 
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 export const revalidate = 60;
 
 const LISTS = [
@@ -17,18 +16,8 @@ const LISTS = [
 ];
 
 async function getStats() {
-  const [categoryCounts, totalVotes, uniqueDevices, todayVotes, todayDevices, topHit, topShit, votesByDay] =
+  const [totalVotes, uniqueDevices, todayVotes, todayDevices, topHit, topShit, votesByDay] =
     await Promise.all([
-      Promise.all(
-        LISTS.map(async (l) => {
-          try {
-            const assets = await fetchCuratedList(l.key);
-            return { ...l, count: assets.length };
-          } catch {
-            return { ...l, count: 0 };
-          }
-        })
-      ),
       tursoExecute("SELECT COUNT(*) FROM votes", []),
       tursoExecute("SELECT COUNT(DISTINCT device_id) FROM votes", []),
       tursoExecute("SELECT COUNT(*) FROM votes WHERE voted_at = date('now')", []),
@@ -47,7 +36,7 @@ async function getStats() {
       ),
     ]);
 
-  // Resolve top asset names (Tokens.xyz + Helius fallback for pump mints)
+  // Resolve top names with short timeout budget (don't block page for Helius)
   const allIds = [...new Set([
     ...topHit.rows.map((r) => r[0] as string),
     ...topShit.rows.map((r) => r[0] as string),
@@ -56,11 +45,14 @@ async function getStats() {
   const meta: Record<string, { name: string; symbol: string; logo?: string }> = {};
   await Promise.all(
     allIds.map(async (id) => {
-      meta[id] = await resolveAssetMeta(id);
+      const empty = { name: id.slice(0, 12), symbol: "", logo: "" };
+      meta[id] = await Promise.race([
+        resolveAssetMeta(id).catch(() => empty),
+        new Promise<typeof empty>((r) => setTimeout(() => r(empty), 1500)),
+      ]);
     })
   );
 
-  // Group votes by day
   const dailyVotes: Record<string, { hits: number; shits: number }> = {};
   for (const row of votesByDay.rows) {
     const day = row[0] as string;
@@ -69,9 +61,12 @@ async function getStats() {
     if (row[1] === "shit") dailyVotes[day].shits = Number(row[2]);
   }
 
+  // Category counts load client-side / skip Tokens.xyz waterfall
+  const categoryCounts = LISTS.map((l) => ({ ...l, count: 0 }));
+
   return {
     categories: categoryCounts,
-    totalTokens: categoryCounts.reduce((s, c) => s + c.count, 0),
+    totalTokens: 0,
     totalVotes: Number(totalVotes.rows[0]?.[0] ?? 0),
     uniqueDevices: Number(uniqueDevices.rows[0]?.[0] ?? 0),
     todayVotes: Number(todayVotes.rows[0]?.[0] ?? 0),

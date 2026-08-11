@@ -49,6 +49,10 @@ export async function GET() {
         referral: REFERRAL_REWARD_SHIT,
         daily_drop: GLOBAL_TREASURY_DAILY_DROP,
       },
+    }, {
+      headers: {
+        "Cache-Control": "public, s-maxage=15, stale-while-revalidate=60, max-age=10",
+      },
     });
   } catch (e) {
     const schedule = buildDropSchedule(now);
