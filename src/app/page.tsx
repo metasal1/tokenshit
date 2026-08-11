@@ -3,13 +3,13 @@ import CuratedLists from "@/components/CuratedLists";
 import CategoryLeaderboard from "@/components/CategoryLeaderboard";
 import AnimatedLogo from "@/components/AnimatedLogo";
 import RandomTokenVote from "@/components/RandomTokenVote";
-import { apiFetch } from "@/lib/api";
 import { tursoExecute } from "@/lib/turso";
 import {
   buildAssetCategoryMap,
   fetchCuratedList,
   type CuratedAssetItem,
 } from "@/lib/curatedAssets";
+import { resolveAssetMeta } from "@/lib/resolveMeta";
 
 export const revalidate = 60;
 
@@ -54,17 +54,7 @@ async function getLeaderboard() {
       {};
     await Promise.all(
       allIds.map(async (id) => {
-        try {
-          const d = await apiFetch(`/assets/${encodeURIComponent(id)}`);
-          const a = d.asset || d;
-          meta[id] = {
-            name: a.name || id,
-            symbol: a.symbol || "",
-            logo: a.imageUrl || a.primaryVariant?.market?.logoURI || "",
-          };
-        } catch {
-          /* skip */
-        }
+        meta[id] = await resolveAssetMeta(id);
       })
     );
 
