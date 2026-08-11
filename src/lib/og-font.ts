@@ -24,10 +24,14 @@ export async function loadMonoton(): Promise<ArrayBuffer> {
 export async function loadInter(): Promise<{
   regular: ArrayBuffer;
   bold: ArrayBuffer;
-}> {
-  const [regular, bold] = await Promise.all([
-    fetchFont(INTER_REG_URL),
-    fetchFont(INTER_BOLD_URL),
-  ]);
-  return { regular, bold };
+} | null> {
+  try {
+    const [regular, bold] = await Promise.all([
+      fetchFont(INTER_REG_URL),
+      fetchFont(INTER_BOLD_URL),
+    ]);
+    return { regular, bold };
+  } catch {
+    return null;
+  }
 }

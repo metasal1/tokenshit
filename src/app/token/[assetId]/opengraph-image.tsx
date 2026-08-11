@@ -34,20 +34,23 @@ async function toDataUrl(url: string): Promise<string | null> {
       redirect: "follow",
     });
     if (!res.ok) return null;
-    const buf = Buffer.from(await res.arrayBuffer());
+    let buf = Buffer.from(await res.arrayBuffer());
     if (buf.length < 64 || buf.length > 3_000_000) return null;
-    // reject HTML/error bodies
     const head = buf.subarray(0, 16).toString("utf8");
     if (head.includes("<!DOCTYPE") || head.includes("<html")) return null;
 
-    let ct = (res.headers.get("content-type") || "").split(";")[0].trim();
-    // sniff
-    if (buf[0] === 0x89 && buf[1] === 0x50) ct = "image/png";
-    else if (buf[0] === 0xff && buf[1] === 0xd8) ct = "image/jpeg";
-    else if (buf[0] === 0x52 && buf[1] === 0x49) ct = "image/webp"; // RIFF
-    else if (buf[0] === 0x3c) return null; // <svg or xml
-    if (!ct.startsWith("image/")) ct = "image/png";
-    return `data:${ct};base64,${buf.toString("base64")}`;
+    const isWebp = buf[0] === 0x52 && buf[1] === 0x49 && buf[8] === 0x57;
+    const isPng = buf[0] === 0x89 && buf[1] === 0x50;
+    const isJpeg = buf[0] === 0xff && buf[1] === 0xd8;
+    if (isWebp || (!isPng && !isJpeg)) {
+      try {
+        const sharp = (await import("sharp")).default;
+        buf = Buffer.from(await sharp(buf).resize(256, 256).png().toBuffer());
+      } catch {
+        if (!isPng && !isJpeg) return null;
+      }
+    }
+    return `data:image/png;base64,${buf.toString("base64")}`;
   } catch {
     return null;
   }
@@ -127,7 +130,11 @@ export default async function OGImage({
       const includes = data.includes || {};
       const risk = includes.risk?.ok ? includes.risk.data : {};
 
-      if (asset.name && asset.name !== assetId && !String(asset.name).startsWith("solana-")) {
+      if (
+        asset.name &&
+        asset.name !== assetId &&
+        !String(asset.name).startsWith("solana-")
+      ) {
         name = asset.name;
       }
       if (asset.symbol) symbol = asset.symbol;
@@ -170,6 +177,19 @@ export default async function OGImage({
   const monoSym = (symbol || "").slice(0, 12);
 
   const [monoton, inter] = await Promise.all([loadMonoton(), loadInter()]);
+  const bodyFont = inter ? "Inter" : "sans-serif";
+  const fonts: {
+    name: string;
+    data: ArrayBuffer;
+    style: "normal";
+    weight: 400 | 700;
+  }[] = [{ name: "Monoton", data: monoton, style: "normal", weight: 400 }];
+  if (inter) {
+    fonts.push(
+      { name: "Inter", data: inter.regular, style: "normal", weight: 400 },
+      { name: "Inter", data: inter.bold, style: "normal", weight: 700 }
+    );
+  }
 
   return new ImageResponse(
     (
@@ -181,11 +201,10 @@ export default async function OGImage({
           flexDirection: "column",
           background:
             "linear-gradient(135deg, #0a0a12 0%, #111118 45%, #0a0a12 100%)",
-          fontFamily: "Inter",
+          fontFamily: bodyFont,
           padding: "48px 64px",
         }}
       >
-        {/* Brand — Monoton only here */}
         <div
           style={{
             display: "flex",
@@ -259,7 +278,7 @@ export default async function OGImage({
                 fontWeight: 700,
                 color: "#39ff14",
                 border: "3px solid #222",
-                fontFamily: "Inter",
+                fontFamily: bodyFont,
               }}
             >
               {(monoSym || title).slice(0, 2).toUpperCase()}
@@ -271,7 +290,7 @@ export default async function OGImage({
               display: "flex",
               flexDirection: "column",
               flex: 1,
-              fontFamily: "Inter",
+              fontFamily: bodyFont,
             }}
           >
             <div
@@ -287,7 +306,7 @@ export default async function OGImage({
                   fontWeight: 700,
                   color: "#ffffff",
                   lineHeight: 1.1,
-                  fontFamily: "Inter",
+                  fontFamily: bodyFont,
                 }}
               >
                 {title}
@@ -298,7 +317,7 @@ export default async function OGImage({
                     fontSize: 28,
                     color: "#a1a1aa",
                     fontWeight: 700,
-                    fontFamily: "Inter",
+                    fontFamily: bodyFont,
                   }}
                 >
                   ${monoSym}
@@ -319,23 +338,23 @@ export default async function OGImage({
                   fontSize: 48,
                   fontWeight: 700,
                   color: "#ffffff",
-                  fontFamily: "Inter",
+                  fontFamily: bodyFont,
                 }}
               >
                 {formatPrice(price)}
               </span>
-              {change24h != null && (
+              {change24h != null ? (
                 <span
                   style={{
                     fontSize: 26,
                     fontWeight: 700,
                     color: changeColor,
-                    fontFamily: "Inter",
+                    fontFamily: bodyFont,
                   }}
                 >
                   {formatChange(change24h)}
                 </span>
-              )}
+              ) : null}
             </div>
 
             <span
@@ -343,7 +362,7 @@ export default async function OGImage({
                 marginTop: 20,
                 fontSize: 22,
                 color: "#71717a",
-                fontFamily: "Inter",
+                fontFamily: bodyFont,
               }}
             >
               Every token is shit until proven otherwise
@@ -360,7 +379,7 @@ export default async function OGImage({
                 borderRadius: 20,
                 border: `3px solid ${scoreColor}`,
                 background: "rgba(0,0,0,0.45)",
-                fontFamily: "Inter",
+                fontFamily: bodyFont,
               }}
             >
               <span style={{ fontSize: 16, color: "#71717a", marginBottom: 4 }}>
@@ -371,7 +390,7 @@ export default async function OGImage({
                   fontSize: 52,
                   fontWeight: 700,
                   color: scoreColor,
-                  fontFamily: "Inter",
+                  fontFamily: bodyFont,
                 }}
               >
                 {riskScore}
@@ -392,7 +411,7 @@ export default async function OGImage({
                 borderRadius: 20,
                 border: "3px solid #39ff14",
                 background: "rgba(57,255,20,0.08)",
-                fontFamily: "Inter",
+                fontFamily: bodyFont,
               }}
             >
               <span
@@ -400,7 +419,7 @@ export default async function OGImage({
                   fontSize: 40,
                   fontWeight: 700,
                   color: "#39ff14",
-                  fontFamily: "Inter",
+                  fontFamily: bodyFont,
                 }}
               >
                 HIT?
@@ -410,7 +429,7 @@ export default async function OGImage({
                   fontSize: 16,
                   color: "#a1a1aa",
                   marginTop: 6,
-                  fontFamily: "Inter",
+                  fontFamily: bodyFont,
                 }}
               >
                 Vote now
@@ -420,13 +439,6 @@ export default async function OGImage({
         </div>
       </div>
     ),
-    {
-      ...size,
-      fonts: [
-        { name: "Monoton", data: monoton, style: "normal", weight: 400 },
-        { name: "Inter", data: inter.regular, style: "normal", weight: 400 },
-        { name: "Inter", data: inter.bold, style: "normal", weight: 700 },
-      ],
-    }
+    { ...size, fonts }
   );
 }
