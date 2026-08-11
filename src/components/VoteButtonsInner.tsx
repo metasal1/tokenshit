@@ -92,6 +92,7 @@ export default function VoteButtons({ assetId, name, symbol }: { assetId: string
     const voter = twitterUsername || deviceId;
     if (!voter) return;
 
+    sfx.tap();
     setVoting(true);
     try {
       const res = await fetch("/api/vote", {

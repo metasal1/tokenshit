@@ -12,6 +12,7 @@ import GlobalTreasuryBanner from '@/components/GlobalTreasuryBanner';
 import ShareRefButton from '@/components/ShareRefButton';
 import XFollowersBadge from '@/components/XFollowersBadge';
 import HeaderTicker from '@/components/HeaderTicker';
+import SfxMuteToggle from '@/components/SfxMuteToggle';
 import { TREASURY_ADDRESS } from '@/lib/shit-token';
 
 interface TokenBalance {
@@ -362,6 +363,7 @@ function Layout({ children }: { children: React.ReactNode }) {
           <Link href="/referrals" className="hover:text-foreground transition-colors">Referrals</Link>
           <XFollowersBadge compact />
           <ShareRefButton variant="compact" path="/" showLogin={false} />
+          <SfxMuteToggle />
           {mounted && <LoginButton />}
         </div>
 
