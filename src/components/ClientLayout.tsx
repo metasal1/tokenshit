@@ -5,7 +5,6 @@ import { PrivyProvider, usePrivy } from '@privy-io/react-auth';
 import { toSolanaWalletConnectors } from '@privy-io/react-auth/solana';
 import Link from 'next/link';
 import AnimatedLogo from '@/components/AnimatedLogo';
-import OnlineCounter from '@/components/OnlineCounter';
 import PageTransition from '@/components/PageTransition';
 import { CanvasShell, CanvasHeaderFx } from '@/components/CanvasShell';
 import { TreasuryBalanceBadge } from '@/components/ClaimPanel';
