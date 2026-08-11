@@ -1,6 +1,6 @@
-import { apiFetch } from "@/lib/api";
 import { tursoExecute } from "@/lib/turso";
 import { fetchCuratedList } from "@/lib/curatedAssets";
+import { resolveAssetMeta } from "@/lib/resolveMeta";
 import Link from "next/link";
 
 export const dynamic = 'force-dynamic';
@@ -47,22 +47,16 @@ async function getStats() {
       ),
     ]);
 
-  // Resolve top asset names
+  // Resolve top asset names (Tokens.xyz + Helius fallback for pump mints)
   const allIds = [...new Set([
     ...topHit.rows.map((r) => r[0] as string),
     ...topShit.rows.map((r) => r[0] as string),
   ])];
 
-  const meta: Record<string, { name: string; symbol: string }> = {};
+  const meta: Record<string, { name: string; symbol: string; logo?: string }> = {};
   await Promise.all(
     allIds.map(async (id) => {
-      try {
-        const d = await apiFetch(`/assets/${encodeURIComponent(id)}`);
-        const a = d.asset || d;
-        meta[id] = { name: a.name || id, symbol: a.symbol || "" };
-      } catch {
-        meta[id] = { name: id, symbol: "" };
-      }
+      meta[id] = await resolveAssetMeta(id);
     })
   );
 
@@ -171,6 +165,13 @@ export default async function StatsPage() {
                 <span className="text-lg font-bold text-zinc-600 w-6 text-center font-mono">
                   {i + 1}
                 </span>
+                {t.logo ? (
+                  <img src={t.logo} alt="" className="h-8 w-8 rounded-full bg-zinc-800 shrink-0" />
+                ) : (
+                  <div className="h-8 w-8 rounded-full bg-zinc-800 shrink-0 flex items-center justify-center text-[10px] font-bold text-zinc-500">
+                    {(t.symbol || t.name || "?").slice(0, 2)}
+                  </div>
+                )}
                 <div className="flex-1 min-w-0">
                   <div className="font-medium text-foreground text-sm truncate">
                     {t.name}
@@ -203,6 +204,13 @@ export default async function StatsPage() {
                 <span className="text-lg font-bold text-zinc-600 w-6 text-center font-mono">
                   {i + 1}
                 </span>
+                {t.logo ? (
+                  <img src={t.logo} alt="" className="h-8 w-8 rounded-full bg-zinc-800 shrink-0" />
+                ) : (
+                  <div className="h-8 w-8 rounded-full bg-zinc-800 shrink-0 flex items-center justify-center text-[10px] font-bold text-zinc-500">
+                    {(t.symbol || t.name || "?").slice(0, 2)}
+                  </div>
+                )}
                 <div className="flex-1 min-w-0">
                   <div className="font-medium text-foreground text-sm truncate">
                     {t.name}

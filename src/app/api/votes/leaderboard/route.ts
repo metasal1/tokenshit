@@ -1,6 +1,6 @@
 import { tursoExecute } from "@/lib/turso";
-import { apiFetch } from "@/lib/api";
 import { buildAssetCategoryMap } from "@/lib/curatedAssets";
+import { resolveAssetMeta } from "@/lib/resolveMeta";
 
 export const dynamic = "force-dynamic";
 
@@ -9,7 +9,6 @@ export async function GET(request: Request) {
     new URL(request.url).searchParams.get("withCategories") === "1";
 
   try {
-    // Prefer all-time for sparse days so arenas aren't empty
     const result = await tursoExecute(
       `SELECT asset_id, vote, COUNT(*) as cnt
        FROM votes
@@ -49,17 +48,7 @@ export async function GET(request: Request) {
       {};
     await Promise.all(
       allIds.map(async (id) => {
-        try {
-          const d = await apiFetch(`/assets/${encodeURIComponent(id)}`);
-          const a = d.asset || d;
-          meta[id] = {
-            name: a.name || id,
-            symbol: a.symbol || "",
-            logo: a.imageUrl || a.primaryVariant?.market?.logoURI || "",
-          };
-        } catch {
-          /* skip */
-        }
+        meta[id] = await resolveAssetMeta(id);
       })
     );
 
