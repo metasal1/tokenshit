@@ -127,7 +127,7 @@ function RewardRow({
 }
 
 export default function ClaimPanel() {
-  const { ready, authenticated, user, login, linkTwitter, linkGithub } =
+  const { ready, authenticated, user, login, getAccessToken, linkTwitter, linkGithub } =
     usePrivy();
   const [busy, setBusy] = useState<ClaimKind | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
@@ -175,9 +175,13 @@ export default function ClaimPanel() {
 
     setBusy(kind);
     try {
+      const token = await getAccessToken();
       const res = await fetch("/api/claim", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({
           kind,
           wallet,

@@ -1,17 +1,16 @@
 import { type NextRequest } from "next/server";
 import { tursoExecute } from "@/lib/turso";
 import { REFERRAL_REWARD_SHIT } from "@/lib/shit-token";
+import { requirePrivy } from "@/lib/privy-server";
+import { assertNotBlacklisted } from "@/lib/security";
 
 export const dynamic = "force-dynamic";
 
 /**
  * POST /api/referral/track
- * Body: { referrerTwitter, referredTwitter, referredWallet? }
- *
- * SECURITY (2026-08): Never pays treasury here.
- * Attack was: unauthenticated spam of fake referredTwitter + referrerWallet
- * → 10k $TOKENSHIT each from SHTy treasury.
- * Rewards only via /api/referral/claim-rewards after proper checks.
+ * Body: { referrerTwitter, referredTwitter?, referredWallet? }
+ * Auth: Bearer Privy token of the **referred** user (must match X).
+ * Never pays treasury.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -20,13 +19,27 @@ export async function POST(request: NextRequest) {
       .toLowerCase()
       .replace(/^@/, "")
       .trim();
-    const referredTwitter = String(body.referredTwitter || "")
+    let referredTwitter = String(body.referredTwitter || "")
       .toLowerCase()
       .replace(/^@/, "")
       .trim();
     const referredWallet = body.referredWallet
-      ? String(body.referredWallet)
+      ? String(body.referredWallet).trim()
       : null;
+
+    if (referredWallet) {
+      const blocked = assertNotBlacklisted(referredWallet);
+      if (blocked) return blocked;
+    }
+
+    const auth = await requirePrivy(request, {
+      twitter: referredTwitter || null,
+      requireTwitter: true,
+    });
+    if (!auth.ok) return auth.res;
+
+    // Force referred = authenticated X (ignore spoofed body if secret resolves)
+    if (auth.id.twitter) referredTwitter = auth.id.twitter;
 
     if (!referrerTwitter || !referredTwitter) {
       return Response.json(
@@ -35,7 +48,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!/^[a-z0-9_]{1,15}$/i.test(referrerTwitter) || !/^[a-z0-9_]{1,15}$/i.test(referredTwitter)) {
+    if (
+      !/^[a-z0-9_]{1,15}$/i.test(referrerTwitter) ||
+      !/^[a-z0-9_]{1,15}$/i.test(referredTwitter)
+    ) {
       return Response.json({ error: "Invalid twitter handle" }, { status: 400 });
     }
 
@@ -77,7 +93,6 @@ export async function POST(request: NextRequest) {
     return Response.json({
       success: true,
       message: "Referral tracked",
-      /** payout disabled on track — claim path only, gated */
       reward: null,
       rewardAmount: REFERRAL_REWARD_SHIT,
       payoutOnTrack: false,

@@ -208,7 +208,7 @@ function WalletPanel({ address, twitterUsername, onClose, children }: { address:
 }
 
 function ReferralTracker() {
-  const { authenticated, user } = usePrivy();
+  const { authenticated, user, getAccessToken } = usePrivy();
 
   useEffect(() => {
     // Capture ref param on load
@@ -233,18 +233,27 @@ function ReferralTracker() {
       return;
     }
 
-    fetch('/api/referral/track', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        referrerTwitter: referrer,
-        referredTwitter: twitterUsername,
-        referredWallet: user.wallet?.address || null,
-      }),
-    })
-      .then(() => localStorage.removeItem('tokenshit_referrer'))
-      .catch(() => {});
-  }, [authenticated, user]);
+    (async () => {
+      try {
+        const token = await getAccessToken();
+        await fetch('/api/referral/track', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify({
+            referrerTwitter: referrer,
+            referredTwitter: twitterUsername,
+            referredWallet: user.wallet?.address || null,
+          }),
+        });
+        localStorage.removeItem('tokenshit_referrer');
+      } catch {
+        /* ignore */
+      }
+    })();
+  }, [authenticated, user, getAccessToken]);
 
   return null;
 }

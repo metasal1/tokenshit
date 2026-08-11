@@ -22,7 +22,7 @@ interface UserStats {
 }
 
 export default function ReferralsPage() {
-  const { authenticated, user, login } = usePrivy();
+  const { authenticated, user, login, getAccessToken } = usePrivy();
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [userStats, setUserStats] = useState<UserStats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -75,9 +75,13 @@ export default function ReferralsPage() {
     }
     setClaimBusy(true);
     try {
+      const token = await getAccessToken();
       const res = await fetch('/api/referral/claim-rewards', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({ twitter: twitterHandle, wallet }),
       });
       const data = await res.json();
