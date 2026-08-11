@@ -6,6 +6,7 @@ import TokenPageWrapper from "@/components/TokenPageWrapper";
 import CollapsibleSection from "@/components/CollapsibleSection";
 import TokenNews from "@/components/TokenNews";
 import { isSolanaMint } from "@/lib/lists";
+import { extractMint, resolveAssetMeta } from "@/lib/resolveMeta";
 import { redirect } from "next/navigation";
 
 interface Props {
@@ -15,34 +16,51 @@ interface Props {
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { assetId } = await params;
+  const meta = await resolveAssetMeta(assetId);
+  const name = meta.name || assetId;
+  const symbol = meta.symbol || "";
+  return {
+    title: symbol ? `${name} (${symbol}) — TokenShit` : `${name} — TokenShit`,
+    description: `Check the shit score for ${name}. Price, risk, markets, and more.`,
+  };
+}
+
+async function jupiterPrice(mint: string): Promise<number | null> {
   try {
-    const data = await apiFetch(`/assets/${encodeURIComponent(assetId)}`);
-    const name = data?.asset?.name || data?.name || assetId;
-    const symbol = data?.asset?.symbol || data?.symbol || "";
-    return {
-      title: `${name} (${symbol}) — TokenShit`,
-      description: `Check the shit score for ${name}. Price, risk, markets, and more.`,
-    };
+    const res = await fetch(
+      `https://api.jup.ag/price/v3?ids=${encodeURIComponent(mint)}`,
+      {
+        headers: {
+          "x-api-key":
+            process.env.JUP_API_KEY || "3309da44-211b-4acb-9d31-c36fb54d9459",
+        },
+      }
+    );
+    if (!res.ok) return null;
+    const d = await res.json();
+    const p = d?.[mint]?.usdPrice ?? d?.data?.[mint]?.price;
+    return typeof p === "number" ? p : p != null ? Number(p) : null;
   } catch {
-    return { title: `Token — TokenShit` };
+    return null;
   }
 }
 
 export default async function TokenPage({ params, searchParams }: Props) {
-  let { assetId } = await params;
+  const { assetId } = await params;
   const sp = await searchParams;
-  const mintParam = sp.mint || "";
+  let mintParam = sp.mint || extractMint(assetId) || "";
 
-  // Paste mint in URL path → resolve to canonical asset
-  if (isSolanaMint(assetId)) {
+  // Bare mint in path → resolve to Tokens composite id when available
+  if (isSolanaMint(assetId) && !assetId.startsWith("solana-")) {
+    mintParam = assetId;
     try {
       const resolved = await apiFetch(
         `/assets/resolve?mint=${encodeURIComponent(assetId)}`
       );
       const canon = resolved.assetId || resolved.asset?.assetId;
-      if (canon) {
+      if (canon && canon !== assetId) {
         redirect(
-          `/token/${encodeURIComponent(canon)}?mint=${encodeURIComponent(assetId)}`
+          `/token/${encodeURIComponent(canon)}?mint=${encodeURIComponent(mintParam)}`
         );
       }
     } catch {
@@ -100,12 +118,20 @@ export default async function TokenPage({ params, searchParams }: Props) {
   const primaryVariant = (asset.primaryVariant || {}) as Record<string, unknown>;
   const primaryMarket = (primaryVariant.market || {}) as Record<string, unknown>;
 
-  const name = (asset.name || assetId) as string;
-  const symbol = (asset.symbol || "") as string;
-  const logo = (asset.imageUrl || primaryMarket.logoURI || "") as string;
+  // Tokens.xyz often returns null name for pump solana-<mint> ids
+  const displayMeta = await resolveAssetMeta(assetId);
+  const name = (displayMeta.name || (asset.name as string) || assetId) as string;
+  const symbol = (displayMeta.symbol || (asset.symbol as string) || "") as string;
+  const logo = (displayMeta.logo ||
+    (asset.imageUrl as string) ||
+    (primaryMarket.logoURI as string) ||
+    "") as string;
   const description = (profileData.description || "") as string;
 
-  const price = (stats.price ?? primaryMarket.price ?? null) as number | null;
+  let price = (stats.price ?? primaryMarket.price ?? null) as number | null;
+  if (price == null && mintParam) {
+    price = await jupiterPrice(mintParam);
+  }
   const marketCap = (profileData.marketCap ?? stats.marketCap ?? null) as number | null;
   const volume24h = (profileData.volume24h ?? stats.volume24hUSD ?? null) as number | null;
   const liquidity = (stats.liquidity ?? primaryMarket.liquidity ?? null) as number | null;
@@ -129,22 +155,21 @@ export default async function TokenPage({ params, searchParams }: Props) {
     <div className="mx-auto max-w-7xl px-4 py-8">
       {mintParam ? (
         <div className="mb-4 rounded-lg border border-neon/30 bg-neon/5 px-4 py-2 text-xs text-zinc-300 font-mono break-all">
-          Mint focus: {mintParam}
-          <span className="text-zinc-500"> · votes score the canonical asset ({assetId})</span>
+          Mint: {mintParam}
         </div>
       ) : null}
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start gap-4 mb-8">
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-4 min-w-0">
           {logo ? (
-            <img src={logo} alt={symbol} className="h-16 w-16 rounded-full bg-zinc-800" />
+            <img src={logo} alt={symbol || name} className="h-16 w-16 rounded-full bg-zinc-800 shrink-0" />
           ) : (
-            <div className="h-16 w-16 rounded-full bg-zinc-800 flex items-center justify-center text-2xl font-bold text-zinc-400">
-              {symbol?.slice(0, 2)}
+            <div className="h-16 w-16 rounded-full bg-zinc-800 flex items-center justify-center text-2xl font-bold text-zinc-400 shrink-0">
+              {(symbol || name)?.slice(0, 2)}
             </div>
           )}
-          <div>
-            <h1 className="text-3xl font-black text-foreground">{name}</h1>
+          <div className="min-w-0">
+            <h1 className="text-3xl font-black text-foreground break-words">{name}</h1>
             <p className="text-zinc-500 uppercase text-sm font-mono">{symbol}</p>
           </div>
         </div>
@@ -189,7 +214,7 @@ export default async function TokenPage({ params, searchParams }: Props) {
 
       {/* Vote */}
       <div className="mb-8">
-        <VoteButtons assetId={assetId} symbol={symbol} />
+        <VoteButtons assetId={assetId} symbol={symbol || name} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
