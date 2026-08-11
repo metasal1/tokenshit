@@ -122,10 +122,14 @@ export default async function TokenPage({ params, searchParams }: Props) {
   const displayMeta = await resolveAssetMeta(assetId);
   const name = (displayMeta.name || (asset.name as string) || assetId) as string;
   const symbol = (displayMeta.symbol || (asset.symbol as string) || "") as string;
-  const logo = (displayMeta.logo ||
+  let logo = (displayMeta.logo ||
     (asset.imageUrl as string) ||
     (primaryMarket.logoURI as string) ||
     "") as string;
+  // Prefer DexScreener if primary host is flaky j7tracker
+  if (mintParam && (!logo || logo.includes("j7tracker"))) {
+    logo = `https://dd.dexscreener.com/ds-data/tokens/solana/${mintParam}.png`;
+  }
   const description = (profileData.description || "") as string;
 
   let price = (stats.price ?? primaryMarket.price ?? null) as number | null;

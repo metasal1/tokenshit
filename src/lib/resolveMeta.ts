@@ -8,6 +8,8 @@ export interface AssetMeta {
   name: string;
   symbol: string;
   logo: string;
+  /** Extra logo URLs to try (OG embed) */
+  logoCandidates?: string[];
 }
 
 const MINT_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
@@ -49,11 +51,17 @@ async function heliusMeta(mint: string): Promise<AssetMeta | null> {
       content.files?.[0]?.uri ||
       content.files?.[0]?.cdn_uri ||
       "";
+    const dex = `https://dd.dexscreener.com/ds-data/tokens/solana/${mint}.png`;
     if (!name && !symbol) return null;
+    const candidates = [dex, typeof logo === "string" ? logo : ""].filter(
+      Boolean
+    ) as string[];
     return {
       name: name || symbol || mint.slice(0, 8),
       symbol: symbol || name.slice(0, 8) || "",
-      logo: typeof logo === "string" ? logo : "",
+      // DexScreener first — j7tracker often blocked from serverless
+      logo: dex,
+      logoCandidates: candidates,
     };
   } catch {
     return null;
