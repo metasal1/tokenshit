@@ -14,6 +14,7 @@ import XFollowersBadge from '@/components/XFollowersBadge';
 import HeaderTicker from '@/components/HeaderTicker';
 import SfxMuteToggle from '@/components/SfxMuteToggle';
 import PwaProvider from '@/components/PwaProvider';
+import ShitBalanceBadge from '@/components/ShitBalanceBadge';
 import { TREASURY_ADDRESS } from '@/lib/shit-token';
 
 interface TokenBalance {
@@ -362,6 +363,7 @@ function Layout({ children }: { children: React.ReactNode }) {
           <Link href="/claim" className="hover:text-foreground transition-colors">Claim</Link>
           <Link href="/brand" className="hover:text-foreground transition-colors">Brand</Link>
           <Link href="/referrals" className="hover:text-foreground transition-colors">Referrals</Link>
+          <ShitBalanceBadge />
           <Link href="/test" className="hover:text-foreground transition-colors text-zinc-600">Test</Link>
           <XFollowersBadge compact />
           <ShareRefButton variant="compact" path="/" showLogin={false} />
@@ -403,6 +405,7 @@ function Layout({ children }: { children: React.ReactNode }) {
           <Link href="/claim" className="text-zinc-400 hover:text-foreground transition-colors" onClick={() => setMenuOpen(false)}>Claim</Link>
           <Link href="/brand" className="text-zinc-400 hover:text-foreground transition-colors" onClick={() => setMenuOpen(false)}>Brand</Link>
           <Link href="/referrals" className="text-zinc-400 hover:text-foreground transition-colors" onClick={() => setMenuOpen(false)}>Referrals</Link>
+          <ShitBalanceBadge />
           <XFollowersBadge compact />
           <ShareRefButton variant="compact" path="/" />
         </div>

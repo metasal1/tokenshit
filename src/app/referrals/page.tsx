@@ -3,8 +3,9 @@
 import { useEffect, useState } from 'react';
 import { usePrivy } from '@privy-io/react-auth';
 import Link from 'next/link';
-import { REFERRAL_REWARD_SHIT } from '@/lib/shit-token';
+import { REFERRAL_REWARD_SHIT, SHIT_SYMBOL } from '@/lib/shit-token';
 import ShareRefButton from '@/components/ShareRefButton';
+import ShitBalanceBadge from '@/components/ShitBalanceBadge';
 
 interface LeaderboardEntry {
   username: string;
@@ -100,11 +101,14 @@ export default function ReferralsPage() {
     <div className="min-h-full bg-background">
       <div className="mx-auto max-w-7xl px-4 py-12">
         <div className="mb-12">
-          <h1 className="text-4xl font-bold text-white mb-2">Spread the Shit</h1>
+          <div className="flex flex-wrap items-start justify-between gap-3 mb-2">
+            <h1 className="text-4xl font-bold text-white">Spread the Shit</h1>
+            <ShitBalanceBadge />
+          </div>
           <p className="text-zinc-400">
             Refer degens → earn{' '}
             <span className="text-neon font-mono">
-              {REFERRAL_REWARD_SHIT.toLocaleString()} $SHIT
+              {REFERRAL_REWARD_SHIT.toLocaleString()} ${SHIT_SYMBOL}
             </span>{' '}
             each
           </p>
@@ -113,7 +117,13 @@ export default function ReferralsPage() {
         {authenticated && twitterHandle && (
           <div className="mb-12 bg-zinc-900 border border-zinc-800 rounded-lg p-6">
             <h2 className="text-xl font-semibold text-white mb-4">Your Referral Stats</h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+              <div className="bg-zinc-800/50 rounded-lg p-4">
+                <p className="text-zinc-500 text-sm mb-1">Wallet ${SHIT_SYMBOL}</p>
+                <div className="mt-1">
+                  <ShitBalanceBadge className="!min-h-10 !px-3 !text-sm !border-neon/40" />
+                </div>
+              </div>
               <div className="bg-zinc-800/50 rounded-lg p-4">
                 <p className="text-zinc-500 text-sm mb-1">Total Referrals</p>
                 <p className="text-3xl font-bold text-white">
@@ -121,7 +131,7 @@ export default function ReferralsPage() {
                 </p>
               </div>
               <div className="bg-zinc-800/50 rounded-lg p-4">
-                <p className="text-zinc-500 text-sm mb-1">Potential $SHIT</p>
+                <p className="text-zinc-500 text-sm mb-1">Potential ${SHIT_SYMBOL}</p>
                 <p className="text-3xl font-bold text-neon font-mono">
                   {potential.toLocaleString()}
                 </p>
