@@ -8,10 +8,27 @@ export const dynamic = "force-dynamic";
 /**
  * POST /api/referral/claim-rewards
  * Body: { twitter, wallet }
- * Pays REFERRAL_REWARD_SHIT per unpaid referral for this twitter handle.
+ *
+ * SECURITY (2026-08):
+ * - Disabled by default (REFERRAL_PAYOUTS_ENABLED=1 to re-open).
+ * - Insert reward row BEFORE send (UNIQUE referred_twitter) to stop double-pay races.
+ * - Never trust unauthenticated mass claims.
  */
 export async function POST(request: NextRequest) {
   try {
+    if (process.env.REFERRAL_PAYOUTS_ENABLED !== "1") {
+      return Response.json(
+        {
+          ok: false,
+          error:
+            "Referral payouts paused after treasury drain. Tracking still works.",
+          paid: 0,
+          amount: 0,
+        },
+        { status: 503 }
+      );
+    }
+
     const body = await request.json();
     const twitter = String(body.twitter || "")
       .toLowerCase()
@@ -45,9 +62,9 @@ export async function POST(request: NextRequest) {
        WHERE lower(r.referrer_twitter) = ?
        AND NOT EXISTS (
          SELECT 1 FROM referral_rewards rr
-         WHERE rr.referred_twitter = r.referred_twitter
+         WHERE lower(rr.referred_twitter) = lower(r.referred_twitter)
        )
-       LIMIT 20`,
+       LIMIT 5`,
       [twitter]
     );
 
@@ -66,14 +83,25 @@ export async function POST(request: NextRequest) {
     for (const row of unpaid.rows) {
       const referred = String(row[0]);
       try {
+        // Reserve row first — UNIQUE blocks concurrent double-pay
+        const reserved = await tursoExecute(
+          `INSERT OR IGNORE INTO referral_rewards
+             (referrer_twitter, referred_twitter, wallet, amount, signature)
+           VALUES (?, ?, ?, ?, ?)`,
+          [twitter, referred, wallet, REFERRAL_REWARD_SHIT, "pending"]
+        );
+        // If ignore fired, changes=0
+        if ((reserved as { rowsAffected?: number }).rowsAffected === 0) {
+          continue;
+        }
+
         const { signature } = await sendShitFromTreasury(
           wallet,
           REFERRAL_REWARD_SHIT
         );
         await tursoExecute(
-          `INSERT INTO referral_rewards (referrer_twitter, referred_twitter, wallet, amount, signature)
-           VALUES (?, ?, ?, ?, ?)`,
-          [twitter, referred, wallet, REFERRAL_REWARD_SHIT, signature]
+          `UPDATE referral_rewards SET signature = ? WHERE referred_twitter = ? AND signature = 'pending'`,
+          [signature, referred]
         );
         paid.push({
           referred,
@@ -81,10 +109,15 @@ export async function POST(request: NextRequest) {
           amount: REFERRAL_REWARD_SHIT,
         });
       } catch (e) {
+        // Roll back pending reservation so a later fix can retry
+        await tursoExecute(
+          `DELETE FROM referral_rewards WHERE referred_twitter = ? AND signature = 'pending'`,
+          [referred]
+        ).catch(() => {});
         errors.push(
           `${referred}: ${e instanceof Error ? e.message : String(e)}`
         );
-        break; // stop on first treasury fail
+        break;
       }
     }
 
