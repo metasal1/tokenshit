@@ -4,5 +4,11 @@
 token: fEbiuDdZZ1QaWYpJFPqk23ZkaRnAyHg4aivhrCTshit
 chain: solana
 symbol: SHIT
+name: TokenShit
+decimals: 6
 site: https://tokenshit.com
+claim: https://tokenshit.com/claim
+treasury: 5SjzsHYuQLuGVoZ6vhvKXW3ZPUz3zK46ZYKnaz2qRCb6
+buy: https://jup.ag/swap/SOL-fEbiuDdZZ1QaWYpJFPqk23ZkaRnAyHg4aivhrCTshit
 x: https://x.com/Tokenshit_
+registry: https://github.com/solana-foundation/tokens

@@ -8,6 +8,8 @@ import AnimatedLogo from '@/components/AnimatedLogo';
 import OnlineCounter from '@/components/OnlineCounter';
 import PageTransition from '@/components/PageTransition';
 import { CanvasShell, CanvasHeaderFx } from '@/components/CanvasShell';
+import { TreasuryBalanceBadge } from '@/components/ClaimPanel';
+import { TREASURY_ADDRESS } from '@/lib/shit-token';
 
 interface TokenBalance {
   mint: string;
@@ -287,7 +289,11 @@ function LoginButton() {
   if (authenticated && user) {
     const twitterHandle = user.twitter?.username;
     const walletAddress = user.wallet?.address;
-    const displayLabel = twitterHandle ? `@${twitterHandle}` : 'Connected';
+    const displayLabel = twitterHandle
+      ? `@${twitterHandle}`
+      : user.github?.username
+        ? `gh/${user.github.username}`
+        : "Connected";
 
     return (
       <div className="relative">
@@ -353,7 +359,9 @@ function Layout({ children }: { children: React.ReactNode }) {
         <div className="hidden sm:flex items-center gap-4 text-sm text-zinc-400">
           <Link href="/" className="hover:text-foreground transition-colors">Home</Link>
           <Link href="/stats" className="hover:text-foreground transition-colors">Stats</Link>
+          <Link href="/claim" className="hover:text-foreground transition-colors">Claim</Link>
           <Link href="/referrals" className="hover:text-foreground transition-colors">Referrals</Link>
+          <TreasuryBalanceBadge />
           <OnlineCounter />
           {mounted && <LoginButton />}
         </div>
@@ -389,7 +397,9 @@ function Layout({ children }: { children: React.ReactNode }) {
         <div className="sm:hidden border-t border-border bg-background/95 backdrop-blur-xl px-4 py-3 flex flex-col gap-3 text-sm">
           <Link href="/" className="text-zinc-400 hover:text-foreground transition-colors" onClick={() => setMenuOpen(false)}>Home</Link>
           <Link href="/stats" className="text-zinc-400 hover:text-foreground transition-colors" onClick={() => setMenuOpen(false)}>Stats</Link>
+          <Link href="/claim" className="text-zinc-400 hover:text-foreground transition-colors" onClick={() => setMenuOpen(false)}>Claim</Link>
           <Link href="/referrals" className="text-zinc-400 hover:text-foreground transition-colors" onClick={() => setMenuOpen(false)}>Referrals</Link>
+          <TreasuryBalanceBadge />
           <OnlineCounter />
         </div>
       )}
@@ -405,6 +415,8 @@ function Layout({ children }: { children: React.ReactNode }) {
       <footer className="border-t border-border py-6 text-center text-sm text-zinc-500">
         <p>TokenShit — Every token is shit until proven otherwise.</p>
         <p className="mt-2 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-zinc-600">
+          <TreasuryBalanceBadge />
+          <span className="text-zinc-700">·</span>
           <a href="https://tokens.xyz" className="text-neon-blue hover:underline" target="_blank" rel="noopener noreferrer">
             Powered by Tokens.xyz
           </a>
@@ -413,8 +425,8 @@ function Layout({ children }: { children: React.ReactNode }) {
             SF registry
           </a>
           <span className="text-zinc-700">·</span>
-          <a href="https://memes.sal.fun" className="text-zinc-500 hover:text-zinc-300 transition-colors" target="_blank" rel="noopener noreferrer">
-            memes.sal.fun
+          <a href={`https://solscan.io/account/${TREASURY_ADDRESS}`} className="text-zinc-500 hover:text-zinc-300 transition-colors font-mono text-xs" target="_blank" rel="noopener noreferrer">
+            Treasury
           </a>
         </p>
       </footer>
@@ -429,7 +441,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     <PrivyProvider
       appId={appId}
       config={{
-        loginMethods: ['twitter'],
+        loginMethods: ['twitter', 'github'],
         appearance: {
           theme: 'dark',
         },
