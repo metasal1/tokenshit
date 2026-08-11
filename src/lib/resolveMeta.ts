@@ -81,7 +81,7 @@ export async function resolveAssetMeta(assetId: string): Promise<AssetMeta> {
   ) {
     return {
       name: "TokenShit",
-      symbol: "SHIT",
+      symbol: "TOKENSHIT",
       logo: "",
     };
   }

@@ -3,7 +3,7 @@
 
 token: fEbiuDdZZ1QaWYpJFPqk23ZkaRnAyHg4aivhrCTshit
 chain: solana
-symbol: SHIT
+symbol: TOKENSHIT
 name: TokenShit
 decimals: 6
 
@@ -14,8 +14,11 @@ chart: https://dexscreener.com/solana/fEbiuDdZZ1QaWYpJFPqk23ZkaRnAyHg4aivhrCTshi
 
 treasury: SHTy7yoA5uAZoevKT3BFcSeDeFaHEyqWc55uApd3MJB
 
+x_tweet_claim: 25000
+x_follow_claim: 15000
 x_verified_claim: 100000
 gh_fork_claim: 250000
+referral_reward: 10000
 fork_upstream: solana-foundation/tokens
 
 x: https://x.com/Tokenshit_

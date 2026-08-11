@@ -1,12 +1,19 @@
-/** Official TokenShit $SHIT mint + game / treasury constants */
+/** Official TokenShit mint + game / treasury constants */
 export const SHIT_MINT =
   "fEbiuDdZZ1QaWYpJFPqk23ZkaRnAyHg4aivhrCTshit" as const;
 
 export const SHIT_DECIMALS = 6;
-export const SHIT_SYMBOL = "SHIT";
+/** On-chain / display ticker */
+export const SHIT_SYMBOL = "TOKENSHIT";
 export const SHIT_NAME = "TokenShit";
+export const SHIT_TICKER_DISPLAY = "$TOKENSHIT";
 
-/** Public treasury = SHT vanity (secret offline / TREASURY_SECRET_JSON) */
+/** Official X account to follow/tag */
+export const X_HANDLE = "Tokenshit_";
+export const X_URL = `https://x.com/${X_HANDLE}`;
+export const X_USER_ID = "2037761105359986688";
+
+/** Public treasury = SHT vanity */
 export const TREASURY_ADDRESS =
   process.env.NEXT_PUBLIC_TREASURY_ADDRESS ||
   "SHTy7yoA5uAZoevKT3BFcSeDeFaHEyqWc55uApd3MJB";
@@ -14,19 +21,21 @@ export const TREASURY_ADDRESS =
 /** One-time claim amounts (whole tokens) */
 export const CLAIM_X_VERIFIED = 100_000;
 export const CLAIM_GH_FORK = 250_000;
-/** $SHIT paid to referrer when a new user signs up via their link */
+/** Tweet + tag @Tokenshit_ (once) */
+export const CLAIM_X_TWEET = 25_000;
+/** Follow @Tokenshit_ (once) — checked via recent engagement path if available */
+export const CLAIM_X_FOLLOW = 15_000;
+/** $TOKENSHIT per referral */
 export const REFERRAL_REWARD_SHIT = 10_000;
 
 export const GH_FORK_UPSTREAM = "solana-foundation/tokens";
 
-/** Jupiter swap deep link (buy $SHIT with SOL) */
 export function shitBuyUrl(amountSol?: number): string {
   const base = `https://jup.ag/swap/SOL-${SHIT_MINT}`;
   if (amountSol && amountSol > 0) return `${base}?amount=${amountSol}`;
   return base;
 }
 
-/** DexScreener chart */
 export function shitChartUrl(): string {
   return `https://dexscreener.com/solana/${SHIT_MINT}`;
 }
@@ -39,7 +48,18 @@ export function mintSolscanUrl(): string {
   return `https://solscan.io/token/${SHIT_MINT}`;
 }
 
-/** UI amount → raw (bigint string-safe) */
+/** Intent URL: compose tweet tagging @Tokenshit_ */
+export function tweetTagIntentUrl(text?: string): string {
+  const body =
+    text ||
+    `Just judged bags on @${X_HANDLE} — every token is shit until proven otherwise.\n\nhttps://tokenshit.com`;
+  return `https://x.com/intent/tweet?text=${encodeURIComponent(body)}`;
+}
+
+export function followIntentUrl(): string {
+  return `https://x.com/intent/follow?screen_name=${X_HANDLE}`;
+}
+
 export function shitToRaw(amount: number): bigint {
   return BigInt(Math.floor(amount)) * BigInt(10 ** SHIT_DECIMALS);
 }
@@ -61,9 +81,9 @@ export const GAME = {
 
 export const TOKENOMICS_BLURB = [
   "Vote free — earn Clout (XP).",
-  "Buy $SHIT — skin in the court.",
-  "Burn $SHIT — mint Clout (deflation).",
-  "X verified — claim 100,000 $SHIT once.",
-  "Fork solana-foundation/tokens — claim 250,000 $SHIT once.",
-  "Spend Clout — Super Vote (3× weight).",
+  "Buy $TOKENSHIT — skin in the court.",
+  `Tweet + tag @${X_HANDLE} — claim ${CLAIM_X_TWEET.toLocaleString()} $TOKENSHIT once.`,
+  "X verified — claim 100,000 $TOKENSHIT once.",
+  "Fork solana-foundation/tokens — claim 250,000 $TOKENSHIT once.",
+  "Refer friends — 10,000 $TOKENSHIT each.",
 ].join(" ");

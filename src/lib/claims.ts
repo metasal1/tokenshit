@@ -1,6 +1,6 @@
 import { tursoExecute } from "@/lib/turso";
 
-export type ClaimKind = "x_verified" | "gh_fork";
+export type ClaimKind = "x_verified" | "gh_fork" | "x_tweet" | "x_follow";
 
 export async function ensureClaimSchema() {
   await tursoExecute(
@@ -187,3 +187,145 @@ export async function checkGhFork(
   }
   return { ok: true, forked: false };
 }
+
+function xBearer(): string {
+  return (
+    process.env.X_BEARER_TOKEN ||
+    process.env.TWITTER_BEARER_TOKEN ||
+    process.env.X_USER_BEARER ||
+    ""
+  );
+}
+
+/**
+ * Recent search: user tweeted tagging @Tokenshit_ (or tokenshit.com).
+ * Requires X API recent search access on the bearer.
+ */
+export async function checkXTweetTag(
+  username: string
+): Promise<{
+  ok: boolean;
+  found: boolean;
+  tweetId?: string;
+  text?: string;
+  error?: string;
+}> {
+  const bearer = xBearer();
+  const user = username.replace(/^@/, "").trim();
+  if (!user) return { ok: false, found: false, error: "no username" };
+  if (!bearer)
+    return { ok: false, found: false, error: "X_BEARER_TOKEN not configured" };
+
+  // from:user mentioning Tokenshit_ or link
+  const query = `from:${user} (@Tokenshit_ OR @tokenshit_ OR tokenshit.com OR TOKENSHIT) -is:retweet -is:reply`;
+  const url = new URL("https://api.x.com/2/tweets/search/recent");
+  url.searchParams.set("query", query);
+  url.searchParams.set("max_results", "10");
+  url.searchParams.set("tweet.fields", "author_id,created_at,text,entities");
+
+  const res = await fetch(url.toString(), {
+    headers: { Authorization: `Bearer ${bearer}` },
+  });
+  if (!res.ok) {
+    const t = await res.text();
+    return {
+      ok: false,
+      found: false,
+      error: `X search ${res.status}: ${t.slice(0, 200)}`,
+    };
+  }
+  const json = await res.json();
+  const tweets = (json.data || []) as { id: string; text: string }[];
+  if (!tweets.length) {
+    return { ok: true, found: false };
+  }
+  // Prefer one that actually tags @Tokenshit_
+  const tagged =
+    tweets.find((t) => /@tokenshit_/i.test(t.text || "")) || tweets[0];
+  return {
+    ok: true,
+    found: true,
+    tweetId: tagged.id,
+    text: (tagged.text || "").slice(0, 280),
+  };
+}
+
+/**
+ * Check if sourceUser follows Tokenshit_ via user lookup + following endpoint.
+ * Uses Tokenshit_ app user token when available (followers lookup).
+ * Fallback: search if user replied/mentioned after follow intent is weak —
+ * primary path is GET /2/users/:id/followers is expensive; use
+ * GET /2/users/:source/following/:target or friendships/show.
+ */
+export async function checkXFollowsTokenshit(
+  username: string
+): Promise<{ ok: boolean; following: boolean; error?: string }> {
+  const bearer = xBearer();
+  const user = username.replace(/^@/, "").trim();
+  if (!user) return { ok: false, following: false, error: "no username" };
+  if (!bearer)
+    return {
+      ok: false,
+      following: false,
+      error: "X_BEARER_TOKEN not configured",
+    };
+
+  // Resolve user id
+  const uRes = await fetch(
+    `https://api.x.com/2/users/by/username/${encodeURIComponent(user)}`,
+    { headers: { Authorization: `Bearer ${bearer}` } }
+  );
+  if (!uRes.ok) {
+    return {
+      ok: false,
+      following: false,
+      error: `user lookup ${uRes.status}`,
+    };
+  }
+  const uJson = await uRes.json();
+  const sourceId = uJson.data?.id;
+  if (!sourceId)
+    return { ok: false, following: false, error: "user not found" };
+
+  const targetId =
+    process.env.X_TOKENSHIT_USER_ID || "2037761105359986688";
+
+  // Official relationship endpoint (v1.1) — works with user context
+  const rel = await fetch(
+    `https://api.x.com/1.1/friendships/show.json?source_id=${encodeURIComponent(
+      sourceId
+    )}&target_id=${encodeURIComponent(targetId)}`,
+    { headers: { Authorization: `Bearer ${bearer}` } }
+  );
+  if (rel.ok) {
+    const r = await rel.json();
+    const following = Boolean(
+      r.relationship?.source?.following || r.relationship?.target?.followed_by
+    );
+    return { ok: true, following };
+  }
+
+  // v2: GET /2/users/:id/following?max_results=1000 is heavy; try target following me
+  // Alternative: following lookup
+  const fRes = await fetch(
+    `https://api.x.com/2/users/${sourceId}/following?max_results=1000&user.fields=username`,
+    { headers: { Authorization: `Bearer ${bearer}` } }
+  );
+  if (!fRes.ok) {
+    const t = await fRes.text();
+    return {
+      ok: false,
+      following: false,
+      error: `following ${fRes.status}: ${t.slice(0, 160)}`,
+    };
+  }
+  const fJson = await fRes.json();
+  const list = (fJson.data || []) as { id: string; username?: string }[];
+  const following = list.some(
+    (u) =>
+      u.id === targetId ||
+      (u.username || "").toLowerCase() === "tokenshit_"
+  );
+  return { ok: true, following };
+}
+
