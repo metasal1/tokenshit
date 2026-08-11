@@ -279,9 +279,10 @@ export default function BrandPage() {
           {(
             [
               ["Logo", BRAND.logo.assets.logoJpg],
-              ["Neon logo", BRAND.logo.assets.logoNeon],
               ["Banner", BRAND.logo.assets.banner],
-              ["Treasury poster", BRAND.logo.assets.posterTreasury],
+              ["X banner", BRAND.logo.assets.xBanner],
+              ["Icon SVG", BRAND.logo.assets.iconSvg],
+              ["Square solid", BRAND.logo.assets.squareSolid],
             ] as const
           ).map(([label, src]) => (
             <a

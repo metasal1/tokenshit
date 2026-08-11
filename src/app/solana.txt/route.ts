@@ -40,7 +40,7 @@ registry: https://github.com/solana-foundation/tokens
 tokens_xyz: https://tokens.xyz
 
 solscan_token: https://solscan.io/token/${SHIT_MINT}
-solscan_treasury: https://solscan.io/account/${TREASURY_ADDRESS}
+portfolio_treasury: https://sol.new/portfolio/${TREASURY_ADDRESS}
 `;
   return new Response(BODY, {
     headers: {

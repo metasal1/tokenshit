@@ -58,10 +58,8 @@ export const BRAND = {
       squareOutline: "/brand/square-outline.png",
       squareGradient: "/brand/square-gradient.png",
       logoJpg: "/logo.jpg",
-      logoNeon: "/logo-neon.jpg",
       banner: "/banner.jpeg",
       xBanner: "/brand/x-banner.jpg",
-      posterTreasury: "/posters/treasury-reloaded.png",
     },
   },
 
