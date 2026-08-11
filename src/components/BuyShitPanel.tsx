@@ -8,12 +8,9 @@ import {
   useSignAndSendTransaction,
   useWallets,
 } from "@privy-io/react-auth/solana";
-import {
-  BUY_FEE_BPS,
-  SHIT_FEE_ATA,
-  jupiterBuyUrlWithFee,
-} from "@/lib/buy-fee";
-import { SHIT_MINT, SHIT_SYMBOL, TREASURY_ADDRESS } from "@/lib/shit-token";
+import { jupiterBuyUrlWithFee } from "@/lib/buy-fee";
+import { SHIT_SYMBOL } from "@/lib/shit-token";
+import { BalanceSkeleton } from "@/components/StatLoader";
 
 function SolanaFundingBootstrap() {
   useSolanaFundingPlugin();
@@ -23,8 +20,42 @@ function SolanaFundingBootstrap() {
 function fmtShit(n: number) {
   if (!Number.isFinite(n)) return "—";
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(2)}M`;
-  if (n >= 1_000) return n.toLocaleString(undefined, { maximumFractionDigits: 0 });
+  if (n >= 1_000)
+    return n.toLocaleString(undefined, { maximumFractionDigits: 0 });
   return n.toLocaleString(undefined, { maximumFractionDigits: 2 });
+}
+
+function encodeSig(sigBytes: Uint8Array): string {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const bs58 = require("bs58");
+    const enc = bs58.encode || bs58.default?.encode;
+    if (typeof enc === "function") return enc(Buffer.from(sigBytes));
+  } catch {
+    /* fall through */
+  }
+  // base58 alphabet fallback
+  const ALPHABET =
+    "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+  let zeros = 0;
+  while (zeros < sigBytes.length && sigBytes[zeros] === 0) zeros++;
+  const size = ((sigBytes.length - zeros) * 138) / 100 + 1;
+  const b = new Uint8Array(size);
+  let length = 0;
+  for (let i = zeros; i < sigBytes.length; i++) {
+    let carry = sigBytes[i];
+    let j = 0;
+    for (let k = size - 1; k >= 0; k--, j++) {
+      if (carry === 0 && j >= length) break;
+      carry += 256 * b[k];
+      b[k] = carry % 58;
+      carry = (carry / 58) | 0;
+    }
+    length = j;
+  }
+  let out = "1".repeat(zeros);
+  for (let i = size - length; i < size; i++) out += ALPHABET[b[i]];
+  return out;
 }
 
 export default function BuyShitPanel() {
@@ -36,20 +67,36 @@ export default function BuyShitPanel() {
   const [solAmount, setSolAmount] = useState("0.1");
   const [busy, setBusy] = useState<"fund" | "buy" | null>(null);
   const [quoteOut, setQuoteOut] = useState<number | null>(null);
+  const [quoteLoading, setQuoteLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [sig, setSig] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
 
   const walletAddress = useMemo(() => {
-    const w = wallets?.[0];
+    // Prefer embedded / first solana wallet
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const anyW = w as any;
+    const list = (wallets || []) as any[];
+    const preferred =
+      list.find((w) => w?.standardWallet?.name || w?.walletClientType) ||
+      list[0];
     return (
-      anyW?.address ||
+      preferred?.address ||
       user?.wallet?.address ||
       null
     ) as string | null;
   }, [wallets, user]);
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const walletObj = useMemo(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const list = (wallets || []) as any[];
+    if (!list.length) return null;
+    if (walletAddress) {
+      const m = list.find((w) => w?.address === walletAddress);
+      if (m) return m;
+    }
+    return list[0];
+  }, [wallets, walletAddress]);
 
   const lamports = useMemo(() => {
     const n = Number(solAmount);
@@ -62,9 +109,10 @@ export default function BuyShitPanel() {
       setQuoteOut(null);
       return;
     }
+    setQuoteLoading(true);
     try {
       const res = await fetch(
-        `/api/buy?amountLamports=${lamports}&slippageBps=100`
+        `/api/buy?amountLamports=${lamports}&slippageBps=150&fee=0`
       );
       const data = await res.json();
       if (!res.ok) {
@@ -72,15 +120,16 @@ export default function BuyShitPanel() {
         return;
       }
       const out = Number(data.quote?.outAmount || 0);
-      // 6 decimals
       setQuoteOut(out / 1e6);
     } catch {
       setQuoteOut(null);
+    } finally {
+      setQuoteLoading(false);
     }
   }, [lamports]);
 
   useEffect(() => {
-    const t = setTimeout(refreshQuote, 300);
+    const t = setTimeout(refreshQuote, 280);
     return () => clearTimeout(t);
   }, [refreshQuote]);
 
@@ -127,8 +176,8 @@ export default function BuyShitPanel() {
       login();
       return;
     }
-    if (!walletAddress) {
-      setErr("No Solana wallet.");
+    if (!walletAddress || !walletObj) {
+      setErr("No Solana wallet ready — log in again.");
       return;
     }
     if (lamports <= 0) {
@@ -139,11 +188,15 @@ export default function BuyShitPanel() {
     setBusy("buy");
     try {
       const qRes = await fetch(
-        `/api/buy?amountLamports=${lamports}&slippageBps=100`
+        `/api/buy?amountLamports=${lamports}&slippageBps=150&fee=0`
       );
       const qData = await qRes.json();
       if (!qRes.ok || !qData.quote) {
-        throw new Error(qData.error || "Quote failed");
+        throw new Error(
+          typeof qData.error === "string"
+            ? qData.error
+            : "Quote failed — try again"
+        );
       }
 
       const sRes = await fetch("/api/buy", {
@@ -152,30 +205,24 @@ export default function BuyShitPanel() {
         body: JSON.stringify({
           quoteResponse: qData.quote,
           userPublicKey: walletAddress,
-          feeAccount: qData.feeAccount,
-          feeBps: qData.feeBps,
+          fee: false,
         }),
       });
       const sData = await sRes.json();
       if (!sRes.ok || !sData.swapTransaction) {
-        throw new Error(sData.error || "Swap build failed");
+        throw new Error(
+          typeof sData.error === "string"
+            ? sData.error
+            : "Swap build failed — try again"
+        );
       }
 
-      // Deserialize base64 tx → Uint8Array for Privy
-      const txBytes = Uint8Array.from(atob(sData.swapTransaction), (c) =>
-        c.charCodeAt(0)
-      );
-
-      // Find wallet object
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const wallet = (wallets as any[])?.[0];
-      if (!wallet) {
-        throw new Error("Privy Solana wallet not ready");
-      }
+      const raw = sData.swapTransaction as string;
+      const txBytes = Uint8Array.from(atob(raw), (c) => c.charCodeAt(0));
 
       const result = await signAndSendTransaction({
         transaction: txBytes,
-        wallet,
+        wallet: walletObj,
         chain: "solana:mainnet",
         options: {
           uiOptions: {
@@ -184,25 +231,27 @@ export default function BuyShitPanel() {
         },
       });
 
-      const sigBytes = result?.signature;
       let signature: string | null = null;
-      if (sigBytes && sigBytes instanceof Uint8Array) {
-        // base58 encode
-        try {
-          // eslint-disable-next-line @typescript-eslint/no-require-imports
-          const bs58 = require("bs58");
-          const enc = bs58.encode || bs58.default?.encode;
-          signature = enc(Buffer.from(sigBytes));
-        } catch {
-          signature = Buffer.from(sigBytes).toString("hex");
-        }
+      const sigBytes = result?.signature;
+      if (sigBytes instanceof Uint8Array) {
+        signature = encodeSig(sigBytes);
+      } else if (typeof result?.signature === "string") {
+        signature = result.signature;
       }
 
       setSig(signature);
-      setMsg(`Bought $TOKENSHIT · ${BUY_FEE_BPS / 100}% fee → treasury`);
-      refreshQuote();
+      setMsg(`Bought $${SHIT_SYMBOL}`);
+      void refreshQuote();
     } catch (e) {
-      setErr(e instanceof Error ? e.message : String(e));
+      const m = e instanceof Error ? e.message : String(e);
+      // friendlier common errors
+      if (/insufficient|0x1|lamport/i.test(m)) {
+        setErr("Not enough SOL — add SOL first, then buy.");
+      } else if (/User rejected|denied|cancel/i.test(m)) {
+        setErr("Cancelled.");
+      } else {
+        setErr(m);
+      }
     } finally {
       setBusy(null);
     }
@@ -218,9 +267,7 @@ export default function BuyShitPanel() {
           Buy ${SHIT_SYMBOL}
         </h2>
         <p className="text-xs sm:text-sm text-zinc-500 mt-1 leading-snug">
-          Card → SOL, then swap. Fee{" "}
-          <span className="text-neon font-mono">{BUY_FEE_BPS / 100}%</span> →
-          treasury.
+          Add SOL (card) · swap to ${SHIT_SYMBOL} in one tap.
         </p>
       </div>
 
@@ -237,8 +284,12 @@ export default function BuyShitPanel() {
             className="w-full min-h-11 rounded-lg border border-zinc-700 bg-background px-3 py-2.5 text-base sm:text-sm text-white font-mono"
           />
         </label>
-        <div className="flex flex-col justify-end pb-2.5 text-sm text-zinc-400 font-mono shrink-0">
-          ≈ {quoteOut == null ? "…" : fmtShit(quoteOut)}
+        <div className="flex flex-col justify-end pb-2.5 text-sm text-zinc-400 font-mono shrink-0 min-w-[5.5rem] text-right">
+          {quoteLoading || (lamports > 0 && quoteOut == null) ? (
+            <BalanceSkeleton className="h-4 w-16 ml-auto" />
+          ) : (
+            <>≈ {quoteOut == null ? "—" : fmtShit(quoteOut)}</>
+          )}
         </div>
       </div>
 
@@ -257,21 +308,17 @@ export default function BuyShitPanel() {
         </button>
         <button
           type="button"
-          disabled={busy !== null}
+          disabled={busy !== null || lamports <= 0}
           onClick={onBuy}
           className="min-h-11 touch-manipulation rounded-lg bg-neon text-black hover:brightness-110 text-sm font-semibold py-3 transition disabled:opacity-50 active:scale-[0.98]"
         >
           {busy === "buy"
             ? "Swapping…"
             : authenticated
-              ? `Buy (−${BUY_FEE_BPS / 100}% fee)`
+              ? `Buy $${SHIT_SYMBOL}`
               : "Login to buy"}
         </button>
       </div>
-
-      <p className="text-[10px] sm:text-[11px] text-zinc-600 font-mono break-all leading-relaxed">
-        fee {SHIT_FEE_ATA.slice(0, 6)}… · treasury {TREASURY_ADDRESS.slice(0, 6)}…
-      </p>
 
       {err && (
         <p className="text-sm text-red-400 break-words bg-red-950/30 border border-red-900/40 rounded-lg px-3 py-2">
@@ -300,7 +347,7 @@ export default function BuyShitPanel() {
         rel="noopener noreferrer"
         className="text-xs text-zinc-500 hover:text-zinc-300 min-h-9 inline-flex items-center"
       >
-        Fallback: Jupiter ↗
+        Open in Jupiter ↗
       </a>
     </section>
   );
