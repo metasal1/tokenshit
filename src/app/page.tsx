@@ -4,6 +4,8 @@ import CategoryLeaderboard from "@/components/CategoryLeaderboard";
 import AnimatedLogo from "@/components/AnimatedLogo";
 import RandomTokenVote from "@/components/RandomTokenVote";
 import GlobalTreasuryBanner from "@/components/GlobalTreasuryBanner";
+import XFollowersBadge from "@/components/XFollowersBadge";
+import ShareRefButton from "@/components/ShareRefButton";
 
 /**
  * Home is a fast static shell. Heavy leaderboard/meta loads client-side
@@ -33,8 +35,10 @@ export default function Home() {
           <div className="max-w-2xl mx-auto">
             <SearchBar big />
           </div>
-          <div className="max-w-2xl mx-auto mt-6 text-left">
+          <div className="max-w-2xl mx-auto mt-4 space-y-3 text-left">
+            <XFollowersBadge />
             <GlobalTreasuryBanner />
+            <ShareRefButton path="/" />
           </div>
         </div>
       </section>
