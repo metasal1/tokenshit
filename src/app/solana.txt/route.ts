@@ -9,9 +9,6 @@ import {
 
 export const dynamic = "force-dynamic";
 
-/** SHT vanity wallet (pubkey only — secret offline) */
-const VANITY_SHT = "SHTy7yoA5uAZoevKT3BFcSeDeFaHEyqWc55uApd3MJB";
-
 export async function GET() {
   const BODY = `# TokenShit — Solana
 # https://tokenshit.com
@@ -28,7 +25,6 @@ buy: https://jup.ag/swap/SOL-${SHIT_MINT}
 chart: https://dexscreener.com/solana/${SHIT_MINT}
 
 treasury: ${TREASURY_ADDRESS}
-vanity: ${VANITY_SHT}
 
 x_verified_claim: ${CLAIM_X_VERIFIED}
 gh_fork_claim: ${CLAIM_GH_FORK}

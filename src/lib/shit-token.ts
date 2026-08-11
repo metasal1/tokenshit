@@ -6,10 +6,10 @@ export const SHIT_DECIMALS = 6;
 export const SHIT_SYMBOL = "SHIT";
 export const SHIT_NAME = "TokenShit";
 
-/** Public treasury (secret key never in repo) */
+/** Public treasury = SHT vanity (secret offline / TREASURY_SECRET_JSON) */
 export const TREASURY_ADDRESS =
   process.env.NEXT_PUBLIC_TREASURY_ADDRESS ||
-  "5SjzsHYuQLuGVoZ6vhvKXW3ZPUz3zK46ZYKnaz2qRCb6";
+  "SHTy7yoA5uAZoevKT3BFcSeDeFaHEyqWc55uApd3MJB";
 
 /** One-time claim amounts (whole tokens) */
 export const CLAIM_X_VERIFIED = 100_000;
