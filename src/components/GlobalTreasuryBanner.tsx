@@ -8,6 +8,7 @@ import {
   formatCountdown,
   treasurySolscanUrl,
 } from "@/lib/shit-token";
+import { BalanceSkeleton } from "@/components/StatLoader";
 
 type GlobalPayload = {
   shit?: number;
@@ -70,6 +71,7 @@ export default function GlobalTreasuryBanner({
 }) {
   const [data, setData] = useState<GlobalPayload | null>(null);
   const [skew, setSkew] = useState(0);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let alive = true;
@@ -86,7 +88,10 @@ export default function GlobalTreasuryBanner({
           }
           setData(d);
         })
-        .catch(() => {});
+        .catch(() => {})
+        .finally(() => {
+          if (alive) setLoading(false);
+        });
     };
     load();
     const t = setInterval(load, 30_000);
@@ -124,7 +129,11 @@ export default function GlobalTreasuryBanner({
           Treasury
         </span>
         <span className="font-mono text-neon text-xs sm:text-sm font-bold tabular-nums">
-          {fmtBal(shit)}
+          {loading || shit == null ? (
+            <BalanceSkeleton className="h-3.5 w-12 align-middle" />
+          ) : (
+            fmtBal(shit)
+          )}
         </span>
         <span className="text-zinc-600">·</span>
         <span className="font-mono text-xs text-zinc-300 tabular-nums">
@@ -177,12 +186,20 @@ export default function GlobalTreasuryBanner({
             <div className="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">
               Balance
             </div>
-            <div className="font-mono text-2xl sm:text-3xl font-black text-neon tabular-nums leading-none">
-              {fmtBal(shit)}
+            <div className="font-mono text-2xl sm:text-3xl font-black text-neon tabular-nums leading-none min-h-[1.75rem] flex items-center sm:justify-end">
+              {loading || shit == null ? (
+                <BalanceSkeleton wide className="h-7 w-28" />
+              ) : (
+                fmtBal(shit)
+              )}
             </div>
             <div className="text-[11px] text-zinc-500 font-mono mt-1">
               ${SHIT_SYMBOL}
-              {sol != null && sol > 0 ? ` · ${sol.toFixed(3)} SOL` : ""}
+              {loading
+                ? null
+                : sol != null && sol > 0
+                  ? ` · ${sol.toFixed(3)} SOL`
+                  : ""}
             </div>
           </div>
 
