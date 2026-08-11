@@ -2,6 +2,9 @@
 
 import { useRef, useState, useCallback, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
+import SwipeHint, { SwipeEdgeGlow } from "@/components/SwipeHint";
+import LottiePlayer from "@/components/LottiePlayer";
+import { sfx } from "@/lib/sfx";
 
 interface Props {
   children: React.ReactNode;
@@ -9,78 +12,105 @@ interface Props {
   nextAssetId?: string | null;
 }
 
-export default function SwipeableToken({ children, prevAssetId, nextAssetId }: Props) {
+/**
+ * Token pager with Lottie swipe affordance (LottieFiles free swipe).
+ * Swipe right → prev · swipe left → next
+ */
+export default function SwipeableToken({
+  children,
+  prevAssetId,
+  nextAssetId,
+}: Props) {
   const router = useRouter();
   const pathname = usePathname();
   const containerRef = useRef<HTMLDivElement>(null);
   const [touchStartX, setTouchStartX] = useState<number | null>(null);
+  const [touchStartY, setTouchStartY] = useState<number | null>(null);
   const [offsetX, setOffsetX] = useState(0);
   const [transitioning, setTransitioning] = useState(false);
   const [direction, setDirection] = useState<"left" | "right" | null>(null);
   const [visible, setVisible] = useState(true);
+  const [burst, setBurst] = useState<"left" | "right" | null>(null);
 
-  // Reset animation on pathname change
   useEffect(() => {
     setTransitioning(false);
     setDirection(null);
     setOffsetX(0);
     setVisible(false);
-    // Slide in from the opposite direction
-    requestAnimationFrame(() => {
-      setVisible(true);
-    });
+    setBurst(null);
+    requestAnimationFrame(() => setVisible(true));
   }, [pathname]);
 
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     setTouchStartX(e.touches[0].clientX);
+    setTouchStartY(e.touches[0].clientY);
   }, []);
 
-  const handleTouchMove = useCallback((e: React.TouchEvent) => {
-    if (touchStartX === null) return;
-    const diff = e.touches[0].clientX - touchStartX;
-    // Only allow swipe if there's a target in that direction
-    if (diff > 0 && !prevAssetId) return;
-    if (diff < 0 && !nextAssetId) return;
-    setOffsetX(diff * 0.4); // dampened
-  }, [touchStartX, prevAssetId, nextAssetId]);
+  const handleTouchMove = useCallback(
+    (e: React.TouchEvent) => {
+      if (touchStartX === null || touchStartY === null) return;
+      const dx = e.touches[0].clientX - touchStartX;
+      const dy = e.touches[0].clientY - touchStartY;
+      // ignore mostly-vertical scrolls
+      if (Math.abs(dy) > Math.abs(dx) * 1.2) return;
+      if (dx > 0 && !prevAssetId) return;
+      if (dx < 0 && !nextAssetId) return;
+      setOffsetX(dx * 0.45);
+    },
+    [touchStartX, touchStartY, prevAssetId, nextAssetId]
+  );
+
+  const commit = useCallback(
+    (dir: "left" | "right", id: string) => {
+      setDirection(dir);
+      setBurst(dir);
+      setTransitioning(true);
+      try {
+        sfx.whoosh();
+      } catch {
+        /* ignore */
+      }
+      setTimeout(() => router.push(`/token/${id}`), 220);
+    },
+    [router]
+  );
 
   const handleTouchEnd = useCallback(() => {
     if (touchStartX === null) return;
-    const threshold = 80;
+    const threshold = 72;
 
     if (offsetX < -threshold && nextAssetId) {
-      setDirection("left");
-      setTransitioning(true);
-      setTimeout(() => router.push(`/token/${nextAssetId}`), 250);
+      commit("left", nextAssetId);
     } else if (offsetX > threshold && prevAssetId) {
-      setDirection("right");
-      setTransitioning(true);
-      setTimeout(() => router.push(`/token/${prevAssetId}`), 250);
+      commit("right", prevAssetId);
     } else {
       setOffsetX(0);
     }
 
     setTouchStartX(null);
-  }, [touchStartX, offsetX, nextAssetId, prevAssetId, router]);
+    setTouchStartY(null);
+  }, [touchStartX, offsetX, nextAssetId, prevAssetId, commit]);
 
   const goPrev = useCallback(() => {
     if (!prevAssetId || transitioning) return;
-    setDirection("right");
-    setTransitioning(true);
-    setTimeout(() => router.push(`/token/${prevAssetId}`), 250);
-  }, [prevAssetId, transitioning, router]);
+    commit("right", prevAssetId);
+  }, [prevAssetId, transitioning, commit]);
 
   const goNext = useCallback(() => {
     if (!nextAssetId || transitioning) return;
-    setDirection("left");
-    setTransitioning(true);
-    setTimeout(() => router.push(`/token/${nextAssetId}`), 250);
-  }, [nextAssetId, transitioning, router]);
+    commit("left", nextAssetId);
+  }, [nextAssetId, transitioning, commit]);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
-      if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)) return;
+      if (
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.isContentEditable)
+      )
+        return;
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       if (e.key === "ArrowLeft" && prevAssetId) {
         e.preventDefault();
@@ -96,52 +126,110 @@ export default function SwipeableToken({ children, prevAssetId, nextAssetId }: P
 
   const exitTransform = transitioning
     ? direction === "left"
-      ? "translateX(-100%)"
-      : "translateX(100%)"
+      ? "translateX(-110%)"
+      : "translateX(110%)"
     : `translateX(${offsetX}px)`;
 
-  const enterTransform = visible ? "translateX(0)" : "translateX(0)";
+  const intensity = Math.min(1, Math.abs(offsetX) / 120);
+  const glowSide: "left" | "right" | null =
+    offsetX > 8 ? "left" : offsetX < -8 ? "right" : null;
 
   return (
     <div className="relative overflow-hidden">
-      {/* Navigation hints */}
+      {/* Lottie coach + text hints */}
       {(prevAssetId || nextAssetId) && (
-        <div className="flex justify-between px-4 py-2 text-xs text-zinc-600">
-          <span>
-            {prevAssetId ? (
-              <>
-                <span className="sm:hidden">← swipe right</span>
-                <span className="hidden sm:inline">
-                  <kbd className="px-1 py-0.5 font-mono text-[10px] border border-zinc-700 rounded">←</kbd> prev
-                </span>
-              </>
-            ) : ""}
-          </span>
-          <span>
-            {nextAssetId ? (
-              <>
-                <span className="sm:hidden">swipe left →</span>
-                <span className="hidden sm:inline">
-                  next <kbd className="px-1 py-0.5 font-mono text-[10px] border border-zinc-700 rounded">→</kbd>
-                </span>
-              </>
-            ) : ""}
-          </span>
+        <div className="flex flex-col items-center gap-1 px-4 pt-2 pb-1">
+          <div className="sm:hidden w-full flex justify-center">
+            <SwipeHint mode="nav" />
+          </div>
+          <div className="w-full flex justify-between text-xs text-zinc-600">
+            <span>
+              {prevAssetId ? (
+                <>
+                  <span className="sm:hidden">← swipe</span>
+                  <span className="hidden sm:inline">
+                    <kbd className="px-1 py-0.5 font-mono text-[10px] border border-zinc-700 rounded">
+                      ←
+                    </kbd>{" "}
+                    prev
+                  </span>
+                </>
+              ) : (
+                ""
+              )}
+            </span>
+            <span>
+              {nextAssetId ? (
+                <>
+                  <span className="sm:hidden">swipe →</span>
+                  <span className="hidden sm:inline">
+                    next{" "}
+                    <kbd className="px-1 py-0.5 font-mono text-[10px] border border-zinc-700 rounded">
+                      →
+                    </kbd>
+                  </span>
+                </>
+              ) : (
+                ""
+              )}
+            </span>
+          </div>
         </div>
       )}
 
-      <div
-        ref={containerRef}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
-        style={{
-          transform: transitioning ? exitTransform : enterTransform,
-          transition: transitioning || touchStartX === null ? "transform 0.25s ease-out, opacity 0.25s ease-out" : "none",
-          opacity: transitioning ? 0 : 1,
-        }}
-      >
-        {children}
+      <div className="relative">
+        {glowSide === "left" && (
+          <SwipeEdgeGlow side="left" intensity={intensity} />
+        )}
+        {glowSide === "right" && (
+          <SwipeEdgeGlow side="right" intensity={intensity} />
+        )}
+
+        {/* commit burst Lottie */}
+        {burst && (
+          <div
+            className={`pointer-events-none absolute inset-y-0 z-30 flex items-center ${
+              burst === "left" ? "right-2" : "left-2"
+            }`}
+            aria-hidden
+          >
+            <div
+              className="h-20 w-20 opacity-90"
+              style={{
+                transform: burst === "left" ? "scaleX(-1)" : undefined,
+              }}
+            >
+              <LottiePlayer
+                src="/lottie/swipe-phone.json"
+                loop={false}
+                autoplay
+                className="h-full w-full"
+              />
+            </div>
+          </div>
+        )}
+
+        <div
+          ref={containerRef}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+          style={{
+            transform: transitioning
+              ? exitTransform
+              : visible
+                ? `translateX(${offsetX}px)`
+                : "translateX(0)",
+            transition:
+              transitioning || touchStartX === null
+                ? "transform 0.22s ease-out, opacity 0.22s ease-out"
+                : "none",
+            opacity: transitioning ? 0 : 1,
+            touchAction: "pan-y",
+          }}
+        >
+          {children}
+        </div>
       </div>
 
       {/* Desktop arrow buttons */}

@@ -1,12 +1,14 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { usePrivy } from "@privy-io/react-auth";
 import { CanvasPanelFx } from "@/components/CanvasShell";
 import ShareRefButton from "@/components/ShareRefButton";
 import { getRefHandle, getVoterId } from "@/lib/privy-identity";
 import { sfx } from "@/lib/sfx";
+import SwipeHint, { SwipeEdgeGlow } from "@/components/SwipeHint";
+import LottiePlayer from "@/components/LottiePlayer";
 function EmojiDrop({ emoji, count = 20 }: { emoji: string; count?: number }) {
   const [particles, setParticles] = useState<{ id: number; left: number; delay: number; size: number; duration: number }[]>([]);
 
@@ -241,26 +243,120 @@ export default function VoteButtons({
   const needsLogin = !authenticated || !twitterUsername;
 
   const [pressing, setPressing] = useState<"hit" | "shit" | null>(null);
+  const swipeStart = useRef<{ x: number; y: number } | null>(null);
+  const [swipeX, setSwipeX] = useState(0);
+  const [swipeBurst, setSwipeBurst] = useState<"hit" | "shit" | null>(null);
+
+  const onSwipeStart = (e: React.TouchEvent) => {
+    if (hasVoted || voting) return;
+    swipeStart.current = {
+      x: e.touches[0].clientX,
+      y: e.touches[0].clientY,
+    };
+  };
+  const onSwipeMove = (e: React.TouchEvent) => {
+    if (!swipeStart.current || hasVoted || voting) return;
+    const dx = e.touches[0].clientX - swipeStart.current.x;
+    const dy = e.touches[0].clientY - swipeStart.current.y;
+    if (Math.abs(dy) > Math.abs(dx) * 1.3) return;
+    setSwipeX(dx * 0.5);
+    if (dx > 24) setPressing("hit");
+    else if (dx < -24) setPressing("shit");
+    else setPressing(null);
+  };
+  const onSwipeEnd = () => {
+    if (!swipeStart.current || hasVoted || voting) {
+      setSwipeX(0);
+      setPressing(null);
+      swipeStart.current = null;
+      return;
+    }
+    const dx = swipeX;
+    swipeStart.current = null;
+    setSwipeX(0);
+    setPressing(null);
+    if (dx > 64) {
+      setSwipeBurst("hit");
+      void handleVote("hit");
+      setTimeout(() => setSwipeBurst(null), 900);
+    } else if (dx < -64) {
+      setSwipeBurst("shit");
+      void handleVote("shit");
+      setTimeout(() => setSwipeBurst(null), 900);
+    }
+  };
 
   return (
-    <div className="border border-zinc-800 rounded-xl bg-zinc-900/80 p-5 relative">
+    <div
+      className="border border-zinc-800 rounded-xl bg-zinc-900/80 p-5 relative overflow-hidden"
+      onTouchStart={onSwipeStart}
+      onTouchMove={onSwipeMove}
+      onTouchEnd={onSwipeEnd}
+      style={{ touchAction: "pan-y" }}
+    >
       {dropEmoji && <EmojiDrop emoji={dropEmoji} />}
-      <div className="text-center mb-4">
+      {swipeX > 10 && (
+        <SwipeEdgeGlow side="left" intensity={Math.min(1, swipeX / 100)} />
+      )}
+      {swipeX < -10 && (
+        <SwipeEdgeGlow
+          side="right"
+          intensity={Math.min(1, Math.abs(swipeX) / 100)}
+        />
+      )}
+      {swipeBurst && (
+        <div
+          className={`pointer-events-none absolute inset-y-0 z-20 flex items-center ${
+            swipeBurst === "hit" ? "left-1" : "right-1"
+          }`}
+          aria-hidden
+        >
+          <div
+            className="h-16 w-16"
+            style={{
+              transform: swipeBurst === "shit" ? "scaleX(-1)" : undefined,
+            }}
+          >
+            <LottiePlayer
+              src="/lottie/swipe-hand.json"
+              loop={false}
+              autoplay
+              className="h-full w-full"
+            />
+          </div>
+        </div>
+      )}
+
+      <div className="text-center mb-2">
         <p className="text-lg font-bold text-white">
           Is this token 🎯 or 💩?
         </p>
         {loaded && totalVotes > 0 && (
           <p className="text-xs text-zinc-600 mt-1">
-            {totalVotes.toLocaleString()} vote{totalVotes !== 1 ? "s" : ""} cast
+            {totalVotes.toLocaleString()} vote
+            {totalVotes !== 1 ? "s" : ""} cast
           </p>
         )}
       </div>
+
+      {!hasVoted && (
+        <div className="sm:hidden mb-3 flex justify-center">
+          <SwipeHint mode="vote" force={false} />
+        </div>
+      )}
+
       {needsLogin && (
         <p className="text-center text-xs text-zinc-500 mb-3">
           Sign in with X to vote (1 vote per token per day)
         </p>
       )}
-      <div className="flex gap-4">
+      <div
+        className="flex gap-4"
+        style={{
+          transform: `translateX(${swipeX}px)`,
+          transition: swipeStart.current ? "none" : "transform 0.15s ease-out",
+        }}
+      >
         <button
           onClick={() => handleVote("hit")}
           onPointerDown={() => setPressing("hit")}
