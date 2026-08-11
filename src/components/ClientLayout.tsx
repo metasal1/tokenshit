@@ -280,7 +280,7 @@ function ReferralButton({ twitterUsername }: { twitterUsername?: string }) {
 }
 
 function LoginButton() {
-  const { ready, authenticated, user, login, logout } = usePrivy();
+  const { ready, authenticated, user, login, logout, linkTwitter, linkGithub } = usePrivy();
   const [showWallet, setShowWallet] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
 
@@ -288,11 +288,12 @@ function LoginButton() {
 
   if (authenticated && user) {
     const twitterHandle = user.twitter?.username;
+    const githubHandle = user.github?.username;
     const walletAddress = user.wallet?.address;
     const displayLabel = twitterHandle
       ? `@${twitterHandle}`
-      : user.github?.username
-        ? `gh/${user.github.username}`
+      : githubHandle
+        ? `gh/${githubHandle}`
         : "Connected";
 
     return (
@@ -305,13 +306,29 @@ function LoginButton() {
         </button>
 
         {showMenu && (
-          <div className="absolute right-0 top-full mt-1 bg-zinc-900 border border-zinc-700 rounded-lg shadow-xl z-50 min-w-[140px]">
+          <div className="absolute right-0 top-full mt-1 bg-zinc-900 border border-zinc-700 rounded-lg shadow-xl z-50 min-w-[160px]">
             {walletAddress && (
               <button
                 onClick={() => { setShowWallet(true); setShowMenu(false); }}
                 className="w-full text-left text-xs px-4 py-2.5 text-zinc-300 hover:bg-zinc-800 hover:text-white transition-colors rounded-t-lg"
               >
                 💰 Wallet
+              </button>
+            )}
+            {!twitterHandle && (
+              <button
+                onClick={() => { linkTwitter(); setShowMenu(false); }}
+                className="w-full text-left text-xs px-4 py-2.5 text-zinc-300 hover:bg-zinc-800 hover:text-white transition-colors"
+              >
+                𝕏 Link X
+              </button>
+            )}
+            {!githubHandle && (
+              <button
+                onClick={() => { linkGithub(); setShowMenu(false); }}
+                className="w-full text-left text-xs px-4 py-2.5 text-zinc-300 hover:bg-zinc-800 hover:text-white transition-colors"
+              >
+                ⌘ Link GitHub
               </button>
             )}
             <button
@@ -441,18 +458,24 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     <PrivyProvider
       appId={appId}
       config={{
-        loginMethods: ['twitter', 'github'],
+        loginMethods: ["twitter", "github"],
         appearance: {
-          theme: 'dark',
+          theme: "dark",
+          accentColor: "#39ff14",
         },
         embeddedWallets: {
           solana: {
-            createOnLogin: 'all-users',
+            createOnLogin: "all-users",
           },
         },
         externalWallets: {
           solana: {
             connectors: toSolanaWalletConnectors(),
+          },
+        },
+        fundingMethodConfig: {
+          moonpay: {
+            useSandbox: false,
           },
         },
       }}

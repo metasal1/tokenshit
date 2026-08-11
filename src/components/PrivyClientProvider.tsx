@@ -14,9 +14,10 @@ export default function PrivyClientProvider({
     <PrivyProvider
       appId={appId}
       config={{
-        loginMethods: ['twitter'],
+        loginMethods: ['twitter', 'github'],
         appearance: {
           theme: 'dark',
+          accentColor: '#39ff14',
         },
         embeddedWallets: {
           solana: {
@@ -26,6 +27,11 @@ export default function PrivyClientProvider({
         externalWallets: {
           solana: {
             connectors: toSolanaWalletConnectors(),
+          },
+        },
+        fundingMethodConfig: {
+          moonpay: {
+            useSandbox: false,
           },
         },
       }}

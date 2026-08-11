@@ -129,14 +129,25 @@ export async function checkGhFork(
     Accept: "application/vnd.github+json",
     "User-Agent": "TokenShit-Claim/1.0",
   };
-  if (process.env.GITHUB_TOKEN) {
-    headers.Authorization = `Bearer ${process.env.GITHUB_TOKEN}`;
+  const token = (process.env.GITHUB_TOKEN || "").trim();
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
+  async function getJson(url: string) {
+    let res = await fetch(url, { headers });
+    // Bad/expired token → retry unauthenticated (public repos)
+    if (res.status === 401 && token) {
+      const h2 = { ...headers } as Record<string, string>;
+      delete h2.Authorization;
+      res = await fetch(url, { headers: h2 });
+    }
+    return res;
   }
 
   // Fast path: same-name fork
-  const direct = await fetch(
-    `https://api.github.com/repos/${encodeURIComponent(user)}/tokens`,
-    { headers }
+  const direct = await getJson(
+    `https://api.github.com/repos/${encodeURIComponent(user)}/tokens`
   );
   if (direct.status === 200) {
     const repo = await direct.json();
@@ -147,9 +158,8 @@ export async function checkGhFork(
   }
 
   // Scan owned repos for any fork of upstream
-  const list = await fetch(
-    `https://api.github.com/users/${encodeURIComponent(user)}/repos?type=owner&per_page=100&sort=updated`,
-    { headers }
+  const list = await getJson(
+    `https://api.github.com/users/${encodeURIComponent(user)}/repos?type=owner&per_page=100&sort=updated`
   );
   if (!list.ok) {
     return {
@@ -165,9 +175,8 @@ export async function checkGhFork(
   }[];
   for (const r of repos || []) {
     if (!r.fork) continue;
-    const detail = await fetch(
-      `https://api.github.com/repos/${encodeURIComponent(r.full_name)}`,
-      { headers }
+    const detail = await getJson(
+      `https://api.github.com/repos/${encodeURIComponent(r.full_name)}`
     );
     if (!detail.ok) continue;
     const d = await detail.json();

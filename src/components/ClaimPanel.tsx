@@ -60,7 +60,7 @@ export function TreasuryBalanceBadge() {
 }
 
 export default function ClaimPanel() {
-  const { ready, authenticated, user, login } = usePrivy();
+  const { ready, authenticated, user, login, linkTwitter, linkGithub } = usePrivy();
   const [busy, setBusy] = useState<"x_verified" | "gh_fork" | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -174,8 +174,16 @@ export default function ClaimPanel() {
                 ? "Claim X verified"
                 : "Login to claim"}
           </button>
-          {twitter && (
+          {twitter ? (
             <p className="text-[11px] text-zinc-600 font-mono">@{twitter}</p>
+          ) : (
+            <button
+              type="button"
+              onClick={() => (authenticated ? linkTwitter() : login())}
+              className="text-[11px] text-sky-400 hover:underline"
+            >
+              Link X to claim
+            </button>
           )}
         </div>
 
@@ -210,8 +218,16 @@ export default function ClaimPanel() {
                 ? "Claim GH fork"
                 : "Login to claim"}
           </button>
-          {github && (
+          {github ? (
             <p className="text-[11px] text-zinc-600 font-mono">gh/{github}</p>
+          ) : (
+            <button
+              type="button"
+              onClick={() => (authenticated ? linkGithub() : login())}
+              className="text-[11px] text-zinc-300 hover:underline"
+            >
+              Link GitHub to claim
+            </button>
           )}
         </div>
       </div>

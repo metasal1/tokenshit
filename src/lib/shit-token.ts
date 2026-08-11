@@ -14,6 +14,8 @@ export const TREASURY_ADDRESS =
 /** One-time claim amounts (whole tokens) */
 export const CLAIM_X_VERIFIED = 100_000;
 export const CLAIM_GH_FORK = 250_000;
+/** $SHIT paid to referrer when a new user signs up via their link */
+export const REFERRAL_REWARD_SHIT = 10_000;
 
 export const GH_FORK_UPSTREAM = "solana-foundation/tokens";
 
