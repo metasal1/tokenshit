@@ -26,4 +26,4 @@ registry: https://github.com/solana-foundation/tokens
 tokens_xyz: https://tokens.xyz
 
 solscan_token: https://solscan.io/token/fEbiuDdZZ1QaWYpJFPqk23ZkaRnAyHg4aivhrCTshit
-solscan_treasury: https://solscan.io/account/SHTy7yoA5uAZoevKT3BFcSeDeFaHEyqWc55uApd3MJB
+portfolio_treasury: https://sol.new/portfolio/SHTy7yoA5uAZoevKT3BFcSeDeFaHEyqWc55uApd3MJB
