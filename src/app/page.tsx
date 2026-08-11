@@ -10,6 +10,7 @@ import ShareRefButton from "@/components/ShareRefButton";
 /**
  * Home is a fast static shell. Heavy leaderboard/meta loads client-side
  * so CF Workers TTFB stays low (~sub-second) instead of 10s SSR waterfalls.
+ * Primary CTA = vote (HIT/SHIT).
  */
 export const dynamic = "force-static";
 export const revalidate = 300;
@@ -19,39 +20,49 @@ export default function Home() {
     <div className="flex flex-col">
       <section className="relative overflow-hidden border-b border-border">
         <div className="absolute inset-0 bg-gradient-to-b from-neon/5 via-transparent to-transparent pointer-events-none" />
-        <div className="mx-auto max-w-4xl px-4 py-16 text-center relative">
-          <h1 className="mb-4">
+        <div className="mx-auto max-w-4xl px-4 pt-10 sm:pt-14 pb-10 text-center relative">
+          <h1 className="mb-3">
             <AnimatedLogo size="hero" />
           </h1>
-          <p className="text-lg sm:text-xl text-zinc-400 mb-3 max-w-2xl mx-auto">
+          <p className="text-base sm:text-xl text-zinc-400 mb-1 max-w-2xl mx-auto">
             Every token is shit until proven otherwise.
           </p>
-          <p className="text-sm text-zinc-500 mb-8 max-w-xl mx-auto">
-            Verdicts on{" "}
-            <span className="text-zinc-300">real Solana assets</span> — crypto,
-            LSTs, stocks, stables, RWAs. Built on Foundation Tokens registry.
-            Not 10k rugs.
+          <p className="text-sm text-zinc-500 mb-6 max-w-xl mx-auto">
+            One tap. HIT or SHIT. CT does the rest.
           </p>
-          <div className="max-w-2xl mx-auto">
-            <SearchBar big />
+
+          {/* PRIMARY CTA — vote first */}
+          <div className="max-w-2xl mx-auto text-left">
+            <div className="rounded-2xl border border-neon/40 bg-card/80 shadow-[0_0_40px_rgba(57,255,20,0.08)] p-4 sm:p-5">
+              <div className="flex items-center justify-between gap-2 mb-3">
+                <h2 className="text-sm sm:text-base font-bold text-white">
+                  Rate this bag
+                </h2>
+                <span className="text-[10px] sm:text-xs font-mono uppercase tracking-wider text-neon border border-neon/40 rounded-full px-2.5 py-0.5">
+                  Vote now
+                </span>
+              </div>
+              <RandomTokenVote />
+            </div>
           </div>
-          <div className="max-w-2xl mx-auto mt-4 space-y-3 text-left">
-            <XFollowersBadge />
-            <GlobalTreasuryBanner />
-            <ShareRefButton path="/" />
+
+          {/* Secondary — find a bag */}
+          <div className="max-w-2xl mx-auto mt-6">
+            <p className="text-xs text-zinc-600 mb-2 font-mono uppercase tracking-wider">
+              or search the registry
+            </p>
+            <SearchBar big />
           </div>
         </div>
       </section>
 
-      <section className="mx-auto max-w-2xl w-full px-4 pt-12 pb-6">
-        <h2 className="text-2xl font-bold mb-1 text-center">Rate this bag</h2>
-        <p className="text-center text-sm text-zinc-500 mb-4">
-          One tap. Instant opinion. CT does the rest.
-        </p>
-        <RandomTokenVote />
+      <section className="mx-auto max-w-2xl w-full px-4 pt-8 pb-4 space-y-3">
+        <XFollowersBadge />
+        <GlobalTreasuryBanner />
+        <ShareRefButton path="/" />
       </section>
 
-      <section className="mx-auto max-w-7xl w-full px-4 pt-12 pb-6">
+      <section className="mx-auto max-w-7xl w-full px-4 pt-10 pb-6">
         <h2 className="text-2xl font-bold mb-2">Arena court</h2>
         <p className="text-sm text-zinc-500 mb-6">
           HIT / SHIT by category — crypto, stocks, stables, more.
