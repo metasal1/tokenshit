@@ -3,6 +3,7 @@ import CuratedLists from "@/components/CuratedLists";
 import CategoryLeaderboard from "@/components/CategoryLeaderboard";
 import AnimatedLogo from "@/components/AnimatedLogo";
 import RandomTokenVote from "@/components/RandomTokenVote";
+import GlobalTreasuryBanner from "@/components/GlobalTreasuryBanner";
 import { tursoExecute } from "@/lib/turso";
 import {
   buildAssetCategoryMap,
@@ -107,6 +108,9 @@ export default async function Home() {
           </p>
           <div className="max-w-2xl mx-auto">
             <SearchBar big />
+          </div>
+          <div className="max-w-2xl mx-auto mt-6 text-left">
+            <GlobalTreasuryBanner />
           </div>
         </div>
       </section>

@@ -4,7 +4,8 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { usePrivy } from "@privy-io/react-auth";
 import { CanvasPanelFx } from "@/components/CanvasShell";
-
+import ShareRefButton from "@/components/ShareRefButton";
+import { getRefHandle, getVoterId } from "@/lib/privy-identity";
 function EmojiDrop({ emoji, count = 20 }: { emoji: string; count?: number }) {
   const [particles, setParticles] = useState<{ id: number; left: number; delay: number; size: number; duration: number }[]>([]);
 
@@ -324,6 +325,11 @@ export default function VoteButtons({
                     {copied ? "Copied" : "Copy meme text"}
                   </button>
                 </div>
+                <ShareRefButton
+                  variant="inline"
+                  path={`/token/${encodeURIComponent(assetId)}`}
+                  showLogin={false}
+                />
               </div>
               <button
                 type="button"
