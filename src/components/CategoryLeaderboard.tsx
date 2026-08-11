@@ -15,21 +15,44 @@ interface LeaderEntry {
 }
 
 export default function CategoryLeaderboard({
-  mostHit,
-  mostShit,
-  categoryMap,
+  mostHit: initialHit = [],
+  mostShit: initialShit = [],
+  categoryMap: initialMap = {},
 }: {
-  mostHit: LeaderEntry[];
-  mostShit: LeaderEntry[];
-  categoryMap: Record<string, string>;
+  mostHit?: LeaderEntry[];
+  mostShit?: LeaderEntry[];
+  categoryMap?: Record<string, string>;
 }) {
   const [arena, setArena] = useState<string>("all");
+  const [mostHit, setMostHit] = useState(initialHit);
+  const [mostShit, setMostShit] = useState(initialShit);
+  const [categoryMap, setCategoryMap] = useState(initialMap);
+  const [loading, setLoading] = useState(initialHit.length === 0);
+
+  useEffect(() => {
+    let alive = true;
+    // Always refresh in background; if no SSR data, show spinner
+    fetch("/api/votes/leaderboard?withCategories=1&limit=15")
+      .then((r) => r.json())
+      .then((d) => {
+        if (!alive) return;
+        if (Array.isArray(d.mostHit)) setMostHit(d.mostHit);
+        if (Array.isArray(d.mostShit)) setMostShit(d.mostShit);
+        if (d.categoryMap) setCategoryMap(d.categoryMap);
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (alive) setLoading(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   const filter = (entries: LeaderEntry[]) => {
     if (arena === "all") return entries;
     return entries.filter((e) => {
       const cat = e.category || categoryMap[e.assetId];
-      // Staking arena: SOL bag (LST parent) + anything tagged lsts
       if (arena === "lsts") return e.assetId === "solana" || cat === "lsts";
       return cat === arena;
     });
@@ -57,7 +80,12 @@ export default function CategoryLeaderboard({
         ))}
       </div>
 
-      {hits.length === 0 && shits.length === 0 ? (
+      {loading ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="h-48 rounded-xl border border-border bg-card animate-pulse" />
+          <div className="h-48 rounded-xl border border-border bg-card animate-pulse" />
+        </div>
+      ) : hits.length === 0 && shits.length === 0 ? (
         <p className="text-center text-sm text-zinc-500 py-8 border border-dashed border-border rounded-xl">
           No votes in this arena yet. Be first.
         </p>
@@ -82,83 +110,63 @@ function LeaderList({
   entries: LeaderEntry[];
   type: "hit" | "shit";
 }) {
-  const color = type === "hit" ? "text-green-400" : "text-red-400";
-  const bgHover = type === "hit" ? "hover:bg-green-500/5" : "hover:bg-red-500/5";
-
-  if (entries.length === 0) {
-    return (
-      <div className="rounded-xl border border-border bg-card p-6 text-sm text-zinc-500 text-center">
-        No {type === "hit" ? "hits" : "shits"} yet
-      </div>
-    );
-  }
-
   return (
     <div className="rounded-xl border border-border bg-card overflow-hidden">
-      <div className="px-4 py-3 border-b border-border">
+      <div className="px-4 py-3 border-b border-border flex items-baseline justify-between gap-2">
         <h3 className="font-bold text-foreground">{title}</h3>
-        <p className="text-xs text-zinc-500">{subtitle}</p>
+        <span className="text-xs text-zinc-500">{subtitle}</span>
       </div>
-      <div className="divide-y divide-border">
-        {entries.map((e, i) => (
-          <Link
-            key={`${e.assetId}-${i}`}
-            href={`/token/${encodeURIComponent(e.assetId)}`}
-            className={`flex items-center gap-3 px-4 py-3 transition-colors ${bgHover}`}
-          >
-            <span className="text-lg font-bold text-zinc-600 w-6 text-center font-mono">
-              {i + 1}
-            </span>
-            {e.logo ? (
-              <img
-                src={e.logo}
-                alt={e.symbol || ""}
-                className="h-8 w-8 rounded-full bg-zinc-800"
-              />
-            ) : (
-              <div className="h-8 w-8 rounded-full bg-zinc-800 flex items-center justify-center text-xs font-bold text-zinc-500">
-                {(e.symbol || "?").slice(0, 2)}
-              </div>
-            )}
-            <div className="flex-1 min-w-0">
-              <div className="font-medium text-foreground text-sm truncate">
-                {e.name || e.assetId}
-              </div>
-              <div className="text-xs text-zinc-500 font-mono uppercase">{e.symbol}</div>
-            </div>
-            <div className={`font-mono font-bold ${color}`}>
-              {type === "hit" ? e.hits : e.shits}
-            </div>
-          </Link>
-        ))}
-      </div>
+      <ul className="divide-y divide-border">
+        {entries.map((e, i) => {
+          const label =
+            e.name ||
+            e.symbol ||
+            (e.assetId.length > 16
+              ? `${e.assetId.slice(0, 8)}…`
+              : e.assetId);
+          const score = type === "hit" ? e.hits : e.shits;
+          return (
+            <li key={e.assetId}>
+              <Link
+                href={`/token/${encodeURIComponent(e.assetId)}`}
+                className="flex items-center gap-3 px-4 py-3 hover:bg-card-hover transition-colors"
+              >
+                <span className="text-xs font-mono text-zinc-600 w-5">
+                  {i + 1}
+                </span>
+                {e.logo ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={e.logo}
+                    alt=""
+                    className="h-8 w-8 rounded-full bg-zinc-800"
+                    loading="lazy"
+                  />
+                ) : (
+                  <div className="h-8 w-8 rounded-full bg-zinc-800" />
+                )}
+                <div className="min-w-0 flex-1">
+                  <div className="text-sm font-medium text-foreground truncate">
+                    {label}
+                  </div>
+                  {e.symbol && (
+                    <div className="text-[11px] text-zinc-500 font-mono uppercase">
+                      {e.symbol}
+                    </div>
+                  )}
+                </div>
+                <span
+                  className={`text-sm font-mono font-semibold ${
+                    type === "hit" ? "text-green-400" : "text-red-400"
+                  }`}
+                >
+                  {score}
+                </span>
+              </Link>
+            </li>
+          );
+        })}
+      </ul>
     </div>
-  );
-}
-
-/** Client-only fallback if parent only has global lists */
-export function CategoryLeaderboardLoader() {
-  const [data, setData] = useState<{
-    mostHit: LeaderEntry[];
-    mostShit: LeaderEntry[];
-    categoryMap: Record<string, string>;
-  } | null>(null);
-
-  useEffect(() => {
-    fetch("/api/votes/leaderboard?withCategories=1")
-      .then((r) => r.json())
-      .then(setData)
-      .catch(() => setData({ mostHit: [], mostShit: [], categoryMap: {} }));
-  }, []);
-
-  if (!data) {
-    return <p className="text-center text-zinc-500 text-sm py-6">Loading arenas…</p>;
-  }
-  return (
-    <CategoryLeaderboard
-      mostHit={data.mostHit}
-      mostShit={data.mostShit}
-      categoryMap={data.categoryMap}
-    />
   );
 }
