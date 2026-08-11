@@ -1,11 +1,15 @@
 import { type NextRequest } from "next/server";
 import {
   CLAIM_GH_FORK,
+  CLAIM_X_FOLLOW,
+  CLAIM_X_TWEET,
   CLAIM_X_VERIFIED,
   TREASURY_ADDRESS,
 } from "@/lib/shit-token";
 import {
   checkGhFork,
+  checkXFollowsTokenshit,
+  checkXTweetTag,
   checkXVerified,
   hasClaimed,
   recordClaim,
@@ -17,40 +21,65 @@ export const dynamic = "force-dynamic";
 
 const SOLANA_ADDR = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
 
+const AMOUNTS: Record<ClaimKind, number> = {
+  x_verified: CLAIM_X_VERIFIED,
+  gh_fork: CLAIM_GH_FORK,
+  x_tweet: CLAIM_X_TWEET,
+  x_follow: CLAIM_X_FOLLOW,
+};
+
+function isKind(k: string): k is ClaimKind {
+  return k in AMOUNTS;
+}
+
 export async function GET(request: NextRequest) {
   const sp = request.nextUrl.searchParams;
-  const kind = (sp.get("kind") || "") as ClaimKind;
+  const kindRaw = sp.get("kind") || "";
   const twitter = sp.get("twitter");
   const github = sp.get("github");
   const wallet = sp.get("wallet");
 
-  if (kind !== "x_verified" && kind !== "gh_fork") {
+  if (!isKind(kindRaw)) {
     return Response.json({
-      amounts: { x_verified: CLAIM_X_VERIFIED, gh_fork: CLAIM_GH_FORK },
+      amounts: AMOUNTS,
       treasury: TREASURY_ADDRESS,
     });
   }
+  const kind = kindRaw;
 
   try {
     let eligible = false;
     let detail: Record<string, unknown> = {};
+
     if (kind === "x_verified") {
       if (!twitter)
         return Response.json({ error: "twitter required" }, { status: 400 });
       const x = await checkXVerified(twitter);
       detail = x;
       eligible = x.ok && x.verified;
-    } else {
+    } else if (kind === "gh_fork") {
       if (!github)
         return Response.json({ error: "github required" }, { status: 400 });
       const g = await checkGhFork(github);
       detail = g;
       eligible = g.ok && g.forked;
+    } else if (kind === "x_tweet") {
+      if (!twitter)
+        return Response.json({ error: "twitter required" }, { status: 400 });
+      const t = await checkXTweetTag(twitter);
+      detail = t;
+      eligible = t.ok && t.found;
+    } else if (kind === "x_follow") {
+      if (!twitter)
+        return Response.json({ error: "twitter required" }, { status: 400 });
+      const f = await checkXFollowsTokenshit(twitter);
+      detail = f;
+      eligible = f.ok && f.following;
     }
 
     const claimed = await hasClaimed(kind, { twitter, github, wallet });
     const bal = await getTreasuryBalances().catch(() => null);
-    const amount = kind === "x_verified" ? CLAIM_X_VERIFIED : CLAIM_GH_FORK;
+    const amount = AMOUNTS[kind];
 
     return Response.json({
       kind,
@@ -69,43 +98,100 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const kind = body.kind as ClaimKind;
-    const wallet = String(body.wallet || "").trim();
-    const twitter = body.twitter ? String(body.twitter).replace(/^@/, "") : null;
-    const github = body.github ? String(body.github).replace(/^@/, "") : null;
-
-    if (kind !== "x_verified" && kind !== "gh_fork") {
+    const kindRaw = String(body.kind || "");
+    if (!isKind(kindRaw)) {
       return Response.json({ error: "Invalid claim kind" }, { status: 400 });
     }
+    const kind = kindRaw;
+    const wallet = String(body.wallet || "").trim();
+    const twitter = body.twitter
+      ? String(body.twitter).replace(/^@/, "")
+      : null;
+    const github = body.github ? String(body.github).replace(/^@/, "") : null;
+
     if (!SOLANA_ADDR.test(wallet)) {
-      return Response.json({ error: "Valid Solana wallet required" }, { status: 400 });
+      return Response.json(
+        { error: "Valid Solana wallet required" },
+        { status: 400 }
+      );
     }
 
-    const amount = kind === "x_verified" ? CLAIM_X_VERIFIED : CLAIM_GH_FORK;
+    const amount = AMOUNTS[kind];
+    let tweetId: string | undefined;
 
     if (kind === "x_verified") {
       if (!twitter)
-        return Response.json({ error: "Twitter handle required" }, { status: 400 });
+        return Response.json(
+          { error: "Twitter handle required" },
+          { status: 400 }
+        );
       const x = await checkXVerified(twitter);
       if (!x.ok)
-        return Response.json({ error: x.error || "X check failed" }, { status: 502 });
+        return Response.json(
+          { error: x.error || "X check failed" },
+          { status: 502 }
+        );
       if (!x.verified)
         return Response.json(
           { error: "X account is not verified", verifiedType: x.verifiedType },
           { status: 403 }
         );
-    } else {
+    } else if (kind === "gh_fork") {
       if (!github)
-        return Response.json({ error: "GitHub username required" }, { status: 400 });
+        return Response.json(
+          { error: "GitHub username required" },
+          { status: 400 }
+        );
       const g = await checkGhFork(github);
       if (!g.ok)
-        return Response.json({ error: g.error || "GitHub check failed" }, { status: 502 });
+        return Response.json(
+          { error: g.error || "GitHub check failed" },
+          { status: 502 }
+        );
       if (!g.forked)
         return Response.json(
           {
             error:
               "No fork of solana-foundation/tokens found on this GitHub account",
           },
+          { status: 403 }
+        );
+    } else if (kind === "x_tweet") {
+      if (!twitter)
+        return Response.json(
+          { error: "Twitter handle required" },
+          { status: 400 }
+        );
+      const t = await checkXTweetTag(twitter);
+      if (!t.ok)
+        return Response.json(
+          { error: t.error || "Tweet search failed" },
+          { status: 502 }
+        );
+      if (!t.found)
+        return Response.json(
+          {
+            error:
+              "No recent tweet from you tagging @Tokenshit_ found (last ~7 days). Post then claim.",
+          },
+          { status: 403 }
+        );
+      tweetId = t.tweetId;
+    } else if (kind === "x_follow") {
+      if (!twitter)
+        return Response.json(
+          { error: "Twitter handle required" },
+          { status: 400 }
+        );
+      const f = await checkXFollowsTokenshit(twitter);
+      if (!f.ok)
+        return Response.json(
+          { error: f.error || "Follow check failed" },
+          { status: 502 }
+        );
+      if (!f.following)
+        return Response.json(
+          { error: "Follow @Tokenshit_ on X, then claim." },
           { status: 403 }
         );
     }
@@ -154,6 +240,7 @@ export async function POST(request: NextRequest) {
       amount,
       wallet,
       signature,
+      tweetId,
       solscan: `https://solscan.io/tx/${signature}`,
     });
   } catch (e) {

@@ -10,6 +10,9 @@ const RPC =
   process.env.HELIUS_RPC_URL ||
   "https://viviyan-bkj12u-fast-mainnet.helius-rpc.com";
 
+/** Token-2022 program (mint is Token-2022, not classic SPL) */
+const TOKEN_2022_PROGRAM_ID_STR = "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb";
+
 export async function rpc<T = unknown>(
   method: string,
   params: unknown[]
@@ -32,11 +35,13 @@ export async function getTreasuryBalances(): Promise<{
   shitRaw: string;
   sol: number;
   solLamports: number;
+  ata?: string;
 }> {
   const [solBal, tokenAccs] = await Promise.all([
     rpc<{ value: number }>("getBalance", [TREASURY_ADDRESS]),
     rpc<{
       value: {
+        pubkey?: string;
         account: {
           data: {
             parsed: {
@@ -60,12 +65,14 @@ export async function getTreasuryBalances(): Promise<{
 
   let shitRaw = BigInt(0);
   let shitUi = 0;
+  let ata: string | undefined;
   for (const row of tokenAccs?.value || []) {
     const ta = row.account?.data?.parsed?.info?.tokenAmount;
     if (!ta) continue;
     shitRaw += BigInt(ta.amount || "0");
     if (ta.uiAmount != null) shitUi += ta.uiAmount;
     else shitUi = rawToShit(shitRaw);
+    if (row.pubkey) ata = row.pubkey;
   }
 
   const lamports = solBal?.value ?? 0;
@@ -76,6 +83,7 @@ export async function getTreasuryBalances(): Promise<{
     shitRaw: shitRaw.toString(),
     sol: lamports / 1e9,
     solLamports: lamports,
+    ata,
   };
 }
 
@@ -92,7 +100,7 @@ export function loadTreasuryKeypair(): import("@solana/web3.js").Keypair {
   return Keypair.fromSecretKey(Uint8Array.from(arr));
 }
 
-/** Transfer whole $SHIT tokens from treasury → recipient wallet */
+/** Transfer whole $TOKENSHIT from treasury → recipient (Token-2022) */
 export async function sendShitFromTreasury(
   recipient: string,
   amountWhole: number
@@ -106,26 +114,49 @@ export async function sendShitFromTreasury(
   const {
     getAssociatedTokenAddress,
     createAssociatedTokenAccountIdempotentInstruction,
-    createTransferInstruction,
+    createTransferCheckedInstruction,
     getAccount,
-    TOKEN_PROGRAM_ID,
     ASSOCIATED_TOKEN_PROGRAM_ID,
   } = await import("@solana/spl-token");
 
+  const TOKEN_2022_PROGRAM_ID = new PublicKey(TOKEN_2022_PROGRAM_ID_STR);
   const payer = loadTreasuryKeypair();
   const conn = new Connection(RPC, "confirmed");
   const mint = new PublicKey(SHIT_MINT);
   const toOwner = new PublicKey(recipient);
   const raw = shitToRaw(amountWhole);
+  const decimals = 6;
 
-  const fromAta = await getAssociatedTokenAddress(mint, payer.publicKey);
-  const toAta = await getAssociatedTokenAddress(mint, toOwner);
+  // Token-2022 ATAs
+  const fromAta = await getAssociatedTokenAddress(
+    mint,
+    payer.publicKey,
+    false,
+    TOKEN_2022_PROGRAM_ID,
+    ASSOCIATED_TOKEN_PROGRAM_ID
+  );
+  const toAta = await getAssociatedTokenAddress(
+    mint,
+    toOwner,
+    false,
+    TOKEN_2022_PROGRAM_ID,
+    ASSOCIATED_TOKEN_PROGRAM_ID
+  );
 
-  // Ensure treasury has balance
-  const fromAcc = await getAccount(conn, fromAta).catch(() => null);
+  const fromAcc = await getAccount(
+    conn,
+    fromAta,
+    "confirmed",
+    TOKEN_2022_PROGRAM_ID
+  ).catch(() => null);
+
   if (!fromAcc || fromAcc.amount < raw) {
+    // Also surface RPC-listed balance for debugging
+    const bal = await getTreasuryBalances().catch(() => null);
     throw new Error(
-      `Treasury insufficient $SHIT (need ${amountWhole}, have ${fromAcc ? rawToShit(fromAcc.amount) : 0})`
+      `Treasury insufficient $TOKENSHIT (need ${amountWhole}, have ${
+        fromAcc ? rawToShit(fromAcc.amount) : 0
+      }; rpcUi=${bal?.shit ?? "?"}, ata=${fromAta.toBase58()})`
     );
   }
 
@@ -135,10 +166,19 @@ export async function sendShitFromTreasury(
       toAta,
       toOwner,
       mint,
-      TOKEN_PROGRAM_ID,
+      TOKEN_2022_PROGRAM_ID,
       ASSOCIATED_TOKEN_PROGRAM_ID
     ),
-    createTransferInstruction(fromAta, toAta, payer.publicKey, raw),
+    createTransferCheckedInstruction(
+      fromAta,
+      mint,
+      toAta,
+      payer.publicKey,
+      raw,
+      decimals,
+      [],
+      TOKEN_2022_PROGRAM_ID
+    ),
   ];
 
   const tx = new Transaction().add(...ix);
