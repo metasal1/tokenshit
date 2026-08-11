@@ -1,18 +1,63 @@
+/**
+ * Human price formatting — never scientific notation.
+ * $3.73e-5 → $0.0000373
+ */
 export function formatPrice(n: number | undefined | null): string {
-  if (n == null) return "—";
+  if (n == null || !Number.isFinite(n)) return "—";
   if (n === 0) return "$0";
-  if (Math.abs(n) < 0.0001) return `$${n.toExponential(2)}`;
-  if (Math.abs(n) < 1) return `$${n.toPrecision(4)}`;
-  return `$${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+  const sign = n < 0 ? "-" : "";
+  const abs = Math.abs(n);
+
+  if (abs >= 1_000_000) {
+    return `${sign}$${abs.toLocaleString("en-US", {
+      maximumFractionDigits: 2,
+      minimumFractionDigits: 0,
+    })}`;
+  }
+  if (abs >= 1000) {
+    return `${sign}$${abs.toLocaleString("en-US", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`;
+  }
+  if (abs >= 1) {
+    return `${sign}$${abs.toLocaleString("en-US", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 4,
+    })}`;
+  }
+  if (abs >= 0.01) {
+    return `${sign}$${trimZeros(abs.toFixed(4))}`;
+  }
+  if (abs >= 0.0001) {
+    return `${sign}$${trimZeros(abs.toFixed(6))}`;
+  }
+
+  // Sub-0.0001: keep ~4 significant digits as plain decimal
+  // e.g. 3.73e-5 → 0.0000373
+  const exp = Math.floor(Math.log10(abs));
+  const decimals = Math.min(12, Math.max(6, -exp + 3));
+  return `${sign}$${trimZeros(abs.toFixed(decimals))}`;
+}
+
+function trimZeros(s: string): string {
+  if (!s.includes(".")) return s;
+  return s.replace(/\.?0+$/, "");
 }
 
 export function formatLargeNumber(n: number | undefined | null): string {
-  if (n == null) return "—";
-  if (n >= 1e12) return `$${(n / 1e12).toFixed(2)}T`;
-  if (n >= 1e9) return `$${(n / 1e9).toFixed(2)}B`;
-  if (n >= 1e6) return `$${(n / 1e6).toFixed(2)}M`;
-  if (n >= 1e3) return `$${(n / 1e3).toFixed(2)}K`;
-  return `$${n.toFixed(2)}`;
+  if (n == null || !Number.isFinite(n)) return "—";
+  const sign = n < 0 ? "-" : "";
+  const abs = Math.abs(n);
+  if (abs >= 1e12) return `${sign}$${(abs / 1e12).toFixed(2)}T`;
+  if (abs >= 1e9) return `${sign}$${(abs / 1e9).toFixed(2)}B`;
+  if (abs >= 1e6) return `${sign}$${(abs / 1e6).toFixed(2)}M`;
+  if (abs >= 1e3) return `${sign}$${(abs / 1e3).toFixed(2)}K`;
+  if (abs >= 1) return `${sign}$${abs.toFixed(2)}`;
+  if (abs === 0) return "$0";
+  // tiny market caps still use $ prefix once
+  return `${sign}$${trimZeros(abs.toFixed(2))}`;
 }
 
 export function formatPercent(n: number | undefined | null): string {
