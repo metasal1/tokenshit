@@ -21,6 +21,13 @@ import {
 
 type ClaimKind = "x_verified" | "gh_fork" | "x_tweet" | "x_follow";
 
+const BTN =
+  "w-full min-h-11 touch-manipulation rounded-lg text-sm font-semibold py-3 px-3 transition disabled:opacity-50 active:scale-[0.98]";
+const BTN_OUTLINE = `${BTN} border border-zinc-600 hover:border-neon text-white`;
+const BTN_NEON = `${BTN} bg-neon text-black hover:brightness-110`;
+const BTN_SKY = `${BTN} bg-sky-600 hover:bg-sky-500 text-white`;
+const BTN_LIGHT = `${BTN} bg-zinc-100 hover:bg-white text-black`;
+
 function fmt(n: number) {
   if (!Number.isFinite(n)) return "—";
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(2)}M`;
@@ -28,7 +35,7 @@ function fmt(n: number) {
   return n.toLocaleString(undefined, { maximumFractionDigits: 2 });
 }
 
-export function TreasuryBalanceBadge() {
+export function TreasuryBalanceBadge({ className = "" }: { className?: string }) {
   const [shit, setShit] = useState<number | null>(null);
   const [sol, setSol] = useState<number | null>(null);
 
@@ -56,15 +63,57 @@ export function TreasuryBalanceBadge() {
       href={treasurySolscanUrl()}
       target="_blank"
       rel="noopener noreferrer"
-      className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-md border border-zinc-700 text-zinc-300 hover:border-neon hover:text-white transition-colors font-mono"
+      className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 min-h-9 rounded-md border border-zinc-700 text-zinc-300 hover:border-neon hover:text-white transition-colors font-mono ${className}`}
       title={`Treasury ${TREASURY_ADDRESS}`}
     >
       <span className="text-neon">${SHIT_SYMBOL}</span>
       <span>{shit == null ? "…" : fmt(shit)}</span>
       {sol != null && sol > 0 && (
-        <span className="text-zinc-600">· {sol.toFixed(3)} SOL</span>
+        <span className="text-zinc-600 hidden xs:inline sm:inline">
+          · {sol.toFixed(3)} SOL
+        </span>
       )}
     </a>
+  );
+}
+
+function RewardRow({
+  title,
+  amount,
+  hint,
+  children,
+  highlight,
+}: {
+  title: string;
+  amount: number;
+  hint: React.ReactNode;
+  children: React.ReactNode;
+  highlight?: boolean;
+}) {
+  return (
+    <div
+      className={`rounded-xl border p-3.5 sm:p-4 space-y-3 ${
+        highlight
+          ? "border-neon/50 bg-neon/5"
+          : "border-border bg-background/50"
+      }`}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <h3 className="font-semibold text-sm sm:text-base text-white leading-snug">
+            {title}
+          </h3>
+          <div className="text-xs text-zinc-500 mt-1 leading-snug">{hint}</div>
+        </div>
+        <div className="shrink-0 text-right">
+          <div className="font-mono text-neon text-sm sm:text-base font-bold tabular-nums">
+            {amount.toLocaleString()}
+          </div>
+          <div className="text-[10px] text-zinc-600 font-mono">${SHIT_SYMBOL}</div>
+        </div>
+      </div>
+      {children}
+    </div>
   );
 }
 
@@ -99,18 +148,18 @@ export default function ClaimPanel() {
       return;
     }
     if (!wallet) {
-      setErr("Connect a Solana wallet (Privy creates one on login).");
+      setErr("No Solana wallet — log in again to create one.");
       return;
     }
     if (
       (kind === "x_verified" || kind === "x_tweet" || kind === "x_follow") &&
       !twitter
     ) {
-      setErr("Link X/Twitter to claim this reward.");
+      setErr("Link X first.");
       return;
     }
     if (kind === "gh_fork" && !github) {
-      setErr("Link GitHub to claim fork airdrop.");
+      setErr("Link GitHub first.");
       return;
     }
 
@@ -127,9 +176,15 @@ export default function ClaimPanel() {
         return;
       }
       setMsg(
-        `Sent ${Number(data.amount).toLocaleString()} $${SHIT_SYMBOL} to your wallet.`
+        `Sent ${Number(data.amount).toLocaleString()} $${SHIT_SYMBOL} to wallet.`
       );
       setSig(data.signature || null);
+      // scroll status into view on mobile
+      requestAnimationFrame(() => {
+        document
+          .getElementById("claim-status")
+          ?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      });
     } catch (e) {
       setErr(String(e));
     } finally {
@@ -137,57 +192,131 @@ export default function ClaimPanel() {
     }
   }
 
-  if (!ready) return null;
+  if (!ready) {
+    return (
+      <section className="rounded-xl border border-border bg-card p-4 sm:p-5 animate-pulse h-40" />
+    );
+  }
 
   return (
-    <section className="rounded-xl border border-border bg-card p-5 space-y-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h2 className="text-lg font-bold text-foreground">
+    <section className="rounded-xl border border-border bg-card p-3.5 sm:p-5 space-y-3 sm:space-y-4">
+      {/* Sticky-ish header on mobile */}
+      <div className="flex items-center justify-between gap-2 sticky top-0 z-10 -mx-3.5 sm:mx-0 px-3.5 sm:px-0 py-2 sm:py-0 bg-card/95 sm:bg-transparent backdrop-blur sm:backdrop-blur-none border-b border-border/50 sm:border-0">
+        <div className="min-w-0">
+          <h2 className="text-base sm:text-lg font-bold text-foreground truncate">
             Claim ${SHIT_SYMBOL}
           </h2>
-          <p className="text-sm text-zinc-500 mt-1 max-w-xl">
-            One-time treasury drops. Mint{" "}
+          <p className="text-[11px] sm:text-xs text-zinc-500 truncate">
+            One-time drops ·{" "}
             <a
-              className="text-neon-blue hover:underline font-mono text-xs"
+              className="text-neon-blue"
               href={mintSolscanUrl()}
               target="_blank"
               rel="noopener noreferrer"
             >
-              {SHIT_MINT.slice(0, 8)}…{SHIT_MINT.slice(-6)}
+              {SHIT_MINT.slice(0, 4)}…{SHIT_MINT.slice(-4)}
             </a>
           </p>
         </div>
-        <TreasuryBalanceBadge />
+        <TreasuryBalanceBadge className="shrink-0" />
       </div>
 
-      <div className="grid sm:grid-cols-2 gap-3">
-        {/* Tweet + tag */}
-        <div className="rounded-lg border border-neon/40 bg-neon/5 p-4 space-y-3 sm:col-span-2">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <span className="font-semibold">Tweet + tag @{X_HANDLE}</span>
-            <span className="font-mono text-neon text-sm">
-              {CLAIM_X_TWEET.toLocaleString()} ${SHIT_SYMBOL}
-            </span>
-          </div>
-          <p className="text-xs text-zinc-500">
-            Post a public tweet that tags{" "}
-            <a
-              href={X_URL}
-              className="text-neon-blue hover:underline"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              @{X_HANDLE}
-            </a>{" "}
-            (last ~7 days). Then claim.
+      {/* Account strip */}
+      <div className="flex flex-wrap items-center gap-2 text-xs">
+        {!authenticated ? (
+          <button
+            type="button"
+            onClick={() => login()}
+            className="min-h-9 px-3 rounded-md bg-zinc-100 text-black font-semibold active:scale-[0.98]"
+          >
+            Login
+          </button>
+        ) : (
+          <>
+            {twitter ? (
+              <span className="font-mono text-zinc-400 px-2 py-1 rounded bg-zinc-900 border border-zinc-800">
+                @{twitter}
+              </span>
+            ) : (
+              <button
+                type="button"
+                onClick={() => linkTwitter()}
+                className="min-h-9 px-3 rounded-md border border-sky-700 text-sky-400 font-medium"
+              >
+                Link X
+              </button>
+            )}
+            {github ? (
+              <span className="font-mono text-zinc-400 px-2 py-1 rounded bg-zinc-900 border border-zinc-800">
+                gh/{github}
+              </span>
+            ) : (
+              <button
+                type="button"
+                onClick={() => linkGithub()}
+                className="min-h-9 px-3 rounded-md border border-zinc-600 text-zinc-300 font-medium"
+              >
+                Link GitHub
+              </button>
+            )}
+            {wallet && (
+              <span className="font-mono text-zinc-600 text-[10px] sm:text-xs truncate max-w-[40vw] sm:max-w-none">
+                {wallet.slice(0, 4)}…{wallet.slice(-4)}
+              </span>
+            )}
+          </>
+        )}
+      </div>
+
+      <div id="claim-status" className="space-y-2">
+        {err && (
+          <p className="text-sm text-red-400 break-words bg-red-950/30 border border-red-900/40 rounded-lg px-3 py-2">
+            {err}
           </p>
-          <div className="flex flex-col sm:flex-row gap-2">
+        )}
+        {msg && (
+          <p className="text-sm text-green-400 break-words bg-green-950/30 border border-green-900/40 rounded-lg px-3 py-2">
+            {msg}
+          </p>
+        )}
+        {sig && (
+          <a
+            href={`https://solscan.io/tx/${sig}`}
+            className="block text-xs text-neon-blue hover:underline font-mono break-all px-1"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            tx {sig.slice(0, 12)}…{sig.slice(-8)}
+          </a>
+        )}
+      </div>
+
+      <div className="grid grid-cols-1 gap-3">
+        <RewardRow
+          highlight
+          title={`Tweet + tag @${X_HANDLE}`}
+          amount={CLAIM_X_TWEET}
+          hint={
+            <>
+              Public tweet tagging{" "}
+              <a
+                href={X_URL}
+                className="text-neon-blue"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                @{X_HANDLE}
+              </a>{" "}
+              (last ~7 days).
+            </>
+          }
+        >
+          <div className="grid grid-cols-1 gap-2">
             <a
               href={tweetTagIntentUrl()}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex-1 text-center rounded-md border border-zinc-600 hover:border-neon text-sm font-semibold py-2 transition-colors"
+              className={`${BTN_OUTLINE} text-center`}
             >
               1. Post tweet
             </a>
@@ -195,137 +324,93 @@ export default function ClaimPanel() {
               type="button"
               disabled={busy !== null}
               onClick={() => claim("x_tweet")}
-              className="flex-1 rounded-md bg-neon text-black hover:brightness-110 disabled:opacity-50 text-sm font-semibold py-2 transition"
+              className={BTN_NEON}
             >
-              {busy === "x_tweet" ? "Checking…" : "2. Claim tweet reward"}
+              {busy === "x_tweet" ? "Checking…" : "2. Claim tweet"}
             </button>
           </div>
-          {twitter ? (
-            <p className="text-[11px] text-zinc-600 font-mono">@{twitter}</p>
-          ) : (
-            <button
-              type="button"
-              onClick={() => (authenticated ? linkTwitter() : login())}
-              className="text-[11px] text-sky-400 hover:underline"
-            >
-              Link X first
-            </button>
-          )}
-        </div>
+        </RewardRow>
 
-        {/* Follow */}
-        <div className="rounded-lg border border-border bg-background/50 p-4 space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="font-semibold">Follow @{X_HANDLE}</span>
-            <span className="font-mono text-neon text-sm">
-              {CLAIM_X_FOLLOW.toLocaleString()} ${SHIT_SYMBOL}
-            </span>
-          </div>
-          <p className="text-xs text-zinc-500">Follow on X, then claim once.</p>
-          <div className="flex flex-col gap-2">
-            <a
-              href={followIntentUrl()}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-center rounded-md border border-zinc-600 hover:border-sky-500 text-sm font-semibold py-2"
-            >
-              Follow on X
-            </a>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <RewardRow
+            title={`Follow @${X_HANDLE}`}
+            amount={CLAIM_X_FOLLOW}
+            hint="Follow on X, then claim once."
+          >
+            <div className="grid grid-cols-1 gap-2">
+              <a
+                href={followIntentUrl()}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`${BTN_OUTLINE} text-center`}
+              >
+                Follow
+              </a>
+              <button
+                type="button"
+                disabled={busy !== null}
+                onClick={() => claim("x_follow")}
+                className={BTN_SKY}
+              >
+                {busy === "x_follow" ? "Checking…" : "Claim follow"}
+              </button>
+            </div>
+          </RewardRow>
+
+          <RewardRow
+            title="X verified"
+            amount={CLAIM_X_VERIFIED}
+            hint="Blue / business / gov."
+          >
             <button
               type="button"
               disabled={busy !== null}
-              onClick={() => claim("x_follow")}
-              className="w-full rounded-md bg-sky-600 hover:bg-sky-500 disabled:opacity-50 text-white text-sm font-semibold py-2"
+              onClick={() => claim("x_verified")}
+              className={BTN_SKY}
             >
-              {busy === "x_follow" ? "Checking…" : "Claim follow"}
+              {busy === "x_verified"
+                ? "Claiming…"
+                : authenticated
+                  ? "Claim verified"
+                  : "Login"}
             </button>
-          </div>
+          </RewardRow>
         </div>
 
-        {/* X verified */}
-        <div className="rounded-lg border border-border bg-background/50 p-4 space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="font-semibold">X verified</span>
-            <span className="font-mono text-neon text-sm">
-              {CLAIM_X_VERIFIED.toLocaleString()} ${SHIT_SYMBOL}
-            </span>
-          </div>
-          <p className="text-xs text-zinc-500">
-            Blue / business / gov check on X.
-          </p>
-          <button
-            type="button"
-            disabled={busy !== null}
-            onClick={() => claim("x_verified")}
-            className="w-full rounded-md bg-sky-600 hover:bg-sky-500 disabled:opacity-50 text-white text-sm font-semibold py-2"
-          >
-            {busy === "x_verified"
-              ? "Claiming…"
-              : authenticated
-                ? "Claim X verified"
-                : "Login to claim"}
-          </button>
-          {twitter ? (
-            <p className="text-[11px] text-zinc-600 font-mono">@{twitter}</p>
-          ) : (
-            <button
-              type="button"
-              onClick={() => (authenticated ? linkTwitter() : login())}
-              className="text-[11px] text-sky-400 hover:underline"
-            >
-              Link X to claim
-            </button>
-          )}
-        </div>
-
-        {/* GH fork */}
-        <div className="rounded-lg border border-border bg-background/50 p-4 space-y-3 sm:col-span-2">
-          <div className="flex items-center justify-between">
-            <span className="font-semibold">GH fork</span>
-            <span className="font-mono text-neon text-sm">
-              {CLAIM_GH_FORK.toLocaleString()} ${SHIT_SYMBOL}
-            </span>
-          </div>
-          <p className="text-xs text-zinc-500">
-            Fork{" "}
-            <a
-              href="https://github.com/solana-foundation/tokens"
-              className="text-neon-blue hover:underline"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              solana-foundation/tokens
-            </a>
-            .
-          </p>
+        <RewardRow
+          title="GitHub fork"
+          amount={CLAIM_GH_FORK}
+          hint={
+            <>
+              Fork{" "}
+              <a
+                href="https://github.com/solana-foundation/tokens"
+                className="text-neon-blue break-all"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                solana-foundation/tokens
+              </a>
+            </>
+          }
+        >
           <button
             type="button"
             disabled={busy !== null}
             onClick={() => claim("gh_fork")}
-            className="w-full rounded-md bg-zinc-100 hover:bg-white disabled:opacity-50 text-black text-sm font-semibold py-2"
+            className={BTN_LIGHT}
           >
             {busy === "gh_fork"
               ? "Claiming…"
               : authenticated
                 ? "Claim GH fork"
-                : "Login to claim"}
+                : "Login"}
           </button>
-          {github ? (
-            <p className="text-[11px] text-zinc-600 font-mono">gh/{github}</p>
-          ) : (
-            <button
-              type="button"
-              onClick={() => (authenticated ? linkGithub() : login())}
-              className="text-[11px] text-zinc-300 hover:underline"
-            >
-              Link GitHub to claim
-            </button>
-          )}
-        </div>
+        </RewardRow>
       </div>
 
       {treasuryShit != null && treasuryShit < CLAIM_X_TWEET && (
-        <p className="text-xs text-amber-400">
+        <p className="text-xs text-amber-400 leading-snug">
           Treasury low ({fmt(treasuryShit)} ${SHIT_SYMBOL}). Fund{" "}
           <a
             className="underline font-mono"
@@ -339,35 +424,22 @@ export default function ClaimPanel() {
         </p>
       )}
 
-      {err && <p className="text-sm text-red-400 break-words">{err}</p>}
-      {msg && <p className="text-sm text-green-400">{msg}</p>}
-      {sig && (
-        <a
-          href={`https://solscan.io/tx/${sig}`}
-          className="text-xs text-neon-blue hover:underline font-mono break-all"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          tx {sig}
-        </a>
-      )}
-
-      <div className="flex flex-wrap gap-3 text-xs pt-1">
+      <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 text-xs pt-1">
         <a
           href={shitBuyUrl()}
-          className="text-neon-blue hover:underline"
+          className="text-neon-blue hover:underline min-h-9 inline-flex items-center"
           target="_blank"
           rel="noopener noreferrer"
         >
-          Buy ${SHIT_SYMBOL} on Jupiter
+          Buy ${SHIT_SYMBOL} on Jupiter ↗
         </a>
         <a
           href={treasurySolscanUrl()}
-          className="text-zinc-500 hover:text-zinc-300"
+          className="text-zinc-500 hover:text-zinc-300 min-h-9 inline-flex items-center"
           target="_blank"
           rel="noopener noreferrer"
         >
-          Treasury on Solscan
+          Treasury on Solscan ↗
         </a>
       </div>
     </section>
