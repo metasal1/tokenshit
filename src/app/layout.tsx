@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono, Monoton, Orbitron } from "next/font/google";
 import Script from "next/script";
 import ClientLayout from "@/components/ClientLayout";
@@ -37,6 +37,28 @@ export const metadata: Metadata = {
     index: true,
     follow: true,
   },
+  manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "TOKENSHIT",
+  },
+  applicationName: "TOKENSHIT",
+  icons: {
+    icon: [
+      { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: [{ url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" }],
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#39ff14",
+  colorScheme: "dark",
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
 };
 
 export default function RootLayout({
@@ -51,6 +73,10 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <head>
+        <link rel="manifest" href="/manifest.webmanifest" />
+        <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <Script
           src="https://www.googletagmanager.com/gtag/js?id=G-XTVEWC915F"
           strategy="afterInteractive"

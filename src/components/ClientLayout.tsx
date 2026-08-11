@@ -13,6 +13,7 @@ import ShareRefButton from '@/components/ShareRefButton';
 import XFollowersBadge from '@/components/XFollowersBadge';
 import HeaderTicker from '@/components/HeaderTicker';
 import SfxMuteToggle from '@/components/SfxMuteToggle';
+import PwaProvider from '@/components/PwaProvider';
 import { TREASURY_ADDRESS } from '@/lib/shit-token';
 
 interface TokenBalance {
@@ -361,6 +362,7 @@ function Layout({ children }: { children: React.ReactNode }) {
           <Link href="/claim" className="hover:text-foreground transition-colors">Claim</Link>
           <Link href="/brand" className="hover:text-foreground transition-colors">Brand</Link>
           <Link href="/referrals" className="hover:text-foreground transition-colors">Referrals</Link>
+          <Link href="/test" className="hover:text-foreground transition-colors text-zinc-600">Test</Link>
           <XFollowersBadge compact />
           <ShareRefButton variant="compact" path="/" showLogin={false} />
           <SfxMuteToggle />
@@ -465,7 +467,9 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
         },
       }}
     >
-      <Layout>{children}</Layout>
+      <PwaProvider>
+        <Layout>{children}</Layout>
+      </PwaProvider>
     </PrivyProvider>
   );
 }
