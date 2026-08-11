@@ -79,3 +79,5 @@ Don't: hashtags on X, auto-post, lame daily meme spam, corporate announce-speak.
 ```
 
 Primary CTA: `bg-neon text-black font-semibold`
+
+| X banner 1500×500 | `/brand/x-banner.jpg` |

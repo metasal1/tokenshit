@@ -60,6 +60,7 @@ export const BRAND = {
       logoJpg: "/logo.jpg",
       logoNeon: "/logo-neon.jpg",
       banner: "/banner.jpeg",
+      xBanner: "/brand/x-banner.jpg",
       posterTreasury: "/posters/treasury-reloaded.png",
     },
   },
