@@ -11,6 +11,7 @@ import { CanvasShell, CanvasHeaderFx } from '@/components/CanvasShell';
 import { TreasuryBalanceBadge } from '@/components/ClaimPanel';
 import GlobalTreasuryBanner from '@/components/GlobalTreasuryBanner';
 import ShareRefButton from '@/components/ShareRefButton';
+import XFollowersBadge from '@/components/XFollowersBadge';
 import { TREASURY_ADDRESS } from '@/lib/shit-token';
 
 interface TokenBalance {
@@ -358,6 +359,7 @@ function Layout({ children }: { children: React.ReactNode }) {
           <Link href="/claim" className="hover:text-foreground transition-colors">Claim</Link>
           <Link href="/referrals" className="hover:text-foreground transition-colors">Referrals</Link>
           <GlobalTreasuryBanner compact />
+          <XFollowersBadge compact />
           <ShareRefButton variant="compact" path="/" showLogin={false} />
           <OnlineCounter />
           {mounted && <LoginButton />}
@@ -397,6 +399,7 @@ function Layout({ children }: { children: React.ReactNode }) {
           <Link href="/claim" className="text-zinc-400 hover:text-foreground transition-colors" onClick={() => setMenuOpen(false)}>Claim</Link>
           <Link href="/referrals" className="text-zinc-400 hover:text-foreground transition-colors" onClick={() => setMenuOpen(false)}>Referrals</Link>
           <GlobalTreasuryBanner compact />
+          <XFollowersBadge compact />
           <ShareRefButton variant="compact" path="/" />
           <OnlineCounter />
         </div>
