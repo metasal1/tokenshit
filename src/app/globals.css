@@ -36,6 +36,17 @@ body {
   border-radius: 3px;
 }
 
+/* Hide scrollbar but keep scroll (mobile chip rails) */
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
 /* Glow effect for cards on hover */
 .card-glow:hover {
   box-shadow: 0 0 20px rgba(57, 255, 20, 0.1), 0 0 40px rgba(57, 255, 20, 0.05);
