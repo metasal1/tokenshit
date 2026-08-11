@@ -7,15 +7,30 @@ export const alt = "TOKENSHIT";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
+/** Never scientific notation on OG */
 function formatPrice(n: number | null | undefined): string {
-  if (n == null || Number.isNaN(n)) return "—";
-  if (n >= 1)
-    return `$${n.toLocaleString("en-US", {
-      minimumFractionDigits: 2,
+  if (n == null || !Number.isFinite(n)) return "—";
+  const abs = Math.abs(n);
+  const sign = n < 0 ? "-" : "";
+  if (abs >= 1000) {
+    return `${sign}$${abs.toLocaleString("en-US", {
       maximumFractionDigits: 2,
+      minimumFractionDigits: 2,
     })}`;
-  if (n >= 0.0001) return `$${n.toPrecision(4)}`;
-  return `$${n.toExponential(2)}`;
+  }
+  if (abs >= 1) {
+    return `${sign}$${abs.toLocaleString("en-US", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 4,
+    })}`;
+  }
+  if (abs >= 0.0001) {
+    return `${sign}$${abs.toFixed(6).replace(/\.?0+$/, "")}`;
+  }
+  // 3.73e-5 → 0.0000373
+  const exp = Math.floor(Math.log10(abs));
+  const decimals = Math.min(12, Math.max(6, -exp + 3));
+  return `${sign}$${abs.toFixed(decimals).replace(/\.?0+$/, "")}`;
 }
 
 function formatChange(n: number | null | undefined): string {
@@ -23,12 +38,20 @@ function formatChange(n: number | null | undefined): string {
   return `${n >= 0 ? "+" : ""}${n.toFixed(2)}%`;
 }
 
+function looksLikeMintOrId(s: string): boolean {
+  if (!s) return true;
+  if (/^solana-/i.test(s)) return true;
+  if (/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(s)) return true;
+  if (s.length > 28 && !/\s/.test(s)) return true;
+  return false;
+}
+
 async function toDataUrl(url: string): Promise<string | null> {
   try {
     const res = await fetch(url, {
       headers: {
         "User-Agent":
-          "Mozilla/5.0 (compatible; TokenShitOG/1.0; +https://tokenshit.com)",
+          "Mozilla/5.0 (compatible; TokenShitOG/1.1; +https://tokenshit.com)",
         Accept: "image/*,*/*",
       },
       redirect: "follow",
@@ -68,15 +91,35 @@ async function firstLogo(urls: string[]): Promise<string | null> {
 async function jupiterPrice(mint: string): Promise<number | null> {
   try {
     const res = await fetch(
-      `https://api.jup.ag/price/v3?ids=${encodeURIComponent(mint)}`,
+      `https://lite-api.jup.ag/price/v3?ids=${encodeURIComponent(mint)}`,
       {
         headers: {
-          "x-api-key":
-            process.env.JUP_API_KEY || "3309da44-211b-4acb-9d31-c36fb54d9459",
+          Accept: "application/json",
+          "User-Agent": "TokenShitOG/1.1",
+          ...(process.env.JUP_API_KEY
+            ? { "x-api-key": process.env.JUP_API_KEY }
+            : {}),
         },
       }
     );
-    if (!res.ok) return null;
+    if (!res.ok) {
+      // fallback api.jup.ag
+      const r2 = await fetch(
+        `https://api.jup.ag/price/v3?ids=${encodeURIComponent(mint)}`,
+        {
+          headers: {
+            Accept: "application/json",
+            ...(process.env.JUP_API_KEY
+              ? { "x-api-key": process.env.JUP_API_KEY }
+              : {}),
+          },
+        }
+      );
+      if (!r2.ok) return null;
+      const d2 = await r2.json();
+      const p2 = d2?.[mint]?.usdPrice ?? d2?.data?.[mint]?.price;
+      return typeof p2 === "number" ? p2 : p2 != null ? Number(p2) : null;
+    }
     const d = await res.json();
     const p = d?.[mint]?.usdPrice ?? d?.data?.[mint]?.price;
     return typeof p === "number" ? p : p != null ? Number(p) : null;
@@ -91,6 +134,7 @@ export default async function OGImage({
   params: Promise<{ assetId: string }>;
 }) {
   const { assetId } = await params;
+  const mint = extractMint(assetId);
 
   const display = await resolveAssetMeta(assetId);
   let name = display.name;
@@ -105,10 +149,10 @@ export default async function OGImage({
     display.logo,
   ].filter(Boolean);
 
-  const mint = extractMint(assetId);
   if (mint) {
     logoUrls.unshift(
-      `https://dd.dexscreener.com/ds-data/tokens/solana/${mint}.png`
+      `https://dd.dexscreener.com/ds-data/tokens/solana/${mint}.png`,
+      `https://cdn.jsdelivr.net/gh/solana-labs/token-list@main/assets/mainnet/${mint}/logo.png`
     );
   }
 
@@ -130,16 +174,15 @@ export default async function OGImage({
       const includes = data.includes || {};
       const risk = includes.risk?.ok ? includes.risk.data : {};
 
-      if (
-        asset.name &&
-        asset.name !== assetId &&
-        !String(asset.name).startsWith("solana-")
-      ) {
-        name = asset.name;
-      }
-      if (asset.symbol) symbol = asset.symbol;
+      const n = (asset.name || asset.profile?.name || "").trim();
+      if (n && !looksLikeMintOrId(n)) name = n;
+      const s = (asset.symbol || asset.profile?.symbol || "").trim();
+      if (s && !looksLikeMintOrId(s)) symbol = s;
       const tLogo =
-        asset.imageUrl || asset.primaryVariant?.market?.logoURI || "";
+        asset.imageUrl ||
+        asset.logo ||
+        asset.primaryVariant?.market?.logoURI ||
+        "";
       if (tLogo) logoUrls.push(tLogo);
       price = stats.price ?? null;
       change24h = stats.priceChange24hPercent ?? null;
@@ -150,15 +193,30 @@ export default async function OGImage({
     /* display meta */
   }
 
+  // If name still looks like mint id, force resolveMeta / helius result
+  if (looksLikeMintOrId(name)) {
+    const clean = await resolveAssetMeta(assetId);
+    if (!looksLikeMintOrId(clean.name)) {
+      name = clean.name;
+      if (clean.symbol) symbol = clean.symbol;
+    } else if (mint) {
+      // last resort short mint
+      name = `${mint.slice(0, 4)}…${mint.slice(-4)}`;
+    }
+    if (clean.logo) logoUrls.push(clean.logo);
+    if (clean.logoCandidates) logoUrls.push(...clean.logoCandidates);
+  }
+
   if (price == null && mint) price = await jupiterPrice(mint);
 
+  // Never show "Insufficient Data" badge on OG — use Vote CTA instead
   const showScore =
     riskScore != null &&
+    riskScore > 0 &&
     riskLabel &&
-    !/insufficient/i.test(riskLabel) &&
-    riskScore > 0;
+    !/insufficient|unknown|n\/a/i.test(riskLabel);
 
-  const logoData = await firstLogo([...new Set(logoUrls)]);
+  const logoData = await firstLogo([...new Set(logoUrls.filter(Boolean))]);
 
   const scoreColor =
     riskScore != null
@@ -173,8 +231,14 @@ export default async function OGImage({
     change24h != null ? (change24h >= 0 ? "#4ade80" : "#ef4444") : "#71717a";
 
   let title = name;
+  if (looksLikeMintOrId(title) && mint) {
+    title = `${mint.slice(0, 4)}…${mint.slice(-4)}`;
+  }
   if (title.length > 22) title = `${title.slice(0, 20)}…`;
-  const monoSym = (symbol || "").slice(0, 12);
+  const monoSym = (symbol && !looksLikeMintOrId(symbol) ? symbol : "").slice(
+    0,
+    12
+  );
 
   const [monoton, inter] = await Promise.all([loadMonoton(), loadInter()]);
   const bodyFont = inter ? "Inter" : "sans-serif";
@@ -200,43 +264,44 @@ export default async function OGImage({
           display: "flex",
           flexDirection: "column",
           background:
-            "linear-gradient(135deg, #0a0a12 0%, #111118 45%, #0a0a12 100%)",
+            "linear-gradient(145deg, #07070c 0%, #0c120e 40%, #0a0a12 100%)",
           fontFamily: bodyFont,
           padding: "48px 64px",
         }}
       >
+        {/* Brand lockup */}
         <div
           style={{
             display: "flex",
             alignItems: "baseline",
-            marginBottom: 40,
+            marginBottom: 36,
             fontFamily: "Monoton",
             letterSpacing: "0.02em",
           }}
         >
           <span
             style={{
-              fontSize: 48,
-              color: "#fff8e7",
-              textShadow: "0 0 6px #fff8e7, 0 0 16px #f0c040",
+              fontSize: 44,
+              color: "#e6ffe0",
+              textShadow: "0 0 8px #39ff14, 0 0 20px #1a8a0a",
             }}
           >
             TOKEN
           </span>
           <span
             style={{
-              fontSize: 48,
+              fontSize: 44,
               color: "#39ff14",
-              textShadow: "0 0 6px #39ff14, 0 0 16px #39ff14, 0 0 32px #0fa",
+              textShadow: "0 0 8px #39ff14, 0 0 22px #39ff14, 0 0 40px #0fa",
             }}
           >
             $
           </span>
           <span
             style={{
-              fontSize: 48,
-              color: "#fff8e7",
-              textShadow: "0 0 6px #fff8e7, 0 0 16px #f0c040",
+              fontSize: 44,
+              color: "#e6ffe0",
+              textShadow: "0 0 8px #39ff14, 0 0 20px #1a8a0a",
             }}
           >
             HIT
@@ -261,7 +326,7 @@ export default async function OGImage({
                 borderRadius: "50%",
                 background: "#1a1a2e",
                 objectFit: "cover",
-                border: "3px solid #222",
+                border: "3px solid #2a2a3a",
               }}
             />
           ) : (
@@ -270,14 +335,14 @@ export default async function OGImage({
                 width: 168,
                 height: 168,
                 borderRadius: "50%",
-                background: "#1a1a2e",
+                background: "#12121a",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                fontSize: 56,
+                fontSize: 48,
                 fontWeight: 700,
                 color: "#39ff14",
-                border: "3px solid #222",
+                border: "3px solid #2a2a3a",
                 fontFamily: bodyFont,
               }}
             >
@@ -302,7 +367,7 @@ export default async function OGImage({
             >
               <span
                 style={{
-                  fontSize: title.length > 12 ? 52 : 64,
+                  fontSize: title.length > 14 ? 48 : 60,
                   fontWeight: 700,
                   color: "#ffffff",
                   lineHeight: 1.1,
@@ -314,7 +379,7 @@ export default async function OGImage({
               {monoSym ? (
                 <span
                   style={{
-                    fontSize: 28,
+                    fontSize: 26,
                     color: "#a1a1aa",
                     fontWeight: 700,
                     fontFamily: bodyFont,
@@ -329,13 +394,13 @@ export default async function OGImage({
               style={{
                 display: "flex",
                 alignItems: "baseline",
-                gap: 20,
-                marginTop: 18,
+                gap: 18,
+                marginTop: 16,
               }}
             >
               <span
                 style={{
-                  fontSize: 48,
+                  fontSize: 44,
                   fontWeight: 700,
                   color: "#ffffff",
                   fontFamily: bodyFont,
@@ -346,7 +411,7 @@ export default async function OGImage({
               {change24h != null ? (
                 <span
                   style={{
-                    fontSize: 26,
+                    fontSize: 24,
                     fontWeight: 700,
                     color: changeColor,
                     fontFamily: bodyFont,
@@ -359,8 +424,8 @@ export default async function OGImage({
 
             <span
               style={{
-                marginTop: 20,
-                fontSize: 22,
+                marginTop: 18,
+                fontSize: 20,
                 color: "#71717a",
                 fontFamily: bodyFont,
               }}
@@ -382,7 +447,7 @@ export default async function OGImage({
                 fontFamily: bodyFont,
               }}
             >
-              <span style={{ fontSize: 16, color: "#71717a", marginBottom: 4 }}>
+              <span style={{ fontSize: 14, color: "#71717a", marginBottom: 4 }}>
                 $HIT
               </span>
               <span
@@ -396,8 +461,8 @@ export default async function OGImage({
                 {riskScore}
               </span>
               {riskLabel ? (
-                <span style={{ fontSize: 14, color: scoreColor, marginTop: 4 }}>
-                  {riskLabel}
+                <span style={{ fontSize: 13, color: scoreColor, marginTop: 4 }}>
+                  {String(riskLabel).slice(0, 18)}
                 </span>
               ) : null}
             </div>
@@ -410,19 +475,19 @@ export default async function OGImage({
                 padding: "24px 28px",
                 borderRadius: 20,
                 border: "3px solid #39ff14",
-                background: "rgba(57,255,20,0.08)",
+                background: "rgba(57,255,20,0.1)",
                 fontFamily: bodyFont,
               }}
             >
               <span
                 style={{
-                  fontSize: 40,
+                  fontSize: 36,
                   fontWeight: 700,
                   color: "#39ff14",
                   fontFamily: bodyFont,
                 }}
               >
-                HIT?
+                VOTE
               </span>
               <span
                 style={{
@@ -432,7 +497,7 @@ export default async function OGImage({
                   fontFamily: bodyFont,
                 }}
               >
-                Vote now
+                HIT or SHIT
               </span>
             </div>
           )}
