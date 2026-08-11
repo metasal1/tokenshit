@@ -152,6 +152,8 @@ export default function BuyShitPanel() {
         body: JSON.stringify({
           quoteResponse: qData.quote,
           userPublicKey: walletAddress,
+          feeAccount: qData.feeAccount,
+          feeBps: qData.feeBps,
         }),
       });
       const sData = await sRes.json();
