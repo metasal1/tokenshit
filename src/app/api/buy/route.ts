@@ -13,13 +13,14 @@ export const dynamic = "force-dynamic";
 
 /**
  * GET /api/buy?amountLamports=100000000
- * Quote SOL → $SHIT with platform fee to treasury ATA.
+ * Default: no platform fee (fee=1 to enable).
  */
 export async function GET(request: NextRequest) {
   const sp = request.nextUrl.searchParams;
   const amountLamports = sp.get("amountLamports") || "100000000";
-  const slippageBps = sp.get("slippageBps") || "100";
-  const withFee = sp.get("fee") !== "0";
+  const slippageBps = sp.get("slippageBps") || "150";
+  // Fees off by default — UI does not surface fees
+  const withFee = sp.get("fee") === "1";
 
   const url = new URL(JUP_QUOTE);
   url.searchParams.set("inputMint", SOL_MINT);
@@ -46,8 +47,8 @@ export async function GET(request: NextRequest) {
       );
     }
     if (!res.ok) {
-      // Retry without fee if fee path fails (token not in fee program yet)
       if (withFee) {
+        // fallback no-fee quote
         const u2 = new URL(JUP_QUOTE);
         u2.searchParams.set("inputMint", SOL_MINT);
         u2.searchParams.set("outputMint", SHIT_MINT);
@@ -63,7 +64,6 @@ export async function GET(request: NextRequest) {
             quote: d2,
             feeBps: 0,
             feeAccount: null,
-            feeNote: "platform fee unavailable; quote without fee",
             inputMint: SOL_MINT,
             outputMint: SHIT_MINT,
           });
@@ -87,8 +87,8 @@ export async function GET(request: NextRequest) {
 }
 
 /**
- * POST /api/buy
- * Body: { quoteResponse, userPublicKey, feeAccount? }
+ * POST /api/buy — build swap tx from quote
+ * Body: { quoteResponse, userPublicKey }
  */
 export async function POST(request: NextRequest) {
   try {
@@ -102,10 +102,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Fees off unless explicitly requested
     const useFee =
-      body.feeAccount !== null &&
-      body.feeAccount !== "" &&
-      (body.feeBps == null || Number(body.feeBps) > 0);
+      body.fee === true ||
+      body.fee === 1 ||
+      (body.feeBps != null && Number(body.feeBps) > 0);
 
     const payload: Record<string, unknown> = {
       quoteResponse,
@@ -113,6 +114,7 @@ export async function POST(request: NextRequest) {
       wrapAndUnwrapSol: true,
       dynamicComputeUnitLimit: true,
       prioritizationFeeLamports: "auto",
+      asLegacyTransaction: false,
     };
     if (useFee) {
       payload.feeAccount = body.feeAccount || SHIT_FEE_ATA;
@@ -134,6 +136,32 @@ export async function POST(request: NextRequest) {
       );
     }
     if (!res.ok) {
+      // retry without fee account if fee caused failure
+      if (useFee) {
+        const r2 = await fetch(JUP_SWAP, {
+          method: "POST",
+          headers: jupHeaders(),
+          body: JSON.stringify({
+            quoteResponse,
+            userPublicKey,
+            wrapAndUnwrapSol: true,
+            dynamicComputeUnitLimit: true,
+            prioritizationFeeLamports: "auto",
+          }),
+        });
+        const t2 = await r2.text();
+        try {
+          data = JSON.parse(t2);
+        } catch {
+          return Response.json(
+            { error: `Jupiter swap non-JSON: ${t2.slice(0, 200)}` },
+            { status: 502 }
+          );
+        }
+        if (r2.ok) {
+          return Response.json({ ...data, feeBps: 0, feeAccount: null });
+        }
+      }
       return Response.json(
         { error: data?.error || data?.message || text.slice(0, 200), data },
         { status: res.status }
