@@ -197,12 +197,132 @@ function xBearer(): string {
   );
 }
 
+/** Human X API failures (never dump raw JSON to the UI). */
+export function formatXApiError(status: number, body: string): string {
+  const lower = body.toLowerCase();
+  if (
+    status === 402 ||
+    lower.includes("credits depleted") ||
+    lower.includes("credits-depleted") ||
+    lower.includes("payment required")
+  ) {
+    return "X API credits are depleted — tweet search is offline. Paste your tweet link and try again, or top up the X developer app.";
+  }
+  if (status === 429 || lower.includes("rate limit")) {
+    return "X API rate limit — wait a minute and try again.";
+  }
+  if (status === 401 || status === 403) {
+    return "X API auth failed — check X_BEARER_TOKEN on the server.";
+  }
+  // keep short, no full JSON dump
+  let detail = "";
+  try {
+    const j = JSON.parse(body);
+    detail = j.title || j.detail || j.error || "";
+  } catch {
+    detail = body.replace(/\s+/g, " ").slice(0, 80);
+  }
+  return detail
+    ? `X API error (${status}): ${detail}`
+    : `X API error (${status})`;
+}
+
+function parseTweetId(input: string): string | null {
+  const s = (input || "").trim();
+  if (!s) return null;
+  if (/^\d{5,25}$/.test(s)) return s;
+  const m = s.match(
+    /(?:twitter\.com|x\.com)\/[^/]+\/status(?:es)?\/(\d{5,25})/i
+  );
+  return m?.[1] || null;
+}
+
+/**
+ * Verify a specific tweet by URL/id (GET /2/tweets/:id).
+ * Prefer this when recent search is out of credits.
+ */
+export async function checkXTweetByUrl(
+  username: string,
+  tweetUrlOrId: string
+): Promise<{
+  ok: boolean;
+  found: boolean;
+  tweetId?: string;
+  text?: string;
+  error?: string;
+}> {
+  const bearer = xBearer();
+  const user = username.replace(/^@/, "").trim().toLowerCase();
+  const tweetId = parseTweetId(tweetUrlOrId);
+  if (!user) return { ok: false, found: false, error: "no username" };
+  if (!tweetId)
+    return {
+      ok: false,
+      found: false,
+      error: "Paste a full X/Twitter status link (or tweet id).",
+    };
+  if (!bearer)
+    return { ok: false, found: false, error: "X_BEARER_TOKEN not configured" };
+
+  const url = new URL(`https://api.x.com/2/tweets/${tweetId}`);
+  url.searchParams.set("tweet.fields", "author_id,text,entities,created_at");
+  url.searchParams.set("expansions", "author_id");
+  url.searchParams.set("user.fields", "username");
+
+  const res = await fetch(url.toString(), {
+    headers: { Authorization: `Bearer ${bearer}` },
+  });
+  if (!res.ok) {
+    const t = await res.text();
+    return {
+      ok: false,
+      found: false,
+      error: formatXApiError(res.status, t),
+    };
+  }
+  const json = await res.json();
+  const text = String(json.data?.text || "");
+  const authorId = json.data?.author_id as string | undefined;
+  const users = (json.includes?.users || []) as {
+    id: string;
+    username?: string;
+  }[];
+  const author = users.find((u) => u.id === authorId);
+  const authorUser = (author?.username || "").toLowerCase();
+  if (authorUser && authorUser !== user) {
+    return {
+      ok: false,
+      found: false,
+      error: `That tweet is from @${author?.username}, not @${user}.`,
+    };
+  }
+  const tagsOk =
+    /@tokenshit_/i.test(text) ||
+    /tokenshit\.com/i.test(text) ||
+    /\$?TOKENSHIT/i.test(text);
+  if (!tagsOk) {
+    return {
+      ok: false,
+      found: false,
+      error: "Tweet must tag @Tokenshit_ (or link tokenshit.com).",
+    };
+  }
+  return {
+    ok: true,
+    found: true,
+    tweetId,
+    text: text.slice(0, 280),
+  };
+}
+
 /**
  * Recent search: user tweeted tagging @Tokenshit_ (or tokenshit.com).
  * Requires X API recent search access on the bearer.
+ * Optional tweetUrl skips search (lookup by id) when credits are low.
  */
 export async function checkXTweetTag(
-  username: string
+  username: string,
+  tweetUrl?: string | null
 ): Promise<{
   ok: boolean;
   found: boolean;
@@ -215,6 +335,10 @@ export async function checkXTweetTag(
   if (!user) return { ok: false, found: false, error: "no username" };
   if (!bearer)
     return { ok: false, found: false, error: "X_BEARER_TOKEN not configured" };
+
+  if (tweetUrl && String(tweetUrl).trim()) {
+    return checkXTweetByUrl(user, String(tweetUrl));
+  }
 
   // from:user mentioning Tokenshit_ or link
   const query = `from:${user} (@Tokenshit_ OR @tokenshit_ OR tokenshit.com OR TOKENSHIT) -is:retweet -is:reply`;
@@ -231,7 +355,7 @@ export async function checkXTweetTag(
     return {
       ok: false,
       found: false,
-      error: `X search ${res.status}: ${t.slice(0, 200)}`,
+      error: formatXApiError(res.status, t),
     };
   }
   const json = await res.json();

@@ -134,6 +134,7 @@ export default function ClaimPanel() {
   const [err, setErr] = useState<string | null>(null);
   const [sig, setSig] = useState<string | null>(null);
   const [treasuryShit, setTreasuryShit] = useState<number | null>(null);
+  const [tweetUrl, setTweetUrl] = useState("");
 
   const twitter = user?.twitter?.username || null;
   const github = user?.github?.username || null;
@@ -177,7 +178,15 @@ export default function ClaimPanel() {
       const res = await fetch("/api/claim", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ kind, wallet, twitter, github }),
+        body: JSON.stringify({
+          kind,
+          wallet,
+          twitter,
+          github,
+          ...(kind === "x_tweet" && tweetUrl.trim()
+            ? { tweetUrl: tweetUrl.trim() }
+            : {}),
+        }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -329,6 +338,14 @@ export default function ClaimPanel() {
             >
               1. Post tweet
             </a>
+            <input
+              type="url"
+              inputMode="url"
+              placeholder="Tweet link (optional if search works)"
+              value={tweetUrl}
+              onChange={(e) => setTweetUrl(e.target.value)}
+              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-zinc-600"
+            />
             <button
               type="button"
               disabled={busy !== null}

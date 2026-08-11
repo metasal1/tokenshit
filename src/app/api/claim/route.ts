@@ -66,7 +66,8 @@ export async function GET(request: NextRequest) {
     } else if (kind === "x_tweet") {
       if (!twitter)
         return Response.json({ error: "twitter required" }, { status: 400 });
-      const t = await checkXTweetTag(twitter);
+      const tweetUrl = sp.get("tweetUrl");
+      const t = await checkXTweetTag(twitter, tweetUrl);
       detail = t;
       eligible = t.ok && t.found;
     } else if (kind === "x_follow") {
@@ -162,17 +163,18 @@ export async function POST(request: NextRequest) {
           { error: "Twitter handle required" },
           { status: 400 }
         );
-      const t = await checkXTweetTag(twitter);
+      const tweetUrl = body.tweetUrl ? String(body.tweetUrl) : null;
+      const t = await checkXTweetTag(twitter, tweetUrl);
       if (!t.ok)
         return Response.json(
-          { error: t.error || "Tweet search failed" },
+          { error: t.error || "Tweet check failed" },
           { status: 502 }
         );
       if (!t.found)
         return Response.json(
           {
             error:
-              "No recent tweet from you tagging @Tokenshit_ found (last ~7 days). Post then claim.",
+              "No recent tweet from you tagging @Tokenshit_ found (last ~7 days). Post, then paste the tweet link and claim.",
           },
           { status: 403 }
         );
