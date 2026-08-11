@@ -12,6 +12,7 @@ import { TreasuryBalanceBadge } from '@/components/ClaimPanel';
 import GlobalTreasuryBanner from '@/components/GlobalTreasuryBanner';
 import ShareRefButton from '@/components/ShareRefButton';
 import XFollowersBadge from '@/components/XFollowersBadge';
+import HeaderTicker from '@/components/HeaderTicker';
 import { TREASURY_ADDRESS } from '@/lib/shit-token';
 
 interface TokenBalance {
@@ -347,6 +348,7 @@ function Layout({ children }: { children: React.ReactNode }) {
   const nav = (
     <CanvasHeaderFx>
     <nav className="sticky top-0 z-50 border-b border-border bg-background/80 backdrop-blur-xl">
+      <HeaderTicker />
       <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3">
         <Link href="/" className="flex items-center group shrink-0">
           <AnimatedLogo size="nav" />
@@ -359,10 +361,8 @@ function Layout({ children }: { children: React.ReactNode }) {
           <Link href="/claim" className="hover:text-foreground transition-colors">Claim</Link>
           <Link href="/brand" className="hover:text-foreground transition-colors">Brand</Link>
           <Link href="/referrals" className="hover:text-foreground transition-colors">Referrals</Link>
-          <GlobalTreasuryBanner compact />
           <XFollowersBadge compact />
           <ShareRefButton variant="compact" path="/" showLogin={false} />
-          <OnlineCounter />
           {mounted && <LoginButton />}
         </div>
 
@@ -400,10 +400,8 @@ function Layout({ children }: { children: React.ReactNode }) {
           <Link href="/claim" className="text-zinc-400 hover:text-foreground transition-colors" onClick={() => setMenuOpen(false)}>Claim</Link>
           <Link href="/brand" className="text-zinc-400 hover:text-foreground transition-colors" onClick={() => setMenuOpen(false)}>Brand</Link>
           <Link href="/referrals" className="text-zinc-400 hover:text-foreground transition-colors" onClick={() => setMenuOpen(false)}>Referrals</Link>
-          <GlobalTreasuryBanner compact />
           <XFollowersBadge compact />
           <ShareRefButton variant="compact" path="/" />
-          <OnlineCounter />
         </div>
       )}
     </nav>
