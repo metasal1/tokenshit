@@ -73,6 +73,19 @@ async function heliusMeta(mint: string): Promise<AssetMeta | null> {
  * Tokens.xyz first; Helius DAS fallback for pump/unregistered mints.
  */
 export async function resolveAssetMeta(assetId: string): Promise<AssetMeta> {
+  // Official $SHIT mint — Tokens.xyz has null name/symbol
+  const mintEarly = extractMint(assetId) || assetId;
+  if (
+    mintEarly === "fEbiuDdZZ1QaWYpJFPqk23ZkaRnAyHg4aivhrCTshit" ||
+    assetId.includes("fEbiuDdZZ1QaWYpJFPqk23ZkaRnAyHg4aivhrCTshit")
+  ) {
+    return {
+      name: "TokenShit",
+      symbol: "SHIT",
+      logo: "",
+    };
+  }
+
   const fallback: AssetMeta = {
     name: shortId(assetId),
     symbol: "",
