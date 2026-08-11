@@ -18,6 +18,7 @@ import {
   treasurySolscanUrl,
   tweetTagIntentUrl,
 } from "@/lib/shit-token";
+import { BalanceSkeleton } from "@/components/StatLoader";
 
 type ClaimKind = "x_verified" | "gh_fork" | "x_tweet" | "x_follow";
 
@@ -38,6 +39,7 @@ function fmt(n: number) {
 export function TreasuryBalanceBadge({ className = "" }: { className?: string }) {
   const [shit, setShit] = useState<number | null>(null);
   const [sol, setSol] = useState<number | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let alive = true;
@@ -49,7 +51,10 @@ export function TreasuryBalanceBadge({ className = "" }: { className?: string })
           if (typeof d.shit === "number") setShit(d.shit);
           if (typeof d.sol === "number") setSol(d.sol);
         })
-        .catch(() => {});
+        .catch(() => {})
+        .finally(() => {
+          if (alive) setLoading(false);
+        });
     load();
     const t = setInterval(load, 60_000);
     return () => {
@@ -67,12 +72,16 @@ export function TreasuryBalanceBadge({ className = "" }: { className?: string })
       title={`Treasury ${TREASURY_ADDRESS}`}
     >
       <span className="text-neon">${SHIT_SYMBOL}</span>
-      <span>{shit == null ? "…" : fmt(shit)}</span>
-      {sol != null && sol > 0 && (
+      {loading || shit == null ? (
+        <BalanceSkeleton className="h-3.5 w-12" />
+      ) : (
+        <span>{fmt(shit)}</span>
+      )}
+      {loading ? null : sol != null && sol > 0 ? (
         <span className="text-zinc-600 hidden xs:inline sm:inline">
           · {sol.toFixed(3)} SOL
         </span>
-      )}
+      ) : null}
     </a>
   );
 }

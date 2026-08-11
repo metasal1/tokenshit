@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { X_HANDLE, X_URL } from "@/lib/shit-token";
+import { BalanceSkeleton, SpinLoader } from "@/components/StatLoader";
 
 type Profile = {
   username: string;
@@ -28,6 +29,7 @@ export default function XFollowersBadge({
   className?: string;
 }) {
   const [p, setP] = useState<Profile | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let alive = true;
@@ -37,7 +39,10 @@ export default function XFollowersBadge({
         if (!alive || d.error) return;
         setP(d);
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => {
+        if (alive) setLoading(false);
+      });
     return () => {
       alive = false;
     };
@@ -55,7 +60,11 @@ export default function XFollowersBadge({
         title={`@${X_HANDLE} on X`}
       >
         <span className="text-sky-400 font-sans font-bold">𝕏</span>
-        <span>{followers == null ? "…" : fmt(followers)}</span>
+        {loading || followers == null ? (
+          <SpinLoader size={11} label="Followers loading" />
+        ) : (
+          <span>{fmt(followers)}</span>
+        )}
       </a>
     );
   }
@@ -84,11 +93,15 @@ export default function XFollowersBadge({
           @{p?.username || X_HANDLE}
         </div>
         <div className="text-xs text-zinc-500">
-          <span className="text-neon font-mono font-bold">
-            {followers == null ? "…" : fmt(followers)}
+          <span className="text-neon font-mono font-bold inline-flex items-center min-h-[1rem]">
+            {loading || followers == null ? (
+              <BalanceSkeleton className="h-3.5 w-10" />
+            ) : (
+              fmt(followers)
+            )}
           </span>{" "}
           followers
-          {p?.tweets != null && (
+          {!loading && p?.tweets != null && (
             <>
               {" · "}
               <span className="font-mono">{fmt(p.tweets)}</span> posts

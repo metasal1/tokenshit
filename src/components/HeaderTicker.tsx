@@ -8,6 +8,7 @@ import {
   formatCountdown,
   treasurySolscanUrl,
 } from "@/lib/shit-token";
+import { BalanceSkeleton, PulseDot, SpinLoader } from "@/components/StatLoader";
 
 type Payload = {
   shit?: number;
@@ -21,7 +22,7 @@ type Payload = {
 };
 
 function fmt(n: number | null | undefined) {
-  if (n == null || !Number.isFinite(n)) return "—";
+  if (n == null || !Number.isFinite(n)) return null;
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(2)}M`;
   if (n >= 10_000) return `${(n / 1_000).toFixed(1)}K`;
   return n.toLocaleString(undefined, { maximumFractionDigits: 0 });
@@ -49,6 +50,8 @@ function getDeviceId(): string {
 export default function HeaderTicker() {
   const [data, setData] = useState<Payload | null>(null);
   const [online, setOnline] = useState<number | null>(null);
+  const [treasuryLoading, setTreasuryLoading] = useState(true);
+  const [onlineLoading, setOnlineLoading] = useState(true);
   const [skew, setSkew] = useState(0);
   const [now, setNow] = useState(() => Date.now());
 
@@ -66,7 +69,10 @@ export default function HeaderTicker() {
           }
           setData(d);
         })
-        .catch(() => {});
+        .catch(() => {})
+        .finally(() => {
+          if (alive) setTreasuryLoading(false);
+        });
     };
     const ping = () => {
       fetch("/api/heartbeat", {
@@ -78,7 +84,10 @@ export default function HeaderTicker() {
         .then((d) => {
           if (alive && typeof d.online === "number") setOnline(d.online);
         })
-        .catch(() => {});
+        .catch(() => {})
+        .finally(() => {
+          if (alive) setOnlineLoading(false);
+        });
     };
     loadTreasury();
     ping();
@@ -104,6 +113,7 @@ export default function HeaderTicker() {
 
   const cd = formatCountdown(Math.max(0, targetMs - (now + skew)));
   const drop = data?.global?.dropAmount ?? GLOBAL_TREASURY_DAILY_DROP;
+  const bal = fmt(data?.shit);
 
   const items = [
     {
@@ -114,9 +124,13 @@ export default function HeaderTicker() {
           className="inline-flex items-center gap-1.5 hover:text-neon transition-colors"
         >
           <span className="text-zinc-500">Treasury</span>
-          <span className="text-neon font-semibold">
-            {fmt(data?.shit)} ${SHIT_SYMBOL}
-          </span>
+          {treasuryLoading || bal == null ? (
+            <BalanceSkeleton />
+          ) : (
+            <span className="text-neon font-semibold">
+              {bal} ${SHIT_SYMBOL}
+            </span>
+          )}
         </Link>
       ),
     },
@@ -137,7 +151,7 @@ export default function HeaderTicker() {
       node: (
         <span className="inline-flex items-center gap-1.5">
           <span className="text-zinc-500">Daily</span>
-          <span className="text-neon">+{fmt(drop)}</span>
+          <span className="text-neon">+{fmt(drop) ?? "1M"}</span>
         </span>
       ),
     },
@@ -145,13 +159,17 @@ export default function HeaderTicker() {
       key: "online",
       node: (
         <span className="inline-flex items-center gap-1.5">
-          <span
-            className="inline-block h-1.5 w-1.5 rounded-full bg-neon shadow-[0_0_6px_#39ff14]"
-            aria-hidden
-          />
-          <span className="text-zinc-300">
-            {online == null ? "…" : online} online
-          </span>
+          {onlineLoading ? (
+            <>
+              <SpinLoader size={10} label="Online loading" />
+              <span className="text-zinc-500">online</span>
+            </>
+          ) : (
+            <>
+              <PulseDot />
+              <span className="text-zinc-300">{online ?? 0} online</span>
+            </>
+          )}
         </span>
       ),
     },
@@ -165,15 +183,16 @@ export default function HeaderTicker() {
           className="inline-flex items-center gap-1.5 hover:text-neon-blue transition-colors"
         >
           <span className="text-zinc-500">Gas</span>
-          <span className="text-zinc-300">
-            {data?.sol != null ? `${data.sol.toFixed(3)} SOL` : "—"}
-          </span>
+          {treasuryLoading || data?.sol == null ? (
+            <BalanceSkeleton className="w-12" />
+          ) : (
+            <span className="text-zinc-300">{data.sol.toFixed(3)} SOL</span>
+          )}
         </a>
       ),
     },
   ];
 
-  // duplicate for seamless loop
   const loop = [...items, ...items, ...items];
 
   return (
@@ -194,7 +213,6 @@ export default function HeaderTicker() {
           </span>
         ))}
       </div>
-      {/* edge fades */}
       <div className="pointer-events-none absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-background to-transparent z-10" />
       <div className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-background to-transparent z-10" />
     </div>
