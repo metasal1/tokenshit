@@ -1,97 +1,206 @@
 import { tursoExecute } from "@/lib/turso";
 import { resolveAssetMeta } from "@/lib/resolveMeta";
 import Link from "next/link";
+import type { Metadata } from "next";
+import StatsCategoryGrid from "@/components/StatsCategoryGrid";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 60;
 
-const LISTS = [
-  { key: "majors", label: "Crypto", emoji: "" },
-  { key: "lsts", label: "Staking", emoji: "" },
-  { key: "currencies", label: "Stables", emoji: "" },
-  { key: "rwas", label: "Treasuries", emoji: "" },
-  { key: "stocks", label: "Stocks", emoji: "" },
-  { key: "metals", label: "Metals", emoji: "" },
-  { key: "etfs", label: "ETFs", emoji: "" },
-];
+export const metadata: Metadata = {
+  title: "Statistics · TOKENSHIT",
+  description: "Votes, visitors, leaderboards — the numbers behind the shit.",
+};
+
+type Meta = { name: string; symbol: string; logo?: string };
+
+async function safeTurso(
+  sql: string,
+  args: (string | number | null)[] = []
+): Promise<{ columns: string[]; rows: unknown[][] }> {
+  try {
+    return await tursoExecute(sql, args);
+  } catch (e) {
+    console.error("stats turso", e);
+    return { columns: [], rows: [] };
+  }
+}
 
 async function getStats() {
-  const [totalVotes, uniqueDevices, todayVotes, todayDevices, topHit, topShit, votesByDay] =
-    await Promise.all([
-      tursoExecute("SELECT COUNT(*) FROM votes", []),
-      tursoExecute("SELECT COUNT(DISTINCT device_id) FROM votes", []),
-      tursoExecute("SELECT COUNT(*) FROM votes WHERE voted_at = date('now')", []),
-      tursoExecute("SELECT COUNT(DISTINCT device_id) FROM votes WHERE voted_at = date('now')", []),
-      tursoExecute(
-        "SELECT asset_id, COUNT(*) as cnt FROM votes WHERE vote = 'hit' GROUP BY asset_id ORDER BY cnt DESC LIMIT 10",
-        []
-      ),
-      tursoExecute(
-        "SELECT asset_id, COUNT(*) as cnt FROM votes WHERE vote = 'shit' GROUP BY asset_id ORDER BY cnt DESC LIMIT 10",
-        []
-      ),
-      tursoExecute(
-        "SELECT voted_at, vote, COUNT(*) as cnt FROM votes GROUP BY voted_at, vote ORDER BY voted_at DESC LIMIT 30",
-        []
-      ),
-    ]);
+  const [
+    totalVotes,
+    uniqueDevices,
+    todayVotes,
+    todayDevices,
+    topHit,
+    topShit,
+    votesByDay,
+  ] = await Promise.all([
+    safeTurso("SELECT COUNT(*) FROM votes", []),
+    safeTurso("SELECT COUNT(DISTINCT device_id) FROM votes", []),
+    safeTurso("SELECT COUNT(*) FROM votes WHERE voted_at = date('now')", []),
+    safeTurso(
+      "SELECT COUNT(DISTINCT device_id) FROM votes WHERE voted_at = date('now')",
+      []
+    ),
+    safeTurso(
+      "SELECT asset_id, COUNT(*) as cnt FROM votes WHERE vote = 'hit' GROUP BY asset_id ORDER BY cnt DESC LIMIT 10",
+      []
+    ),
+    safeTurso(
+      "SELECT asset_id, COUNT(*) as cnt FROM votes WHERE vote = 'shit' GROUP BY asset_id ORDER BY cnt DESC LIMIT 10",
+      []
+    ),
+    safeTurso(
+      "SELECT voted_at, vote, COUNT(*) as cnt FROM votes GROUP BY voted_at, vote ORDER BY voted_at DESC LIMIT 40",
+      []
+    ),
+  ]);
 
-  // Resolve top names with short timeout budget (don't block page for Helius)
-  const allIds = [...new Set([
-    ...topHit.rows.map((r) => r[0] as string),
-    ...topShit.rows.map((r) => r[0] as string),
-  ])];
+  const allIds = [
+    ...new Set([
+      ...topHit.rows.map((r) => String(r[0] || "")),
+      ...topShit.rows.map((r) => String(r[0] || "")),
+    ]),
+  ].filter(Boolean);
 
-  const meta: Record<string, { name: string; symbol: string; logo?: string }> = {};
+  const meta: Record<string, Meta> = {};
   await Promise.all(
     allIds.map(async (id) => {
-      const empty = { name: id.slice(0, 12), symbol: "", logo: "" };
-      meta[id] = await Promise.race([
-        resolveAssetMeta(id).catch(() => empty),
-        new Promise<typeof empty>((r) => setTimeout(() => r(empty), 1500)),
-      ]);
+      const empty: Meta = {
+        name: id.length > 16 ? `${id.slice(0, 8)}…` : id,
+        symbol: "",
+        logo: "",
+      };
+      try {
+        meta[id] = await Promise.race([
+          resolveAssetMeta(id).then((m) => ({
+            name: m.name || empty.name,
+            symbol: m.symbol || "",
+            logo: m.logo || m.logoCandidates?.[0] || "",
+          })),
+          new Promise<Meta>((r) => setTimeout(() => r(empty), 1200)),
+        ]);
+      } catch {
+        meta[id] = empty;
+      }
     })
   );
 
   const dailyVotes: Record<string, { hits: number; shits: number }> = {};
   for (const row of votesByDay.rows) {
-    const day = row[0] as string;
+    const day = String(row[0] || "");
+    if (!day) continue;
     if (!dailyVotes[day]) dailyVotes[day] = { hits: 0, shits: 0 };
-    if (row[1] === "hit") dailyVotes[day].hits = Number(row[2]);
-    if (row[1] === "shit") dailyVotes[day].shits = Number(row[2]);
+    if (row[1] === "hit") dailyVotes[day].hits = Number(row[2] || 0);
+    if (row[1] === "shit") dailyVotes[day].shits = Number(row[2] || 0);
   }
 
-  // Category counts load client-side / skip Tokens.xyz waterfall
-  const categoryCounts = LISTS.map((l) => ({ ...l, count: 0 }));
-
   return {
-    categories: categoryCounts,
-    totalTokens: 0,
     totalVotes: Number(totalVotes.rows[0]?.[0] ?? 0),
     uniqueDevices: Number(uniqueDevices.rows[0]?.[0] ?? 0),
     todayVotes: Number(todayVotes.rows[0]?.[0] ?? 0),
     todayDevices: Number(todayDevices.rows[0]?.[0] ?? 0),
-    topHit: topHit.rows.map((r) => ({
-      assetId: r[0] as string,
-      count: Number(r[1]),
-      ...meta[r[0] as string],
-    })),
-    topShit: topShit.rows.map((r) => ({
-      assetId: r[0] as string,
-      count: Number(r[1]),
-      ...meta[r[0] as string],
-    })),
-    dailyVotes: Object.entries(dailyVotes).map(([day, v]) => ({ day, ...v })),
+    topHit: topHit.rows.map((r) => {
+      const assetId = String(r[0]);
+      return {
+        assetId,
+        count: Number(r[1] || 0),
+        ...(meta[assetId] || { name: assetId, symbol: "", logo: "" }),
+      };
+    }),
+    topShit: topShit.rows.map((r) => {
+      const assetId = String(r[0]);
+      return {
+        assetId,
+        count: Number(r[1] || 0),
+        ...(meta[assetId] || { name: assetId, symbol: "", logo: "" }),
+      };
+    }),
+    dailyVotes: Object.entries(dailyVotes)
+      .map(([day, v]) => ({ day, ...v }))
+      .sort((a, b) => (a.day < b.day ? 1 : -1)),
   };
 }
 
-function StatCard({ label, value, sub }: { label: string; value: string | number; sub?: string }) {
+function StatCard({
+  label,
+  value,
+  sub,
+}: {
+  label: string;
+  value: string | number;
+  sub?: string;
+}) {
+  const display =
+    typeof value === "number" ? value.toLocaleString() : String(value);
   return (
     <div className="rounded-xl border border-border bg-card p-5">
-      <div className="text-xs text-zinc-500 uppercase tracking-wider mb-1">{label}</div>
-      <div className="text-3xl font-black font-mono text-foreground">{value.toLocaleString()}</div>
+      <div className="text-xs text-zinc-500 uppercase tracking-wider mb-1">
+        {label}
+      </div>
+      <div className="text-3xl font-black font-mono text-foreground">
+        {display}
+      </div>
       {sub && <div className="text-xs text-zinc-500 mt-1">{sub}</div>}
     </div>
+  );
+}
+
+function LeaderRow({
+  t,
+  i,
+  tone,
+}: {
+  t: {
+    assetId: string;
+    count: number;
+    name: string;
+    symbol: string;
+    logo?: string;
+  };
+  i: number;
+  tone: "hit" | "shit";
+}) {
+  const color = tone === "hit" ? "text-green-400" : "text-red-400";
+  const hover =
+    tone === "hit" ? "hover:bg-green-500/5" : "hover:bg-red-500/5";
+  const unit = tone === "hit" ? "hits" : "shits";
+  return (
+    <Link
+      href={`/token/${encodeURIComponent(t.assetId)}`}
+      className={`flex items-center gap-3 px-4 py-3 ${hover} transition-colors`}
+    >
+      <span className="text-lg font-bold text-zinc-600 w-6 text-center font-mono">
+        {i + 1}
+      </span>
+      {t.logo ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={t.logo}
+          alt=""
+          className="h-8 w-8 rounded-full bg-zinc-800 shrink-0 object-cover"
+        />
+      ) : (
+        <div className="h-8 w-8 rounded-full bg-zinc-800 shrink-0 flex items-center justify-center text-[10px] font-bold text-zinc-500 uppercase">
+          {(t.symbol || t.name || "?").slice(0, 2)}
+        </div>
+      )}
+      <div className="flex-1 min-w-0">
+        <div className="font-medium text-foreground text-sm truncate">
+          {t.name || t.assetId}
+        </div>
+        {t.symbol ? (
+          <div className="text-xs text-zinc-500 font-mono uppercase">
+            {t.symbol}
+          </div>
+        ) : null}
+      </div>
+      <div className={`font-mono font-bold ${color}`}>
+        {t.count}
+        <span className="text-xs text-zinc-500 ml-1">{unit}</span>
+      </div>
+    </Link>
   );
 }
 
@@ -99,49 +208,23 @@ export default async function StatsPage() {
   const stats = await getStats();
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-12">
+    <div className="mx-auto max-w-5xl px-4 py-10 sm:py-12 pb-16">
       <div className="mb-8">
-        <h1 className="text-4xl font-black mb-2">
+        <h1 className="text-3xl sm:text-4xl font-black mb-2 text-white">
           📊 Statistics
         </h1>
         <p className="text-zinc-400">The numbers behind the shit.</p>
       </div>
 
-      {/* Vote Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-10">
         <StatCard label="Total Votes" value={stats.totalVotes} />
         <StatCard label="Unique Visitors" value={stats.uniqueDevices} />
         <StatCard label="Votes Today" value={stats.todayVotes} />
         <StatCard label="Visitors Today" value={stats.todayDevices} />
       </div>
 
-      {/* Token Categories */}
-      <div className="mb-10">
-        <h2 className="text-2xl font-bold mb-4">Tokens by Category</h2>
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-          {stats.categories.map((c) => (
-            <div
-              key={c.key}
-              className="rounded-xl border border-border bg-card p-4 flex items-center gap-3"
-            >
-              <span className="text-2xl">{c.emoji}</span>
-              <div>
-                <div className="font-semibold text-foreground">{c.label}</div>
-                <div className="text-sm font-mono text-zinc-400">{c.count} tokens</div>
-              </div>
-            </div>
-          ))}
-          <div className="rounded-xl border border-neon/30 bg-neon/5 p-4 flex items-center gap-3">
-            <span className="text-2xl">🧮</span>
-            <div>
-              <div className="font-semibold text-neon">Total</div>
-              <div className="text-sm font-mono text-zinc-400">{stats.totalTokens} tokens</div>
-            </div>
-          </div>
-        </div>
-      </div>
+      <StatsCategoryGrid />
 
-      {/* All-Time Leaderboards */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
         <div className="rounded-xl border border-border bg-card overflow-hidden">
           <div className="px-4 py-3 border-b border-border bg-green-500/5">
@@ -149,35 +232,12 @@ export default async function StatsPage() {
           </div>
           <div className="divide-y divide-border">
             {stats.topHit.length === 0 && (
-              <div className="px-4 py-6 text-center text-zinc-500">No votes yet</div>
+              <div className="px-4 py-6 text-center text-zinc-500">
+                No votes yet
+              </div>
             )}
             {stats.topHit.map((t, i) => (
-              <Link
-                key={t.assetId}
-                href={`/token/${encodeURIComponent(t.assetId)}`}
-                className="flex items-center gap-3 px-4 py-3 hover:bg-green-500/5 transition-colors"
-              >
-                <span className="text-lg font-bold text-zinc-600 w-6 text-center font-mono">
-                  {i + 1}
-                </span>
-                {t.logo ? (
-                  <img src={t.logo} alt="" className="h-8 w-8 rounded-full bg-zinc-800 shrink-0" />
-                ) : (
-                  <div className="h-8 w-8 rounded-full bg-zinc-800 shrink-0 flex items-center justify-center text-[10px] font-bold text-zinc-500">
-                    {(t.symbol || t.name || "?").slice(0, 2)}
-                  </div>
-                )}
-                <div className="flex-1 min-w-0">
-                  <div className="font-medium text-foreground text-sm truncate">
-                    {t.name}
-                  </div>
-                  <div className="text-xs text-zinc-500 font-mono uppercase">{t.symbol}</div>
-                </div>
-                <div className="font-mono font-bold text-green-400">
-                  {t.count}
-                  <span className="text-xs text-zinc-500 ml-1">hits</span>
-                </div>
-              </Link>
+              <LeaderRow key={t.assetId} t={t} i={i} tone="hit" />
             ))}
           </div>
         </div>
@@ -188,46 +248,22 @@ export default async function StatsPage() {
           </div>
           <div className="divide-y divide-border">
             {stats.topShit.length === 0 && (
-              <div className="px-4 py-6 text-center text-zinc-500">No votes yet</div>
+              <div className="px-4 py-6 text-center text-zinc-500">
+                No votes yet
+              </div>
             )}
             {stats.topShit.map((t, i) => (
-              <Link
-                key={t.assetId}
-                href={`/token/${encodeURIComponent(t.assetId)}`}
-                className="flex items-center gap-3 px-4 py-3 hover:bg-red-500/5 transition-colors"
-              >
-                <span className="text-lg font-bold text-zinc-600 w-6 text-center font-mono">
-                  {i + 1}
-                </span>
-                {t.logo ? (
-                  <img src={t.logo} alt="" className="h-8 w-8 rounded-full bg-zinc-800 shrink-0" />
-                ) : (
-                  <div className="h-8 w-8 rounded-full bg-zinc-800 shrink-0 flex items-center justify-center text-[10px] font-bold text-zinc-500">
-                    {(t.symbol || t.name || "?").slice(0, 2)}
-                  </div>
-                )}
-                <div className="flex-1 min-w-0">
-                  <div className="font-medium text-foreground text-sm truncate">
-                    {t.name}
-                  </div>
-                  <div className="text-xs text-zinc-500 font-mono uppercase">{t.symbol}</div>
-                </div>
-                <div className="font-mono font-bold text-red-400">
-                  {t.count}
-                  <span className="text-xs text-zinc-500 ml-1">shits</span>
-                </div>
-              </Link>
+              <LeaderRow key={t.assetId} t={t} i={i} tone="shit" />
             ))}
           </div>
         </div>
       </div>
 
-      {/* Daily Activity */}
       {stats.dailyVotes.length > 0 && (
-        <div className="mb-10">
+        <div className="mb-6">
           <h2 className="text-2xl font-bold mb-4">Daily Activity</h2>
-          <div className="rounded-xl border border-border bg-card overflow-hidden">
-            <table className="w-full text-sm">
+          <div className="rounded-xl border border-border bg-card overflow-x-auto">
+            <table className="w-full text-sm min-w-[320px]">
               <thead>
                 <tr className="border-b border-border text-zinc-500 text-xs uppercase">
                   <th className="text-left px-4 py-3">Date</th>
@@ -238,11 +274,22 @@ export default async function StatsPage() {
               </thead>
               <tbody className="divide-y divide-border">
                 {stats.dailyVotes.map((d) => (
-                  <tr key={d.day} className="hover:bg-card-hover transition-colors">
-                    <td className="px-4 py-3 font-mono">{d.day}</td>
-                    <td className="px-4 py-3 text-right font-mono text-green-400">{d.hits}</td>
-                    <td className="px-4 py-3 text-right font-mono text-red-400">{d.shits}</td>
-                    <td className="px-4 py-3 text-right font-mono font-bold">{d.hits + d.shits}</td>
+                  <tr
+                    key={d.day}
+                    className="hover:bg-zinc-900/50 transition-colors"
+                  >
+                    <td className="px-4 py-3 font-mono text-zinc-300">
+                      {d.day}
+                    </td>
+                    <td className="px-4 py-3 text-right font-mono text-green-400">
+                      {d.hits}
+                    </td>
+                    <td className="px-4 py-3 text-right font-mono text-red-400">
+                      {d.shits}
+                    </td>
+                    <td className="px-4 py-3 text-right font-mono font-bold text-white">
+                      {d.hits + d.shits}
+                    </td>
                   </tr>
                 ))}
               </tbody>

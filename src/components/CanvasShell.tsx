@@ -1,27 +1,16 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { Ripple } from "@/components/canvasui/Ripple";
 import { Liquid } from "@/components/canvasui/Liquid";
 
-/** Full-page click ripples — light so data stays readable. */
+/**
+ * Page shell — plain flex column.
+ * Full-page Ripple was clipping long pages (stats) to a black void
+ * because canvas capture only covers viewport height.
+ */
 export function CanvasShell({ children }: { children: ReactNode }) {
   return (
-    <Ripple
-      className="min-h-screen"
-      amplitude={0.3}
-      speed={0.7}
-      wavelength={96}
-      rings={2}
-      decay={1.15}
-      refraction={48}
-      dispersion={0.2}
-      shine={0.35}
-      trigger="click"
-      interval={0}
-    >
-      {children}
-    </Ripple>
+    <div className="min-h-screen flex flex-col bg-background">{children}</div>
   );
 }
 
@@ -32,11 +21,11 @@ export function CanvasHeaderFx({ children }: { children: ReactNode }) {
       className="w-full"
       rainbow={false}
       color={[0.2, 0.75, 1.0]}
-      intensity={0.32}
-      distortion={0.2}
-      blend={0.32}
-      force={1.2}
-      radius={0.26}
+      intensity={0.28}
+      distortion={0.18}
+      blend={0.28}
+      force={1.1}
+      radius={0.24}
       densityDissipation={0.97}
       velocityDissipation={0.98}
     >
@@ -51,11 +40,11 @@ export function CanvasPanelFx({ children }: { children: ReactNode }) {
     <Liquid
       className="w-full rounded-2xl overflow-hidden"
       rainbow
-      intensity={0.26}
-      distortion={0.28}
-      blend={0.2}
-      force={1.1}
-      radius={0.28}
+      intensity={0.22}
+      distortion={0.24}
+      blend={0.18}
+      force={1.0}
+      radius={0.26}
     >
       {children}
     </Liquid>
