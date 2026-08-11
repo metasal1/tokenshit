@@ -6,6 +6,7 @@ import { usePrivy } from "@privy-io/react-auth";
 import { CanvasPanelFx } from "@/components/CanvasShell";
 import ShareRefButton from "@/components/ShareRefButton";
 import { getRefHandle, getVoterId } from "@/lib/privy-identity";
+import { sfx } from "@/lib/sfx";
 function EmojiDrop({ emoji, count = 20 }: { emoji: string; count?: number }) {
   const [particles, setParticles] = useState<{ id: number; left: number; delay: number; size: number; duration: number }[]>([]);
 
@@ -149,6 +150,7 @@ export default function VoteButtons({
       return;
     }
     if (userVote || voting) return;
+    sfx.tap();
     setVoting(true);
     try {
       const res = await fetch("/api/vote", {
@@ -165,6 +167,8 @@ export default function VoteButtons({
         setHits(data.hits || 0);
         setShits(data.shits || 0);
         setUserVote(vote);
+        if (vote === "hit") sfx.hit();
+        else sfx.shit();
         setDropEmoji(vote === "hit" ? "🎯" : "💩");
         setTimeout(() => setDropEmoji(null), 3000);
         const line = pickLine(vote, (symbol || symbolProp || assetId).toUpperCase());
