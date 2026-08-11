@@ -193,7 +193,7 @@ function WalletPanel({ address, twitterUsername, onClose, children }: { address:
 }
 
 export function ReferralTracker() {
-  const { authenticated, user } = usePrivy();
+  const { authenticated, user, getAccessToken } = usePrivy();
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -217,15 +217,20 @@ export function ReferralTracker() {
       return;
     }
 
-    fetch('/api/referral/track', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        referrerTwitter: referrer,
-        referredTwitter: twitterUsername,
-        referredWallet: user.wallet?.address || null,
-      }),
-    })
+    getAccessToken().then((token) =>
+      fetch('/api/referral/track', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          referrerTwitter: referrer,
+          referredTwitter: twitterUsername,
+          referredWallet: user.wallet?.address || null,
+        }),
+      })
+    )
       .then(async (res) => {
         const data = await res.json().catch(() => ({}));
         // Only fire the celebratory toast on a fresh, successful track —

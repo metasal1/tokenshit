@@ -2,26 +2,29 @@ import { type NextRequest } from "next/server";
 import { tursoExecute } from "@/lib/turso";
 import { REFERRAL_REWARD_SHIT } from "@/lib/shit-token";
 import { sendShitFromTreasury } from "@/lib/treasury";
+import { requirePrivy } from "@/lib/privy-server";
+import { assertNotBlacklisted } from "@/lib/security";
 
 export const dynamic = "force-dynamic";
 
 /**
  * POST /api/referral/claim-rewards
  * Body: { twitter, wallet }
- *
- * SECURITY (2026-08):
- * - Disabled by default (REFERRAL_PAYOUTS_ENABLED=1 to re-open).
- * - Insert reward row BEFORE send (UNIQUE referred_twitter) to stop double-pay races.
- * - Never trust unauthenticated mass claims.
+ * Auth: Privy Bearer — twitter must match linked X.
+ * Re-enabled only with auth; still opt-in via REFERRAL_PAYOUTS_ENABLED=1
+ * OR default on when PRIVY_APP_SECRET is set (real identity checks).
  */
 export async function POST(request: NextRequest) {
   try {
-    if (process.env.REFERRAL_PAYOUTS_ENABLED !== "1") {
+    const secretOk = Boolean(process.env.PRIVY_APP_SECRET);
+    const flagOn = process.env.REFERRAL_PAYOUTS_ENABLED === "1";
+    const flagOff = process.env.REFERRAL_PAYOUTS_ENABLED === "0";
+    if (flagOff || (!flagOn && !secretOk)) {
       return Response.json(
         {
           ok: false,
           error:
-            "Referral payouts paused after treasury drain. Tracking still works.",
+            "Referral payouts paused. Set PRIVY_APP_SECRET + REFERRAL_PAYOUTS_ENABLED=1 to reopen.",
           paid: 0,
           amount: 0,
         },
@@ -30,17 +33,25 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const twitter = String(body.twitter || "")
+    let twitter = String(body.twitter || "")
       .toLowerCase()
       .replace(/^@/, "")
       .trim();
     const wallet = String(body.wallet || "").trim();
-    if (!twitter || !/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(wallet)) {
-      return Response.json(
-        { error: "twitter + valid wallet required" },
-        { status: 400 }
-      );
+    if (!/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(wallet)) {
+      return Response.json({ error: "valid wallet required" }, { status: 400 });
     }
+
+    const blocked = assertNotBlacklisted(wallet);
+    if (blocked) return blocked;
+
+    const auth = await requirePrivy(request, {
+      twitter: twitter || null,
+      wallet,
+      requireTwitter: true,
+    });
+    if (!auth.ok) return auth.res;
+    if (auth.id.twitter) twitter = auth.id.twitter;
 
     await tursoExecute(
       `CREATE TABLE IF NOT EXISTS referral_rewards (
@@ -56,7 +67,6 @@ export async function POST(request: NextRequest) {
       []
     );
 
-    // Unpaid referrals
     const unpaid = await tursoExecute(
       `SELECT referred_twitter FROM referrals r
        WHERE lower(r.referrer_twitter) = ?
@@ -83,14 +93,12 @@ export async function POST(request: NextRequest) {
     for (const row of unpaid.rows) {
       const referred = String(row[0]);
       try {
-        // Reserve row first — UNIQUE blocks concurrent double-pay
         const reserved = await tursoExecute(
           `INSERT OR IGNORE INTO referral_rewards
              (referrer_twitter, referred_twitter, wallet, amount, signature)
            VALUES (?, ?, ?, ?, ?)`,
           [twitter, referred, wallet, REFERRAL_REWARD_SHIT, "pending"]
         );
-        // If ignore fired, changes=0
         if ((reserved as { rowsAffected?: number }).rowsAffected === 0) {
           continue;
         }
@@ -109,7 +117,6 @@ export async function POST(request: NextRequest) {
           amount: REFERRAL_REWARD_SHIT,
         });
       } catch (e) {
-        // Roll back pending reservation so a later fix can retry
         await tursoExecute(
           `DELETE FROM referral_rewards WHERE referred_twitter = ? AND signature = 'pending'`,
           [referred]

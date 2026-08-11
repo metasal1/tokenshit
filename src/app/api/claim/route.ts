@@ -16,6 +16,8 @@ import {
   type ClaimKind,
 } from "@/lib/claims";
 import { getTreasuryBalances, sendShitFromTreasury } from "@/lib/treasury";
+import { requirePrivy } from "@/lib/privy-server";
+import { assertNotBlacklisted } from "@/lib/security";
 
 export const dynamic = "force-dynamic";
 
@@ -115,6 +117,21 @@ export async function POST(request: NextRequest) {
         { error: "Valid Solana wallet required" },
         { status: 400 }
       );
+    }
+
+    const blocked = assertNotBlacklisted(wallet);
+    if (blocked) return blocked;
+
+    const auth = await requirePrivy(request, {
+      twitter,
+      github,
+      wallet,
+      requireTwitter:
+        kind === "x_verified" || kind === "x_tweet" || kind === "x_follow",
+    });
+    if (!auth.ok) return auth.res;
+    if (auth.id.twitter) {
+      // force match
     }
 
     const amount = AMOUNTS[kind];
