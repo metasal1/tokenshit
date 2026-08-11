@@ -1,0 +1,8 @@
+# TokenShit — Solana
+# https://tokenshit.com
+
+token: fEbiuDdZZ1QaWYpJFPqk23ZkaRnAyHg4aivhrCTshit
+chain: solana
+symbol: SHIT
+site: https://tokenshit.com
+x: https://x.com/Tokenshit_
