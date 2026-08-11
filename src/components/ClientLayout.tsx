@@ -9,6 +9,8 @@ import OnlineCounter from '@/components/OnlineCounter';
 import PageTransition from '@/components/PageTransition';
 import { CanvasShell, CanvasHeaderFx } from '@/components/CanvasShell';
 import { TreasuryBalanceBadge } from '@/components/ClaimPanel';
+import GlobalTreasuryBanner from '@/components/GlobalTreasuryBanner';
+import ShareRefButton from '@/components/ShareRefButton';
 import { TREASURY_ADDRESS } from '@/lib/shit-token';
 
 interface TokenBalance {
@@ -244,37 +246,14 @@ function ReferralTracker() {
 }
 
 function ReferralButton({ twitterUsername }: { twitterUsername?: string }) {
-  const [copied, setCopied] = useState(false);
-  const [count, setCount] = useState<number | null>(null);
-
-  useEffect(() => {
-    if (!twitterUsername) return;
-    fetch(`/api/referral/stats?username=${encodeURIComponent(twitterUsername)}`)
-      .then(r => r.json())
-      .then(d => setCount(d.totalReferrals ?? 0))
-      .catch(() => {});
-  }, [twitterUsername]);
-
-  if (!twitterUsername) return null;
-
-  const link = `https://tokenshit.com/?ref=${twitterUsername}`;
-  const copy = () => {
-    navigator.clipboard.writeText(link);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
   return (
     <div className="mt-4 pt-4 border-t border-zinc-800">
-      <button
-        onClick={copy}
-        className="w-full text-left text-xs bg-zinc-800 hover:bg-zinc-700 rounded-lg px-3 py-2.5 transition-colors"
-      >
-        <span className="text-white font-medium">{copied ? '✓ Link Copied!' : 'Share & Earn 💩'}</span>
-        {count !== null && count > 0 && (
-          <span className="block text-[10px] text-zinc-500 mt-0.5">You&apos;ve referred {count} degen{count !== 1 ? 's' : ''}</span>
-        )}
-      </button>
+      <ShareRefButton
+        handle={twitterUsername || null}
+        path="/"
+        variant="full"
+        className="!border-0 !bg-transparent !p-0 !rounded-none"
+      />
     </div>
   );
 }
@@ -378,7 +357,8 @@ function Layout({ children }: { children: React.ReactNode }) {
           <Link href="/stats" className="hover:text-foreground transition-colors">Stats</Link>
           <Link href="/claim" className="hover:text-foreground transition-colors">Claim</Link>
           <Link href="/referrals" className="hover:text-foreground transition-colors">Referrals</Link>
-          <TreasuryBalanceBadge />
+          <GlobalTreasuryBanner compact />
+          <ShareRefButton variant="compact" path="/" showLogin={false} />
           <OnlineCounter />
           {mounted && <LoginButton />}
         </div>
@@ -416,7 +396,8 @@ function Layout({ children }: { children: React.ReactNode }) {
           <Link href="/stats" className="text-zinc-400 hover:text-foreground transition-colors" onClick={() => setMenuOpen(false)}>Stats</Link>
           <Link href="/claim" className="text-zinc-400 hover:text-foreground transition-colors" onClick={() => setMenuOpen(false)}>Claim</Link>
           <Link href="/referrals" className="text-zinc-400 hover:text-foreground transition-colors" onClick={() => setMenuOpen(false)}>Referrals</Link>
-          <TreasuryBalanceBadge />
+          <GlobalTreasuryBanner compact />
+          <ShareRefButton variant="compact" path="/" />
           <OnlineCounter />
         </div>
       )}

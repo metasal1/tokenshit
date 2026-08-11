@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { usePrivy } from '@privy-io/react-auth';
 import Link from 'next/link';
 import { REFERRAL_REWARD_SHIT } from '@/lib/shit-token';
+import ShareRefButton from '@/components/ShareRefButton';
 
 interface LeaderboardEntry {
   username: string;
@@ -131,19 +132,17 @@ export default function ReferralsPage() {
               </div>
             </div>
 
+            <div className="mb-4">
+              <ShareRefButton path="/" handle={twitterHandle} />
+            </div>
+
             <div className="flex flex-col sm:flex-row gap-3 mb-4">
-              <button
-                onClick={copyLink}
-                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 rounded-lg transition-colors"
-              >
-                {copied ? '✓ Link Copied!' : 'Copy Your Referral Link'}
-              </button>
               <button
                 onClick={claimRewards}
                 disabled={claimBusy}
                 className="flex-1 bg-neon text-black hover:brightness-110 font-semibold py-2.5 rounded-lg transition disabled:opacity-50"
               >
-                {claimBusy ? 'Paying…' : 'Claim $SHIT rewards'}
+                {claimBusy ? 'Paying…' : 'Claim $TOKENSHIT rewards'}
               </button>
             </div>
             {claimMsg && <p className="text-sm text-green-400 mb-2">{claimMsg}</p>}

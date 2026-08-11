@@ -1,11 +1,14 @@
 import ClaimPanel from "@/components/ClaimPanel";
 import BuyShitPanel from "@/components/BuyShitPanel";
+import GlobalTreasuryBanner from "@/components/GlobalTreasuryBanner";
+import ShareRefButton from "@/components/ShareRefButton";
 import {
   CLAIM_GH_FORK,
   CLAIM_X_FOLLOW,
   CLAIM_X_TWEET,
   CLAIM_X_VERIFIED,
   GH_FORK_UPSTREAM,
+  GLOBAL_TREASURY_DAILY_DROP,
   REFERRAL_REWARD_SHIT,
   SHIT_MINT,
   SHIT_SYMBOL,
@@ -17,7 +20,7 @@ import type { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: `Buy & Claim $${SHIT_SYMBOL} — TokenShit`,
-  description: `Buy $${SHIT_SYMBOL}, tweet+tag @${X_HANDLE}, follow, claim verified/fork rewards.`,
+  description: `Buy $${SHIT_SYMBOL}, tweet+tag @${X_HANDLE}, follow, claim verified/fork rewards. Global treasury +1M daily @ 00:00 UTC.`,
 };
 
 function short(addr: string, n = 4) {
@@ -31,6 +34,7 @@ export default function ClaimPage() {
     { label: "X verified", amt: CLAIM_X_VERIFIED },
     { label: "GH fork", amt: CLAIM_GH_FORK },
     { label: "Per referral", amt: REFERRAL_REWARD_SHIT },
+    { label: "Daily UTC 0", amt: GLOBAL_TREASURY_DAILY_DROP },
   ];
 
   return (
@@ -41,11 +45,10 @@ export default function ClaimPage() {
           <span className="text-white"> buy & claim</span>
         </h1>
         <p className="text-zinc-400 text-sm leading-snug sm:leading-relaxed">
-          Card → SOL → swap. One-time treasury drops for tweet, follow, verified
-          X, and GH fork.
+          Card → SOL → swap. One-time drops + global treasury refill every day
+          at 00:00 UTC.
         </p>
 
-        {/* Reward chips — horizontal scroll on mobile */}
         <div className="-mx-3 px-3 sm:mx-0 sm:px-0 overflow-x-auto no-scrollbar">
           <ul className="flex sm:flex-wrap gap-2 min-w-max sm:min-w-0 pb-1">
             {rewards.map((r) => (
@@ -63,6 +66,8 @@ export default function ClaimPage() {
         </div>
       </header>
 
+      <GlobalTreasuryBanner />
+      <ShareRefButton path="/" />
       <BuyShitPanel />
       <ClaimPanel />
 
@@ -104,6 +109,10 @@ export default function ClaimPage() {
           <div>
             <span className="text-zinc-600">buy fee </span>
             {BUY_FEE_BPS / 100}% → treasury
+          </div>
+          <div>
+            <span className="text-zinc-600">daily drop </span>
+            {GLOBAL_TREASURY_DAILY_DROP.toLocaleString()} @ 00:00 UTC
           </div>
           <div className="text-zinc-500 break-all">
             fork {GH_FORK_UPSTREAM}

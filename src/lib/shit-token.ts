@@ -28,7 +28,43 @@ export const CLAIM_X_FOLLOW = 15_000;
 /** $TOKENSHIT per referral */
 export const REFERRAL_REWARD_SHIT = 10_000;
 
+/**
+ * Global treasury daily top-up (cron at UTC 00:00).
+ * UI countdown targets next midnight UTC.
+ */
+export const GLOBAL_TREASURY_DAILY_DROP = 1_000_000;
+export const GLOBAL_TREASURY_CRON_UTC_HOUR = 0;
+
 export const GH_FORK_UPSTREAM = "solana-foundation/tokens";
+
+/** Next UTC midnight (00:00:00.000Z) after `from` (default now). */
+export function nextUtcMidnight(from: Date = new Date()): Date {
+  const d = new Date(from.getTime());
+  d.setUTCHours(GLOBAL_TREASURY_CRON_UTC_HOUR, 0, 0, 0);
+  if (d.getTime() <= from.getTime()) {
+    d.setUTCDate(d.getUTCDate() + 1);
+  }
+  return d;
+}
+
+/** ms until next UTC 00:00 */
+export function msUntilNextUtcMidnight(from: Date = new Date()): number {
+  return Math.max(0, nextUtcMidnight(from).getTime() - from.getTime());
+}
+
+export function formatCountdown(ms: number): {
+  h: string;
+  m: string;
+  s: string;
+  totalSeconds: number;
+} {
+  const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+  const h = Math.floor(totalSeconds / 3600);
+  const m = Math.floor((totalSeconds % 3600) / 60);
+  const s = totalSeconds % 60;
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return { h: pad(h), m: pad(m), s: pad(s), totalSeconds };
+}
 
 export function shitBuyUrl(amountSol?: number): string {
   const base = `https://jup.ag/swap/SOL-${SHIT_MINT}`;
