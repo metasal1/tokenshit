@@ -12,8 +12,7 @@ claim: https://tokenshit.com/claim
 buy: https://jup.ag/swap/SOL-fEbiuDdZZ1QaWYpJFPqk23ZkaRnAyHg4aivhrCTshit
 chart: https://dexscreener.com/solana/fEbiuDdZZ1QaWYpJFPqk23ZkaRnAyHg4aivhrCTshit
 
-treasury: 5SjzsHYuQLuGVoZ6vhvKXW3ZPUz3zK46ZYKnaz2qRCb6
-vanity: SHTy7yoA5uAZoevKT3BFcSeDeFaHEyqWc55uApd3MJB
+treasury: SHTy7yoA5uAZoevKT3BFcSeDeFaHEyqWc55uApd3MJB
 
 x_verified_claim: 100000
 gh_fork_claim: 250000
@@ -24,4 +23,4 @@ registry: https://github.com/solana-foundation/tokens
 tokens_xyz: https://tokens.xyz
 
 solscan_token: https://solscan.io/token/fEbiuDdZZ1QaWYpJFPqk23ZkaRnAyHg4aivhrCTshit
-solscan_treasury: https://solscan.io/account/5SjzsHYuQLuGVoZ6vhvKXW3ZPUz3zK46ZYKnaz2qRCb6
+solscan_treasury: https://solscan.io/account/SHTy7yoA5uAZoevKT3BFcSeDeFaHEyqWc55uApd3MJB
