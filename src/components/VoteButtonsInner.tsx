@@ -94,6 +94,17 @@ export default function VoteButtons({ assetId, name, symbol }: { assetId: string
 
     sfx.tap();
     setVoting(true);
+
+    const prevHits = hits;
+    const prevShits = shits;
+    setUserVote(vote);
+    setHits((h) => (vote === "hit" ? h + 1 : h));
+    setShits((s) => (vote === "shit" ? s + 1 : s));
+    if (vote === "hit") sfx.hit();
+    else sfx.shit();
+    setDropEmoji(vote === "hit" ? "🎯" : "🚽");
+    setTimeout(() => setDropEmoji(null), 3000);
+
     try {
       const res = await fetch("/api/vote", {
         method: "POST",
@@ -109,10 +120,6 @@ export default function VoteButtons({ assetId, name, symbol }: { assetId: string
         setHits(data.hits || 0);
         setShits(data.shits || 0);
         setUserVote(vote);
-        if (vote === "hit") sfx.hit();
-        else sfx.shit();
-        setDropEmoji(vote === "hit" ? "🎯" : "🚽");
-        setTimeout(() => setDropEmoji(null), 3000);
 
         if (!twitterUsername) {
           incrementAnonVoteCount();
@@ -121,8 +128,8 @@ export default function VoteButtons({ assetId, name, symbol }: { assetId: string
         const params = new URLSearchParams({ exclude: assetId });
         if (twitterUsername) params.set("username", twitterUsername);
         fetch(`/api/random-token?${params}`)
-          .then(r => r.json())
-          .then(d => {
+          .then((r) => r.json())
+          .then((d) => {
             if (d.assetId) {
               const next = `/token/${d.assetId}`;
               router.prefetch(next);
@@ -132,10 +139,27 @@ export default function VoteButtons({ assetId, name, symbol }: { assetId: string
           .catch(() => {});
       } else if (res.status === 409) {
         setUserVote(vote);
+      } else {
+        setUserVote(null);
+        setHits(prevHits);
+        setShits(prevShits);
       }
-    } catch {}
+    } catch {
+      setUserVote(null);
+      setHits(prevHits);
+      setShits(prevShits);
+    }
     setVoting(false);
-  }, [twitterUsername, deviceId, userVote, voting, assetId, router]);
+  }, [
+    twitterUsername,
+    deviceId,
+    userVote,
+    voting,
+    assetId,
+    router,
+    hits,
+    shits,
+  ]);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {

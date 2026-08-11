@@ -152,6 +152,23 @@ export default function VoteButtons({
     if (userVote || voting) return;
     sfx.tap();
     setVoting(true);
+
+    // Optimistic UX — confetti/sfx even if DB is slow; reconcile after
+    const prevHits = hits;
+    const prevShits = shits;
+    setUserVote(vote);
+    setHits((h) => (vote === "hit" ? h + 1 : h));
+    setShits((s) => (vote === "shit" ? s + 1 : s));
+    if (vote === "hit") sfx.hit();
+    else sfx.shit();
+    setDropEmoji(vote === "hit" ? "🎯" : "💩");
+    setTimeout(() => setDropEmoji(null), 3000);
+    const line = pickLine(
+      vote,
+      (symbol || symbolProp || assetId).toUpperCase()
+    );
+    setShareText(line);
+
     try {
       const res = await fetch("/api/vote", {
         method: "POST",
@@ -167,19 +184,27 @@ export default function VoteButtons({
         setHits(data.hits || 0);
         setShits(data.shits || 0);
         setUserVote(vote);
-        if (vote === "hit") sfx.hit();
-        else sfx.shit();
-        setDropEmoji(vote === "hit" ? "🎯" : "💩");
-        setTimeout(() => setDropEmoji(null), 3000);
-        const line = pickLine(vote, (symbol || symbolProp || assetId).toUpperCase());
-        setShareText(line);
-        // give time to share before auto-advance
         const t = setTimeout(() => goNext(), 8000);
         setSkipTimer(t);
       } else if (res.status === 409) {
+        // already voted — keep UI
         setUserVote(vote);
+      } else {
+        // hard fail — revert optimistic
+        setUserVote(null);
+        setHits(prevHits);
+        setShits(prevShits);
+        setShareText("");
+        const errBody = await res.json().catch(() => ({}));
+        console.error("vote failed", res.status, errBody);
       }
-    } catch {}
+    } catch (e) {
+      setUserVote(null);
+      setHits(prevHits);
+      setShits(prevShits);
+      setShareText("");
+      console.error("vote error", e);
+    }
     setVoting(false);
   }
 
