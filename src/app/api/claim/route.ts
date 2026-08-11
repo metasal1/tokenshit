@@ -226,15 +226,42 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { signature } = await sendShitFromTreasury(wallet, amount);
-    await recordClaim({
-      kind,
-      twitter,
-      github,
-      wallet,
-      amount,
-      signature,
-    });
+    // Reserve claim row BEFORE send — stops double-claim races / drain loops
+    try {
+      await recordClaim({
+        kind,
+        twitter,
+        github,
+        wallet,
+        amount,
+        signature: "pending",
+      });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (msg.includes("UNIQUE") || msg.includes("unique")) {
+        return Response.json({ error: "Already claimed" }, { status: 409 });
+      }
+      throw e;
+    }
+
+    let signature: string;
+    try {
+      ({ signature } = await sendShitFromTreasury(wallet, amount));
+    } catch (e) {
+      // allow retry if treasury send failed
+      const { tursoExecute } = await import("@/lib/turso");
+      await tursoExecute(
+        `DELETE FROM shit_claims WHERE claim_kind = ? AND wallet = ? AND signature = 'pending'`,
+        [kind, wallet]
+      ).catch(() => {});
+      throw e;
+    }
+
+    const { tursoExecute } = await import("@/lib/turso");
+    await tursoExecute(
+      `UPDATE shit_claims SET signature = ? WHERE claim_kind = ? AND wallet = ? AND signature = 'pending'`,
+      [signature, kind, wallet]
+    );
 
     return Response.json({
       ok: true,

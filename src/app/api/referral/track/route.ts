@@ -1,23 +1,31 @@
 import { type NextRequest } from "next/server";
 import { tursoExecute } from "@/lib/turso";
 import { REFERRAL_REWARD_SHIT } from "@/lib/shit-token";
-import { sendShitFromTreasury } from "@/lib/treasury";
 
+export const dynamic = "force-dynamic";
+
+/**
+ * POST /api/referral/track
+ * Body: { referrerTwitter, referredTwitter, referredWallet? }
+ *
+ * SECURITY (2026-08): Never pays treasury here.
+ * Attack was: unauthenticated spam of fake referredTwitter + referrerWallet
+ * → 10k $TOKENSHIT each from SHTy treasury.
+ * Rewards only via /api/referral/claim-rewards after proper checks.
+ */
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const referrerTwitter = String(body.referrerTwitter || "")
       .toLowerCase()
+      .replace(/^@/, "")
       .trim();
     const referredTwitter = String(body.referredTwitter || "")
       .toLowerCase()
+      .replace(/^@/, "")
       .trim();
     const referredWallet = body.referredWallet
       ? String(body.referredWallet)
-      : null;
-    // Optional: referrer's Solana wallet to receive $SHIT reward
-    const referrerWallet = body.referrerWallet
-      ? String(body.referrerWallet).trim()
       : null;
 
     if (!referrerTwitter || !referredTwitter) {
@@ -27,6 +35,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (!/^[a-z0-9_]{1,15}$/i.test(referrerTwitter) || !/^[a-z0-9_]{1,15}$/i.test(referredTwitter)) {
+      return Response.json({ error: "Invalid twitter handle" }, { status: 400 });
+    }
+
     if (referrerTwitter === referredTwitter) {
       return Response.json(
         { error: "Cannot refer yourself, degen" },
@@ -34,8 +46,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    await tursoExecute(
+      `CREATE TABLE IF NOT EXISTS referrals (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        referrer_twitter TEXT NOT NULL,
+        referred_twitter TEXT NOT NULL UNIQUE,
+        referred_wallet TEXT,
+        created_at TEXT DEFAULT (datetime('now'))
+      )`,
+      []
+    );
+
     const existingResult = await tursoExecute(
-      "SELECT id FROM referrals WHERE referred_twitter = ?",
+      "SELECT id FROM referrals WHERE lower(referred_twitter) = lower(?)",
       [referredTwitter]
     );
 
@@ -51,57 +74,13 @@ export async function POST(request: NextRequest) {
       [referrerTwitter, referredTwitter, referredWallet || null]
     );
 
-    // Optional $SHIT reward to referrer wallet (best-effort; never fail track)
-    let reward: { amount: number; signature?: string; error?: string } | null =
-      null;
-    if (
-      referrerWallet &&
-      /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(referrerWallet)
-    ) {
-      try {
-        // ensure rewards table
-        await tursoExecute(
-          `CREATE TABLE IF NOT EXISTS referral_rewards (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            referrer_twitter TEXT NOT NULL,
-            referred_twitter TEXT NOT NULL,
-            wallet TEXT NOT NULL,
-            amount REAL NOT NULL,
-            signature TEXT,
-            created_at TEXT DEFAULT (datetime('now')),
-            UNIQUE(referred_twitter)
-          )`,
-          []
-        );
-        const { signature } = await sendShitFromTreasury(
-          referrerWallet,
-          REFERRAL_REWARD_SHIT
-        );
-        await tursoExecute(
-          `INSERT INTO referral_rewards (referrer_twitter, referred_twitter, wallet, amount, signature)
-           VALUES (?, ?, ?, ?, ?)`,
-          [
-            referrerTwitter,
-            referredTwitter,
-            referrerWallet,
-            REFERRAL_REWARD_SHIT,
-            signature,
-          ]
-        );
-        reward = { amount: REFERRAL_REWARD_SHIT, signature };
-      } catch (e) {
-        reward = {
-          amount: REFERRAL_REWARD_SHIT,
-          error: e instanceof Error ? e.message : String(e),
-        };
-      }
-    }
-
     return Response.json({
       success: true,
       message: "Referral tracked",
-      reward,
+      /** payout disabled on track — claim path only, gated */
+      reward: null,
       rewardAmount: REFERRAL_REWARD_SHIT,
+      payoutOnTrack: false,
     });
   } catch (error) {
     console.error("Referral tracking error:", error);
