@@ -26,6 +26,21 @@ function tweetApiKey(): string {
   ).trim();
 }
 
+/** Hard cap external lookups so claim UI never spins forever. */
+async function fetchTimeout(
+  url: string,
+  init: RequestInit = {},
+  ms = 8_000
+): Promise<Response> {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), ms);
+  try {
+    return await fetch(url, { ...init, signal: ctrl.signal, cache: "no-store" });
+  } finally {
+    clearTimeout(t);
+  }
+}
+
 export function formatXApiError(status: number, body: string): string {
   const lower = body.toLowerCase();
   if (
@@ -138,12 +153,11 @@ async function fromOfficialX(username: string): Promise<any> {
   const url = `https://api.x.com/2/users/by/username/${encodeURIComponent(
     clean
   )}?user.fields=public_metrics,verified,verified_type,name,username,profile_image_url`;
-  const res = await fetch(url, {
+  const res = await fetchTimeout(url, {
     headers: {
       Authorization: `Bearer ${bearer}`,
       "User-Agent": "TokenShit/1.0",
     },
-    cache: "no-store",
   });
   if (!res.ok) {
     const t = await res.text();
@@ -190,11 +204,10 @@ async function fromTweetApiUser(username: string): Promise<any> {
   const key = tweetApiKey();
   if (!key) return null;
   const clean = username.replace(/^@/, "").trim();
-  const res = await fetch(
+  const res = await fetchTimeout(
     `${TWEETAPI_BASE}/user/by-username?username=${encodeURIComponent(clean)}`,
     {
       headers: { "X-API-Key": key, "User-Agent": "TokenShit/1.0" },
-      cache: "no-store",
     }
   );
   if (!res.ok) {
@@ -238,10 +251,13 @@ async function fromTweetApiUser(username: string): Promise<any> {
 async function fromFxTwitter(username: string): Promise<any> {
   const clean = username.replace(/^@/, "").trim();
   try {
-    const res = await fetch(`https://api.fxtwitter.com/${encodeURIComponent(clean)}`, {
-      headers: { "User-Agent": "TokenShit/1.0" },
-      cache: "no-store",
-    });
+    const res = await fetchTimeout(
+      `https://api.fxtwitter.com/${encodeURIComponent(clean)}`,
+      {
+        headers: { "User-Agent": "TokenShit/1.0" },
+      },
+      6_000
+    );
     if (!res.ok) return null;
     const json = await res.json();
     const u = json.user || {};

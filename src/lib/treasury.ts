@@ -141,7 +141,10 @@ export async function sendShitFromTreasury(
 
   const TOKEN_2022_PROGRAM_ID = new PublicKey(TOKEN_2022_PROGRAM_ID_STR);
   const payer = loadTreasuryKeypair();
-  const conn = new Connection(RPC, "confirmed");
+  const conn = new Connection(RPC, {
+    commitment: "confirmed",
+    confirmTransactionInitialTimeout: 25_000,
+  });
   const mint = new PublicKey(SHIT_MINT);
   const toOwner = new PublicKey(recipient);
   const raw = shitToRaw(amountWhole);
@@ -204,6 +207,8 @@ export async function sendShitFromTreasury(
   const tx = new Transaction().add(...ix);
   const signature = await sendAndConfirmTransaction(conn, tx, [payer], {
     commitment: "confirmed",
+    maxRetries: 4,
+    skipPreflight: false,
   });
 
   return { signature, amount: amountWhole };
