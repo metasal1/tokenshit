@@ -22,7 +22,7 @@ export default function SfxMuteToggle() {
       aria-label={muted ? "Unmute" : "Mute"}
       className="inline-flex items-center justify-center h-8 w-8 rounded-md border border-zinc-700 text-zinc-400 hover:border-neon hover:text-neon transition-colors text-sm"
     >
-      {muted ? "🔇" : "🔊"}
+      <span className="emoji" aria-hidden>{muted ? "🔇" : "🔊"}</span>
     </button>
   );
 }
