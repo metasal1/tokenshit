@@ -33,13 +33,15 @@ function getDeviceId(): string {
 }
 
 /**
- * Scrolling header ticker — treasury + online only (no gas / daily drop).
+ * Scrolling header ticker — treasury + users + online.
  */
 export default function HeaderTicker() {
   const [data, setData] = useState<Payload | null>(null);
   const [online, setOnline] = useState<number | null>(null);
+  const [users, setUsers] = useState<number | null>(null);
   const [treasuryLoading, setTreasuryLoading] = useState(true);
   const [onlineLoading, setOnlineLoading] = useState(true);
+  const [usersLoading, setUsersLoading] = useState(true);
 
   useEffect(() => {
     let alive = true;
@@ -52,6 +54,17 @@ export default function HeaderTicker() {
         .catch(() => {})
         .finally(() => {
           if (alive) setTreasuryLoading(false);
+        });
+    };
+    const loadUsers = () => {
+      fetch("/api/signup/count", { cache: "no-store" })
+        .then((r) => r.json())
+        .then((d) => {
+          if (alive && typeof d.users === "number") setUsers(d.users);
+        })
+        .catch(() => {})
+        .finally(() => {
+          if (alive) setUsersLoading(false);
         });
     };
     const ping = () => {
@@ -70,17 +83,30 @@ export default function HeaderTicker() {
         });
     };
     loadTreasury();
+    loadUsers();
     ping();
     const a = setInterval(loadTreasury, 30_000);
     const b = setInterval(ping, 30_000);
+    const c = setInterval(loadUsers, 45_000);
+
+    const onSignup = () => {
+      setUsers((n) => (typeof n === "number" ? n + 1 : n));
+      // reconcile shortly after
+      window.setTimeout(loadUsers, 1500);
+    };
+    window.addEventListener("tokenshit:signup", onSignup);
+
     return () => {
       alive = false;
       clearInterval(a);
       clearInterval(b);
+      clearInterval(c);
+      window.removeEventListener("tokenshit:signup", onSignup);
     };
   }, []);
 
   const bal = fmt(data?.shit);
+  const usersLabel = fmt(users);
 
   const items = [
     {
@@ -97,6 +123,23 @@ export default function HeaderTicker() {
             <span className="text-neon font-semibold">
               {bal} ${SHIT_SYMBOL}
             </span>
+          )}
+        </Link>
+      ),
+    },
+    {
+      key: "users",
+      node: (
+        <Link
+          href="/claim"
+          className="inline-flex items-center gap-1.5 hover:text-neon transition-colors"
+          title="Email list / signups"
+        >
+          <span className="text-zinc-500">Users</span>
+          {usersLoading || usersLabel == null ? (
+            <BalanceSkeleton />
+          ) : (
+            <span className="text-white font-semibold">{usersLabel}</span>
           )}
         </Link>
       ),
@@ -130,7 +173,7 @@ export default function HeaderTicker() {
     >
       <div
         className="header-ticker-track absolute left-0 top-0 flex h-full items-center gap-0 whitespace-nowrap font-mono text-[11px] sm:text-xs text-zinc-400"
-        aria-label="Treasury and online ticker"
+        aria-label="Treasury, users, and online ticker"
       >
         {loop.map((it, i) => (
           <span key={`${it.key}-${i}`} className="inline-flex items-center">
