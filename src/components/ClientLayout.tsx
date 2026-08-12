@@ -306,7 +306,7 @@ function LoginButton() {
                 onClick={() => { setShowWallet(true); setShowMenu(false); }}
                 className="w-full text-left text-xs px-4 py-2.5 text-zinc-300 hover:bg-zinc-800 hover:text-white transition-colors rounded-t-lg"
               >
-                💰 Wallet
+                Wallet
               </button>
             )}
             {!twitterHandle && (
@@ -314,7 +314,7 @@ function LoginButton() {
                 onClick={() => { linkTwitter(); setShowMenu(false); }}
                 className="w-full text-left text-xs px-4 py-2.5 text-zinc-300 hover:bg-zinc-800 hover:text-white transition-colors"
               >
-                𝕏 Link X
+                Link X
               </button>
             )}
             {!githubHandle && (
@@ -322,14 +322,14 @@ function LoginButton() {
                 onClick={() => { linkGithub(); setShowMenu(false); }}
                 className="w-full text-left text-xs px-4 py-2.5 text-zinc-300 hover:bg-zinc-800 hover:text-white transition-colors"
               >
-                ⌘ Link GitHub
+                Link GitHub
               </button>
             )}
             <button
               onClick={() => { logout(); setShowMenu(false); }}
               className="w-full text-left text-xs px-4 py-2.5 text-zinc-300 hover:bg-zinc-800 hover:text-white transition-colors rounded-b-lg"
             >
-              🚪 Log out
+              Log out
             </button>
           </div>
         )}
@@ -370,10 +370,10 @@ function Layout({ children }: { children: React.ReactNode }) {
         {/* Desktop nav */}
         <div className="hidden sm:flex items-center gap-4 text-sm text-zinc-400">
           <Link href="/" className="hover:text-foreground transition-colors">Home</Link>
-          <Link href="/stats" className="hover:text-foreground transition-colors"><span className="emoji">📊</span> Stats</Link>
-          <Link href="/swap" className="hover:text-foreground transition-colors inline-flex items-center gap-1"><span className="emoji">🔁</span>Swap</Link>
-          <Link href="/claim" className="hover:text-foreground transition-colors inline-flex items-center gap-1"><span className="emoji">💰</span>Claim</Link>
-          <Link href="/referrals" className="hover:text-foreground transition-colors"><span className="emoji">🔗</span> Referrals</Link>
+          <Link href="/stats" className="hover:text-foreground transition-colors">Stats</Link>
+          <Link href="/swap" className="hover:text-foreground transition-colors">Swap</Link>
+          <Link href="/claim" className="hover:text-foreground transition-colors">Claim</Link>
+          <Link href="/referrals" className="hover:text-foreground transition-colors">Referrals</Link>
           <ShitBalanceBadge />
           <XFollowersBadge compact />
           <ShareRefButton variant="compact" path="/" showLogin={false} />

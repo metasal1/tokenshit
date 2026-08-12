@@ -98,6 +98,7 @@ export const BRAND = {
       "No scientific notation on prices in UI",
       "Don't say $SHIT ticker — ticker is $TOKENSHIT",
       "Don't paint TOKEN/HIT green or $ magenta",
+      "No default/generic emojis in UI, emails, TG alerts, or X copy",
     ],
   },
 
