@@ -309,7 +309,7 @@ export default async function TokenPage({ params, searchParams }: Props) {
           {/* $HIT Score */}
           <div className={`rounded-xl border border-border p-6 ${riskBg(riskScore)}`}>
             <div className="text-center mb-4">
-              <div className="text-4xl mb-2">{hitScoreEmoji(riskScore)}</div>
+              <div className="emoji text-4xl mb-2" aria-hidden>{hitScoreEmoji(riskScore)}</div>
               <h3 className="text-lg font-bold text-foreground">$HIT Score</h3>
             </div>
             <div className="flex items-center justify-center mb-4">

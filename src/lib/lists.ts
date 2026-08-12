@@ -1,25 +1,25 @@
-/** Foundation Tokens.xyz curated list ids + UI labels */
+/** Foundation Tokens.xyz curated list ids + UI labels (Noto emoji) */
 export const CURATED_LISTS = [
-  { key: "majors", label: "Crypto", short: "Crypto" },
-  { key: "lsts", label: "Staking", short: "LSTs" },
-  { key: "currencies", label: "Stables", short: "FX" },
-  { key: "rwas", label: "Treasuries", short: "RWA" },
-  { key: "stocks", label: "Stocks", short: "Stocks" },
-  { key: "metals", label: "Metals", short: "Metals" },
-  { key: "etfs", label: "ETFs", short: "ETFs" },
+  { key: "majors", label: "Crypto", short: "Crypto", emoji: "🪙" },
+  { key: "lsts", label: "Staking", short: "LSTs", emoji: "🥩" },
+  { key: "currencies", label: "Stables", short: "FX", emoji: "💵" },
+  { key: "rwas", label: "Treasuries", short: "RWA", emoji: "🏦" },
+  { key: "stocks", label: "Stocks", short: "Stocks", emoji: "📈" },
+  { key: "metals", label: "Metals", short: "Metals", emoji: "🥇" },
+  { key: "etfs", label: "ETFs", short: "ETFs", emoji: "📦" },
 ] as const;
 
 export type CuratedListKey = (typeof CURATED_LISTS)[number]["key"];
 
 export const ARENA_TABS = [
-  { key: "all", label: "All" },
-  { key: "majors", label: "Crypto" },
-  { key: "stocks", label: "Stocks" },
-  { key: "currencies", label: "Stables" },
-  { key: "rwas", label: "RWA" },
-  { key: "lsts", label: "Staking" },
-  { key: "etfs", label: "ETFs" },
-  { key: "metals", label: "Metals" },
+  { key: "all", label: "All", emoji: "🏟️" },
+  { key: "majors", label: "Crypto", emoji: "🪙" },
+  { key: "stocks", label: "Stocks", emoji: "📈" },
+  { key: "currencies", label: "Stables", emoji: "💵" },
+  { key: "rwas", label: "RWA", emoji: "🏦" },
+  { key: "lsts", label: "Staking", emoji: "🥩" },
+  { key: "etfs", label: "ETFs", emoji: "📦" },
+  { key: "metals", label: "Metals", emoji: "🥇" },
 ] as const;
 
 export function isSolanaMint(q: string): boolean {

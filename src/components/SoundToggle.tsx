@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Volume2, VolumeX } from 'lucide-react';
 import { isMuted, toggleMuted, sfx } from '@/lib/sfx';
+import { EmojiIcon } from '@/components/EmojiIcon';
 
 export default function SoundToggle() {
   const [muted, setMutedState] = useState(false);
@@ -24,7 +24,7 @@ export default function SoundToggle() {
       aria-label={muted ? 'Unmute sounds' : 'Mute sounds'}
       title={muted ? 'Sounds off' : 'Sounds on'}
     >
-      {muted ? <VolumeX className="w-[18px] h-[18px]" /> : <Volume2 className="w-[18px] h-[18px]" />}
+      <EmojiIcon size={18}>{muted ? '🔇' : '🔊'}</EmojiIcon>
     </button>
   );
 }

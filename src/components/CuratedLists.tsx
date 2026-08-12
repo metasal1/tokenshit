@@ -95,7 +95,7 @@ export default function CuratedLists({
                 : "bg-card border border-border text-zinc-400 hover:text-foreground hover:border-zinc-600"
             }`}
           >
-            {l.label}
+            <span className="emoji mr-1">{l.emoji}</span>{l.label}
           </button>
         ))}
       </div>

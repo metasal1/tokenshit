@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { X } from 'lucide-react';
+import { EmojiIcon } from '@/components/EmojiIcon';
 
 type Shortcut = { keys: string[]; label: string };
 type Group = { title: string; items: Shortcut[] };
@@ -80,7 +80,7 @@ export default function ShortcutsModal() {
             className="text-zinc-400 hover:text-white transition-colors"
             aria-label="Close"
           >
-            <X className="w-5 h-5" />
+            <EmojiIcon size={18}>❌</EmojiIcon>
           </button>
         </div>
 

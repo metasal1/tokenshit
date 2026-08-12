@@ -4,15 +4,6 @@ import { useEffect, useState } from "react";
 import { CURATED_LISTS } from "@/lib/lists";
 import { BalanceSkeleton } from "@/components/StatLoader";
 
-const EMOJI: Record<string, string> = {
-  majors: "🪙",
-  lsts: "🥩",
-  currencies: "💵",
-  rwas: "🏛️",
-  stocks: "📈",
-  metals: "🥇",
-  etfs: "📦",
-};
 
 export default function StatsCategoryGrid() {
   const [counts, setCounts] = useState<Record<string, number> | null>(null);
@@ -60,8 +51,8 @@ export default function StatsCategoryGrid() {
             key={c.key}
             className="rounded-xl border border-border bg-card p-4 flex items-center gap-3"
           >
-            <span className="text-2xl" aria-hidden>
-              {EMOJI[c.key] || "•"}
+            <span className="emoji text-2xl" aria-hidden>
+              {c.emoji}
             </span>
             <div className="min-w-0">
               <div className="font-semibold text-foreground">{c.label}</div>
@@ -76,7 +67,7 @@ export default function StatsCategoryGrid() {
           </div>
         ))}
         <div className="rounded-xl border border-neon/30 bg-neon/5 p-4 flex items-center gap-3">
-          <span className="text-2xl" aria-hidden>
+          <span className="emoji text-2xl" aria-hidden>
             🧮
           </span>
           <div>

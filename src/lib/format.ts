@@ -108,30 +108,16 @@ export function hitScoreEmoji(score: number | undefined | null): string {
   return "☠️";
 }
 
-import type { LucideIcon } from "lucide-react";
-import {
-  Gem,
-  ShieldCheck,
-  HelpCircle,
-  Flame,
-  AlertTriangle,
-  Siren,
-  Skull,
-} from "lucide-react";
-
-export interface HitScoreIcon {
-  Icon: LucideIcon;
-  className: string;
-}
-
-export function hitScoreIcon(score: number | undefined | null): HitScoreIcon {
+/** @deprecated use hitScoreEmoji — Lucide removed for Noto emoji UI */
+export function hitScoreIcon(score: number | undefined | null): { emoji: string; className: string } {
   const glow = (rgb: string) => `drop-shadow-[0_0_10px_rgba(${rgb},0.55)]`;
-  if (score == null)   return { Icon: HelpCircle,     className: `text-zinc-500 ${glow("113,113,122")}` };
-  if (score >= 90)     return { Icon: Gem,            className: `text-cyan-300 ${glow("103,232,249")}` };
-  if (score >= 75)     return { Icon: ShieldCheck,    className: `text-green-400 ${glow("74,222,128")}` };
-  if (score >= 60)     return { Icon: HelpCircle,     className: `text-yellow-400 ${glow("250,204,21")}` };
-  if (score >= 45)     return { Icon: Flame,          className: `text-orange-400 ${glow("251,146,60")}` };
-  if (score >= 30)     return { Icon: AlertTriangle,  className: `text-orange-500 ${glow("249,115,22")}` };
-  if (score >= 15)     return { Icon: Siren,          className: `text-red-500   ${glow("239,68,68")}` };
-  return                       { Icon: Skull,         className: `text-red-500   ${glow("239,68,68")}` };
+  const e = hitScoreEmoji(score);
+  if (score == null) return { emoji: e, className: `emoji text-zinc-500 ${glow("113,113,122")}` };
+  if (score >= 90) return { emoji: e, className: `emoji ${glow("103,232,249")}` };
+  if (score >= 75) return { emoji: e, className: `emoji ${glow("74,222,128")}` };
+  if (score >= 60) return { emoji: e, className: `emoji ${glow("250,204,21")}` };
+  if (score >= 45) return { emoji: e, className: `emoji ${glow("251,146,60")}` };
+  if (score >= 30) return { emoji: e, className: `emoji ${glow("249,115,22")}` };
+  if (score >= 15) return { emoji: e, className: `emoji ${glow("239,68,68")}` };
+  return { emoji: e, className: `emoji ${glow("239,68,68")}` };
 }

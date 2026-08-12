@@ -75,7 +75,7 @@ export default async function CategoryPage({ params }: Props) {
       {/* Header */}
       <div className="mb-6">
         <h1 className="text-3xl sm:text-4xl font-monoton mb-2">
-          <span className="neon-text">{cat.label.toUpperCase()}</span>
+          <span className="emoji mr-2" aria-hidden>{cat.emoji}</span><span className="neon-text">{cat.label.toUpperCase()}</span>
         </h1>
         <p className="text-zinc-400 text-sm sm:text-base">{cat.description}</p>
         <p className="text-xs text-zinc-600 mt-1 font-mono">{assets.length} tokens</p>
@@ -95,7 +95,7 @@ export default async function CategoryPage({ params }: Props) {
                   : "bg-card border border-border text-zinc-400 hover:text-foreground hover:border-zinc-600"
               }`}
             >
-              <span>{c.label}</span>
+              <span className="inline-flex items-center gap-1"><span className="emoji">{c.emoji}</span>{c.label}</span>
               <span className={`text-[11px] font-mono tabular-nums ${isActive ? "text-black/60" : "text-zinc-600"}`}>
                 {countMap[c.key] ?? 0}
               </span>
