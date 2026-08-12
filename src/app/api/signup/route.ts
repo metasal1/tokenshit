@@ -55,11 +55,19 @@ export async function POST(request: NextRequest) {
       return Response.json({ ok: true, alreadySignedUp: true });
     }
 
-    await tursoExecute(
-      `INSERT INTO email_signups (email, twitter_handle, wallet_address, privy_id, source)
-       VALUES (?, ?, ?, ?, ?)`,
-      [email, twitterHandle, walletAddress, privyId, source]
-    );
+    try {
+      await tursoExecute(
+        `INSERT INTO email_signups (email, twitter_handle, wallet_address, privy_id, source)
+         VALUES (?, ?, ?, ?, ?)`,
+        [email, twitterHandle, walletAddress, privyId, source]
+      );
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (/UNIQUE/i.test(msg)) {
+        return Response.json({ ok: true, alreadySignedUp: true });
+      }
+      throw e;
+    }
 
     const tgLines = [
       "🆕 <b>New TOKENSHIT signup</b>",

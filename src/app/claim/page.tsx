@@ -2,6 +2,7 @@ import ClaimPanel from "@/components/ClaimPanel";
 import BuyShitPanel from "@/components/BuyShitPanel";
 import GlobalTreasuryBanner from "@/components/GlobalTreasuryBanner";
 import ShareRefButton from "@/components/ShareRefButton";
+import EmailCaptureCard from "@/components/EmailCaptureCard";
 import {
   CLAIM_GH_FORK,
   CLAIM_X_FOLLOW,
@@ -68,6 +69,7 @@ export default function ClaimPage() {
       </header>
 
       <GlobalTreasuryBanner />
+      <EmailCaptureCard source="claim-page" />
       <ShareRefButton path="/" />
       <BuyShitPanel />
       <ClaimPanel />
