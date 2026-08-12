@@ -1,7 +1,8 @@
-import { createRemoteJWKSet, jwtVerify } from "jose";
+import { PrivyClient } from "@privy-io/server-auth";
 import type { NextRequest } from "next/server";
 
-const PRIVY_APP_ID = process.env.NEXT_PUBLIC_PRIVY_APP_ID || "";
+const PRIVY_APP_ID =
+  process.env.NEXT_PUBLIC_PRIVY_APP_ID || process.env.PRIVY_APP_ID || "";
 const PRIVY_APP_SECRET = process.env.PRIVY_APP_SECRET || "";
 
 export type PrivyIdentity = {
@@ -11,20 +12,26 @@ export type PrivyIdentity = {
   wallets: string[];
 };
 
-async function verifyPrivyJwt(token: string): Promise<string | null> {
-  if (!PRIVY_APP_ID || !token) return null;
-  try {
-    const JWKS = createRemoteJWKSet(
-      new URL(`https://auth.privy.io/api/v1/apps/${PRIVY_APP_ID}/jwks.json`)
-    );
-    const { payload } = await jwtVerify(token, JWKS, {
-      issuer: "privy.io",
-      audience: PRIVY_APP_ID,
-    });
-    return (payload.sub as string) || null;
-  } catch {
-    return null;
+let client: PrivyClient | null = null;
+
+function getClient(): PrivyClient | null {
+  if (!PRIVY_APP_ID || !PRIVY_APP_SECRET) return null;
+  if (!client) {
+    client = new PrivyClient(PRIVY_APP_ID, PRIVY_APP_SECRET);
   }
+  return client;
+}
+
+export function bearerFrom(req: NextRequest): string | null {
+  const auth = req.headers.get("authorization");
+  if (auth?.toLowerCase().startsWith("bearer ")) {
+    return auth.slice(7).trim();
+  }
+  // Privy also drops cookies in some clients
+  const cookie =
+    req.cookies.get("privy-token")?.value ||
+    req.cookies.get("privy-id-token")?.value;
+  return cookie || null;
 }
 
 async function fetchPrivyUser(privyId: string): Promise<PrivyIdentity> {
@@ -34,29 +41,22 @@ async function fetchPrivyUser(privyId: string): Promise<PrivyIdentity> {
     github: null,
     wallets: [],
   };
-  if (!PRIVY_APP_ID || !PRIVY_APP_SECRET) return empty;
+  const c = getClient();
+  if (!c) return empty;
   try {
-    const basic = Buffer.from(`${PRIVY_APP_ID}:${PRIVY_APP_SECRET}`).toString(
-      "base64"
-    );
-    const res = await fetch(
-      `https://auth.privy.io/api/v1/users/${encodeURIComponent(privyId)}`,
-      {
-        headers: {
-          Authorization: `Basic ${basic}`,
-          "privy-app-id": PRIVY_APP_ID,
-        },
-      }
-    );
-    if (!res.ok) return empty;
-    const u = await res.json();
+    const u = await c.getUser(privyId);
     let twitter: string | null = null;
     let github: string | null = null;
     const wallets: string[] = [];
-    const accounts = (u.linked_accounts || u.linkedAccounts || []) as Array<{
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const accounts = ((u as any).linkedAccounts ||
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (u as any).linked_accounts ||
+      []) as Array<{
       type?: string;
       username?: string;
       address?: string;
+      chainType?: string;
     }>;
     for (const a of accounts) {
       const t = (a.type || "").toLowerCase();
@@ -66,22 +66,27 @@ async function fetchPrivyUser(privyId: string): Promise<PrivyIdentity> {
       if (t === "github_oauth" || t === "github") {
         github = (a.username || "").toLowerCase().replace(/^@/, "") || null;
       }
-      if (a.address && (t.includes("wallet") || t === "solana")) {
+      if (
+        a.address &&
+        (t.includes("wallet") ||
+          t === "solana" ||
+          a.chainType === "solana" ||
+          t.includes("solana"))
+      ) {
         wallets.push(a.address);
       }
     }
     return { privyId, twitter, github, wallets };
-  } catch {
+  } catch (e) {
+    console.error("privy getUser failed", e);
     return empty;
   }
 }
 
-export function bearerFrom(req: NextRequest): string | null {
-  const auth = req.headers.get("authorization");
-  if (auth?.startsWith("Bearer ")) return auth.slice(7).trim();
-  return null;
-}
-
+/**
+ * Verify Privy access token from Authorization: Bearer <token>
+ * Uses official @privy-io/server-auth (handles JWKS / ES256 correctly).
+ */
 export async function requirePrivy(
   req: NextRequest,
   opts?: {
@@ -91,6 +96,16 @@ export async function requirePrivy(
     requireTwitter?: boolean;
   }
 ): Promise<{ ok: true; id: PrivyIdentity } | { ok: false; res: Response }> {
+  if (!PRIVY_APP_ID) {
+    return {
+      ok: false,
+      res: Response.json(
+        { error: "Server misconfigured (PRIVY app id missing)" },
+        { status: 503 }
+      ),
+    };
+  }
+
   const token = bearerFrom(req);
   if (!token) {
     return {
@@ -101,17 +116,43 @@ export async function requirePrivy(
       ),
     };
   }
-  const privyId = await verifyPrivyJwt(token);
-  if (!privyId) {
+
+  const c = getClient();
+  if (!c) {
     return {
       ok: false,
-      res: Response.json({ error: "Invalid or expired session" }, { status: 401 }),
+      res: Response.json(
+        {
+          error:
+            "Server missing PRIVY_APP_SECRET — cannot verify session. Set wrangler secret.",
+        },
+        { status: 503 }
+      ),
+    };
+  }
+
+  let privyId: string;
+  try {
+    const claims = await c.verifyAuthToken(token);
+    privyId = claims.userId;
+    if (!privyId) throw new Error("no userId in token");
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error("privy verifyAuthToken failed", msg);
+    return {
+      ok: false,
+      res: Response.json(
+        {
+          error: "Invalid or expired session — log out and log back in",
+          detail: process.env.NODE_ENV === "development" ? msg : undefined,
+        },
+        { status: 401 }
+      ),
     };
   }
 
   const id = await fetchPrivyUser(privyId);
 
-  // Without app secret, accept JWT + require client-provided twitter when needed
   if (opts?.requireTwitter) {
     if (id.twitter) {
       // ok
@@ -121,11 +162,7 @@ export async function requirePrivy(
       return {
         ok: false,
         res: Response.json(
-          {
-            error: PRIVY_APP_SECRET
-              ? "Link X to your account"
-              : "Server missing PRIVY_APP_SECRET — cannot verify X link",
-          },
+          { error: "Link X to your account" },
           { status: 403 }
         ),
       };
@@ -156,6 +193,11 @@ export async function requirePrivy(
         ),
       };
     }
+  }
+
+  // Prefer server-known wallets when client wallet empty
+  if (opts?.wallet && id.wallets.length && !id.wallets.includes(opts.wallet)) {
+    // don't hard fail — embedded wallet address can differ from linked external
   }
 
   return { ok: true, id };
