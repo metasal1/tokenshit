@@ -10,7 +10,8 @@ import { sfx } from "@/lib/sfx";
 import SwipeHint, { SwipeEdgeGlow } from "@/components/SwipeHint";
 import LottiePlayer from "@/components/LottiePlayer";
 import { memeStudioUrl } from "@/lib/meme-templates";
-/** Noto Color Emoji packs */
+import SkipNextButton from "@/components/SkipNextButton";
+/** Noto Color Emoji packs — brand HIT/SHIT only */
 const HIT_EMOJIS = ["🎯", "🚀", "💎", "🔥", "✨", "🟩", "🤑", "💪", "🏆", "⚡"];
 const SHIT_EMOJIS = ["💩", "💀", "🗑️", "🔻", "😭", "🤡", "📉", "☠️", "🧻", "🤢"];
 
@@ -468,16 +469,17 @@ export default function VoteButtons({
                   showLogin={false}
                 />
               </div>
-              <button
-                type="button"
-                onClick={() => {
-                  if (skipTimer) clearTimeout(skipTimer);
-                  goNext();
-                }}
-                className="text-[11px] text-zinc-500 hover:text-zinc-300 underline-offset-2 hover:underline"
-              >
-                Skip — next victim
-              </button>
+              <div className="pt-1">
+                <SkipNextButton
+                  variant="button"
+                  label="Pass — next case"
+                  sublabel="auto in a few · or swipe"
+                  onClick={() => {
+                    if (skipTimer) clearTimeout(skipTimer);
+                    goNext();
+                  }}
+                />
+              </div>
             </div>
           </CanvasPanelFx>
         </div>

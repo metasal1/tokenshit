@@ -3,18 +3,18 @@
 import { useEffect, useState } from "react";
 import LottiePlayer from "@/components/LottiePlayer";
 
-const SEEN_KEY = "tokenshit_swipe_hint_seen_v1";
+const SEEN_KEY = "tokenshit_swipe_hint_seen_v2";
 
 /**
  * Lottie swipe coach-mark (LottieFiles free swipe pack).
- * https://lottiefiles.com/free-animations/swipe
+ * Vote: swipe right = HIT · left = SHIT
+ * Nav: swipe to browse cases
  */
 export default function SwipeHint({
   mode = "nav",
   className = "",
   force = false,
 }: {
-  /** nav = browse tokens · vote = HIT/SHIT swipe */
   mode?: "nav" | "vote";
   className?: string;
   force?: boolean;
@@ -35,7 +35,7 @@ export default function SwipeHint({
       const t = window.setTimeout(() => {
         localStorage.setItem(SEEN_KEY, "1");
         setShow(false);
-      }, 4500);
+      }, 5200);
       return () => clearTimeout(t);
     } catch {
       setShow(true);
@@ -44,24 +44,24 @@ export default function SwipeHint({
 
   if (!show) return null;
 
-  const leftLabel = mode === "vote" ? "HIT" : "prev";
-  const rightLabel = mode === "vote" ? "SHIT" : "next";
-  const leftColor = mode === "vote" ? "text-neon" : "text-zinc-400";
-  const rightColor = mode === "vote" ? "text-red-400" : "text-zinc-400";
+  // VoteButtons: right = HIT, left = SHIT
+  const leftLabel = mode === "vote" ? "SHIT" : "prev";
+  const rightLabel = mode === "vote" ? "HIT" : "next";
+  const leftColor = mode === "vote" ? "text-red-400" : "text-zinc-400";
+  const rightColor = mode === "vote" ? "text-neon" : "text-zinc-400";
 
   return (
     <div
-      className={`pointer-events-none select-none flex flex-col items-center gap-1 ${className}`}
+      className={`pointer-events-none select-none flex flex-col items-center gap-1.5 ${className}`}
       aria-hidden
     >
-      <div className="relative flex items-center justify-center gap-3">
+      <div className="relative flex items-center justify-center gap-2 sm:gap-4">
         <span
-          className={`text-[10px] font-mono uppercase tracking-wider ${leftColor}`}
+          className={`text-[10px] font-mono uppercase tracking-wider ${leftColor} w-10 text-right`}
         >
-          ← {leftLabel}
+          {leftLabel}
         </span>
-        <div className="relative h-14 w-14 sm:h-16 sm:w-16">
-          {/* main hand swipe */}
+        <div className="relative h-16 w-16 sm:h-[4.5rem] sm:w-[4.5rem]">
           <LottiePlayer
             src="/lottie/swipe-hand.json"
             className="h-full w-full"
@@ -70,13 +70,13 @@ export default function SwipeHint({
           />
         </div>
         <span
-          className={`text-[10px] font-mono uppercase tracking-wider ${rightColor}`}
+          className={`text-[10px] font-mono uppercase tracking-wider ${rightColor} w-10 text-left`}
         >
-          {rightLabel} →
+          {rightLabel}
         </span>
       </div>
-      <p className="text-[10px] text-zinc-600 font-mono">
-        {mode === "vote" ? "swipe to vote" : "swipe to browse"}
+      <p className="text-[10px] text-zinc-500 font-mono tracking-wide">
+        {mode === "vote" ? "swipe to vote" : "swipe for next case"}
       </p>
     </div>
   );
@@ -88,7 +88,7 @@ export function SwipeEdgeGlow({
   intensity,
 }: {
   side: "left" | "right";
-  intensity: number; // 0–1
+  intensity: number;
 }) {
   if (intensity <= 0.02) return null;
   const isLeft = side === "left";

@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import VoteButtons from "./VoteButtons";
+import SkipNextButton from "./SkipNextButton";
+import LottiePlayer from "./LottiePlayer";
 
 interface TokenInfo {
   assetId: string;
@@ -44,37 +46,43 @@ export default function RandomTokenVote() {
 
   return (
     <div className="rounded-xl border border-border bg-card overflow-hidden">
-      <div className="p-4 border-b border-border flex items-center justify-between">
-        <div className="flex items-center gap-3">
+      <div className="p-4 border-b border-border flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3 min-w-0">
           {token.logo ? (
             <img
               src={token.logo}
               alt={token.symbol}
-              className="w-10 h-10 rounded-full bg-zinc-800"
+              className="w-10 h-10 rounded-full bg-zinc-800 shrink-0"
             />
           ) : (
-            <div className="w-10 h-10 rounded-full bg-zinc-800 flex items-center justify-center text-sm font-bold text-zinc-400">
+            <div className="w-10 h-10 rounded-full bg-zinc-800 flex items-center justify-center text-sm font-bold text-zinc-400 shrink-0">
               {token.symbol?.slice(0, 2)}
             </div>
           )}
-          <div>
+          <div className="min-w-0">
             <Link
               href={`/token/${token.assetId}`}
-              className="font-bold text-foreground hover:text-neon-blue transition-colors"
+              className="font-bold text-foreground hover:text-neon-blue transition-colors truncate block"
             >
               {token.name}
             </Link>
             <p className="text-xs text-zinc-500 font-mono">{token.symbol}</p>
           </div>
         </div>
-        <button
+        <SkipNextButton
+          variant="chip"
+          label="Next case"
+          sublabel="shuffle"
           onClick={fetchRandom}
-          className="text-xs px-3 py-1.5 rounded-md border border-zinc-700 text-zinc-400 hover:text-white hover:border-zinc-500 transition-colors"
-        >
-          Next victim
-        </button>
+          disabled={loading}
+        />
       </div>
-      <div className="p-4">
+      <div className="px-4 pt-2 flex justify-center sm:hidden">
+        <div className="h-12 w-12 opacity-80" aria-hidden>
+          <LottiePlayer src="/lottie/swipe-hint.json" className="h-full w-full" loop autoplay />
+        </div>
+      </div>
+      <div className="p-4 pt-2">
         <VoteButtons assetId={token.assetId} symbol={token.symbol} />
       </div>
     </div>
