@@ -65,8 +65,7 @@ export default function EmailCaptureCard({
           {already ? "You’re already on the list" : "You’re in"}
         </p>
         <p className="text-xs text-zinc-400 mt-1">
-          Check inbox for a welcome from TOKENSHIT. Login with the same email
-          anytime.
+          You&apos;re on the list. Login with the same email anytime.
         </p>
       </div>
     );
