@@ -113,7 +113,7 @@ export async function sendTemplateEmail(opts: {
   // Inline render with variable substitution
   let html = buildTemplateHtml(def);
   let text = buildTemplateText(def);
-  let subject = def.subject;
+  let subject: string = String(def.subject);
   const vars = opts.variables || {};
   for (const [k, v] of Object.entries(vars)) {
     const re = new RegExp(`\\{\\{\\{${k}\\}\\}\\}`, "g");
