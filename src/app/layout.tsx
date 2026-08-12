@@ -27,9 +27,12 @@ const orbitron = Orbitron({
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://tokenshit.com"),
-  title: "TOKENSHIT — Every token is shit until proven otherwise",
+  title: {
+    default: "TOKEN$HIT — Every token is shit until proven otherwise",
+    template: "%s · TOKEN$HIT",
+  },
   description:
-    "Solana token explorer with attitude. Search tokens, check risk scores, and find out which ones are certified $HIT.",
+    "Every token is shit until proven otherwise. Vote HIT or SHIT on Solana tokens. Claim, swap, refer.",
   alternates: {
     canonical: "/",
   },
@@ -38,16 +41,35 @@ export const metadata: Metadata = {
     follow: true,
   },
   manifest: "/manifest.webmanifest",
+  applicationName: "TOKEN$HIT",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "TOKENSHIT",
+    title: "TOKEN$HIT",
   },
-  applicationName: "TOKENSHIT",
+  openGraph: {
+    type: "website",
+    locale: "en_US",
+    url: "https://tokenshit.com",
+    siteName: "TOKEN$HIT",
+    title: "TOKEN$HIT — Every token is shit until proven otherwise",
+    description:
+      "Every token is shit until proven otherwise. Vote HIT or SHIT on Solana.",
+    // opengraph-image.tsx generates 1200×630 (cream lockup + green $)
+  },
+  twitter: {
+    card: "summary_large_image",
+    site: "@Tokenshit_",
+    creator: "@Tokenshit_",
+    title: "TOKEN$HIT — Every token is shit until proven otherwise",
+    description:
+      "Every token is shit until proven otherwise. Vote HIT or SHIT on Solana.",
+  },
   icons: {
     icon: [
       { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
       { url: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
+      { url: "/brand/logo-mark-dark.png", type: "image/png" },
     ],
     apple: [{ url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" }],
   },
