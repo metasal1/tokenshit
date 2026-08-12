@@ -326,11 +326,23 @@ export default function VoteButtons({ assetId, name, symbol }: { assetId: string
                   : "bg-red-950/40 border-red-800/60 text-red-400 hover:bg-red-900/50"
               }`}
             >
-              <EmojiIcon size={14}>📤</EmojiIcon>
               Share
             </a>
 
-            {/* Next case */}\n            <SkipNextButton\n              variant=\"chip\"\n              label=\"Next case\"\n              sublabel=\"continue\"\n              onClick={() => {\n                if (nextUrl) {\n                  sfx.whoosh();\n                  router.push(nextUrl);\n                }\n              }}\n              disabled={!nextUrl}\n              className=\"flex-1 justify-center min-h-[40px] rounded-lg\"\n            />
+            {/* Next case */}
+            <SkipNextButton
+              variant="chip"
+              label="Next case"
+              sublabel="continue"
+              onClick={() => {
+                if (nextUrl) {
+                  sfx.whoosh();
+                  router.push(nextUrl);
+                }
+              }}
+              disabled={!nextUrl}
+              className="flex-1 justify-center min-h-[40px] rounded-lg"
+            />
           </div>
 
           {/* Login nudge for anonymous voters */}
@@ -339,7 +351,7 @@ export default function VoteButtons({ assetId, name, symbol }: { assetId: string
               onClick={() => login()}
               className="w-full text-center text-[11px] text-zinc-500 hover:text-zinc-300 transition-colors py-1.5 rounded-lg border border-zinc-800 hover:border-zinc-600"
             >
-              Sign in with X to save your history & climb the leaderboard →
+              Sign in with X to save your history and climb the leaderboard
             </button>
           )}
         </div>
