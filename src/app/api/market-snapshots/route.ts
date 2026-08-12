@@ -1,15 +1,21 @@
 import { type NextRequest } from "next/server";
-import { apiFetch } from "@/lib/api";
+import { requireCronSecret } from "@/lib/api-guard";
 
+export const dynamic = "force-dynamic";
+
+/**
+ * Market snapshots proxy — locked (was open tokens.xyz key spend).
+ * Only cron/admin with CRON_SECRET.
+ */
 export async function POST(request: NextRequest) {
-  try {
-    const body = await request.json();
-    const data = await apiFetch("/assets/market-snapshots", {
-      method: "POST",
-      body: JSON.stringify(body),
-    });
-    return Response.json(data);
-  } catch (e) {
-    return Response.json({ error: String(e) }, { status: 500 });
-  }
+  const denied = requireCronSecret(request);
+  if (denied) return denied;
+  return Response.json(
+    { error: "market-snapshots proxy disabled" },
+    { status: 410 }
+  );
+}
+
+export async function GET() {
+  return Response.json({ error: "Not found" }, { status: 404 });
 }

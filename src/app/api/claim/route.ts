@@ -51,6 +51,18 @@ export async function GET(request: NextRequest) {
   const github = sp.get("github");
   const wallet = sp.get("wallet");
 
+  // Eligibility oracle burns X/TweetAPI — rate limit public checks
+  if (isKind(kindRaw)) {
+    const { getClientIp, rateLimitIp } = await import("@/lib/api-guard");
+    const limited = await rateLimitIp({
+      ip: getClientIp(request),
+      bucket: "claim_check",
+      limit: 40,
+      windowHours: 1,
+    });
+    if (limited) return limited;
+  }
+
   if (!isKind(kindRaw)) {
     return Response.json({
       amounts: AMOUNTS,

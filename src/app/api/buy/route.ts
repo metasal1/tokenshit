@@ -8,18 +8,36 @@ import {
   SOL_MINT,
   jupHeaders,
 } from "@/lib/buy-fee";
+import { getClientIp, isSolanaAddress, rateLimitIp } from "@/lib/api-guard";
 
 export const dynamic = "force-dynamic";
 
-/**
- * GET /api/buy?amountLamports=100000000
- * Default: no platform fee (fee=1 to enable).
- */
+const MAX_BUY_LAMPORTS = 50 * 1e9;
+const MIN_BUY_LAMPORTS = 1_000_000;
+
 export async function GET(request: NextRequest) {
+  const ip = getClientIp(request);
+  const limited = await rateLimitIp({
+    ip,
+    bucket: "jup_quote",
+    limit: 60,
+    windowHours: 1,
+  });
+  if (limited) return limited;
+
   const sp = request.nextUrl.searchParams;
   const amountLamports = sp.get("amountLamports") || "100000000";
+  if (!/^\d+$/.test(amountLamports)) {
+    return Response.json({ error: "invalid amountLamports" }, { status: 400 });
+  }
+  const n = Number(amountLamports);
+  if (n < MIN_BUY_LAMPORTS || n > MAX_BUY_LAMPORTS) {
+    return Response.json(
+      { error: `amountLamports must be ${MIN_BUY_LAMPORTS}–${MAX_BUY_LAMPORTS}` },
+      { status: 400 }
+    );
+  }
   const slippageBps = sp.get("slippageBps") || "150";
-  // Fees off by default — UI does not surface fees
   const withFee = sp.get("fee") === "1";
 
   const url = new URL(JUP_QUOTE);
@@ -27,7 +45,6 @@ export async function GET(request: NextRequest) {
   url.searchParams.set("outputMint", SHIT_MINT);
   url.searchParams.set("amount", amountLamports);
   url.searchParams.set("slippageBps", slippageBps);
-  // Legacy forced on swap POST only — quote flag blocks multi-hop routes
   if (withFee) {
     url.searchParams.set("platformFeeBps", String(BUY_FEE_BPS));
   }
@@ -49,7 +66,6 @@ export async function GET(request: NextRequest) {
     }
     if (!res.ok) {
       if (withFee) {
-        // fallback no-fee quote
         const u2 = new URL(JUP_QUOTE);
         u2.searchParams.set("inputMint", SOL_MINT);
         u2.searchParams.set("outputMint", SHIT_MINT);
@@ -87,12 +103,17 @@ export async function GET(request: NextRequest) {
   }
 }
 
-/**
- * POST /api/buy — build swap tx from quote
- * Body: { quoteResponse, userPublicKey }
- */
 export async function POST(request: NextRequest) {
   try {
+    const ip = getClientIp(request);
+    const limited = await rateLimitIp({
+      ip,
+      bucket: "jup_swap_build",
+      limit: 40,
+      windowHours: 1,
+    });
+    if (limited) return limited;
+
     const body = await request.json();
     const quoteResponse = body.quoteResponse || body.quote;
     const userPublicKey = String(body.userPublicKey || "");
@@ -102,8 +123,26 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+    if (!isSolanaAddress(userPublicKey)) {
+      return Response.json({ error: "invalid userPublicKey" }, { status: 400 });
+    }
 
-    // Fees off unless explicitly requested
+    const inMint = String(
+      (quoteResponse as { inputMint?: string }).inputMint || ""
+    );
+    const outMint = String(
+      (quoteResponse as { outputMint?: string }).outputMint || ""
+    );
+    if (inMint && inMint !== SOL_MINT) {
+      return Response.json({ error: "buy input must be SOL" }, { status: 400 });
+    }
+    if (outMint && outMint !== SHIT_MINT) {
+      return Response.json(
+        { error: "buy output must be TOKENSHIT" },
+        { status: 400 }
+      );
+    }
+
     const useFee =
       body.fee === true ||
       body.fee === 1 ||
@@ -115,8 +154,6 @@ export async function POST(request: NextRequest) {
       wrapAndUnwrapSol: true,
       dynamicComputeUnitLimit: true,
       prioritizationFeeLamports: "auto",
-      // CRITICAL: Privy / @solana/kit fail on v0 ALTs with
-      // Solana error #5663005 "Contents of these address lookup tables unknown"
       asLegacyTransaction: true,
     };
     if (useFee) {
@@ -139,7 +176,6 @@ export async function POST(request: NextRequest) {
       );
     }
     if (!res.ok) {
-      // retry without fee account if fee caused failure
       if (useFee) {
         const r2 = await fetch(JUP_SWAP, {
           method: "POST",

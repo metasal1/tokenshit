@@ -7,6 +7,7 @@ import {
   USDC_MINT,
   jupHeaders,
 } from "@/lib/buy-fee";
+import { getClientIp, isSolanaAddress, rateLimitIp } from "@/lib/api-guard";
 
 export const dynamic = "force-dynamic";
 
@@ -21,6 +22,15 @@ function isMint(s: string) {
  * amount = raw integer (e.g. USDC/TOKENSHIT 6dp: 1 USDC = 1000000)
  */
 export async function GET(request: NextRequest) {
+  const ip = getClientIp(request);
+  const limited = await rateLimitIp({
+    ip,
+    bucket: "jup_quote",
+    limit: 60,
+    windowHours: 1,
+  });
+  if (limited) return limited;
+
   const sp = request.nextUrl.searchParams;
   const inputMint = String(sp.get("inputMint") || "");
   const outputMint = String(sp.get("outputMint") || "");
@@ -45,14 +55,16 @@ export async function GET(request: NextRequest) {
       { status: 400 }
     );
   }
+  // Cap raw amount absurd sizes (~1e15)
+  if (amount.length > 15) {
+    return Response.json({ error: "amount too large" }, { status: 400 });
+  }
 
   const url = new URL(JUP_QUOTE);
   url.searchParams.set("inputMint", inputMint);
   url.searchParams.set("outputMint", outputMint);
   url.searchParams.set("amount", amount);
   url.searchParams.set("slippageBps", slippageBps);
-  // Do NOT set asLegacyTransaction on quote — kills multi-hop USDC↔TOKENSHIT.
-  // Legacy is forced on /swap build instead (Privy ALT #5663005).
 
   try {
     const res = await fetch(url.toString(), {
@@ -92,6 +104,15 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
+    const ip = getClientIp(request);
+    const limited = await rateLimitIp({
+      ip,
+      bucket: "jup_swap_build",
+      limit: 40,
+      windowHours: 1,
+    });
+    if (limited) return limited;
+
     const body = await request.json();
     const quoteResponse = body.quoteResponse || body.quote;
     const userPublicKey = String(body.userPublicKey || "");
@@ -100,6 +121,22 @@ export async function POST(request: NextRequest) {
         { error: "quoteResponse and userPublicKey required" },
         { status: 400 }
       );
+    }
+    if (!isSolanaAddress(userPublicKey)) {
+      return Response.json({ error: "invalid userPublicKey" }, { status: 400 });
+    }
+
+    const inMint = String(
+      (quoteResponse as { inputMint?: string }).inputMint || ""
+    );
+    const outMint = String(
+      (quoteResponse as { outputMint?: string }).outputMint || ""
+    );
+    if (inMint && !ALLOWED.has(inMint)) {
+      return Response.json({ error: "quote input mint not allowed" }, { status: 400 });
+    }
+    if (outMint && !ALLOWED.has(outMint)) {
+      return Response.json({ error: "quote output mint not allowed" }, { status: 400 });
     }
 
     const payload = {
