@@ -86,6 +86,8 @@ export default function ReferralsPage() {
       return;
     }
     setClaimBusy(true);
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 45_000);
     try {
       const token = await getAccessToken();
       if (!token) {
@@ -94,6 +96,7 @@ export default function ReferralsPage() {
       }
       const res = await fetch('/api/referral/claim-rewards', {
         method: 'POST',
+        signal: ctrl.signal,
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
@@ -105,7 +108,7 @@ export default function ReferralsPage() {
           accessToken: token,
         }),
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         const detail =
           typeof data.detail === 'string'
@@ -113,7 +116,7 @@ export default function ReferralsPage() {
             : data.meta?.errors
               ? ` (${JSON.stringify(data.meta.errors).slice(0, 120)})`
               : '';
-        setClaimErr((data.error || 'Claim failed') + detail);
+        setClaimErr((data.error || `Claim failed (${res.status})`) + detail);
         return;
       }
       if (data.errors?.length) {
@@ -121,8 +124,11 @@ export default function ReferralsPage() {
       }
       setClaimMsg(
         data.paid
-          ? `Paid ${Number(data.amount).toLocaleString()} $${'TOKENSHIT'} for ${data.paid} referral(s)`
-          : data.message || 'Nothing to claim'
+          ? `Paid ${Number(data.amount).toLocaleString()} $TOKENSHIT for ${data.paid} referral(s)`
+          : data.message ||
+              (data.errors?.length
+                ? 'No payouts this run — see errors'
+                : 'Nothing to claim')
       );
       // refresh stats
       if (twitterHandle) {
@@ -132,8 +138,13 @@ export default function ReferralsPage() {
           .catch(() => {});
       }
     } catch (e) {
-      setClaimErr(String(e));
+      const msg =
+        e instanceof Error && e.name === 'AbortError'
+          ? 'Payout timed out (45s). Refresh and try again — check wallet + treasury RPC.'
+          : String(e);
+      setClaimErr(msg);
     } finally {
+      clearTimeout(timer);
       setClaimBusy(false);
     }
   }

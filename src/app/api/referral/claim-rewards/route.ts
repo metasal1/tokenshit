@@ -82,6 +82,14 @@ export async function POST(request: NextRequest) {
       []
     );
 
+    // Clear stuck pending rows (failed mid-send / worker timeout)
+    await tursoExecute(
+      `DELETE FROM referral_rewards
+       WHERE signature = 'pending'
+         AND created_at < datetime('now', '-10 minutes')`,
+      []
+    ).catch(() => {});
+
     const unpaid = await tursoExecute(
       `SELECT referred_twitter FROM referrals r
        WHERE lower(r.referrer_twitter) = lower(?)
@@ -92,7 +100,7 @@ export async function POST(request: NextRequest) {
            AND rr.signature != ''
            AND rr.signature != 'pending'
        )
-       LIMIT 10`,
+       LIMIT 5`,
       [twitter]
     );
 
@@ -168,7 +176,8 @@ export async function POST(request: NextRequest) {
         errors.push(
           `${referred}: ${e instanceof Error ? e.message : String(e)}`
         );
-        break;
+        // don't break whole batch — try next referral
+        continue;
       }
     }
 
