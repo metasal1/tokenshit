@@ -1,6 +1,15 @@
 import type { Metadata } from "next";
 import { apiFetch } from "@/lib/api";
-import { formatPrice, formatLargeNumber, formatPercent, percentColor, riskColor, riskBg, hitScoreRoast, hitScoreEmoji } from "@/lib/format";
+import {
+  formatPrice,
+  formatLargeNumber,
+  formatPercent,
+  percentColor,
+  riskColor,
+  riskBg,
+  hitScoreRoast,
+  hitScoreEmoji,
+} from "@/lib/format";
 import VoteButtons from "@/components/VoteButtons";
 import TokenPageWrapper from "@/components/TokenPageWrapper";
 import CollapsibleSection from "@/components/CollapsibleSection";
@@ -8,6 +17,8 @@ import TokenNews from "@/components/TokenNews";
 import { isSolanaMint } from "@/lib/lists";
 import { extractMint, resolveAssetMeta } from "@/lib/resolveMeta";
 import { redirect } from "next/navigation";
+import Link from "next/link";
+import CopyableAddress from "@/components/CopyableAddress";
 
 interface Props {
   params: Promise<{ assetId: string }>;
@@ -20,8 +31,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const name = meta.name || assetId;
   const symbol = meta.symbol || "";
   return {
-    title: symbol ? `${name} (${symbol}) — TokenShit` : `${name} — TokenShit`,
-    description: `Check the shit score for ${name}. Price, risk, markets, and more.`,
+    title: symbol ? `${name} (${symbol}) — HIT or SHIT` : `${name} — HIT or SHIT`,
+    description: `Vote HIT or SHIT on ${name}. Court of Solana assets on TokenShit.`,
   };
 }
 
@@ -32,8 +43,11 @@ async function jupiterPrice(mint: string): Promise<number | null> {
       {
         headers: {
           "x-api-key":
-            process.env.JUP_API_KEY || "3309da44-211b-4acb-9d31-c36fb54d9459",
+            process.env.JUP_API_KEY ||
+            process.env.JUPITER_API_KEY ||
+            "",
         },
+        next: { revalidate: 60 },
       }
     );
     if (!res.ok) return null;
@@ -50,7 +64,6 @@ export default async function TokenPage({ params, searchParams }: Props) {
   const sp = await searchParams;
   let mintParam = sp.mint || extractMint(assetId) || "";
 
-  // Bare mint in path → resolve to Tokens composite id when available
   if (isSolanaMint(assetId) && !assetId.startsWith("solana-")) {
     mintParam = assetId;
     try {
@@ -75,7 +88,9 @@ export default async function TokenPage({ params, searchParams }: Props) {
 
   try {
     const [assetRes, riskRes, marketsRes, variantsRes] = await Promise.allSettled([
-      apiFetch(`/assets/${encodeURIComponent(assetId)}?include=profile,risk,ohlcv,markets`),
+      apiFetch(
+        `/assets/${encodeURIComponent(assetId)}?include=profile,risk,ohlcv,markets`
+      ),
       apiFetch(`/assets/${encodeURIComponent(assetId)}/risk-details`),
       apiFetch(`/assets/${encodeURIComponent(assetId)}/markets?limit=10`),
       apiFetch(`/assets/${encodeURIComponent(assetId)}/variants`),
@@ -83,9 +98,9 @@ export default async function TokenPage({ params, searchParams }: Props) {
 
     if (assetRes.status === "fulfilled") data = assetRes.value;
     if (riskRes.status === "fulfilled") riskData = riskRes.value;
-    // Prefer markets from includes (has source field) over standalone endpoint
     if (assetRes.status === "fulfilled") {
-      const incMarkets = (assetRes.value?.includes?.markets as Record<string, unknown>) || {};
+      const incMarkets =
+        (assetRes.value?.includes?.markets as Record<string, unknown>) || {};
       if (incMarkets.ok) {
         const mData = (incMarkets.data as Record<string, unknown>) || {};
         markets = (mData.markets as Record<string, unknown>[]) || [];
@@ -95,38 +110,57 @@ export default async function TokenPage({ params, searchParams }: Props) {
       const mr = marketsRes.value;
       markets = Array.isArray(mr)
         ? mr
-        : (mr as Record<string, unknown>).markets as Record<string, unknown>[]
-          || (mr as Record<string, unknown>).results as Record<string, unknown>[]
-          || [];
+        : ((mr as Record<string, unknown>).markets as Record<string, unknown>[]) ||
+          ((mr as Record<string, unknown>).results as Record<string, unknown>[]) ||
+          [];
     }
     if (variantsRes.status === "fulfilled") {
       const vr = variantsRes.value;
-      variants = Array.isArray(vr) ? vr : (vr as Record<string, unknown>).variants as Record<string, unknown>[] || (vr as Record<string, unknown>).results as Record<string, unknown>[] || [];
+      variants = Array.isArray(vr)
+        ? vr
+        : ((vr as Record<string, unknown>).variants as Record<
+            string,
+            unknown
+          >[]) ||
+          ((vr as Record<string, unknown>).results as Record<string, unknown>[]) ||
+          [];
     }
   } catch {
-    // continue with defaults
+    /* defaults */
   }
 
-  // Map the nested API response structure
   const asset = (data.asset || data) as Record<string, unknown>;
-  const includes = (data.includes || {}) as Record<string, Record<string, unknown>>;
+  const includes = (data.includes || {}) as Record<
+    string,
+    Record<string, unknown>
+  >;
   const profileInclude = includes.profile || {};
-  const profileData = (profileInclude.ok ? profileInclude.data : profileInclude) as Record<string, unknown> || {};
+  const profileData =
+    ((profileInclude.ok ? profileInclude.data : profileInclude) as Record<
+      string,
+      unknown
+    >) || {};
   const riskInclude = includes.risk || {};
-  const riskIncludeData = (riskInclude.ok ? riskInclude.data : riskInclude) as Record<string, unknown> || {};
+  const riskIncludeData =
+    ((riskInclude.ok ? riskInclude.data : riskInclude) as Record<
+      string,
+      unknown
+    >) || {};
   const stats = (asset.stats || {}) as Record<string, unknown>;
   const primaryVariant = (asset.primaryVariant || {}) as Record<string, unknown>;
   const primaryMarket = (primaryVariant.market || {}) as Record<string, unknown>;
 
-  // Tokens.xyz often returns null name for pump solana-<mint> ids
   const displayMeta = await resolveAssetMeta(assetId);
-  const name = (displayMeta.name || (asset.name as string) || assetId) as string;
-  const symbol = (displayMeta.symbol || (asset.symbol as string) || "") as string;
+  const name = (displayMeta.name ||
+    (asset.name as string) ||
+    assetId) as string;
+  const symbol = (displayMeta.symbol ||
+    (asset.symbol as string) ||
+    "") as string;
   let logo = (displayMeta.logo ||
     (asset.imageUrl as string) ||
     (primaryMarket.logoURI as string) ||
     "") as string;
-  // Prefer DexScreener if primary host is flaky j7tracker
   if (mintParam && (!logo || logo.includes("j7tracker"))) {
     logo = `https://dd.dexscreener.com/ds-data/tokens/solana/${mintParam}.png`;
   }
@@ -136,256 +170,291 @@ export default async function TokenPage({ params, searchParams }: Props) {
   if (price == null && mintParam) {
     price = await jupiterPrice(mintParam);
   }
-  const marketCap = (profileData.marketCap ?? stats.marketCap ?? null) as number | null;
-  const volume24h = (profileData.volume24h ?? stats.volume24hUSD ?? null) as number | null;
-  const liquidity = (stats.liquidity ?? primaryMarket.liquidity ?? null) as number | null;
+  const marketCap = (profileData.marketCap ??
+    stats.marketCap ??
+    null) as number | null;
+  const volume24h = (profileData.volume24h ??
+    stats.volume24hUSD ??
+    null) as number | null;
+  const liquidity = (stats.liquidity ??
+    primaryMarket.liquidity ??
+    null) as number | null;
   const fdv = (profileData.fdv ?? null) as number | null;
-  const priceChange24h = (stats.priceChange24hPercent ?? profileData.priceChange24h ?? null) as number | null;
+  const priceChange24h = (stats.priceChange24hPercent ??
+    profileData.priceChange24h ??
+    null) as number | null;
   const priceChange1h = (stats.priceChange1hPercent ?? null) as number | null;
 
-  // Risk score from includes or separate risk call
-  const marketScore = (riskIncludeData.marketScore || riskData.marketScore || {}) as Record<string, unknown>;
+  const marketScore = (riskIncludeData.marketScore ||
+    riskData.marketScore ||
+    {}) as Record<string, unknown>;
   const riskScore = (marketScore.score ?? null) as number | null;
-  const riskLevel = (marketScore.label ?? marketScore.grade ?? null) as string | null;
-  const riskComponents = (marketScore.components || {}) as Record<string, Record<string, unknown>>;
+  const riskLevel = (marketScore.label ??
+    marketScore.grade ??
+    null) as string | null;
+  const riskComponents = (marketScore.components || {}) as Record<
+    string,
+    Record<string, unknown>
+  >;
   const riskFactors = Object.entries(riskComponents).map(([key, val]) => ({
     name: key.replace(/([A-Z])/g, " $1").replace(/^./, (s) => s.toUpperCase()),
     score: val.score as number,
     description: val.status as string,
   }));
 
+  const grade = hitScoreEmoji(riskScore);
+
   return (
     <TokenPageWrapper assetId={assetId}>
-    <div className="mx-auto max-w-7xl px-4 py-8">
-      {mintParam ? (
-        <div className="mb-4 rounded-lg border border-neon/30 bg-neon/5 px-4 py-2 text-xs text-zinc-300 font-mono break-all">
-          Mint: {mintParam}
-        </div>
-      ) : null}
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start gap-4 mb-8">
-        <div className="flex items-center gap-4 min-w-0">
-          {logo ? (
-            <img src={logo} alt={symbol || name} className="h-16 w-16 rounded-full bg-zinc-800 shrink-0" />
-          ) : (
-            <div className="h-16 w-16 rounded-full bg-zinc-800 flex items-center justify-center text-2xl font-bold text-zinc-400 shrink-0">
-              {(symbol || name)?.slice(0, 2)}
-            </div>
-          )}
-          <div className="min-w-0">
-            <h1 className="text-3xl font-black text-foreground break-words">{name}</h1>
-            <p className="text-zinc-500 uppercase text-sm font-mono">{symbol}</p>
-          </div>
-        </div>
-        <div className="sm:ml-auto flex items-end gap-4">
-          <div className="text-right">
-            <p className="text-3xl font-mono font-bold text-foreground">
-              {formatPrice(price)}
-            </p>
-            <div className="flex gap-3 justify-end mt-1">
-              {priceChange1h != null && (
-                <span className={`text-sm font-mono ${percentColor(priceChange1h)}`}>
-                  1h: {formatPercent(priceChange1h)}
-                </span>
-              )}
-              {priceChange24h != null && (
-                <span className={`text-sm font-mono ${percentColor(priceChange24h)}`}>
-                  24h: {formatPercent(priceChange24h)}
-                </span>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Stats row */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
-        {[
-          { label: "Market Cap", value: formatLargeNumber(marketCap) },
-          { label: "24h Volume", value: formatLargeNumber(volume24h) },
-          { label: "Liquidity", value: formatLargeNumber(liquidity) },
-          { label: "FDV", value: formatLargeNumber(fdv) },
-        ].map((s) => (
-          <div
-            key={s.label}
-            className="rounded-xl border border-border bg-card p-4"
-          >
-            <div className="text-xs text-zinc-500 mb-1">{s.label}</div>
-            <div className="text-lg font-mono font-semibold">{s.value}</div>
-          </div>
-        ))}
-      </div>
-
-      {/* Vote */}
-      <div className="mb-8">
-        <VoteButtons assetId={assetId} symbol={symbol || name} />
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Left column: Chart + Markets */}
-        <div className="lg:col-span-2 space-y-8">
-
-          {/* Markets */}
-          {markets.length > 0 && (
-            <CollapsibleSection title="Markets & Pools" count={markets.length}>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="text-zinc-500 text-xs border-b border-border">
-                      <th className="text-left px-4 py-2 font-medium">DEX</th>
-                      <th className="text-left px-4 py-2 font-medium">Pair</th>
-                      <th className="text-right px-4 py-2 font-medium">Price</th>
-                      <th className="text-right px-4 py-2 font-medium">Volume 24h</th>
-                      <th className="text-right px-4 py-2 font-medium">Liquidity</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {markets.map((m, i) => (
-                      <tr
-                        key={i}
-                        className="border-b border-border last:border-0 hover:bg-card-hover transition-colors"
-                      >
-                        <td className="px-4 py-3 font-medium">
-                          {(m.source || m.dexName || m.dex || "Unknown") as string}
-                        </td>
-                        <td className="px-4 py-3 text-zinc-400 font-mono text-xs">
-                          {((m.base as Record<string, unknown>)?.symbol || m.baseSymbol || m.name || "") as string}
-                          /
-                          {((m.quote as Record<string, unknown>)?.symbol || m.quoteSymbol || "") as string}
-                        </td>
-                        <td className="px-4 py-3 text-right font-mono">
-                          {formatPrice(m.price as number)}
-                        </td>
-                        <td className="px-4 py-3 text-right font-mono">
-                          {formatLargeNumber(m.volume24h as number)}
-                        </td>
-                        <td className="px-4 py-3 text-right font-mono">
-                          {formatLargeNumber(m.liquidity as number)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </CollapsibleSection>
-          )}
-
-          {/* Variants */}
-          {variants.length > 0 && (
-            <CollapsibleSection title="Token Variants" count={variants.length}>
-              <div className="divide-y divide-border">
-                {variants.map((v, i) => (
-                  <div
-                    key={i}
-                    className="flex items-center justify-between px-4 py-3 hover:bg-card-hover transition-colors"
-                  >
-                    <div>
-                      <span className="font-medium text-foreground">
-                        {(v.name || v.symbol || "Variant") as string}
-                      </span>
-                      <span className="ml-2 text-xs px-2 py-0.5 rounded-full bg-neon-purple/20 text-neon-purple">
-                        {(v.kind || "unknown") as string}
-                      </span>
-                      {v.chain ? (
-                        <span className="ml-2 text-xs text-zinc-500">
-                          {String(v.chain)}
-                        </span>
-                      ) : null}
-                    </div>
-                    {v.mint ? (
-                      <code className="text-xs text-zinc-600 font-mono truncate max-w-[200px]">
-                        {String(v.mint).slice(0, 8)}...{String(v.mint).slice(-4)}
-                      </code>
-                    ) : null}
-                  </div>
-                ))}
-              </div>
-            </CollapsibleSection>
-          )}
-        </div>
-
-        {/* Right column: $HIT Score + Risk */}
-        <div className="space-y-6">
-          {/* $HIT Score */}
-          <div className={`rounded-xl border border-border p-6 ${riskBg(riskScore)}`}>
-            <div className="text-center mb-4">
-              <div className="emoji text-4xl mb-2" aria-hidden>{hitScoreEmoji(riskScore)}</div>
-              <h3 className="text-lg font-bold text-foreground">$HIT Score</h3>
-            </div>
-            <div className="flex items-center justify-center mb-4">
-              <div className={`text-5xl font-black font-mono ${riskColor(riskScore)}`}>
-                {riskScore != null ? riskScore : "?"}
-              </div>
-              <span className="text-zinc-500 text-lg ml-1">/100</span>
-            </div>
-            {riskLevel && (
-              <div className="text-center mb-3">
-                <span
-                  className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${riskColor(riskScore)} ${riskBg(riskScore)}`}
-                >
-                  {riskLevel}
-                </span>
+      <div className="mx-auto max-w-3xl px-3 sm:px-4 pt-3 sm:pt-6 pb-[max(1.25rem,env(safe-area-inset-bottom))] space-y-4 sm:space-y-5">
+        {/* Compact case header */}
+        <header className="rounded-2xl border border-border bg-card p-3.5 sm:p-5">
+          <div className="flex items-center gap-3 sm:gap-4">
+            {logo ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={logo}
+                alt={symbol || name}
+                className="h-14 w-14 sm:h-16 sm:w-16 rounded-full bg-zinc-800 shrink-0 border border-zinc-700"
+              />
+            ) : (
+              <div className="h-14 w-14 sm:h-16 sm:w-16 rounded-full bg-zinc-800 flex items-center justify-center text-xl font-bold text-zinc-400 shrink-0">
+                {(symbol || name)?.slice(0, 2)}
               </div>
             )}
-            <p className="text-sm text-zinc-400 text-center italic">
-              &ldquo;{hitScoreRoast(riskScore)}&rdquo;
+            <div className="min-w-0 flex-1">
+              <p className="text-[10px] font-mono uppercase tracking-[0.16em] text-zinc-500">
+                Case file
+              </p>
+              <h1 className="text-xl sm:text-2xl font-black text-foreground truncate leading-tight">
+                {name}
+              </h1>
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5">
+                {symbol ? (
+                  <span className="text-sm font-mono text-zinc-400 uppercase">
+                    ${symbol}
+                  </span>
+                ) : null}
+                <span className="text-lg sm:text-xl font-mono font-bold text-white">
+                  {formatPrice(price)}
+                </span>
+                {priceChange24h != null && (
+                  <span
+                    className={`text-xs font-mono ${percentColor(priceChange24h)}`}
+                  >
+                    24h {formatPercent(priceChange24h)}
+                  </span>
+                )}
+                {priceChange1h != null && (
+                  <span
+                    className={`text-xs font-mono ${percentColor(priceChange1h)}`}
+                  >
+                    1h {formatPercent(priceChange1h)}
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Stat chips */}
+          <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-2">
+            {[
+              { label: "MCap", value: formatLargeNumber(marketCap) },
+              { label: "Vol 24h", value: formatLargeNumber(volume24h) },
+              { label: "Liq", value: formatLargeNumber(liquidity) },
+              { label: "FDV", value: formatLargeNumber(fdv) },
+            ].map((s) => (
+              <div
+                key={s.label}
+                className="rounded-lg border border-border/80 bg-zinc-950/70 px-2.5 py-2"
+              >
+                <div className="text-[10px] font-mono uppercase tracking-wider text-zinc-500">
+                  {s.label}
+                </div>
+                <div className="text-sm font-mono font-semibold text-zinc-100 truncate">
+                  {s.value}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {mintParam ? (
+            <div className="mt-3">
+              <CopyableAddress
+                address={mintParam}
+                label="Mint"
+                explorer={`https://solscan.io/token/${mintParam}`}
+              />
+            </div>
+          ) : null}
+        </header>
+
+        {/* Primary: vote */}
+        <VoteButtons assetId={assetId} symbol={symbol || name} />
+
+        {/* Score + noise */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div
+            className={`rounded-2xl border border-border p-5 ${riskBg(riskScore)}`}
+          >
+            <p className="text-[10px] font-mono uppercase tracking-[0.16em] text-zinc-500 text-center">
+              $HIT score
+            </p>
+            <div className="flex items-end justify-center gap-1 mt-2">
+              <span
+                className={`text-5xl font-black font-mono ${riskColor(riskScore)}`}
+              >
+                {riskScore != null ? riskScore : "—"}
+              </span>
+              <span className="text-zinc-500 text-base mb-1.5">/100</span>
+            </div>
+            <div className="text-center mt-2">
+              <span
+                className={`inline-block px-2.5 py-1 rounded-full text-xs font-mono font-semibold uppercase tracking-wider ${riskColor(riskScore)} border border-current/20`}
+              >
+                {grade}
+                {riskLevel ? ` · ${riskLevel}` : ""}
+              </span>
+            </div>
+            <p className="text-xs text-zinc-400 text-center mt-3 leading-relaxed">
+              {hitScoreRoast(riskScore)}
             </p>
           </div>
 
-          <TokenNews assetId={assetId} symbol={symbol} name={name} />
+          <div className="rounded-2xl border border-border bg-card p-1 min-h-[140px]">
+            <TokenNews assetId={assetId} symbol={symbol} name={name} />
+          </div>
+        </div>
 
-          {/* Risk Factors */}
-          {riskFactors.length > 0 && (
-            <CollapsibleSection title="Risk Breakdown" count={riskFactors.length}>
-              <div className="divide-y divide-border">
-                {riskFactors.map((f, i) => (
-                  <div key={i} className="px-4 py-3">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-sm font-medium text-foreground">
-                        {f.name as string}
-                      </span>
-                      <span
-                        className={`text-sm font-mono ${riskColor(f.score as number)}`}
-                      >
-                        {Number(f.score)}/100
-                      </span>
-                    </div>
-                    {f.description ? (
-                      <p className="text-xs text-zinc-500">
-                        {String(f.description)}
-                      </p>
-                    ) : null}
-                    <div className="mt-2 h-1.5 rounded-full bg-zinc-800 overflow-hidden">
-                      <div
-                        className={`h-full rounded-full transition-all ${
-                          (f.score as number) >= 70
-                            ? "bg-green-500"
-                            : (f.score as number) >= 40
+        {/* Secondary research */}
+        {markets.length > 0 && (
+          <CollapsibleSection title="Markets" count={markets.length}>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-zinc-500 text-[10px] font-mono uppercase tracking-wider border-b border-border">
+                    <th className="text-left px-3 py-2 font-medium">DEX</th>
+                    <th className="text-left px-3 py-2 font-medium">Pair</th>
+                    <th className="text-right px-3 py-2 font-medium">Price</th>
+                    <th className="text-right px-3 py-2 font-medium">Vol</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {markets.slice(0, 8).map((m, i) => (
+                    <tr
+                      key={i}
+                      className="border-b border-border last:border-0 hover:bg-card-hover"
+                    >
+                      <td className="px-3 py-2.5 font-medium text-xs">
+                        {(m.source || m.dexName || m.dex || "—") as string}
+                      </td>
+                      <td className="px-3 py-2.5 text-zinc-400 font-mono text-[11px]">
+                        {(
+                          (m.base as Record<string, unknown>)?.symbol ||
+                          m.baseSymbol ||
+                          m.name ||
+                          ""
+                        ) as string}
+                        /
+                        {(
+                          (m.quote as Record<string, unknown>)?.symbol ||
+                          m.quoteSymbol ||
+                          ""
+                        ) as string}
+                      </td>
+                      <td className="px-3 py-2.5 text-right font-mono text-xs">
+                        {formatPrice(m.price as number)}
+                      </td>
+                      <td className="px-3 py-2.5 text-right font-mono text-xs">
+                        {formatLargeNumber(m.volume24h as number)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </CollapsibleSection>
+        )}
+
+        {riskFactors.length > 0 && (
+          <CollapsibleSection title="Risk breakdown" count={riskFactors.length}>
+            <div className="divide-y divide-border">
+              {riskFactors.map((f, i) => (
+                <div key={i} className="px-4 py-3">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-sm font-medium text-foreground">
+                      {f.name as string}
+                    </span>
+                    <span
+                      className={`text-sm font-mono ${riskColor(f.score as number)}`}
+                    >
+                      {Number(f.score)}/100
+                    </span>
+                  </div>
+                  {f.description ? (
+                    <p className="text-xs text-zinc-500">{String(f.description)}</p>
+                  ) : null}
+                  <div className="mt-2 h-1.5 rounded-full bg-zinc-800 overflow-hidden">
+                    <div
+                      className={`h-full rounded-full ${
+                        (f.score as number) >= 70
+                          ? "bg-neon"
+                          : (f.score as number) >= 40
                             ? "bg-yellow-500"
                             : "bg-red-500"
-                        }`}
-                        style={{ width: `${f.score as number}%` }}
-                      />
-                    </div>
+                      }`}
+                      style={{ width: `${Math.min(100, Number(f.score) || 0)}%` }}
+                    />
                   </div>
-                ))}
-              </div>
-            </CollapsibleSection>
-          )}
+                </div>
+              ))}
+            </div>
+          </CollapsibleSection>
+        )}
 
-          {/* Description */}
-          {description && (
-            <CollapsibleSection title="About">
-              <div className="p-4">
-                <p className="text-sm text-zinc-400 leading-relaxed">
-                  {description}
-                </p>
-              </div>
-            </CollapsibleSection>
-          )}
-        </div>
+        {variants.length > 0 && (
+          <CollapsibleSection title="Variants" count={variants.length}>
+            <div className="divide-y divide-border">
+              {variants.slice(0, 12).map((v, i) => (
+                <div
+                  key={i}
+                  className="flex items-center justify-between px-4 py-3"
+                >
+                  <div>
+                    <span className="font-medium text-sm text-foreground">
+                      {(v.name || v.symbol || "Variant") as string}
+                    </span>
+                    <span className="ml-2 text-[10px] font-mono uppercase px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-400">
+                      {(v.kind || "unknown") as string}
+                    </span>
+                  </div>
+                  {v.mint ? (
+                    <code className="text-[10px] text-zinc-600 font-mono">
+                      {String(v.mint).slice(0, 4)}…{String(v.mint).slice(-4)}
+                    </code>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          </CollapsibleSection>
+        )}
+
+        {description ? (
+          <CollapsibleSection title="About">
+            <div className="p-4">
+              <p className="text-sm text-zinc-400 leading-relaxed">{description}</p>
+            </div>
+          </CollapsibleSection>
+        ) : null}
+
+        <p className="text-center text-[11px] text-zinc-600 pb-2">
+          <Link href="/" className="text-neon-blue hover:underline">
+            Back to arena
+          </Link>
+          {" · "}
+          swipe for next case
+        </p>
       </div>
-    </div>
     </TokenPageWrapper>
   );
 }
