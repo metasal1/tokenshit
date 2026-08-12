@@ -12,8 +12,10 @@ import {
   checkXFollowsTokenshit,
   checkXTweetTag,
   checkXVerified,
+  getTweetClaimCooldown,
   hasClaimed,
   recordClaim,
+  tweetIdAlreadyClaimed,
   type ClaimKind,
 } from "@/lib/claims";
 import { getTreasuryBalances } from "@/lib/treasury";
@@ -324,6 +326,18 @@ export async function POST(request: NextRequest) {
           { status: 400 }
         );
       }
+      const cool = await getTweetClaimCooldown({ twitter, wallet });
+      if (cool.onCooldown) {
+        return Response.json(
+          {
+            error: "Tweet claim every 24h. Come back later.",
+            code: "tweet_cooldown",
+            nextClaimAt: cool.nextClaimAt,
+            msRemaining: cool.msRemaining,
+          },
+          { status: 429 }
+        );
+      }
       const t = await checkXTweetTag(twitter, tweetUrl);
       if (!t.ok)
         return Response.json(
@@ -334,11 +348,21 @@ export async function POST(request: NextRequest) {
         return Response.json(
           {
             error:
-              "No recent tweet from you tagging @Tokenshit_ found. Post, paste the link, claim.",
+              t.error ||
+              "No recent tweet from you tagging @Tokenshit_ found. Post a fresh tweet (<24h), paste the link, claim.",
           },
           { status: 403 }
         );
       tweetId = t.tweetId;
+      if (tweetId && (await tweetIdAlreadyClaimed(tweetId))) {
+        return Response.json(
+          {
+            error: "This tweet was already claimed. Post a new one.",
+            code: "tweet_already_claimed",
+          },
+          { status: 409 }
+        );
+      }
     } else if (kind === "x_follow") {
       const f = await checkXFollowsTokenshit(twitter);
       if (!f.ok)
@@ -354,6 +378,18 @@ export async function POST(request: NextRequest) {
     }
 
     if (await hasClaimed(kind, { twitter, github, wallet })) {
+      if (kind === "x_tweet") {
+        const cool = await getTweetClaimCooldown({ twitter, wallet });
+        return Response.json(
+          {
+            error: "Tweet claim every 24h. Come back later.",
+            code: "tweet_cooldown",
+            nextClaimAt: cool.nextClaimAt,
+            msRemaining: cool.msRemaining,
+          },
+          { status: 429 }
+        );
+      }
       return Response.json({ error: "Already claimed" }, { status: 409 });
     }
 
@@ -388,11 +424,20 @@ export async function POST(request: NextRequest) {
         wallet,
         amount,
         signature: "pending",
+        tweetId: kind === "x_tweet" ? tweetId || null : null,
       });
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       if (msg.includes("UNIQUE") || msg.includes("unique")) {
-        return Response.json({ error: "Already claimed" }, { status: 409 });
+        return Response.json(
+          {
+            error:
+              kind === "x_tweet"
+                ? "This tweet was already claimed. Post a new one."
+                : "Already claimed",
+          },
+          { status: 409 }
+        );
       }
       throw e;
     }
@@ -405,7 +450,10 @@ export async function POST(request: NextRequest) {
         amount,
         twitter,
         github,
-        idempotencyKey: `claim:${kind}:${twitter}:${wallet.toLowerCase()}`,
+        idempotencyKey:
+          kind === "x_tweet" && tweetId
+            ? `claim:x_tweet:${twitter}:${tweetId}`
+            : `claim:${kind}:${twitter}:${wallet.toLowerCase()}`,
         meta: { twitter, github, tweetId, premium: kind === "x_premium" },
       });
       signature = paid.signature;

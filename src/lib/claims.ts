@@ -7,6 +7,10 @@ export type ClaimKind =
   | "x_tweet"
   | "x_follow";
 
+/** Tweet claim cooldown + max tweet age */
+export const TWEET_CLAIM_COOLDOWN_MS = 24 * 60 * 60 * 1000;
+export const TWEET_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+
 export async function ensureClaimSchema() {
   await tursoExecute(
     `CREATE TABLE IF NOT EXISTS shit_claims (
@@ -17,15 +21,95 @@ export async function ensureClaimSchema() {
       wallet TEXT NOT NULL,
       amount REAL NOT NULL,
       signature TEXT NOT NULL,
-      created_at TEXT DEFAULT (datetime('now')),
-      UNIQUE(claim_kind, twitter),
-      UNIQUE(claim_kind, github),
-      UNIQUE(claim_kind, wallet)
+      tweet_id TEXT,
+      created_at TEXT DEFAULT (datetime('now'))
     )`,
     []
   );
+
+  // Migrate older installs that still have UNIQUE(claim_kind, twitter/wallet)
+  // which blocked repeat tweet claims forever.
+  try {
+    const info = await tursoExecute(`PRAGMA index_list('shit_claims')`, []);
+    const indexes = (info.rows || []).map((r) => String(r[1] || r[0] || ""));
+    const hasLegacyUnique = indexes.some(
+      (n) =>
+        /unique|sqlite_autoindex/i.test(n) ||
+        n.includes("claim_kind")
+    );
+    // Always ensure tweet_id column exists
+    await tursoExecute(
+      `ALTER TABLE shit_claims ADD COLUMN tweet_id TEXT`,
+      []
+    ).catch(() => {});
+
+    // If table was created with UNIQUE constraints, rebuild without them.
+    // Detect by attempting a dual-insert test is heavy — check sql via sqlite_master.
+    const master = await tursoExecute(
+      `SELECT sql FROM sqlite_master WHERE type='table' AND name='shit_claims'`,
+      []
+    );
+    const createSql = String(master.rows?.[0]?.[0] || "");
+    if (/UNIQUE\s*\(\s*claim_kind/i.test(createSql)) {
+      await tursoExecute(
+        `CREATE TABLE IF NOT EXISTS shit_claims_v2 (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          claim_kind TEXT NOT NULL,
+          twitter TEXT,
+          github TEXT,
+          wallet TEXT NOT NULL,
+          amount REAL NOT NULL,
+          signature TEXT NOT NULL,
+          tweet_id TEXT,
+          created_at TEXT DEFAULT (datetime('now'))
+        )`,
+        []
+      );
+      await tursoExecute(
+        `INSERT OR IGNORE INTO shit_claims_v2
+         (id, claim_kind, twitter, github, wallet, amount, signature, tweet_id, created_at)
+         SELECT id, claim_kind, twitter, github, wallet, amount, signature,
+                NULL as tweet_id, created_at FROM shit_claims`,
+        []
+      ).catch(async () => {
+        await tursoExecute(
+          `INSERT OR IGNORE INTO shit_claims_v2
+           (claim_kind, twitter, github, wallet, amount, signature, created_at)
+           SELECT claim_kind, twitter, github, wallet, amount, signature, created_at
+           FROM shit_claims`,
+          []
+        );
+      });
+      await tursoExecute(`DROP TABLE shit_claims`, []);
+      await tursoExecute(
+        `ALTER TABLE shit_claims_v2 RENAME TO shit_claims`,
+        []
+      );
+    }
+  } catch {
+    /* best-effort migrate */
+  }
+
+  await tursoExecute(
+    `CREATE UNIQUE INDEX IF NOT EXISTS idx_shit_claims_tweet_id
+     ON shit_claims(tweet_id) WHERE tweet_id IS NOT NULL AND tweet_id != ''`,
+    []
+  ).catch(() => {});
+  await tursoExecute(
+    `CREATE INDEX IF NOT EXISTS idx_shit_claims_kind_twitter_time
+     ON shit_claims(claim_kind, twitter, created_at)`,
+    []
+  ).catch(() => {});
 }
 
+function parseCreatedAt(raw: unknown): number | null {
+  if (raw == null) return null;
+  const s = String(raw);
+  const t = Date.parse(s.includes("T") ? s : s.replace(" ", "T") + "Z");
+  return Number.isFinite(t) ? t : null;
+}
+
+/** One-time claims (forever). */
 export async function hasClaimed(
   kind: ClaimKind,
   opts: {
@@ -34,8 +118,12 @@ export async function hasClaimed(
     wallet?: string | null;
   }
 ): Promise<boolean> {
+  if (kind === "x_tweet") {
+    const c = await getTweetClaimCooldown(opts);
+    return c.onCooldown;
+  }
+
   await ensureClaimSchema();
-  // verified ↔ premium mutually exclusive
   const kinds: ClaimKind[] =
     kind === "x_verified" || kind === "x_premium"
       ? ["x_verified", "x_premium"]
@@ -43,27 +131,124 @@ export async function hasClaimed(
   for (const k of kinds) {
     if (opts.twitter) {
       const r = await tursoExecute(
-        `SELECT 1 FROM shit_claims WHERE claim_kind = ? AND lower(twitter) = lower(?) LIMIT 1`,
+        `SELECT 1 FROM shit_claims
+         WHERE claim_kind = ? AND lower(twitter) = lower(?)
+           AND signature != 'pending'
+         LIMIT 1`,
         [k, opts.twitter]
       );
       if (r.rows.length) return true;
     }
     if (opts.github) {
       const r = await tursoExecute(
-        `SELECT 1 FROM shit_claims WHERE claim_kind = ? AND lower(github) = lower(?) LIMIT 1`,
+        `SELECT 1 FROM shit_claims
+         WHERE claim_kind = ? AND lower(github) = lower(?)
+           AND signature != 'pending'
+         LIMIT 1`,
         [k, opts.github]
       );
       if (r.rows.length) return true;
     }
     if (opts.wallet) {
       const r = await tursoExecute(
-        `SELECT 1 FROM shit_claims WHERE claim_kind = ? AND wallet = ? LIMIT 1`,
+        `SELECT 1 FROM shit_claims
+         WHERE claim_kind = ? AND wallet = ?
+           AND signature != 'pending'
+         LIMIT 1`,
         [k, opts.wallet]
       );
       if (r.rows.length) return true;
     }
   }
   return false;
+}
+
+export type TweetClaimCooldown = {
+  onCooldown: boolean;
+  lastClaimAt: string | null;
+  nextClaimAt: string | null;
+  msRemaining: number;
+};
+
+/** Tweet claims: once every 24h per twitter/wallet. */
+export async function getTweetClaimCooldown(opts: {
+  twitter?: string | null;
+  wallet?: string | null;
+}): Promise<TweetClaimCooldown> {
+  await ensureClaimSchema();
+  let lastMs: number | null = null;
+  let lastAt: string | null = null;
+
+  const rows: unknown[][] = [];
+  if (opts.twitter) {
+    const r = await tursoExecute(
+      `SELECT created_at FROM shit_claims
+       WHERE claim_kind = 'x_tweet'
+         AND lower(twitter) = lower(?)
+         AND signature != 'pending'
+       ORDER BY datetime(created_at) DESC LIMIT 1`,
+      [opts.twitter]
+    );
+    if (r.rows.length) rows.push(r.rows[0] as unknown[]);
+  }
+  if (opts.wallet) {
+    const r = await tursoExecute(
+      `SELECT created_at FROM shit_claims
+       WHERE claim_kind = 'x_tweet'
+         AND wallet = ?
+         AND signature != 'pending'
+       ORDER BY datetime(created_at) DESC LIMIT 1`,
+      [opts.wallet]
+    );
+    if (r.rows.length) rows.push(r.rows[0] as unknown[]);
+  }
+
+  for (const row of rows) {
+    const ms = parseCreatedAt(row[0]);
+    if (ms != null && (lastMs == null || ms > lastMs)) {
+      lastMs = ms;
+      lastAt = String(row[0]);
+    }
+  }
+
+  if (lastMs == null) {
+    return {
+      onCooldown: false,
+      lastClaimAt: null,
+      nextClaimAt: null,
+      msRemaining: 0,
+    };
+  }
+
+  const nextMs = lastMs + TWEET_CLAIM_COOLDOWN_MS;
+  const remaining = nextMs - Date.now();
+  if (remaining <= 0) {
+    return {
+      onCooldown: false,
+      lastClaimAt: lastAt,
+      nextClaimAt: null,
+      msRemaining: 0,
+    };
+  }
+  return {
+    onCooldown: true,
+    lastClaimAt: lastAt,
+    nextClaimAt: new Date(nextMs).toISOString(),
+    msRemaining: remaining,
+  };
+}
+
+export async function tweetIdAlreadyClaimed(
+  tweetId: string
+): Promise<boolean> {
+  if (!tweetId) return false;
+  await ensureClaimSchema();
+  const r = await tursoExecute(
+    `SELECT 1 FROM shit_claims
+     WHERE tweet_id = ? AND signature != 'pending' LIMIT 1`,
+    [tweetId]
+  );
+  return r.rows.length > 0;
 }
 
 export async function recordClaim(opts: {
@@ -73,11 +258,13 @@ export async function recordClaim(opts: {
   wallet: string;
   amount: number;
   signature: string;
+  tweetId?: string | null;
 }) {
   await ensureClaimSchema();
   await tursoExecute(
-    `INSERT INTO shit_claims (claim_kind, twitter, github, wallet, amount, signature)
-     VALUES (?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO shit_claims
+     (claim_kind, twitter, github, wallet, amount, signature, tweet_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
     [
       opts.kind,
       opts.twitter || null,
@@ -85,6 +272,7 @@ export async function recordClaim(opts: {
       opts.wallet,
       opts.amount,
       opts.signature,
+      opts.tweetId || null,
     ]
   );
 }
@@ -117,7 +305,6 @@ export async function checkGhFork(
 
   async function getJson(url: string) {
     let res = await fetch(url, { headers });
-    // Bad/expired token → retry unauthenticated (public repos)
     if (res.status === 401 && token) {
       const h2 = { ...headers } as Record<string, string>;
       delete h2.Authorization;
@@ -126,7 +313,6 @@ export async function checkGhFork(
     return res;
   }
 
-  // Fast path: same-name fork
   const direct = await getJson(
     `https://api.github.com/repos/${encodeURIComponent(user)}/tokens`
   );
@@ -138,7 +324,6 @@ export async function checkGhFork(
     }
   }
 
-  // Scan owned repos for any fork of upstream
   const list = await getJson(
     `https://api.github.com/users/${encodeURIComponent(user)}/repos?type=owner&per_page=100&sort=updated`
   );
@@ -168,4 +353,3 @@ export async function checkGhFork(
   }
   return { ok: true, forked: false };
 }
-

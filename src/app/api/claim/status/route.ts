@@ -1,5 +1,9 @@
 import { type NextRequest } from "next/server";
-import { hasClaimed, type ClaimKind } from "@/lib/claims";
+import {
+  getTweetClaimCooldown,
+  hasClaimed,
+  type ClaimKind,
+} from "@/lib/claims";
 import {
   CLAIM_GH_FORK,
   CLAIM_X_FOLLOW,
@@ -11,7 +15,13 @@ import { getTreasuryBalances } from "@/lib/treasury";
 
 export const dynamic = "force-dynamic";
 
-const KINDS: ClaimKind[] = ["x_tweet", "x_follow", "x_verified", "x_premium", "gh_fork"];
+const KINDS: ClaimKind[] = [
+  "x_tweet",
+  "x_follow",
+  "x_verified",
+  "x_premium",
+  "gh_fork",
+];
 
 const AMOUNTS: Record<ClaimKind, number> = {
   x_verified: CLAIM_X_VERIFIED,
@@ -23,7 +33,7 @@ const AMOUNTS: Record<ClaimKind, number> = {
 
 /**
  * GET /api/claim/status?twitter=&github=&wallet=
- * Lightweight claimed flags for UI (no X eligibility checks — those run on POST).
+ * Claimed flags + tweet 24h cooldown for UI.
  */
 export async function GET(request: NextRequest) {
   const sp = request.nextUrl.searchParams;
@@ -38,12 +48,25 @@ export async function GET(request: NextRequest) {
         claimed[k] = await hasClaimed(k, { twitter, github, wallet });
       })
     );
+
+    const tweetCooldown = await getTweetClaimCooldown({ twitter, wallet });
+    // claimed.x_tweet means "on cooldown" for tweet kind
+    claimed.x_tweet = tweetCooldown.onCooldown;
+
     const bal = await getTreasuryBalances().catch(() => null);
     return Response.json({
       claimed,
       amounts: AMOUNTS,
       treasuryShit: bal?.shit ?? null,
       treasurySol: bal?.sol ?? null,
+      tweet: {
+        cooldownHours: 24,
+        maxTweetAgeHours: 24,
+        onCooldown: tweetCooldown.onCooldown,
+        lastClaimAt: tweetCooldown.lastClaimAt,
+        nextClaimAt: tweetCooldown.nextClaimAt,
+        msRemaining: tweetCooldown.msRemaining,
+      },
       identity: {
         twitter: twitter || null,
         github: github || null,
