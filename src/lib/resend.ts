@@ -13,6 +13,11 @@ import {
 const RESEND_API_KEY = process.env.RESEND_API_KEY || "";
 const RESEND_FROM =
   process.env.RESEND_FROM_EMAIL || EMAIL_BRAND.from;
+/** TOKENSHIT mailing list audience */
+export const RESEND_AUDIENCE_ID =
+  process.env.RESEND_AUDIENCE_ID ||
+  process.env.RESEND_TOKENSHIT_AUDIENCE_ID ||
+  "07ec7757-df14-43bf-92b1-089e787bee94";
 
 /** Optional map from env JSON: {"welcome":"uuid",...} + bundled fallback */
 function templateIdMap(): Record<string, string> {
@@ -69,6 +74,67 @@ export async function sendEmail(
   };
   if (!res.ok) {
     return { error: data.message || `Resend error ${res.status}` };
+  }
+  return { id: data.id };
+}
+
+/**
+ * Add contact to TOKENSHIT Resend audience (mailing list). No welcome email.
+ */
+export async function addAudienceContact(opts: {
+  email: string;
+  firstName?: string | null;
+  lastName?: string | null;
+  unsubscribed?: boolean;
+  audienceId?: string;
+}): Promise<{ id?: string; error?: string }> {
+  if (!RESEND_API_KEY) {
+    return { error: "RESEND_API_KEY not configured" };
+  }
+  const audienceId = (opts.audienceId || RESEND_AUDIENCE_ID).trim();
+  if (!audienceId) {
+    return { error: "RESEND_AUDIENCE_ID not configured" };
+  }
+  const email = opts.email.trim().toLowerCase();
+  if (!email || !email.includes("@")) {
+    return { error: "invalid email" };
+  }
+
+  const body: Record<string, unknown> = {
+    email,
+    unsubscribed: Boolean(opts.unsubscribed),
+  };
+  if (opts.firstName) body.first_name = String(opts.firstName).slice(0, 80);
+  if (opts.lastName) body.last_name = String(opts.lastName).slice(0, 80);
+
+  const res = await fetch(
+    `https://api.resend.com/audiences/${encodeURIComponent(audienceId)}/contacts`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${RESEND_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    }
+  );
+
+  const data = (await res.json().catch(() => ({}))) as {
+    id?: string;
+    message?: string;
+  };
+
+  if (!res.ok) {
+    const msg = (data.message || "").toLowerCase();
+    if (
+      res.status === 409 ||
+      msg.includes("already") ||
+      msg.includes("exist") ||
+      msg.includes("duplicate")
+    ) {
+      return { id: data.id || "existing" };
+    }
+    return { error: data.message || `Resend contact ${res.status}` };
   }
   return { id: data.id };
 }
