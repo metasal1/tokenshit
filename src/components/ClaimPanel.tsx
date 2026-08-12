@@ -219,12 +219,14 @@ export default function ClaimPanel() {
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
+          "x-privy-token": token,
         },
         body: JSON.stringify({
           kind,
           wallet,
           twitter,
           github,
+          accessToken: token,
           ...(kind === "x_tweet" && tweetUrl.trim()
             ? { tweetUrl: tweetUrl.trim() }
             : {}),
@@ -232,7 +234,13 @@ export default function ClaimPanel() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setErr(data.error || `Claim failed (${res.status})`);
+        const detail =
+          typeof data.detail === "string"
+            ? ` (${data.detail})`
+            : data.meta?.errors
+              ? ` (${JSON.stringify(data.meta.errors).slice(0, 120)})`
+              : "";
+        setErr((data.error || `Claim failed (${res.status})`) + detail);
         return;
       }
       setMsg(

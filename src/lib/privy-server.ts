@@ -1,17 +1,17 @@
-import { importSPKI, jwtVerify, type KeyLike } from "jose";
+import { importSPKI, jwtVerify, decodeJwt, decodeProtectedHeader, type KeyLike } from "jose";
 import type { NextRequest } from "next/server";
 
 /**
  * Edge-safe Privy auth for Cloudflare Workers.
- * Official verify uses ES256 SPKI verification key (NOT JWKS).
- * @see PrivyClient.verifyAuthToken in @privy-io/server-auth
+ * Official path: ES256 SPKI verification_key from app settings (NOT JWKS).
  */
 
 const PRIVY_APP_ID =
-  process.env.NEXT_PUBLIC_PRIVY_APP_ID || process.env.PRIVY_APP_ID || "";
-const PRIVY_APP_SECRET = process.env.PRIVY_APP_SECRET || "";
-/** PEM public key from Privy app settings (optional cache) */
+  (process.env.NEXT_PUBLIC_PRIVY_APP_ID || process.env.PRIVY_APP_ID || "").trim();
+const PRIVY_APP_SECRET = (process.env.PRIVY_APP_SECRET || "").trim();
 const PRIVY_VERIFICATION_KEY = (process.env.PRIVY_VERIFICATION_KEY || "").trim();
+/** Optional second app id (migration / dual-app) */
+const PRIVY_APP_ID_FALLBACK = (process.env.PRIVY_APP_ID_FALLBACK || "").trim();
 
 export type PrivyIdentity = {
   privyId: string;
@@ -20,11 +20,10 @@ export type PrivyIdentity = {
   wallets: string[];
 };
 
-let cachedSpki: KeyLike | null = null;
-let cachedPem: string | null = null;
+const keyCache = new Map<string, KeyLike>();
 
-function basicAuthHeader(): string {
-  const raw = `${PRIVY_APP_ID}:${PRIVY_APP_SECRET}`;
+function basicAuthHeader(appId: string, secret: string): string {
+  const raw = `${appId}:${secret}`;
   try {
     return `Basic ${btoa(raw)}`;
   } catch {
@@ -33,9 +32,22 @@ function basicAuthHeader(): string {
 }
 
 /** Normalize PEM that may arrive single-line or with escaped newlines. */
-function normalizePem(input: string): string {
-  let pem = input.trim().replace(/\\n/g, "\n");
-  if (pem.includes("BEGIN PUBLIC KEY") && !pem.includes("\n")) {
+export function normalizePem(input: string): string {
+  let pem = input.trim();
+  // wrangler / env sometimes store literal \n
+  pem = pem.replace(/\\n/g, "\n").replace(/\r/g, "");
+  if (!pem.includes("BEGIN PUBLIC KEY")) {
+    // bare base64 body
+    const body = pem.replace(/\s+/g, "");
+    if (body.length > 40) {
+      const lines = ["-----BEGIN PUBLIC KEY-----"];
+      for (let i = 0; i < body.length; i += 64) lines.push(body.slice(i, i + 64));
+      lines.push("-----END PUBLIC KEY-----");
+      return lines.join("\n");
+    }
+    return pem;
+  }
+  if (!pem.includes("\n")) {
     const body = pem
       .replace(/-----BEGIN PUBLIC KEY-----/g, "")
       .replace(/-----END PUBLIC KEY-----/g, "")
@@ -50,17 +62,33 @@ function normalizePem(input: string): string {
   return pem;
 }
 
-async function fetchVerificationPem(): Promise<string> {
-  if (PRIVY_VERIFICATION_KEY.includes("BEGIN PUBLIC KEY")) {
+async function fetchVerificationPem(appId: string): Promise<string> {
+  // Multi-app PEM map (JSON): { "appId": "-----BEGIN...\\n..." }
+  const mapRaw = process.env.PRIVY_VERIFICATION_KEYS_JSON || "";
+  if (mapRaw) {
+    try {
+      const map = JSON.parse(mapRaw) as Record<string, string>;
+      if (map[appId]) return normalizePem(map[appId]);
+    } catch {
+      /* ignore */
+    }
+  }
+  // Prefer env key when appId matches primary
+  if (
+    appId === PRIVY_APP_ID &&
+    PRIVY_VERIFICATION_KEY &&
+    (PRIVY_VERIFICATION_KEY.includes("BEGIN") ||
+      PRIVY_VERIFICATION_KEY.length > 40)
+  ) {
     return normalizePem(PRIVY_VERIFICATION_KEY);
   }
-  if (!PRIVY_APP_ID || !PRIVY_APP_SECRET) {
+  if (!appId || !PRIVY_APP_SECRET) {
     throw new Error("PRIVY_APP_ID / PRIVY_APP_SECRET missing");
   }
-  const res = await fetch(`https://auth.privy.io/api/v1/apps/${PRIVY_APP_ID}`, {
+  const res = await fetch(`https://auth.privy.io/api/v1/apps/${appId}`, {
     headers: {
-      Authorization: basicAuthHeader(),
-      "privy-app-id": PRIVY_APP_ID,
+      Authorization: basicAuthHeader(appId, PRIVY_APP_SECRET),
+      "privy-app-id": appId,
     },
     cache: "no-store",
   });
@@ -74,12 +102,12 @@ async function fetchVerificationPem(): Promise<string> {
   return normalizePem(pem);
 }
 
-async function getVerifyKey(): Promise<KeyLike> {
-  const pem = await fetchVerificationPem();
-  if (cachedSpki && cachedPem === pem) return cachedSpki;
+async function getVerifyKey(appId: string): Promise<KeyLike> {
+  const cacheKey = appId;
+  if (keyCache.has(cacheKey)) return keyCache.get(cacheKey)!;
+  const pem = await fetchVerificationPem(appId);
   const key = await importSPKI(pem, "ES256");
-  cachedSpki = key;
-  cachedPem = pem;
+  keyCache.set(cacheKey, key);
   return key;
 }
 
@@ -88,51 +116,134 @@ export function bearerFrom(req: NextRequest): string | null {
   if (auth?.toLowerCase().startsWith("bearer ")) {
     return auth.slice(7).trim();
   }
+  // Some CF / browser paths drop Authorization — client may send x-privy-token
+  const alt =
+    req.headers.get("x-privy-token") ||
+    req.headers.get("x-access-token") ||
+    null;
+  if (alt) return alt.trim();
   const cookie =
     req.cookies.get("privy-token")?.value ||
     req.cookies.get("privy-id-token")?.value;
   return cookie || null;
 }
 
+/** Also allow body.accessToken / body.privyToken */
+export function tokenFromRequest(
+  req: NextRequest,
+  body?: Record<string, unknown> | null
+): string | null {
+  const header = bearerFrom(req);
+  if (header) return header;
+  if (body) {
+    const t =
+      body.accessToken ||
+      body.privyToken ||
+      body.token ||
+      body.idToken;
+    if (typeof t === "string" && t.trim()) return t.trim();
+  }
+  return null;
+}
+
+function candidateAppIds(tokenAud?: string | string[]): string[] {
+  const ids: string[] = [];
+  const push = (x?: string) => {
+    if (x && !ids.includes(x)) ids.push(x);
+  };
+  if (Array.isArray(tokenAud)) tokenAud.forEach((a) => push(String(a)));
+  else if (tokenAud) push(String(tokenAud));
+  push(PRIVY_APP_ID);
+  push(PRIVY_APP_ID_FALLBACK);
+  // historical TOKENSHIT app
+  push("cmn9qofoh00z50cjuijtbyf10");
+  push("cmdz9woca0012ky0bgpyfqept");
+  return ids.filter(Boolean);
+}
+
 export async function verifyPrivyAccessToken(
   token: string
-): Promise<{ ok: true; userId: string } | { ok: false; error: string }> {
-  if (!PRIVY_APP_ID) return { ok: false, error: "PRIVY_APP_ID missing" };
+): Promise<
+  | { ok: true; userId: string; appId: string }
+  | { ok: false; error: string; meta?: Record<string, unknown> }
+> {
   const cleaned = token.replace(/^Bearer\s+/i, "").trim();
   if (!cleaned || cleaned.split(".").length < 3) {
     return { ok: false, error: "Token is not a JWT" };
   }
+
+  let header: Record<string, unknown> = {};
+  let claims: Record<string, unknown> = {};
   try {
-    const key = await getVerifyKey();
-    const { payload } = await jwtVerify(cleaned, key, {
-      issuer: "privy.io",
-      audience: PRIVY_APP_ID,
-      algorithms: ["ES256"],
-    });
-    const userId = typeof payload.sub === "string" ? payload.sub : "";
-    if (!userId) return { ok: false, error: "JWT missing sub" };
-    return { ok: true, userId };
+    header = decodeProtectedHeader(cleaned) as Record<string, unknown>;
+    claims = decodeJwt(cleaned) as Record<string, unknown>;
   } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    return { ok: false, error: msg };
+    return {
+      ok: false,
+      error: `JWT decode failed: ${e instanceof Error ? e.message : String(e)}`,
+    };
   }
+
+  const aud = claims.aud as string | string[] | undefined;
+  const apps = candidateAppIds(aud);
+  const errors: string[] = [];
+
+  for (const appId of apps) {
+    try {
+      const key = await getVerifyKey(appId);
+      const { payload } = await jwtVerify(cleaned, key, {
+        issuer: "privy.io",
+        audience: appId,
+        algorithms: ["ES256"],
+        clockTolerance: 120,
+      });
+      const userId = typeof payload.sub === "string" ? payload.sub : "";
+      if (!userId) {
+        errors.push(`${appId}: missing sub`);
+        continue;
+      }
+      return { ok: true, userId, appId };
+    } catch (e) {
+      errors.push(
+        `${appId}: ${e instanceof Error ? e.message : String(e)}`
+      );
+    }
+  }
+
+  return {
+    ok: false,
+    error: errors[0] || "signature verification failed",
+    meta: {
+      alg: header.alg,
+      typ: header.typ,
+      iss: claims.iss,
+      aud: claims.aud,
+      sub: typeof claims.sub === "string" ? claims.sub.slice(0, 24) : null,
+      exp: claims.exp,
+      tried: apps,
+      errors: errors.slice(0, 6),
+    },
+  };
 }
 
-async function fetchPrivyUser(privyId: string): Promise<PrivyIdentity> {
+async function fetchPrivyUser(
+  privyId: string,
+  appId: string
+): Promise<PrivyIdentity> {
   const empty: PrivyIdentity = {
     privyId,
     twitter: null,
     github: null,
     wallets: [],
   };
-  if (!PRIVY_APP_ID || !PRIVY_APP_SECRET) return empty;
+  if (!appId || !PRIVY_APP_SECRET) return empty;
   try {
     const res = await fetch(
       `https://auth.privy.io/api/v1/users/${encodeURIComponent(privyId)}`,
       {
         headers: {
-          Authorization: basicAuthHeader(),
-          "privy-app-id": PRIVY_APP_ID,
+          Authorization: basicAuthHeader(appId, PRIVY_APP_SECRET),
+          "privy-app-id": appId,
         },
         cache: "no-store",
       }
@@ -167,7 +278,10 @@ async function fetchPrivyUser(privyId: string): Promise<PrivyIdentity> {
           a.chain_type === "solana" ||
           t.includes("solana"))
       ) {
-        wallets.push(a.address);
+        // skip EVM
+        if (!a.address.startsWith("0x") && !a.address.startsWith("0X")) {
+          wallets.push(a.address);
+        }
       }
     }
     return { privyId, twitter, github, wallets };
@@ -178,7 +292,7 @@ async function fetchPrivyUser(privyId: string): Promise<PrivyIdentity> {
 }
 
 /**
- * Verify Privy access token from Authorization: Bearer <token>
+ * Verify Privy access token from Authorization / x-privy-token / body.accessToken
  */
 export async function requirePrivy(
   req: NextRequest,
@@ -187,6 +301,8 @@ export async function requirePrivy(
     github?: string | null;
     wallet?: string | null;
     requireTwitter?: boolean;
+    /** optional pre-parsed body so we don't consume stream twice */
+    body?: Record<string, unknown> | null;
   }
 ): Promise<{ ok: true; id: PrivyIdentity } | { ok: false; res: Response }> {
   if (!PRIVY_APP_ID) {
@@ -211,7 +327,7 @@ export async function requirePrivy(
     };
   }
 
-  const token = bearerFrom(req);
+  const token = tokenFromRequest(req, opts?.body ?? null);
   if (!token) {
     return {
       ok: false,
@@ -224,20 +340,21 @@ export async function requirePrivy(
 
   const verified = await verifyPrivyAccessToken(token);
   if (!verified.ok) {
-    console.error("privy jwt verify failed", verified.error);
+    console.error("privy jwt verify failed", verified.error, verified.meta);
     return {
       ok: false,
       res: Response.json(
         {
           error: "Invalid or expired session — log out and log back in",
           detail: verified.error,
+          meta: verified.meta,
         },
         { status: 401 }
       ),
     };
   }
 
-  const id = await fetchPrivyUser(verified.userId);
+  const id = await fetchPrivyUser(verified.userId, verified.appId);
 
   if (opts?.requireTwitter) {
     if (!id.twitter) {
