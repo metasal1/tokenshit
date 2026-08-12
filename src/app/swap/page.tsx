@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import BuyShitPanel from "@/components/BuyShitPanel";
-import SwapShitUsdcPanel from "@/components/SwapShitUsdcPanel";
+import SwapDesk from "@/components/SwapDesk";
 import WalletAddressCard from "@/components/WalletAddressCard";
 import CopyableAddress from "@/components/CopyableAddress";
 import {
@@ -14,7 +13,7 @@ import { USDC_MINT } from "@/lib/buy-fee";
 
 export const metadata: Metadata = {
   title: `Swap $${SHIT_SYMBOL} — TokenShit`,
-  description: `Buy $${SHIT_SYMBOL} with SOL, or swap $${SHIT_SYMBOL} ↔ USDC. Copy wallet & mint.`,
+  description: `Buy $${SHIT_SYMBOL} with SOL, or swap $${SHIT_SYMBOL} ↔ USDC. Amount presets, balances, Jupiter routes.`,
 };
 
 export default function SwapPage() {
@@ -22,26 +21,23 @@ export default function SwapPage() {
     <div className="mx-auto w-full max-w-lg px-3 sm:px-4 pt-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:py-10 space-y-4 sm:space-y-5">
       <header className="space-y-2">
         <h1 className="text-2xl sm:text-3xl font-black leading-tight tracking-tight">
-          <span className="emoji mr-1.5" aria-hidden>
-            🔁
-          </span>
           <span className="neon-text">Swap</span>
         </h1>
         <p className="text-zinc-400 text-sm leading-snug">
-          SOL → ${SHIT_SYMBOL}, or ${SHIT_SYMBOL} ↔ USDC. Same Privy wallet.
+          Buy ${SHIT_SYMBOL} with SOL, or trade ${SHIT_SYMBOL} ↔ USDC. Set exact
+          size with presets or %.
         </p>
         <p className="text-xs text-zinc-600">
-          Need free drops?{" "}
+          Free drops?{" "}
           <Link href="/claim" className="text-neon-blue hover:underline">
-            Claim rewards →
+            Claim rewards
           </Link>
         </p>
       </header>
 
       <WalletAddressCard />
 
-      <BuyShitPanel />
-      <SwapShitUsdcPanel />
+      <SwapDesk />
 
       <section className="rounded-xl border border-border bg-card p-3.5 sm:p-4 space-y-3">
         <h2 className="text-sm font-semibold text-foreground">Addresses</h2>
