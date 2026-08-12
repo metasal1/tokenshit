@@ -40,37 +40,33 @@ export async function GET(request: NextRequest) {
     );
 
     const result = await tursoExecute(
-      `SELECT referred_twitter, created_at FROM referrals
-       WHERE lower(referrer_twitter) = lower(?)
-       ORDER BY created_at DESC`,
-      [username]
-    );
-
-    const referrals = result.rows.map((row) => ({
-      referred_twitter: String(row[0]),
-      created_at: String(row[1]),
-    }));
-
-    const paidR = await tursoExecute(
-      `SELECT COUNT(*), COALESCE(SUM(amount),0) FROM referral_rewards
-       WHERE lower(referrer_twitter) = lower(?)
-         AND signature IS NOT NULL AND signature != '' AND signature != 'pending'`,
-      [username]
-    );
-    const unpaidR = await tursoExecute(
-      `SELECT COUNT(*) FROM referrals r
+      `SELECT r.referred_twitter, r.created_at,
+              rr.signature, rr.amount
+       FROM referrals r
+       LEFT JOIN referral_rewards rr
+         ON lower(rr.referred_twitter) = lower(r.referred_twitter)
        WHERE lower(r.referrer_twitter) = lower(?)
-       AND NOT EXISTS (
-         SELECT 1 FROM referral_rewards rr
-         WHERE lower(rr.referred_twitter) = lower(r.referred_twitter)
-           AND rr.signature IS NOT NULL AND rr.signature != '' AND rr.signature != 'pending'
-       )`,
+       ORDER BY r.created_at DESC`,
       [username]
     );
 
-    const paidCount = Number(paidR.rows[0]?.[0] || 0);
-    const paidAmount = Number(paidR.rows[0]?.[1] || 0);
-    const unpaidCount = Number(unpaidR.rows[0]?.[0] || 0);
+    const referrals = result.rows.map((row) => {
+      const sig = row[2] != null ? String(row[2]) : null;
+      const paid = Boolean(sig && sig !== "" && sig !== "pending");
+      return {
+        referred_twitter: String(row[0]),
+        created_at: String(row[1]),
+        paid,
+        amount: row[3] != null ? Number(row[3]) : null,
+        signature: paid ? sig : null,
+      };
+    });
+
+    const paidCount = referrals.filter((r) => r.paid).length;
+    const unpaidCount = referrals.length - paidCount;
+    const paidAmount = referrals
+      .filter((r) => r.paid)
+      .reduce((s, r) => s + (r.amount || 0), 0);
 
     return Response.json({
       totalReferrals: referrals.length,

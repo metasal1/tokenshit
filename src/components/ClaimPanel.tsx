@@ -139,6 +139,8 @@ export default function ClaimPanel() {
   const [sig, setSig] = useState<string | null>(null);
   const [treasuryShit, setTreasuryShit] = useState<number | null>(null);
   const [tweetUrl, setTweetUrl] = useState("");
+  const [claimedStatus, setClaimedStatus] = useState<Record<string, boolean>>({});
+  const [statusLoading, setStatusLoading] = useState(false);
 
   const twitter = user?.twitter?.username || null;
   const github = user?.github?.username || null;
@@ -165,6 +167,26 @@ export default function ClaimPanel() {
       .catch(() => {});
   }, [sig]);
 
+  useEffect(() => {
+    if (!authenticated) {
+      setClaimedStatus({});
+      return;
+    }
+    setStatusLoading(true);
+    const q = new URLSearchParams();
+    if (twitter) q.set("twitter", twitter);
+    if (github) q.set("github", github);
+    if (wallet) q.set("wallet", wallet);
+    fetch(`/api/claim/status?${q}`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.claimed) setClaimedStatus(d.claimed);
+        if (typeof d.treasuryShit === "number") setTreasuryShit(d.treasuryShit);
+      })
+      .catch(() => {})
+      .finally(() => setStatusLoading(false));
+  }, [authenticated, twitter, github, wallet, sig]);
+
   async function claim(kind: ClaimKind) {
     setErr(null);
     setMsg(null);
@@ -186,6 +208,10 @@ export default function ClaimPanel() {
     }
     if (kind === "gh_fork" && !github) {
       setErr("Link GitHub first.");
+      return;
+    }
+    if (kind === "x_tweet" && !tweetUrl.trim()) {
+      setErr("Paste your tweet URL first.");
       return;
     }
 
@@ -300,11 +326,13 @@ export default function ClaimPanel() {
                 Link GitHub
               </button>
             )}
-            {wallet && (
-              <span className="font-mono text-zinc-600 text-[10px] sm:text-xs truncate max-w-[40vw] sm:max-w-none">
+            {wallet ? (
+              <span className="font-mono text-zinc-400 text-[10px] sm:text-xs truncate max-w-[40vw] sm:max-w-none px-2 py-1 rounded bg-zinc-900 border border-zinc-800">
                 {wallet.slice(0, 4)}…{wallet.slice(-4)}
               </span>
-            )}
+            ) : authenticated ? (
+              <span className="text-[11px] text-amber-400">Waiting for Solana wallet…</span>
+            ) : null}
           </>
         )}
       </div>
@@ -364,18 +392,29 @@ export default function ClaimPanel() {
             <input
               type="url"
               inputMode="url"
-              placeholder="Tweet link (optional if search works)"
+              placeholder="Paste tweet URL (required)"
               value={tweetUrl}
               onChange={(e) => setTweetUrl(e.target.value)}
               className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-zinc-600"
             />
+            <div className="flex items-center justify-between gap-2">
+              {claimedStatus["x_tweet"] ? (
+            <span className="text-xs font-mono text-neon bg-neon/10 border border-neon/30 rounded-md px-2 py-1">Claimed ✓</span>
+          ) : statusLoading ? (
+            <span className="text-[10px] text-zinc-600">…</span>
+          ) : null}
+            </div>
             <button
               type="button"
-              disabled={busy !== null}
+              disabled={busy !== null || !!claimedStatus["x_tweet"] || !tweetUrl.trim()}
               onClick={() => claim("x_tweet")}
               className={BTN_NEON}
             >
-              {busy === "x_tweet" ? "Checking…" : "2. Claim tweet"}
+              {busy === "x_tweet"
+                ? "Checking…"
+                : claimedStatus["x_tweet"]
+                  ? "Already claimed"
+                  : "2. Claim tweet"}
             </button>
           </div>
         </RewardRow>
@@ -395,13 +434,22 @@ export default function ClaimPanel() {
               >
                 Follow
               </a>
+              {claimedStatus["x_follow"] ? (
+            <span className="text-xs font-mono text-neon bg-neon/10 border border-neon/30 rounded-md px-2 py-1">Claimed ✓</span>
+          ) : statusLoading ? (
+            <span className="text-[10px] text-zinc-600">…</span>
+          ) : null}
               <button
                 type="button"
-                disabled={busy !== null}
+                disabled={busy !== null || !!claimedStatus["x_follow"]}
                 onClick={() => claim("x_follow")}
                 className={BTN_SKY}
               >
-                {busy === "x_follow" ? "Checking…" : "Claim follow"}
+                {busy === "x_follow"
+                  ? "Checking…"
+                  : claimedStatus["x_follow"]
+                    ? "Already claimed"
+                    : "Claim follow"}
               </button>
             </div>
           </RewardRow>
@@ -411,17 +459,24 @@ export default function ClaimPanel() {
             amount={CLAIM_X_VERIFIED}
             hint="Blue / business / gov."
           >
+            {claimedStatus["x_verified"] ? (
+            <span className="text-xs font-mono text-neon bg-neon/10 border border-neon/30 rounded-md px-2 py-1">Claimed ✓</span>
+          ) : statusLoading ? (
+            <span className="text-[10px] text-zinc-600">…</span>
+          ) : null}
             <button
               type="button"
-              disabled={busy !== null}
+              disabled={busy !== null || !!claimedStatus["x_verified"]}
               onClick={() => claim("x_verified")}
               className={BTN_SKY}
             >
               {busy === "x_verified"
                 ? "Claiming…"
-                : authenticated
-                  ? "Claim verified"
-                  : "Login"}
+                : claimedStatus["x_verified"]
+                  ? "Already claimed"
+                  : authenticated
+                    ? "Claim verified"
+                    : "Login"}
             </button>
           </RewardRow>
         </div>
@@ -443,17 +498,24 @@ export default function ClaimPanel() {
             </>
           }
         >
+          {claimedStatus["gh_fork"] ? (
+            <span className="text-xs font-mono text-neon bg-neon/10 border border-neon/30 rounded-md px-2 py-1">Claimed ✓</span>
+          ) : statusLoading ? (
+            <span className="text-[10px] text-zinc-600">…</span>
+          ) : null}
           <button
             type="button"
-            disabled={busy !== null}
+            disabled={busy !== null || !!claimedStatus["gh_fork"]}
             onClick={() => claim("gh_fork")}
             className={BTN_LIGHT}
           >
             {busy === "gh_fork"
               ? "Claiming…"
-              : authenticated
-                ? "Claim GH fork"
-                : "Login"}
+              : claimedStatus["gh_fork"]
+                ? "Already claimed"
+                : authenticated
+                  ? "Claim GH fork"
+                  : "Login"}
           </button>
         </RewardRow>
       </div>
