@@ -172,6 +172,17 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    if (paid.length > 0) {
+      const { notifyReferralPayoutTelegram } = await import("@/lib/telegram");
+      void notifyReferralPayoutTelegram({
+        referrer: twitter,
+        paid: paid.length,
+        amount: paid.length * REFERRAL_REWARD_SHIT,
+        wallet,
+        details: paid,
+      });
+    }
+
     return Response.json({
       ok: true,
       paid: paid.length,

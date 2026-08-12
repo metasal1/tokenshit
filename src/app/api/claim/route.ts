@@ -428,6 +428,19 @@ export async function POST(request: NextRequest) {
       await recordAbuseEvent("claim_major", ip, twitter, { kind, amount });
     }
 
+    // Don't block response on Telegram
+    const { notifyClaimTelegram } = await import("@/lib/telegram");
+    void notifyClaimTelegram({
+      kind,
+      amount,
+      twitter,
+      github,
+      wallet,
+      signature,
+      followers: profileGate.followers,
+      ip,
+    });
+
     return Response.json({
       ok: true,
       kind,
