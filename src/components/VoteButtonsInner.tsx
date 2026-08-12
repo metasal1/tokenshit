@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { usePrivy } from "@privy-io/react-auth";
-import { EmojiIcon } from "@/components/EmojiIcon";
 import { sfx } from "@/lib/sfx";
+import SkipNextButton from "@/components/SkipNextButton";
+import { EmojiIcon } from "@/components/EmojiIcon";
 import { getDeviceId, incrementAnonVoteCount } from "@/lib/device-id";
 
 const HIT_CURSOR = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 24 24' fill='none' stroke='%2339ff14' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Ccircle cx='12' cy='12' r='6'/%3E%3Ccircle cx='12' cy='12' r='2'/%3E%3C/svg%3E") 14 14, crosshair`;
@@ -329,14 +330,7 @@ export default function VoteButtons({ assetId, name, symbol }: { assetId: string
               Share
             </a>
 
-            {/* Next token */}
-            <button
-              onClick={() => { if (nextUrl) { sfx.whoosh(); router.push(nextUrl); } }}
-              disabled={!nextUrl}
-              className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-semibold border border-zinc-700 text-zinc-300 hover:text-white hover:border-zinc-500 transition-colors disabled:opacity-40 disabled:cursor-wait"
-            >
-              Next token →
-            </button>
+            {/* Next case */}\n            <SkipNextButton\n              variant=\"chip\"\n              label=\"Next case\"\n              sublabel=\"continue\"\n              onClick={() => {\n                if (nextUrl) {\n                  sfx.whoosh();\n                  router.push(nextUrl);\n                }\n              }}\n              disabled={!nextUrl}\n              className=\"flex-1 justify-center min-h-[40px] rounded-lg\"\n            />
           </div>
 
           {/* Login nudge for anonymous voters */}

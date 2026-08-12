@@ -138,41 +138,13 @@ export default function SwipeableToken({
     <div className="relative overflow-hidden">
       {/* Lottie coach + text hints */}
       {(prevAssetId || nextAssetId) && (
-        <div className="flex flex-col items-center gap-1 px-4 pt-2 pb-1">
-          <div className="sm:hidden w-full flex justify-center">
+        <div className="flex flex-col items-center gap-1 px-4 pt-3 pb-1">
+          <div className="w-full flex justify-center">
             <SwipeHint mode="nav" />
           </div>
-          <div className="w-full flex justify-between text-xs text-zinc-600">
-            <span>
-              {prevAssetId ? (
-                <>
-                  <span className="sm:hidden">← swipe</span>
-                  <span className="hidden sm:inline">
-                    <kbd className="px-1 py-0.5 font-mono text-[10px] border border-zinc-700 rounded">
-                      ←
-                    </kbd>{" "}
-                    prev
-                  </span>
-                </>
-              ) : (
-                ""
-              )}
-            </span>
-            <span>
-              {nextAssetId ? (
-                <>
-                  <span className="sm:hidden">swipe →</span>
-                  <span className="hidden sm:inline">
-                    next{" "}
-                    <kbd className="px-1 py-0.5 font-mono text-[10px] border border-zinc-700 rounded">
-                      →
-                    </kbd>
-                  </span>
-                </>
-              ) : (
-                ""
-              )}
-            </span>
+          <div className="w-full flex justify-between text-[10px] font-mono uppercase tracking-wider text-zinc-600 px-1">
+            <span>{prevAssetId ? "prev case" : ""}</span>
+            <span>{nextAssetId ? "next case" : ""}</span>
           </div>
         </div>
       )}
@@ -238,20 +210,33 @@ export default function SwipeableToken({
           <button
             onClick={goPrev}
             className="fixed left-4 top-1/2 -translate-y-1/2 z-40 bg-zinc-800/80 hover:bg-zinc-700 text-white rounded-full w-10 h-10 flex items-center justify-center backdrop-blur-sm border border-zinc-700 transition-colors"
-            aria-label="Previous token (←)"
-            title="Previous token (←)"
+            aria-label="Previous case"
+            title="Previous case"
           >
-            ←
+            <span className="sr-only">Previous</span>
+            <span aria-hidden className="text-lg font-mono">
+              {"<"}
+            </span>
           </button>
         )}
         {nextAssetId && (
           <button
             onClick={goNext}
-            className="fixed right-4 top-1/2 -translate-y-1/2 z-40 bg-zinc-800/80 hover:bg-zinc-700 text-white rounded-full w-10 h-10 flex items-center justify-center backdrop-blur-sm border border-zinc-700 transition-colors"
-            aria-label="Next token (→)"
-            title="Next token (→)"
+            className="fixed right-4 top-1/2 -translate-y-1/2 z-40 bg-zinc-800/80 hover:bg-zinc-700 text-white rounded-full w-12 h-12 flex items-center justify-center backdrop-blur-sm border border-zinc-700 transition-colors overflow-hidden"
+            aria-label="Next case"
+            title="Next case"
           >
-            →
+            <span className="absolute inset-0 opacity-70 pointer-events-none">
+              <LottiePlayer
+                src="/lottie/swipe-hand.json"
+                className="h-full w-full scale-150"
+                loop
+                autoplay
+              />
+            </span>
+            <span aria-hidden className="relative text-lg font-mono z-10">
+              {">"}
+            </span>
           </button>
         )}
       </div>
