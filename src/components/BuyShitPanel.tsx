@@ -249,6 +249,8 @@ export default function BuyShitPanel() {
         setErr("Not enough SOL — add SOL first, then buy.");
       } else if (/User rejected|denied|cancel/i.test(m)) {
         setErr("Cancelled.");
+      } else if (/5663005|lookup tables unknown|address lookup/i.test(m)) {
+        setErr("Wallet couldn’t load the swap route — refresh and try again.");
       } else {
         setErr(m);
       }
