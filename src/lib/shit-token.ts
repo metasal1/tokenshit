@@ -137,7 +137,7 @@ export const GAME = {
 
 export const TOKENOMICS_BLURB = [
   "Vote free — earn Clout (XP).",
-  "Buy $TOKENSHIT — skin in the court.",
+  "Buy $TOKENSHIT — skin in the game.",
   `Tweet + tag @${X_HANDLE} — claim ${CLAIM_X_TWEET.toLocaleString()} $TOKENSHIT once.`,
   "X verified — claim 100,000 $TOKENSHIT once.",
   "Fork solana-foundation/tokens — claim 250,000 $TOKENSHIT once.",

@@ -77,7 +77,7 @@ function BrandDrop({ pack }: { pack: "hit" | "shit" }) {
 
 const HIT_LINES = [
   (s: string) => `I just called $${s} a HIT on @Tokenshit_ — don't make me look dumb`,
-  (s: string) => `$${s} = HIT. Court adjourned. @Tokenshit_`,
+  (s: string) => `$${s} = HIT. Every token is shit until proven otherwise. @Tokenshit_`,
   (s: string) => `Certified HIT: $${s}. Come fight me in the replies @Tokenshit_`,
 ];
 
@@ -403,7 +403,7 @@ export default function VoteButtons({
         <div className="flex items-start justify-between gap-3">
           <div>
             <p className="text-[10px] font-mono uppercase tracking-[0.18em] text-zinc-500">
-              Court is in session
+              Every token is shit until proven otherwise
             </p>
             <h2 className="text-lg sm:text-xl font-black text-white mt-0.5">
               {displaySym ? (
@@ -636,7 +636,7 @@ export default function VoteButtons({
 
             <SkipNextButton
               variant="button"
-              label="Next case"
+              label="Next bag"
               sublabel="auto in a few · or tap"
               onClick={() => {
                 if (skipTimer) clearTimeout(skipTimer);

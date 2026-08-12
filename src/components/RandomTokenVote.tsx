@@ -121,7 +121,7 @@ export default function RandomTokenVote() {
         </div>
         <SkipNextButton
           variant="chip"
-          label="Next case"
+          label="Next bag"
           sublabel="shuffle"
           onClick={fetchRandom}
           disabled={loading}

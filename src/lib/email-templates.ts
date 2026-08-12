@@ -146,7 +146,7 @@ export const RESEND_TEMPLATE_DEFS = [
     titleHtml: "{{{GREETING}}}",
     bodyHtml: `
 <p style="margin:0 0 14px;">You're on the list. Vote <strong style="color:#4ade80;">HIT</strong> or <strong style="color:#f87171;">SHIT</strong>, climb the arena, claim <strong style="color:#39ff14;">$TOKENSHIT</strong>.</p>
-<p style="margin:0 0 0;">Daily treasury drop · referrals · tweet rewards. Court is in session.</p>`,
+<p style="margin:0 0 0;">Daily treasury drop · referrals · tweet rewards. Every token is shit until proven otherwise.</p>`,
     ctaHref: EMAIL_BRAND.site,
     ctaLabel: "Start voting →",
   },

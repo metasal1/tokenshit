@@ -329,10 +329,10 @@ export default function VoteButtons({ assetId, name, symbol }: { assetId: string
               Share
             </a>
 
-            {/* Next case */}
+            {/* Next bag */}
             <SkipNextButton
               variant="chip"
-              label="Next case"
+              label="Next bag"
               sublabel="continue"
               onClick={() => {
                 if (nextUrl) {

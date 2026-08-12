@@ -2,9 +2,7 @@
 
 import { useRef, useState, useCallback, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import InteractiveSwipeLottie, {
-  SwipeEdgeGlow,
-} from "@/components/InteractiveSwipeLottie";
+import { SwipeEdgeGlow } from "@/components/InteractiveSwipeLottie";
 import { sfx } from "@/lib/sfx";
 
 interface Props {
@@ -14,7 +12,7 @@ interface Props {
 }
 
 /**
- * Token pager — Lottie follows the finger, bursts on commit.
+ * Token pager — swipe / arrows only (no Lottie).
  * Swipe right → prev · swipe left → next
  */
 export default function SwipeableToken({
@@ -31,44 +29,18 @@ export default function SwipeableToken({
   const [transitioning, setTransitioning] = useState(false);
   const [direction, setDirection] = useState<"left" | "right" | null>(null);
   const [visible, setVisible] = useState(true);
-  const [burst, setBurst] = useState<"left" | "right" | null>(null);
-  const [burstKey, setBurstKey] = useState(0);
-  const [hintOnce, setHintOnce] = useState(true);
 
   useEffect(() => {
     setTransitioning(false);
     setDirection(null);
     setOffsetX(0);
     setVisible(false);
-    setBurst(null);
     requestAnimationFrame(() => setVisible(true));
   }, [pathname]);
-
-  useEffect(() => {
-    // one-time idle coach: brief auto-progress pulse then hide
-    try {
-      if (sessionStorage.getItem("tokenshit_swipe_lottie_hint") === "1") {
-        setHintOnce(false);
-        return;
-      }
-    } catch {
-      /* ignore */
-    }
-    const t = window.setTimeout(() => {
-      setHintOnce(false);
-      try {
-        sessionStorage.setItem("tokenshit_swipe_lottie_hint", "1");
-      } catch {
-        /* ignore */
-      }
-    }, 2800);
-    return () => window.clearTimeout(t);
-  }, []);
 
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     setTouchStartX(e.touches[0].clientX);
     setTouchStartY(e.touches[0].clientY);
-    setHintOnce(false);
   }, []);
 
   const handleTouchMove = useCallback(
@@ -87,8 +59,6 @@ export default function SwipeableToken({
   const commit = useCallback(
     (dir: "left" | "right", id: string) => {
       setDirection(dir);
-      setBurst(dir);
-      setBurstKey((k) => k + 1);
       setTransitioning(true);
       setOffsetX(dir === "left" ? -140 : 140);
       try {
@@ -96,7 +66,7 @@ export default function SwipeableToken({
       } catch {
         /* ignore */
       }
-      setTimeout(() => router.push(`/token/${id}`), 280);
+      setTimeout(() => router.push(`/token/${id}`), 220);
     },
     [router]
   );
@@ -160,18 +130,12 @@ export default function SwipeableToken({
   const glowSide: "left" | "right" | null =
     offsetX > 8 ? "left" : offsetX < -8 ? "right" : null;
 
-  // idle coach: gentle synthetic offset so Lottie scrubs once
-  const idleOffset =
-    hintOnce && nextAssetId && Math.abs(offsetX) < 1 && !burst
-      ? -36
-      : offsetX;
-
   return (
     <div className="relative overflow-hidden">
       {(prevAssetId || nextAssetId) && (
         <div className="w-full flex justify-between text-[10px] font-mono uppercase tracking-wider text-zinc-600 px-4 pt-2 pb-1">
-          <span>{prevAssetId ? "swipe right · prev" : ""}</span>
-          <span>{nextAssetId ? "swipe left · next" : ""}</span>
+          <span>{prevAssetId ? "swipe · prev" : ""}</span>
+          <span>{nextAssetId ? "swipe · next" : ""}</span>
         </div>
       )}
 
@@ -182,16 +146,6 @@ export default function SwipeableToken({
         {glowSide === "right" && (
           <SwipeEdgeGlow side="right" intensity={intensity} mode="nav" />
         )}
-
-        <InteractiveSwipeLottie
-          offsetX={idleOffset}
-          threshold={90}
-          burst={burst}
-          burstKey={burstKey}
-          variant="phone"
-          mode="nav"
-          size={104}
-        />
 
         <div
           ref={containerRef}
@@ -216,14 +170,13 @@ export default function SwipeableToken({
         </div>
       </div>
 
-      {/* Desktop: buttons fire the same Lottie burst via commit */}
       <div className="hidden sm:block">
         {prevAssetId && (
           <button
             onClick={goPrev}
             className="fixed left-4 top-1/2 -translate-y-1/2 z-40 bg-zinc-900/90 hover:bg-zinc-800 text-white rounded-full w-12 h-12 flex items-center justify-center backdrop-blur-sm border border-zinc-600 hover:border-neon/50 transition-colors"
-            aria-label="Previous case"
-            title="Previous case"
+            aria-label="Previous token"
+            title="Previous"
           >
             <span aria-hidden className="text-lg font-mono">
               {"<"}
@@ -234,8 +187,8 @@ export default function SwipeableToken({
           <button
             onClick={goNext}
             className="fixed right-4 top-1/2 -translate-y-1/2 z-40 bg-zinc-900/90 hover:bg-zinc-800 text-white rounded-full w-12 h-12 flex items-center justify-center backdrop-blur-sm border border-zinc-600 hover:border-neon/50 transition-colors"
-            aria-label="Next case"
-            title="Next case"
+            aria-label="Next token"
+            title="Next"
           >
             <span aria-hidden className="text-lg font-mono">
               {">"}

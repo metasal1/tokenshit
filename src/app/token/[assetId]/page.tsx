@@ -32,7 +32,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const symbol = meta.symbol || "";
   return {
     title: symbol ? `${name} (${symbol}) — HIT or SHIT` : `${name} — HIT or SHIT`,
-    description: `Vote HIT or SHIT on ${name}. Court of Solana assets on TokenShit.`,
+    description: `Vote HIT or SHIT on ${name}. Every token is shit until proven otherwise.`,
   };
 }
 
@@ -207,7 +207,7 @@ export default async function TokenPage({ params, searchParams }: Props) {
   return (
     <TokenPageWrapper assetId={assetId}>
       <div className="mx-auto max-w-3xl px-3 sm:px-4 pt-3 sm:pt-6 pb-[max(1.25rem,env(safe-area-inset-bottom))] space-y-4 sm:space-y-5">
-        {/* Compact case header */}
+        {/* Compact token header */}
         <header className="rounded-2xl border border-border bg-card p-3.5 sm:p-5">
           <div className="flex items-center gap-3 sm:gap-4">
             {logo ? (
@@ -224,7 +224,7 @@ export default async function TokenPage({ params, searchParams }: Props) {
             )}
             <div className="min-w-0 flex-1">
               <p className="text-[10px] font-mono uppercase tracking-[0.16em] text-zinc-500">
-                Case file
+                Rate this bag
               </p>
               <h1 className="text-xl sm:text-2xl font-black text-foreground truncate leading-tight">
                 {name}
@@ -452,7 +452,7 @@ export default async function TokenPage({ params, searchParams }: Props) {
             Back to arena
           </Link>
           {" · "}
-          swipe for next case
+          swipe for next bag
         </p>
       </div>
     </TokenPageWrapper>

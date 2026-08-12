@@ -63,7 +63,7 @@ export default function Home() {
       </section>
 
       <section className="mx-auto max-w-7xl w-full px-4 pt-10 pb-6">
-        <h2 className="text-2xl font-bold mb-2">Arena court</h2>
+        <h2 className="text-2xl font-bold mb-2">Arena</h2>
         <p className="text-sm text-zinc-500 mb-6">
           HIT / SHIT by category — crypto, stocks, stables, more.
         </p>
