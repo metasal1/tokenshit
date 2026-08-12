@@ -247,6 +247,35 @@ export default function ClaimPanel() {
         `Sent ${Number(data.amount).toLocaleString()} $${SHIT_SYMBOL} to wallet.`
       );
       setSig(data.signature || null);
+      try {
+        const handle = (twitter || github || "").replace(/^@/, "") || null;
+        window.dispatchEvent(
+          new CustomEvent("tokenshit:claim", {
+            detail: {
+              id: Date.now(),
+              kind,
+              kindLabel:
+                kind === "x_verified"
+                  ? "X verified"
+                  : kind === "gh_fork"
+                    ? "GH fork"
+                    : kind === "x_tweet"
+                      ? "tweet tag"
+                      : "X follow",
+              handle,
+              twitter: twitter || null,
+              github: github || null,
+              amount: Number(data.amount) || 0,
+              avatarUrl: twitter
+                ? `https://unavatar.io/twitter/${encodeURIComponent(twitter)}`
+                : null,
+              createdAt: new Date().toISOString(),
+            },
+          })
+        );
+      } catch {
+        /* ignore */
+      }
       requestAnimationFrame(() => {
         document
           .getElementById("claim-status")

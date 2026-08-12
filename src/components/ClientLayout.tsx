@@ -17,6 +17,7 @@ import PwaProvider from '@/components/PwaProvider';
 import ShitBalanceBadge from '@/components/ShitBalanceBadge';
 import EmailSignupModal from '@/components/EmailSignupModal';
 import SignupGlitchToast from '@/components/SignupGlitchToast';
+import ClaimGlitchToast from '@/components/ClaimGlitchToast';
 import { TREASURY_ADDRESS, treasurySolscanUrl } from '@/lib/shit-token';
 import { getPrivyConfig } from '@/lib/privy-config';
 import { pickSolanaAddress } from '@/lib/privy-identity';
@@ -431,8 +432,9 @@ function Layout({ children }: { children: React.ReactNode }) {
     <CanvasShell>
       {nav}
       <ReferralTracker />
-      <EmailSignupModal />
+      <ClaimGlitchToast />
       <SignupGlitchToast />
+      <EmailSignupModal />
       <main className="flex-1"><PageTransition>{children}</PageTransition></main>
       <footer className="border-t border-border py-6 text-center text-sm text-zinc-500">
         <p>TokenShit — Every token is shit until proven otherwise.</p>
