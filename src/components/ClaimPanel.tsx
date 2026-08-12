@@ -6,6 +6,7 @@ import { useWallets } from "@privy-io/react-auth/solana";
 import {
   CLAIM_GH_FORK,
   CLAIM_X_FOLLOW,
+  CLAIM_X_PREMIUM,
   CLAIM_X_TWEET,
   CLAIM_X_VERIFIED,
   GH_FORK_UPSTREAM,
@@ -24,7 +25,7 @@ import { BalanceSkeleton } from "@/components/StatLoader";
 import ShareRefButton from "@/components/ShareRefButton";
 import { pickSolanaAddress } from "@/lib/privy-identity";
 
-type ClaimKind = "x_verified" | "gh_fork" | "x_tweet" | "x_follow";
+type ClaimKind = "x_verified" | "x_premium" | "gh_fork" | "x_tweet" | "x_follow";
 
 const BTN =
   "w-full min-h-11 touch-manipulation rounded-lg text-sm font-semibold py-3 px-3 transition disabled:opacity-50 active:scale-[0.98]";
@@ -191,11 +192,8 @@ export default function ClaimPanel() {
       setErr("No Solana wallet yet — wait a second after login, or re-login.");
       return;
     }
-    if (
-      (kind === "x_verified" || kind === "x_tweet" || kind === "x_follow") &&
-      !twitter
-    ) {
-      setErr("Link X first.");
+    if (!twitter) {
+      setErr("Sign in with X is required.");
       return;
     }
     if (kind === "gh_fork" && !github) {
@@ -316,6 +314,12 @@ export default function ClaimPanel() {
         </div>
         <TreasuryBalanceBadge className="shrink-0" />
       </div>
+
+      <p className="text-[11px] sm:text-xs text-zinc-500 leading-snug rounded-lg border border-border/60 bg-zinc-950/40 px-3 py-2">
+        <span className="text-zinc-300 font-medium">Rules:</span>{" "}
+        X login required · PFP · 100+ followers · pay to Privy wallet linked to that X ·
+        verified 10k / premium 20k / GH fork 100k · 1 major claim per IP per day
+      </p>
 
       {/* Account strip */}
       <div className="flex flex-wrap items-center gap-2 text-xs">
@@ -484,28 +488,54 @@ export default function ClaimPanel() {
           </RewardRow>
 
           <RewardRow
-            title="X verified"
-            amount={CLAIM_X_VERIFIED}
-            hint="Blue / business / gov."
+            title="X Premium (blue)"
+            amount={CLAIM_X_PREMIUM}
+            hint="X Premium · 100+ followers · PFP · Privy wallet linked to X · 1 major/IP/day"
           >
-            {claimedStatus["x_verified"] ? (
+            {claimedStatus["x_premium"] || claimedStatus["x_verified"] ? (
             <span className="text-xs font-mono text-neon bg-neon/10 border border-neon/30 rounded-md px-2 py-1">Claimed ✓</span>
           ) : statusLoading ? (
             <span className="text-[10px] text-zinc-600">…</span>
           ) : null}
             <button
               type="button"
-              disabled={busy !== null || !!claimedStatus["x_verified"]}
+              disabled={busy !== null || !!claimedStatus["x_premium"] || !!claimedStatus["x_verified"]}
+              onClick={() => claim("x_premium")}
+              className={BTN_SKY}
+            >
+              {busy === "x_premium"
+                ? "Claiming…"
+                : claimedStatus["x_premium"] || claimedStatus["x_verified"]
+                  ? "Already claimed"
+                  : authenticated
+                    ? "Claim premium 20k"
+                    : "Login with X"}
+            </button>
+          </RewardRow>
+
+          <RewardRow
+            title="X verified"
+            amount={CLAIM_X_VERIFIED}
+            hint="Verified (not Premium) · 100+ followers · PFP · Privy wallet linked to X"
+          >
+            {claimedStatus["x_verified"] || claimedStatus["x_premium"] ? (
+            <span className="text-xs font-mono text-neon bg-neon/10 border border-neon/30 rounded-md px-2 py-1">Claimed ✓</span>
+          ) : statusLoading ? (
+            <span className="text-[10px] text-zinc-600">…</span>
+          ) : null}
+            <button
+              type="button"
+              disabled={busy !== null || !!claimedStatus["x_verified"] || !!claimedStatus["x_premium"]}
               onClick={() => claim("x_verified")}
               className={BTN_SKY}
             >
               {busy === "x_verified"
                 ? "Claiming…"
-                : claimedStatus["x_verified"]
+                : claimedStatus["x_verified"] || claimedStatus["x_premium"]
                   ? "Already claimed"
                   : authenticated
-                    ? "Claim verified"
-                    : "Login"}
+                    ? "Claim verified 10k"
+                    : "Login with X"}
             </button>
           </RewardRow>
         </div>
@@ -515,7 +545,7 @@ export default function ClaimPanel() {
           amount={CLAIM_GH_FORK}
           hint={
             <>
-              Fork{" "}
+              100k · X required · 100+ followers · PFP · Fork{" "}
               <a
                 href="https://github.com/solana-foundation/tokens"
                 className="text-neon-blue break-all"

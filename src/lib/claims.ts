@@ -1,6 +1,11 @@
 import { tursoExecute } from "@/lib/turso";
 
-export type ClaimKind = "x_verified" | "gh_fork" | "x_tweet" | "x_follow";
+export type ClaimKind =
+  | "x_verified"
+  | "x_premium"
+  | "gh_fork"
+  | "x_tweet"
+  | "x_follow";
 
 export async function ensureClaimSchema() {
   await tursoExecute(
@@ -23,29 +28,40 @@ export async function ensureClaimSchema() {
 
 export async function hasClaimed(
   kind: ClaimKind,
-  opts: { twitter?: string | null; github?: string | null; wallet?: string | null }
+  opts: {
+    twitter?: string | null;
+    github?: string | null;
+    wallet?: string | null;
+  }
 ): Promise<boolean> {
   await ensureClaimSchema();
-  if (opts.twitter) {
-    const r = await tursoExecute(
-      `SELECT 1 FROM shit_claims WHERE claim_kind = ? AND lower(twitter) = lower(?) LIMIT 1`,
-      [kind, opts.twitter]
-    );
-    if (r.rows.length) return true;
-  }
-  if (opts.github) {
-    const r = await tursoExecute(
-      `SELECT 1 FROM shit_claims WHERE claim_kind = ? AND lower(github) = lower(?) LIMIT 1`,
-      [kind, opts.github]
-    );
-    if (r.rows.length) return true;
-  }
-  if (opts.wallet) {
-    const r = await tursoExecute(
-      `SELECT 1 FROM shit_claims WHERE claim_kind = ? AND wallet = ? LIMIT 1`,
-      [kind, opts.wallet]
-    );
-    if (r.rows.length) return true;
+  // verified ↔ premium mutually exclusive
+  const kinds: ClaimKind[] =
+    kind === "x_verified" || kind === "x_premium"
+      ? ["x_verified", "x_premium"]
+      : [kind];
+  for (const k of kinds) {
+    if (opts.twitter) {
+      const r = await tursoExecute(
+        `SELECT 1 FROM shit_claims WHERE claim_kind = ? AND lower(twitter) = lower(?) LIMIT 1`,
+        [k, opts.twitter]
+      );
+      if (r.rows.length) return true;
+    }
+    if (opts.github) {
+      const r = await tursoExecute(
+        `SELECT 1 FROM shit_claims WHERE claim_kind = ? AND lower(github) = lower(?) LIMIT 1`,
+        [k, opts.github]
+      );
+      if (r.rows.length) return true;
+    }
+    if (opts.wallet) {
+      const r = await tursoExecute(
+        `SELECT 1 FROM shit_claims WHERE claim_kind = ? AND wallet = ? LIMIT 1`,
+        [k, opts.wallet]
+      );
+      if (r.rows.length) return true;
+    }
   }
   return false;
 }

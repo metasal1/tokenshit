@@ -18,22 +18,29 @@ export const TREASURY_ADDRESS =
   process.env.NEXT_PUBLIC_TREASURY_ADDRESS ||
   "SHTy7yoA5uAZoevKT3BFcSeDeFaHEyqWc55uApd3MJB";
 
-/** One-time claim amounts (whole tokens) — capped after Aug 2026 drain */
-export const CLAIM_X_VERIFIED = 5_000;
-export const CLAIM_GH_FORK = 10_000;
-/** Tweet + tag @Tokenshit_ (once) */
+/** One-time claim amounts (Metasal rules) */
+export const CLAIM_X_VERIFIED = 10_000;
+/** X Premium (blue) */
+export const CLAIM_X_PREMIUM = 20_000;
+/** GitHub fork of solana-foundation/tokens */
+export const CLAIM_GH_FORK = 100_000;
+/** Tweet + tag @Tokenshit_ (once) — minor */
 export const CLAIM_X_TWEET = 5_000;
-/** Follow @Tokenshit_ (once) */
+/** Follow @Tokenshit_ (once) — minor */
 export const CLAIM_X_FOLLOW = 3_000;
 /** $TOKENSHIT per referral */
 export const REFERRAL_REWARD_SHIT = 2_000;
 
 /** Anti-farm floors (overridable via env — see src/lib/abuse.ts) */
+export const CLAIM_REQUIRE_PFP = process.env.CLAIM_REQUIRE_PFP !== "0";
+export const MAJOR_CLAIMS_PER_IP_DAY = Number(
+  process.env.MAJOR_CLAIMS_PER_IP_DAY || 1
+);
 export const ABUSE_MIN_FOLLOWERS_CLAIM = Number(
-  process.env.MIN_X_FOLLOWERS_CLAIM || 50
+  process.env.MIN_X_FOLLOWERS_CLAIM || 100
 );
 export const ABUSE_MIN_FOLLOWERS_REFERRAL = Number(
-  process.env.MIN_X_FOLLOWERS_REFERRAL || 25
+  process.env.MIN_X_FOLLOWERS_REFERRAL || 100
 );
 
 /**

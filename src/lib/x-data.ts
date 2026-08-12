@@ -71,13 +71,67 @@ export type XUserPublic = {
   following: number;
   tweets: number;
   verified: boolean;
+  /** X Premium / blue */
+  premium: boolean;
   verifiedType: string;
   profileImageUrl?: string;
+  hasPfp: boolean;
   error?: string;
   source?: string;
 };
 
-async function fromOfficialX(username: string): Promise<XUserPublic | null> {
+
+function withProfileFlags(u: {
+  ok: boolean;
+  username?: string;
+  id?: string;
+  name?: string;
+  followers: number;
+  following: number;
+  tweets: number;
+  verified: boolean;
+  verifiedType?: string;
+  premium?: boolean;
+  profileImageUrl?: string;
+  error?: string;
+  source?: string;
+}): XUserPublic {
+  const verifiedType = String(u.verifiedType || "none").toLowerCase();
+  const premium = Boolean(
+    u.premium ||
+      verifiedType === "blue" ||
+      (u.verified && verifiedType === "blue")
+  );
+  const verified =
+    premium ||
+    u.verified ||
+    ["blue", "business", "government"].includes(verifiedType);
+  const profileImageUrl = u.profileImageUrl;
+  const hasPfp = Boolean(
+    profileImageUrl &&
+      !/default_profile_images|default_profile|abs\.twimg\.com\/sticky\/default/i.test(
+        profileImageUrl
+      )
+  );
+  return {
+    ok: u.ok,
+    username: u.username,
+    id: u.id,
+    name: u.name,
+    followers: u.followers || 0,
+    following: u.following || 0,
+    tweets: u.tweets || 0,
+    verified,
+    premium,
+    verifiedType: verifiedType || "none",
+    profileImageUrl,
+    hasPfp,
+    error: u.error,
+    source: u.source,
+  };
+}
+
+async function fromOfficialX(username: string): Promise<any> {
   const bearer = xBearer();
   if (!bearer) return null;
   const clean = username.replace(/^@/, "").trim();
@@ -132,7 +186,7 @@ async function fromOfficialX(username: string): Promise<XUserPublic | null> {
   };
 }
 
-async function fromTweetApiUser(username: string): Promise<XUserPublic | null> {
+async function fromTweetApiUser(username: string): Promise<any> {
   const key = tweetApiKey();
   if (!key) return null;
   const clean = username.replace(/^@/, "").trim();
@@ -160,7 +214,7 @@ async function fromTweetApiUser(username: string): Promise<XUserPublic | null> {
   const d = json.data || json;
   const verifiedType = String(d.verifiedType || d.verified_type || "none");
   const verified =
-    Boolean(d.isBlueVerified) ||
+    Boolean(d.isBlueVerified) || // premium blue
     Boolean(d.verified) ||
     Boolean(d.isIdentityVerified) ||
     /blue|business|government/i.test(verifiedType);
@@ -181,7 +235,7 @@ async function fromTweetApiUser(username: string): Promise<XUserPublic | null> {
   };
 }
 
-async function fromFxTwitter(username: string): Promise<XUserPublic | null> {
+async function fromFxTwitter(username: string): Promise<any> {
   const clean = username.replace(/^@/, "").trim();
   try {
     const res = await fetch(`https://api.fxtwitter.com/${encodeURIComponent(clean)}`, {
@@ -215,7 +269,7 @@ async function fromFxTwitter(username: string): Promise<XUserPublic | null> {
 export async function fetchXUserPublic(username: string): Promise<XUserPublic> {
   const clean = username.replace(/^@/, "").trim();
   if (!clean) {
-    return {
+    return withProfileFlags({
       ok: false,
       followers: 0,
       following: 0,
@@ -223,53 +277,55 @@ export async function fetchXUserPublic(username: string): Promise<XUserPublic> {
       verified: false,
       verifiedType: "none",
       error: "no username",
-    };
+    });
   }
 
-  // Official first (if credits exist)
   const official = await fromOfficialX(clean);
-  if (official?.ok) return official;
+  if (official?.ok) return withProfileFlags(official);
 
-  // TweetAPI backup (Tokenshit claims path)
   const ta = await fromTweetApiUser(clean);
-  if (ta?.ok) return ta;
+  if (ta?.ok) return withProfileFlags(ta);
 
-  // Free public
   const fx = await fromFxTwitter(clean);
-  if (fx?.ok) return fx;
+  if (fx?.ok) return withProfileFlags(fx);
 
-  return (
-    ta ||
-    official || {
-      ok: false,
-      followers: 0,
-      following: 0,
-      tweets: 0,
-      verified: false,
-      verifiedType: "none",
-      error: "Could not load X profile (X credits + TweetAPI + free fallbacks failed)",
-    }
-  );
+  const fail = ta || official;
+  if (fail) return withProfileFlags(fail);
+  return withProfileFlags({
+    ok: false,
+    followers: 0,
+    following: 0,
+    tweets: 0,
+    verified: false,
+    verifiedType: "none",
+    error: "Could not load X profile (X credits + TweetAPI + free fallbacks failed)",
+  });
 }
 
 export async function checkXVerified(username: string): Promise<{
   ok: boolean;
   verified: boolean;
+  premium: boolean;
   verifiedType: string;
   followers?: number;
+  hasPfp?: boolean;
+  profileImageUrl?: string;
   error?: string;
 }> {
   const m = await fetchXUserPublic(username);
   return {
     ok: m.ok,
     verified: m.verified,
+    premium: Boolean(m.premium),
     verifiedType: m.verifiedType,
     followers: m.followers,
+    hasPfp: m.hasPfp,
+    profileImageUrl: m.profileImageUrl,
     error: m.error,
   };
 }
 
-/** Does sourceUser follow @Tokenshit_? */
+/** Does sourceUser/** Does sourceUser follow @Tokenshit_? */
 export async function checkXFollowsTokenshit(username: string): Promise<{
   ok: boolean;
   following: boolean;

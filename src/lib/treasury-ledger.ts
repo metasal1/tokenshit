@@ -12,6 +12,7 @@ import {
 
 export type PayoutKind =
   | "x_verified"
+  | "x_premium"
   | "gh_fork"
   | "x_tweet"
   | "x_follow"
@@ -19,11 +20,11 @@ export type PayoutKind =
   | "manual"
   | "other";
 
-const DAY_BUDGET = Number(process.env.TREASURY_DAY_BUDGET || 100_000);
-const WALLET_DAY_CAP = Number(process.env.TREASURY_WALLET_DAY_CAP || 25_000);
-const WALLET_LIFE_CAP = Number(process.env.TREASURY_WALLET_LIFE_CAP || 50_000);
+const DAY_BUDGET = Number(process.env.TREASURY_DAY_BUDGET || 250_000);
+const WALLET_DAY_CAP = Number(process.env.TREASURY_WALLET_DAY_CAP || 120_000);
+const WALLET_LIFE_CAP = Number(process.env.TREASURY_WALLET_LIFE_CAP || 150_000);
 const IDENTITY_LIFE_CAP = Number(
-  process.env.TREASURY_IDENTITY_LIFE_CAP || 50_000
+  process.env.TREASURY_IDENTITY_LIFE_CAP || 150_000
 );
 
 export async function ensurePayoutLedger() {

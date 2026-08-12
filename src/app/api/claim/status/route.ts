@@ -3,6 +3,7 @@ import { hasClaimed, type ClaimKind } from "@/lib/claims";
 import {
   CLAIM_GH_FORK,
   CLAIM_X_FOLLOW,
+  CLAIM_X_PREMIUM,
   CLAIM_X_TWEET,
   CLAIM_X_VERIFIED,
 } from "@/lib/shit-token";
@@ -10,10 +11,11 @@ import { getTreasuryBalances } from "@/lib/treasury";
 
 export const dynamic = "force-dynamic";
 
-const KINDS: ClaimKind[] = ["x_tweet", "x_follow", "x_verified", "gh_fork"];
+const KINDS: ClaimKind[] = ["x_tweet", "x_follow", "x_verified", "x_premium", "gh_fork"];
 
 const AMOUNTS: Record<ClaimKind, number> = {
   x_verified: CLAIM_X_VERIFIED,
+  x_premium: CLAIM_X_PREMIUM,
   gh_fork: CLAIM_GH_FORK,
   x_tweet: CLAIM_X_TWEET,
   x_follow: CLAIM_X_FOLLOW,

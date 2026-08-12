@@ -113,7 +113,7 @@ export async function POST(request: NextRequest) {
       try {
         const q = await gateReferredForPayout(referred);
         if (!q.ok) {
-          errors.push(q.error);
+          errors.push(q.error || q.code || "skipped");
           await recordAbuseEvent("ref_skip", getClientIp(request), referred, {
             reason: q.code,
             followers: q.followers,

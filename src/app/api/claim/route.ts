@@ -2,6 +2,7 @@ import { type NextRequest } from "next/server";
 import {
   CLAIM_GH_FORK,
   CLAIM_X_FOLLOW,
+  CLAIM_X_PREMIUM,
   CLAIM_X_TWEET,
   CLAIM_X_VERIFIED,
   TREASURY_ADDRESS,
@@ -22,7 +23,8 @@ import { assertNotBlacklisted } from "@/lib/security";
 import {
   getClientIp,
   gateClaimIp,
-  gateXFollowersForClaim,
+  gateMajorClaimIp,
+  gateXProfileForClaim,
   recordAbuseEvent,
 } from "@/lib/abuse";
 
@@ -32,6 +34,7 @@ const SOLANA_ADDR = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
 
 const AMOUNTS: Record<ClaimKind, number> = {
   x_verified: CLAIM_X_VERIFIED,
+  x_premium: CLAIM_X_PREMIUM,
   gh_fork: CLAIM_GH_FORK,
   x_tweet: CLAIM_X_TWEET,
   x_follow: CLAIM_X_FOLLOW,
@@ -52,6 +55,16 @@ export async function GET(request: NextRequest) {
     return Response.json({
       amounts: AMOUNTS,
       treasury: TREASURY_ADDRESS,
+      rules: {
+        xRequired: true,
+        minFollowers: 100,
+        requirePfp: true,
+        majorClaimsPerIpDay: 1,
+        verified: CLAIM_X_VERIFIED,
+        premium: CLAIM_X_PREMIUM,
+        ghFork: CLAIM_GH_FORK,
+        walletMustBePrivyLinkedToX: true,
+      },
     });
   }
   const kind = kindRaw;
@@ -60,12 +73,13 @@ export async function GET(request: NextRequest) {
     let eligible = false;
     let detail: Record<string, unknown> = {};
 
-    if (kind === "x_verified") {
+    if (kind === "x_verified" || kind === "x_premium") {
       if (!twitter)
         return Response.json({ error: "twitter required" }, { status: 400 });
       const x = await checkXVerified(twitter);
       detail = x;
-      eligible = x.ok && x.verified;
+      if (kind === "x_premium") eligible = x.ok && x.premium;
+      else eligible = x.ok && x.verified && !x.premium;
     } else if (kind === "gh_fork") {
       if (!github)
         return Response.json({ error: "github required" }, { status: 400 });
@@ -107,7 +121,6 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    // Kill switch (set CLAIMS_ENABLED=0 on Worker)
     if (process.env.CLAIMS_ENABLED === "0") {
       return Response.json(
         {
@@ -122,7 +135,9 @@ export async function POST(request: NextRequest) {
     const ip = getClientIp(request);
     const ipGate = await gateClaimIp(ip);
     if (!ipGate.ok) {
-      await recordAbuseEvent("claim_blocked", ip, null, { reason: ipGate.code });
+      await recordAbuseEvent("claim_blocked", ip, null, {
+        reason: ipGate.code,
+      });
       return Response.json(
         { error: ipGate.error, code: ipGate.code },
         { status: ipGate.status }
@@ -135,11 +150,24 @@ export async function POST(request: NextRequest) {
       return Response.json({ error: "Invalid claim kind" }, { status: 400 });
     }
     const kind = kindRaw;
-    const wallet = String(body.wallet || "").trim();
-    const twitter = body.twitter
+
+    const majorGate = await gateMajorClaimIp(ip, kind);
+    if (!majorGate.ok) {
+      await recordAbuseEvent("claim_blocked", ip, null, {
+        reason: majorGate.code,
+        kind,
+      });
+      return Response.json(
+        { error: majorGate.error, code: majorGate.code },
+        { status: majorGate.status }
+      );
+    }
+
+    let wallet = String(body.wallet || "").trim();
+    let twitter = body.twitter
       ? String(body.twitter).replace(/^@/, "").toLowerCase().trim()
       : null;
-    const github = body.github
+    let github = body.github
       ? String(body.github).replace(/^@/, "").toLowerCase().trim()
       : null;
 
@@ -153,58 +181,112 @@ export async function POST(request: NextRequest) {
     const blocked = assertNotBlacklisted(wallet);
     if (blocked) return blocked;
 
+    // X sign-in compulsory for ALL claims. Wallet must be Privy-linked to that X.
     const auth = await requirePrivy(request, {
       twitter,
       github,
       wallet,
-      requireTwitter:
-        kind === "x_verified" || kind === "x_tweet" || kind === "x_follow",
+      requireTwitter: true,
+      requireLinkedWallet: true,
       body: body as Record<string, unknown>,
     });
     if (!auth.ok) return auth.res;
 
-    // Follower floor on tweet/follow claims
-    const flGate = await gateXFollowersForClaim(twitter || auth.id.twitter, kind);
-    if (!flGate.ok) {
-      await recordAbuseEvent("claim_blocked", ip, twitter, {
-        reason: flGate.code,
-        kind,
-        followers: flGate.followers,
-      });
+    // Canonical identity from Privy (not client body)
+    if (auth.id.twitter) twitter = auth.id.twitter;
+    if (auth.id.github) github = auth.id.github;
+    if (auth.id.wallets.length === 1) {
+      wallet = auth.id.wallets[0]!;
+    } else if (auth.id.wallets.length > 1) {
+      const match = auth.id.wallets.find(
+        (w) => w.toLowerCase() === wallet.toLowerCase()
+      );
+      if (!match) {
+        return Response.json(
+          {
+            error:
+              "Wallet must be the Privy Solana wallet linked to your X account",
+            linkedWallets: auth.id.wallets.map(
+              (w) => `${w.slice(0, 4)}…${w.slice(-4)}`
+            ),
+          },
+          { status: 403 }
+        );
+      }
+      wallet = match;
+    }
+
+    if (!twitter) {
       return Response.json(
-        {
-          error: flGate.error,
-          code: flGate.code,
-          followers: flGate.followers,
-        },
-        { status: flGate.status }
+        { error: "Sign in with X is required" },
+        { status: 403 }
       );
     }
 
-    const amount = AMOUNTS[kind];
+    const profileGate = await gateXProfileForClaim(twitter);
+    if (!profileGate.ok) {
+      await recordAbuseEvent("claim_blocked", ip, twitter, {
+        reason: profileGate.code,
+        kind,
+        followers: profileGate.followers,
+      });
+      return Response.json(
+        {
+          error: profileGate.error,
+          code: profileGate.code,
+          followers: profileGate.followers,
+        },
+        { status: profileGate.status }
+      );
+    }
+
+    let amount = AMOUNTS[kind];
     let tweetId: string | undefined;
 
-    if (kind === "x_verified") {
-      if (!twitter)
-        return Response.json(
-          { error: "Twitter handle required" },
-          { status: 400 }
-        );
+    if (kind === "x_verified" || kind === "x_premium") {
       const x = await checkXVerified(twitter);
       if (!x.ok)
         return Response.json(
           { error: x.error || "X check failed" },
           { status: 502 }
         );
-      if (!x.verified)
-        return Response.json(
-          { error: "X account is not verified", verifiedType: x.verifiedType },
-          { status: 403 }
-        );
+      if (kind === "x_premium") {
+        if (!x.premium)
+          return Response.json(
+            {
+              error:
+                "X Premium (blue) required for this reward. Non-premium verified can claim the verified tier instead.",
+              verifiedType: x.verifiedType,
+            },
+            { status: 403 }
+          );
+        amount = CLAIM_X_PREMIUM;
+      } else {
+        // verified tier: any verified, but premium users should use x_premium
+        if (x.premium) {
+          return Response.json(
+            {
+              error:
+                "You have X Premium — use the Premium claim (20,000) instead of Verified (10,000).",
+              code: "use_premium_tier",
+            },
+            { status: 400 }
+          );
+        }
+        if (!x.verified)
+          return Response.json(
+            {
+              error: "X account is not verified",
+              verifiedType: x.verifiedType,
+            },
+            { status: 403 }
+          );
+        amount = CLAIM_X_VERIFIED;
+      }
     } else if (kind === "gh_fork") {
       if (!github)
         return Response.json(
-          { error: "GitHub username required" },
+          { error: "Link GitHub to your Privy account first" },
           { status: 400 }
         );
       const g = await checkGhFork(github);
@@ -221,16 +303,12 @@ export async function POST(request: NextRequest) {
           },
           { status: 403 }
         );
+      amount = CLAIM_GH_FORK;
     } else if (kind === "x_tweet") {
-      if (!twitter)
-        return Response.json(
-          { error: "Twitter handle required" },
-          { status: 400 }
-        );
       const tweetUrl = body.tweetUrl ? String(body.tweetUrl).trim() : "";
       if (!tweetUrl) {
         return Response.json(
-          { error: "Paste your tweet URL to claim (X search is flaky)." },
+          { error: "Paste your tweet URL to claim." },
           { status: 400 }
         );
       }
@@ -244,17 +322,12 @@ export async function POST(request: NextRequest) {
         return Response.json(
           {
             error:
-              "No recent tweet from you tagging @Tokenshit_ found (last ~7 days). Post, then paste the tweet link and claim.",
+              "No recent tweet from you tagging @Tokenshit_ found. Post, paste the link, claim.",
           },
           { status: 403 }
         );
       tweetId = t.tweetId;
     } else if (kind === "x_follow") {
-      if (!twitter)
-        return Response.json(
-          { error: "Twitter handle required" },
-          { status: 400 }
-        );
       const f = await checkXFollowsTokenshit(twitter);
       if (!f.ok)
         return Response.json(
@@ -284,7 +357,6 @@ export async function POST(request: NextRequest) {
         { status: 503 }
       );
     }
-
     if (bal.sol < 0.001) {
       return Response.json(
         {
@@ -296,7 +368,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Unique claim row first (identity locks)
     try {
       await recordClaim({
         kind,
@@ -314,7 +385,6 @@ export async function POST(request: NextRequest) {
       throw e;
     }
 
-    // Ledger + caps + on-chain (single path — cannot bypass)
     let signature: string;
     try {
       const paid = await payFromTreasury({
@@ -323,8 +393,8 @@ export async function POST(request: NextRequest) {
         amount,
         twitter,
         github,
-        idempotencyKey: `claim:${kind}:${wallet.toLowerCase()}`,
-        meta: { twitter, github, tweetId },
+        idempotencyKey: `claim:${kind}:${twitter}:${wallet.toLowerCase()}`,
+        meta: { twitter, github, tweetId, premium: kind === "x_premium" },
       });
       signature = paid.signature;
     } catch (e) {
@@ -349,11 +419,14 @@ export async function POST(request: NextRequest) {
       [signature, kind, wallet]
     );
 
-    await recordAbuseEvent("claim", ip, twitter || wallet, {
+    await recordAbuseEvent("claim", ip, twitter, {
       kind,
       amount,
-      followers: flGate.followers,
+      followers: profileGate.followers,
     });
+    if (kind === "x_verified" || kind === "x_premium" || kind === "gh_fork") {
+      await recordAbuseEvent("claim_major", ip, twitter, { kind, amount });
+    }
 
     return Response.json({
       ok: true,
