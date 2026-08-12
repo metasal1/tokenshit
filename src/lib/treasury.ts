@@ -105,6 +105,26 @@ export async function sendShitFromTreasury(
   recipient: string,
   amountWhole: number
 ): Promise<{ signature: string; amount: number }> {
+  const { isBlacklistedWallet, treasurySendsAllowed, maxSinglePayoutWhole } =
+    await import("@/lib/security");
+
+  const gate = treasurySendsAllowed();
+  if (!gate.ok) {
+    throw new Error(`Treasury sends paused (${gate.reason})`);
+  }
+  if (isBlacklistedWallet(recipient)) {
+    throw new Error("Recipient wallet blocked");
+  }
+  const cap = maxSinglePayoutWhole();
+  if (!Number.isFinite(amountWhole) || amountWhole <= 0) {
+    throw new Error("Invalid amount");
+  }
+  if (amountWhole > cap) {
+    throw new Error(
+      `Amount ${amountWhole} exceeds max single payout ${cap} (set TREASURY_MAX_SINGLE to raise)`
+    );
+  }
+
   const {
     Connection,
     PublicKey,

@@ -106,6 +106,18 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    // Kill switch (set CLAIMS_ENABLED=0 on Worker)
+    if (process.env.CLAIMS_ENABLED === "0") {
+      return Response.json(
+        {
+          error:
+            "Claims paused while we secure the treasury. Follow @Tokenshit_ for updates.",
+          code: "claims_paused",
+        },
+        { status: 503 }
+      );
+    }
+
     const ip = getClientIp(request);
     const ipGate = await gateClaimIp(ip);
     if (!ipGate.ok) {
