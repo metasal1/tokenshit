@@ -131,9 +131,9 @@ export default function HeaderTicker() {
       key: "users",
       node: (
         <Link
-          href="/claim"
+          href="/"
           className="inline-flex items-center gap-1.5 hover:text-neon transition-colors"
-          title="Email list / signups"
+          title="Privy accounts"
         >
           <span className="text-zinc-500">Users</span>
           {usersLoading || usersLabel == null ? (
