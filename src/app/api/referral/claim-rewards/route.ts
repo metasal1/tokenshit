@@ -4,6 +4,12 @@ import { REFERRAL_REWARD_SHIT } from "@/lib/shit-token";
 import { sendShitFromTreasury } from "@/lib/treasury";
 import { requirePrivy } from "@/lib/privy-server";
 import { assertNotBlacklisted } from "@/lib/security";
+import {
+  getClientIp,
+  gateClaimIp,
+  gateReferredForPayout,
+  recordAbuseEvent,
+} from "@/lib/abuse";
 
 export const dynamic = "force-dynamic";
 
@@ -16,6 +22,14 @@ export const dynamic = "force-dynamic";
  */
 export async function POST(request: NextRequest) {
   try {
+    const ipGate = await gateClaimIp(getClientIp(request));
+    if (!ipGate.ok) {
+      return Response.json(
+        { error: ipGate.error, code: ipGate.code },
+        { status: ipGate.status }
+      );
+    }
+
     const secretOk = Boolean(process.env.PRIVY_APP_SECRET);
     const flagOn = process.env.REFERRAL_PAYOUTS_ENABLED === "1";
     const flagOff = process.env.REFERRAL_PAYOUTS_ENABLED === "0";
@@ -96,6 +110,17 @@ export async function POST(request: NextRequest) {
     for (const row of unpaid.rows) {
       const referred = String(row[0]);
       try {
+        const q = await gateReferredForPayout(referred);
+        if (!q.ok) {
+          errors.push(q.error);
+          await recordAbuseEvent("ref_skip", getClientIp(request), referred, {
+            reason: q.code,
+            followers: q.followers,
+            referrer: twitter,
+          });
+          continue;
+        }
+
         const reserved = await tursoExecute(
           `INSERT OR IGNORE INTO referral_rewards
              (referrer_twitter, referred_twitter, wallet, amount, signature)
