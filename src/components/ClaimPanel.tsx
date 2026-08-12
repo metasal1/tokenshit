@@ -22,6 +22,7 @@ import {
 } from "@/lib/shit-token";
 import { BalanceSkeleton } from "@/components/StatLoader";
 import ShareRefButton from "@/components/ShareRefButton";
+import { pickSolanaAddress } from "@/lib/privy-identity";
 
 type ClaimKind = "x_verified" | "gh_fork" | "x_tweet" | "x_follow";
 
@@ -144,19 +145,10 @@ export default function ClaimPanel() {
 
   const twitter = user?.twitter?.username || null;
   const github = user?.github?.username || null;
-  const wallet = useMemo(() => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const list = (wallets || []) as any[];
-    const preferred =
-      list.find((w) => w?.standardWallet?.name || w?.walletClientType) ||
-      list[0];
-    return (
-      preferred?.address ||
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (user as any)?.wallet?.address ||
-      null
-    ) as string | null;
-  }, [wallets, user]);
+  const wallet = useMemo(
+    () => pickSolanaAddress(wallets, user),
+    [wallets, user]
+  );
 
   useEffect(() => {
     fetch("/api/treasury")

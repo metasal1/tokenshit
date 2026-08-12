@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { REFERRAL_REWARD_SHIT, SHIT_SYMBOL } from '@/lib/shit-token';
 import ShareRefButton from '@/components/ShareRefButton';
 import ShitBalanceBadge from '@/components/ShitBalanceBadge';
+import { pickSolanaAddress } from '@/lib/privy-identity';
 
 interface LeaderboardEntry {
   username: string;
@@ -56,18 +57,10 @@ export default function ReferralsPage() {
   }, [authenticated, user]);
 
   const twitterHandle = user?.twitter?.username?.toLowerCase();
-  const wallet = useMemo(() => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const list = (wallets || []) as any[];
-    const preferred =
-      list.find((w) => w?.standardWallet?.name || w?.walletClientType) ||
-      list[0];
-    return (
-      preferred?.address ||
-      user?.wallet?.address ||
-      null
-    ) as string | null;
-  }, [wallets, user]);
+  const wallet = useMemo(
+    () => pickSolanaAddress(wallets, user),
+    [wallets, user]
+  );
   const referralLink = twitterHandle
     ? `https://tokenshit.com/?ref=${twitterHandle}`
     : null;

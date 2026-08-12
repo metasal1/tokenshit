@@ -275,6 +275,7 @@ function ReferralButton({ twitterUsername }: { twitterUsername?: string }) {
 
 function LoginButton() {
   const { ready, authenticated, user, login, logout, linkTwitter, linkGithub } = usePrivy();
+  const { wallets } = useWallets();
   const [showWallet, setShowWallet] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
 
@@ -283,7 +284,7 @@ function LoginButton() {
   if (authenticated && user) {
     const twitterHandle = user.twitter?.username;
     const githubHandle = user.github?.username;
-    const walletAddress = user.wallet?.address;
+    const walletAddress = pickSolanaAddress(wallets, user);
     const displayLabel = twitterHandle
       ? `@${twitterHandle}`
       : githubHandle
