@@ -1,20 +1,29 @@
 /**
  * Server-side security helpers for treasury-facing APIs.
- * Added 2026-08 after unauthenticated referral drain.
+ * Updated after Aug 11 2026 multi-vector drain.
  */
 
-/** Known drain / exit wallets */
+/** Known drain / exit wallets (full base58) */
 export const BLACKLISTED_WALLETS = new Set<string>([
-  // Primary drain (fake referral spam → 10k each)
+  // Fake referral spam → 10k drip
   "9kJBoqekAF3F1YU2AcWyPnTY8JmW32choy3vdRLeuNdh",
+  // Peer drip
+  "GMiEAt5VivnEqm5K1MNPxV3qeTXMBgNEasooDcLXXM1E",
+  // 8× 250k GH-fork-sized drains
+  "56yKVwgfNdqWrP2DmmZ8Wf9YSAvfMMXjbD6ahWchk3zv",
+  // other outflows
+  "Hf2fBpH77cxCRA41f16dsFEaPCnR3bhLdpGYVHni4NHE",
+  "8HXhS2tTyptSFxqesgBA8zLCKWsm8Fjeb2QXKMJsN1t9",
+  "G3C9diRjUCjMzohqe3uKcLwgXTxSAySAtBBipfoKpX7h",
+  "FKjgf7tTDQ8iQLNn1MrXtSa3QdrbQk1FYRjqcYSjYD4Q",
+  "4N3fZSA3peeBUx8ryypfrSoXsqUjfaFdzLrgseJW3Rjt",
 ]);
 
-/** Prefix match for exit wallets when full address confirmed at runtime */
 const BLACKLIST_PREFIXES: string[] = [
-  // Sweep destination seen in drain txs (prefix from balance deltas)
-  "2GCXJDao",
-  // Peer drip wallet
+  "2GCXJDao", // sweep exit
   "GMiEAt5Viv",
+  "9kJBoqekAF",
+  "56yKVwgfNd",
 ];
 
 export function loadEnvBlacklist() {
@@ -41,4 +50,31 @@ export function assertNotBlacklisted(wallet: string): Response | null {
     );
   }
   return null;
+}
+
+/**
+ * Global kill switch for ANY treasury token send.
+ * CLAIMS_ENABLED=0 or TREASURY_SENDS_ENABLED=0 or REFERRAL_PAYOUTS_ENABLED=0
+ * alone does not stop claims — this does.
+ */
+export function treasurySendsAllowed(): {
+  ok: boolean;
+  reason?: string;
+} {
+  if (process.env.TREASURY_SENDS_ENABLED === "0") {
+    return { ok: false, reason: "TREASURY_SENDS_ENABLED=0" };
+  }
+  if (process.env.CLAIMS_ENABLED === "0") {
+    // claims off — still allow explicit treasury ops only if SENDS=1
+    if (process.env.TREASURY_SENDS_ENABLED !== "1") {
+      return { ok: false, reason: "CLAIMS_ENABLED=0 (payouts paused)" };
+    }
+  }
+  // Hard max single transfer (whole tokens)
+  return { ok: true };
+}
+
+export function maxSinglePayoutWhole(): number {
+  const n = Number(process.env.TREASURY_MAX_SINGLE || 25_000);
+  return Number.isFinite(n) && n > 0 ? n : 25_000;
 }

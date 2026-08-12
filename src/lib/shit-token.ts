@@ -18,15 +18,15 @@ export const TREASURY_ADDRESS =
   process.env.NEXT_PUBLIC_TREASURY_ADDRESS ||
   "SHTy7yoA5uAZoevKT3BFcSeDeFaHEyqWc55uApd3MJB";
 
-/** One-time claim amounts (whole tokens) */
-export const CLAIM_X_VERIFIED = 100_000;
-export const CLAIM_GH_FORK = 250_000;
+/** One-time claim amounts (whole tokens) — capped after Aug 2026 drain */
+export const CLAIM_X_VERIFIED = 5_000;
+export const CLAIM_GH_FORK = 10_000;
 /** Tweet + tag @Tokenshit_ (once) */
-export const CLAIM_X_TWEET = 25_000;
-/** Follow @Tokenshit_ (once) — checked via recent engagement path if available */
-export const CLAIM_X_FOLLOW = 15_000;
+export const CLAIM_X_TWEET = 5_000;
+/** Follow @Tokenshit_ (once) */
+export const CLAIM_X_FOLLOW = 3_000;
 /** $TOKENSHIT per referral */
-export const REFERRAL_REWARD_SHIT = 10_000;
+export const REFERRAL_REWARD_SHIT = 2_000;
 
 /** Anti-farm floors (overridable via env — see src/lib/abuse.ts) */
 export const ABUSE_MIN_FOLLOWERS_CLAIM = Number(
