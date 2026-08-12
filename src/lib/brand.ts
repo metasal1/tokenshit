@@ -77,6 +77,8 @@ export const BRAND = {
       logoJpg: "/logo.jpg",
       banner: "/banner.jpeg",
       xBanner: "/brand/x-banner.jpg",
+      ogImage: "/brand/og-image.png",
+      ogShare: "/brand/og-share.png",
     },
   },
 

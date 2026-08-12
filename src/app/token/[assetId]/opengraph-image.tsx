@@ -263,8 +263,7 @@ export default async function OGImage({
           height: "100%",
           display: "flex",
           flexDirection: "column",
-          background:
-            "linear-gradient(145deg, #07070c 0%, #0c120e 40%, #0a0a12 100%)",
+          background: "#0a0a0f",
           fontFamily: bodyFont,
           padding: "48px 64px",
         }}
@@ -282,8 +281,8 @@ export default async function OGImage({
           <span
             style={{
               fontSize: 44,
-              color: "#e6ffe0",
-              textShadow: "0 0 8px #39ff14, 0 0 20px #1a8a0a",
+              color: "#fff8e7",
+              textShadow: "0 0 6px #fff8e7, 0 0 18px #f0c040, 0 0 40px #f0c040",
             }}
           >
             TOKEN
@@ -292,7 +291,7 @@ export default async function OGImage({
             style={{
               fontSize: 44,
               color: "#39ff14",
-              textShadow: "0 0 8px #39ff14, 0 0 22px #39ff14, 0 0 40px #0fa",
+              textShadow: "0 0 6px #39ff14, 0 0 18px #39ff14, 0 0 40px #0fa",
             }}
           >
             $
@@ -300,8 +299,8 @@ export default async function OGImage({
           <span
             style={{
               fontSize: 44,
-              color: "#e6ffe0",
-              textShadow: "0 0 8px #39ff14, 0 0 20px #1a8a0a",
+              color: "#fff8e7",
+              textShadow: "0 0 6px #fff8e7, 0 0 18px #f0c040, 0 0 40px #f0c040",
             }}
           >
             HIT
