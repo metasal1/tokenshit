@@ -198,13 +198,10 @@ export async function gateXFollowersForClaim(
 
   const x = await fetchXUserPublic(twitter);
   if (!x.ok) {
-    // Fail closed on claim if we can't verify size — farms hide behind API errors
-    return {
-      ok: false,
-      status: 503,
-      error: "Could not verify X account. Try again shortly.",
-      code: "x_lookup_failed",
-    };
+    // Don't hard-block when X API is flaky/credits out — farms still hit
+    // follower floor when lookup works.
+    console.warn("gateXFollowersForClaim lookup failed", x.error);
+    return { ok: true, soft: `x_lookup_failed:${x.error || "unknown"}` };
   }
   const followers = x.followers;
   if (followers < MIN_X_FOLLOWERS_CLAIM) {
@@ -223,8 +220,8 @@ export async function gateXFollowersForClaim(
       followers,
     };
   }
-  // default avatar + 0 tweets = botty
-  if (followers < MIN_X_FOLLOWERS_CLAIM * 2 && (x.tweets || 0) < 3) {
+  // very thin brand-new profiles only
+  if (followers < 15 && (x.tweets || 0) < 2) {
     if (!SOFT) {
       return {
         ok: false,
@@ -245,12 +242,9 @@ export async function gateReferredForPayout(
   if (MIN_X_FOLLOWERS_REFERRAL <= 0) return { ok: true };
   const x = await fetchXUserPublic(referredTwitter);
   if (!x.ok) {
-    return {
-      ok: false,
-      status: 403,
-      error: `Could not verify @${referredTwitter} — skipped payout`,
-      code: "x_lookup_failed",
-    };
+    // Fail open on lookup errors so one bad API day doesn't freeze all refs
+    console.warn("gateReferredForPayout lookup failed", referredTwitter, x.error);
+    return { ok: true, soft: "x_lookup_failed" };
   }
   if (x.followers < MIN_X_FOLLOWERS_REFERRAL) {
     return {
