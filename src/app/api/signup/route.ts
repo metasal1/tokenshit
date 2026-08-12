@@ -1,6 +1,6 @@
 import { type NextRequest } from "next/server";
 import { tursoExecute } from "@/lib/turso";
-import { sendEmail, welcomeEmail } from "@/lib/resend";
+import { sendTemplateEmail } from "@/lib/resend";
 import { sendTelegramMessage, escapeHtml } from "@/lib/telegram";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -81,14 +81,13 @@ export async function POST(request: NextRequest) {
       `📍 ${escapeHtml(source)}`,
     ].filter(Boolean) as string[];
 
-    const welcome = welcomeEmail(twitterHandle);
+    const greeting = twitterHandle ? `gm @${twitterHandle}` : "gm degen";
 
     const [emailRes, tgRes] = await Promise.allSettled([
-      sendEmail({
+      sendTemplateEmail({
         to: email,
-        subject: welcome.subject,
-        html: welcome.html,
-        text: welcome.text,
+        template: "welcome",
+        variables: { GREETING: greeting },
       }),
       sendTelegramMessage(tgLines.join("\n")),
     ]);
