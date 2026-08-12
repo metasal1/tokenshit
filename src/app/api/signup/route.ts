@@ -18,20 +18,23 @@ async function ensureSignupSchema() {
       x_followers INTEGER,
       x_verified INTEGER,
       x_verified_type TEXT,
+      x_avatar_url TEXT,
+      referrer_twitter TEXT,
       created_at TEXT DEFAULT (datetime('now'))
     )`,
     []
   );
-  // Best-effort migrations for existing DBs
   for (const col of [
     "ALTER TABLE email_signups ADD COLUMN x_followers INTEGER",
     "ALTER TABLE email_signups ADD COLUMN x_verified INTEGER",
     "ALTER TABLE email_signups ADD COLUMN x_verified_type TEXT",
+    "ALTER TABLE email_signups ADD COLUMN x_avatar_url TEXT",
+    "ALTER TABLE email_signups ADD COLUMN referrer_twitter TEXT",
   ]) {
     try {
       await tursoExecute(col, []);
     } catch {
-      /* already exists */
+      /* exists */
     }
   }
 }
@@ -64,6 +67,19 @@ export async function POST(request: NextRequest) {
     const source = body.source
       ? String(body.source).slice(0, 64)
       : "post-login-modal";
+    let referrerTwitter = body.referrerTwitter
+      ? String(body.referrerTwitter).toLowerCase().replace(/^@/, "").trim()
+      : null;
+    if (referrerTwitter && !/^[a-z0-9_]{1,15}$/i.test(referrerTwitter)) {
+      referrerTwitter = null;
+    }
+    if (
+      referrerTwitter &&
+      twitterHandle &&
+      referrerTwitter === twitterHandle
+    ) {
+      referrerTwitter = null;
+    }
 
     if (!email || !EMAIL_RE.test(email) || email.length > 254) {
       return Response.json({ error: "Invalid email" }, { status: 400 });
@@ -78,10 +94,10 @@ export async function POST(request: NextRequest) {
       return Response.json({ ok: true, alreadySignedUp: true });
     }
 
-    // Enrich with X metrics when handle present (1 API call)
     let xFollowers: number | null = null;
     let xVerified: boolean | null = null;
     let xVerifiedType: string | null = null;
+    let xAvatarUrl: string | null = null;
     let xLookupErr: string | null = null;
     if (twitterHandle) {
       try {
@@ -90,19 +106,41 @@ export async function POST(request: NextRequest) {
           xFollowers = x.followers;
           xVerified = x.verified;
           xVerifiedType = x.verifiedType;
+          xAvatarUrl =
+            x.profileImageUrl ||
+            `https://unavatar.io/twitter/${encodeURIComponent(twitterHandle)}`;
         } else {
           xLookupErr = x.error || "lookup failed";
+          xAvatarUrl = `https://unavatar.io/twitter/${encodeURIComponent(twitterHandle)}`;
         }
       } catch (e) {
         xLookupErr = e instanceof Error ? e.message : String(e);
+        xAvatarUrl = `https://unavatar.io/twitter/${encodeURIComponent(twitterHandle)}`;
+      }
+    }
+
+    // If no referrer on body, try referrals table
+    if (!referrerTwitter && twitterHandle) {
+      try {
+        const r = await tursoExecute(
+          `SELECT referrer_twitter FROM referrals
+           WHERE lower(referred_twitter) = lower(?) LIMIT 1`,
+          [twitterHandle]
+        );
+        if (r.rows[0]?.[0]) {
+          referrerTwitter = String(r.rows[0][0]).toLowerCase();
+        }
+      } catch {
+        /* ignore */
       }
     }
 
     try {
       await tursoExecute(
         `INSERT INTO email_signups
-           (email, twitter_handle, wallet_address, privy_id, source, x_followers, x_verified, x_verified_type)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+           (email, twitter_handle, wallet_address, privy_id, source,
+            x_followers, x_verified, x_verified_type, x_avatar_url, referrer_twitter)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           email,
           twitterHandle,
@@ -112,6 +150,8 @@ export async function POST(request: NextRequest) {
           xFollowers,
           xVerified == null ? null : xVerified ? 1 : 0,
           xVerifiedType,
+          xAvatarUrl,
+          referrerTwitter,
         ]
       );
     } catch (e) {
@@ -150,6 +190,9 @@ export async function POST(request: NextRequest) {
         : null,
       followersLine,
       verifiedLine,
+      referrerTwitter
+        ? `🔗 ref: <a href="https://x.com/${escapeHtml(referrerTwitter)}">@${escapeHtml(referrerTwitter)}</a>`
+        : null,
       walletAddress
         ? `💰 <code>${escapeHtml(truncWallet(walletAddress))}</code>`
         : null,
@@ -188,11 +231,27 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const publicEvent = {
+      id: Date.now(),
+      handle: twitterHandle,
+      followers: xFollowers,
+      verified: xVerified,
+      avatarUrl: xAvatarUrl,
+      referrer: referrerTwitter,
+      createdAt: new Date().toISOString(),
+    };
+
     return Response.json({
       ok: true,
+      event: publicEvent,
       x:
         twitterHandle && xFollowers != null
-          ? { followers: xFollowers, verified: xVerified, verifiedType: xVerifiedType }
+          ? {
+              followers: xFollowers,
+              verified: xVerified,
+              verifiedType: xVerifiedType,
+              avatarUrl: xAvatarUrl,
+            }
           : undefined,
     });
   } catch (error) {

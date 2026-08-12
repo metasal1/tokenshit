@@ -15,6 +15,7 @@ import SfxMuteToggle from '@/components/SfxMuteToggle';
 import PwaProvider from '@/components/PwaProvider';
 import ShitBalanceBadge from '@/components/ShitBalanceBadge';
 import EmailSignupModal from '@/components/EmailSignupModal';
+import SignupGlitchToast from '@/components/SignupGlitchToast';
 import { TREASURY_ADDRESS, treasurySolscanUrl } from '@/lib/shit-token';
 import { getPrivyConfig } from '@/lib/privy-config';
 
@@ -428,6 +429,7 @@ function Layout({ children }: { children: React.ReactNode }) {
       {nav}
       <ReferralTracker />
       <EmailSignupModal />
+      <SignupGlitchToast />
       <main className="flex-1"><PageTransition>{children}</PageTransition></main>
       <footer className="border-t border-border py-6 text-center text-sm text-zinc-500">
         <p>TokenShit — Every token is shit until proven otherwise.</p>

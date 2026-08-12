@@ -84,6 +84,7 @@ export async function fetchXUserPublic(username: string): Promise<{
   tweets: number;
   verified: boolean;
   verifiedType: string;
+  profileImageUrl?: string;
   error?: string;
 }> {
   const bearer =
@@ -117,7 +118,7 @@ export async function fetchXUserPublic(username: string): Promise<{
 
   const url = `https://api.x.com/2/users/by/username/${encodeURIComponent(
     clean
-  )}?user.fields=public_metrics,verified,verified_type,name,username`;
+  )}?user.fields=public_metrics,verified,verified_type,name,username,profile_image_url`;
   const res = await fetch(url, {
     headers: {
       Authorization: `Bearer ${bearer}`,
@@ -154,6 +155,9 @@ export async function fetchXUserPublic(username: string): Promise<{
     tweets: Number(pm.tweet_count || 0),
     verified,
     verifiedType,
+    profileImageUrl: d.profile_image_url
+      ? String(d.profile_image_url).replace("_normal", "_bigger")
+      : undefined,
   };
 }
 
