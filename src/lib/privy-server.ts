@@ -35,7 +35,7 @@ export type PrivyIdentity = {
 
 type JwksDoc = { keys: JWK[] };
 const jwksDocCache = new Map<string, { at: number; doc: JwksDoc }>();
-const jwkKeyCache = new Map<string, KeyLike>();
+const jwkKeyCache = new Map<string, CryptoKey | KeyLike>();
 const JWKS_TTL_MS = 60 * 60 * 1000;
 
 function basicAuthHeader(appId: string, secret: string): string {
@@ -92,7 +92,7 @@ async function loadJwksDoc(appId: string): Promise<JwksDoc> {
 async function getKeyFromJwks(
   appId: string,
   kid?: string
-): Promise<KeyLike> {
+): Promise<CryptoKey | KeyLike> {
   const cacheKey = `${appId}:${kid || "*"}`;
   if (jwkKeyCache.has(cacheKey)) return jwkKeyCache.get(cacheKey)!;
 
@@ -101,14 +101,13 @@ async function getKeyFromJwks(
   if (!jwk) jwk = doc.keys.find((k) => k.alg === "ES256") || doc.keys[0];
   if (!jwk) throw new Error("no JWK");
 
-  const key = await importJWK(jwk, jwk.alg || "ES256");
+  const key = (await importJWK(jwk, jwk.alg || "ES256")) as CryptoKey | KeyLike;
   jwkKeyCache.set(cacheKey, key);
-  // also cache under actual kid
   if (jwk.kid) jwkKeyCache.set(`${appId}:${jwk.kid}`, key);
   return key;
 }
 
-async function getKeyFromSpki(appId: string): Promise<KeyLike | null> {
+async function getKeyFromSpki(appId: string): Promise<CryptoKey | KeyLike | null> {
   const cacheKey = `spki:${appId}`;
   if (jwkKeyCache.has(cacheKey)) return jwkKeyCache.get(cacheKey)!;
 
