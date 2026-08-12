@@ -11,20 +11,26 @@ export const SOLANA_WS_RPC =
   SOLANA_HTTP_RPC.replace(/^https:/i, "wss:");
 
 /**
- * Privy v3+ requires config.solana.rpcs for embedded wallet
- * signAndSendTransaction / fundWallet UI. Missing this throws:
- * "No RPC configuration found for chain solana:mainnet"
+ * Privy config for TOKENSHIT.
+ * - email + twitter + github (email = webview-safe signup path)
+ * - solana.rpcs required for fund/buy (else "No RPC configuration found")
+ * - createOnLogin only if no wallet (avoids blocking login when wallet create fails)
  */
 export function getPrivyConfig() {
   return {
-    loginMethods: ["twitter", "github"] as ("twitter" | "github")[],
+    loginMethods: ["email", "twitter", "github"] as (
+      | "email"
+      | "twitter"
+      | "github"
+    )[],
     appearance: {
       theme: "dark" as const,
       accentColor: "#39ff14" as `#${string}`,
+      logo: "https://tokenshit.com/icons/icon-192.png",
     },
     embeddedWallets: {
       solana: {
-        createOnLogin: "all-users" as const,
+        createOnLogin: "users-without-wallets" as const,
       },
     },
     externalWallets: {

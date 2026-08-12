@@ -249,9 +249,9 @@ export default function ClaimPanel() {
           <button
             type="button"
             onClick={() => login()}
-            className="min-h-9 px-3 rounded-md bg-zinc-100 text-black font-semibold active:scale-[0.98]"
+            className="min-h-9 px-3 rounded-md bg-neon text-black font-semibold active:scale-[0.98]"
           >
-            Login
+            Login / Sign up
           </button>
         ) : (
           <>
