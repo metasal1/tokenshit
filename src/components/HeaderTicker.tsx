@@ -1,24 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import {
-  GLOBAL_TREASURY_DAILY_DROP,
-  SHIT_SYMBOL,
-  formatCountdown,
-  treasurySolscanUrl,
-} from "@/lib/shit-token";
+import { SHIT_SYMBOL } from "@/lib/shit-token";
 import { BalanceSkeleton, PulseDot, SpinLoader } from "@/components/StatLoader";
 
 type Payload = {
   shit?: number;
-  sol?: number;
-  global?: {
-    nextDropAtMs?: number;
-    dropAmount?: number;
-    serverNowMs?: number;
-    droppedToday?: boolean;
-  };
 };
 
 function fmt(n: number | null | undefined) {
@@ -45,29 +33,21 @@ function getDeviceId(): string {
 }
 
 /**
- * Scrolling header ticker: treasury balance · countdown · online · drop size
+ * Scrolling header ticker — treasury + online only (no gas / daily drop).
  */
 export default function HeaderTicker() {
   const [data, setData] = useState<Payload | null>(null);
   const [online, setOnline] = useState<number | null>(null);
   const [treasuryLoading, setTreasuryLoading] = useState(true);
   const [onlineLoading, setOnlineLoading] = useState(true);
-  const [skew, setSkew] = useState(0);
-  const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
     let alive = true;
     const loadTreasury = () => {
-      const t0 = Date.now();
       fetch("/api/treasury")
         .then((r) => r.json())
         .then((d: Payload) => {
-          if (!alive) return;
-          const sn = d.global?.serverNowMs;
-          if (typeof sn === "number") {
-            setSkew(sn + (Date.now() - t0) / 2 - Date.now());
-          }
-          setData(d);
+          if (alive) setData(d);
         })
         .catch(() => {})
         .finally(() => {
@@ -93,26 +73,13 @@ export default function HeaderTicker() {
     ping();
     const a = setInterval(loadTreasury, 30_000);
     const b = setInterval(ping, 30_000);
-    const c = setInterval(() => setNow(Date.now() + skew), 250);
     return () => {
       alive = false;
       clearInterval(a);
       clearInterval(b);
-      clearInterval(c);
     };
-  }, [skew]);
+  }, []);
 
-  const targetMs = useMemo(() => {
-    if (data?.global?.nextDropAtMs) return data.global.nextDropAtMs;
-    const n = new Date(now);
-    const d = new Date(n.getTime());
-    d.setUTCHours(0, 0, 0, 0);
-    if (d.getTime() <= n.getTime()) d.setUTCDate(d.getUTCDate() + 1);
-    return d.getTime();
-  }, [data, now]);
-
-  const cd = formatCountdown(Math.max(0, targetMs - (now + skew)));
-  const drop = data?.global?.dropAmount ?? GLOBAL_TREASURY_DAILY_DROP;
   const bal = fmt(data?.shit);
 
   const items = [
@@ -135,27 +102,6 @@ export default function HeaderTicker() {
       ),
     },
     {
-      key: "cd",
-      node: (
-        <span className="inline-flex items-center gap-1.5">
-          <span className="text-zinc-500">Drop</span>
-          <span className="text-zinc-200 tabular-nums">
-            {cd.h}:{cd.m}:{cd.s}
-          </span>
-          <span className="text-zinc-600">UTC</span>
-        </span>
-      ),
-    },
-    {
-      key: "plus",
-      node: (
-        <span className="inline-flex items-center gap-1.5">
-          <span className="text-zinc-500">Daily</span>
-          <span className="text-neon">+{fmt(drop) ?? "1M"}</span>
-        </span>
-      ),
-    },
-    {
       key: "online",
       node: (
         <span className="inline-flex items-center gap-1.5">
@@ -173,24 +119,6 @@ export default function HeaderTicker() {
         </span>
       ),
     },
-    {
-      key: "sol",
-      node: (
-        <a
-          href={treasurySolscanUrl()}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-1.5 hover:text-neon-blue transition-colors"
-        >
-          <span className="text-zinc-500">Gas</span>
-          {treasuryLoading || data?.sol == null ? (
-            <BalanceSkeleton className="w-12" />
-          ) : (
-            <span className="text-zinc-300">{data.sol.toFixed(3)} SOL</span>
-          )}
-        </a>
-      ),
-    },
   ];
 
   const loop = [...items, ...items, ...items];
@@ -202,7 +130,7 @@ export default function HeaderTicker() {
     >
       <div
         className="header-ticker-track absolute left-0 top-0 flex h-full items-center gap-0 whitespace-nowrap font-mono text-[11px] sm:text-xs text-zinc-400"
-        aria-label="Treasury and live stats ticker"
+        aria-label="Treasury and online ticker"
       >
         {loop.map((it, i) => (
           <span key={`${it.key}-${i}`} className="inline-flex items-center">

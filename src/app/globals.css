@@ -53,7 +53,7 @@ body {
   100% { transform: translateX(-33.333%); }
 }
 .header-ticker-track {
-  animation: header-ticker-scroll 40s linear infinite;
+  animation: header-ticker-scroll 50s linear infinite;
   will-change: transform;
 }
 .header-ticker-track:hover {
