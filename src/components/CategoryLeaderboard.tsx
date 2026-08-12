@@ -75,7 +75,7 @@ export default function CategoryLeaderboard({
                 : "bg-card border border-border text-zinc-400 hover:text-foreground hover:border-zinc-600"
             }`}
           >
-            {t.label}
+            <span className="emoji mr-1">{t.emoji}</span>{t.label}
           </button>
         ))}
       </div>

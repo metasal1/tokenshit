@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { usePrivy } from '@privy-io/react-auth';
-import { X } from 'lucide-react';
+import { EmojiIcon } from '@/components/EmojiIcon';
 import { sfx } from '@/lib/sfx';
 
 interface TokenBalance {
@@ -110,7 +110,7 @@ function WalletPanel({ address, twitterUsername, onClose, children }: { address:
       >
         <div className="flex justify-between items-center mb-3">
           <h3 className="text-white font-semibold text-lg">Your Wallet</h3>
-          <button onClick={onClose} className="text-zinc-400 hover:text-white transition-colors" aria-label="Close"><X className="w-5 h-5" /></button>
+          <button onClick={onClose} className="text-zinc-400 hover:text-white transition-colors" aria-label="Close"><EmojiIcon size={18}>❌</EmojiIcon></button>
         </div>
 
         <div className="flex gap-3 items-start mb-4">

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { usePrivy } from '@privy-io/react-auth';
-import { X } from 'lucide-react';
+import { EmojiIcon } from '@/components/EmojiIcon';
 import { sfx } from '@/lib/sfx';
 
 const STORAGE_KEY = 'tokenshit_email_state';
@@ -110,7 +110,7 @@ export default function EmailSignupModal() {
             className="text-zinc-400 hover:text-white transition-colors -mt-1"
             aria-label="Close"
           >
-            <X className="w-5 h-5" />
+            <EmojiIcon size={18}>❌</EmojiIcon>
           </button>
         </div>
 

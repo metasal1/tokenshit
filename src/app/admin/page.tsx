@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { usePrivy } from "@privy-io/react-auth";
-import { Users, Wallet, TrendingUp, GitBranch, RefreshCw } from "lucide-react";
+import { EmojiIcon } from "@/components/EmojiIcon";
 
 interface AdminData {
   stats: {
@@ -100,9 +100,9 @@ export default function AdminPage() {
   }
 
   const tabs: { key: Tab; label: string; icon: React.ReactNode }[] = [
-    { key: "users", label: `Users (${data?.users.length ?? "…"})`, icon: <Users className="w-4 h-4" /> },
-    { key: "voters", label: `Voters (${data?.voters.length ?? "…"})`, icon: <TrendingUp className="w-4 h-4" /> },
-    { key: "referrals", label: `Referrals (${data?.referrals.length ?? "…"})`, icon: <GitBranch className="w-4 h-4" /> },
+    { key: "users", label: `Users (${data?.users.length ?? "…"})`, icon: <EmojiIcon size={16}>👥</EmojiIcon> },
+    { key: "voters", label: `Voters (${data?.voters.length ?? "…"})`, icon: <EmojiIcon size={16}>📈</EmojiIcon> },
+    { key: "referrals", label: `Referrals (${data?.referrals.length ?? "…"})`, icon: <EmojiIcon size={16}>🔗</EmojiIcon> },
   ];
 
   return (
@@ -195,7 +195,7 @@ export default function AdminPage() {
                     <td className="px-4 py-2.5">
                       {u.wallet ? (
                         <span className="flex items-center gap-1 text-xs text-zinc-400 font-mono">
-                          <Wallet className="w-3 h-3 text-zinc-600 shrink-0" />
+                          <EmojiIcon size={16}>💳</EmojiIcon>
                           {String(u.wallet).slice(0, 6)}…{String(u.wallet).slice(-4)}
                         </span>
                       ) : <span className="text-zinc-600 text-xs">—</span>}

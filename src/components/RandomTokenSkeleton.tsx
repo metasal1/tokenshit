@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Target, Skull } from 'lucide-react';
+import { EmojiIcon } from '@/components/EmojiIcon';
 
 const MESSAGES = [
   'Sniffing the blockchain…',
@@ -55,11 +55,11 @@ export default function RandomTokenSkeleton() {
 
         <div className="flex gap-4">
           <div className="flex-1 min-h-[100px] rounded-xl border-[3px] border-green-900/60 bg-green-950/40 flex flex-col items-center justify-center gap-2 loading-rise">
-            <Target className="w-9 h-9 text-green-500/60" strokeWidth={2.25} />
+            <EmojiIcon size={36} className="opacity-70">🎯</EmojiIcon>
             <div className="skeleton h-2.5 w-10 rounded" />
           </div>
           <div className="flex-1 min-h-[100px] rounded-xl border-[3px] border-red-900/60 bg-red-950/40 flex flex-col items-center justify-center gap-2 loading-rise" style={{ animationDelay: '0.15s' }}>
-            <Skull className="w-9 h-9 text-red-500/60" strokeWidth={2.25} />
+            <EmojiIcon size={36} className="opacity-70">💀</EmojiIcon>
             <div className="skeleton h-2.5 w-10 rounded" />
           </div>
         </div>

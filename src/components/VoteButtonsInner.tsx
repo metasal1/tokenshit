@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { usePrivy } from "@privy-io/react-auth";
-import { Target, Skull, Loader2, Share2 } from "lucide-react";
+import { EmojiIcon } from "@/components/EmojiIcon";
 import { sfx } from "@/lib/sfx";
 import { getDeviceId, incrementAnonVoteCount } from "@/lib/device-id";
 
@@ -256,8 +256,8 @@ export default function VoteButtons({ assetId, name, symbol }: { assetId: string
         >
           <span className="flex items-center justify-center h-10">
             {voting && pressing === "hit"
-              ? <Loader2 className="w-9 h-9 text-green-400 animate-spin" />
-              : <Target className="w-10 h-10 text-green-400 drop-shadow-[0_0_10px_rgba(57,255,20,0.6)]" strokeWidth={2.25} />
+              ? <EmojiIcon size={36} className="animate-spin">💫</EmojiIcon>
+              : <EmojiIcon size={40} className="drop-shadow-[0_0_10px_rgba(57,255,20,0.6)]">🎯</EmojiIcon>
             }
           </span>
           <span className="text-green-400 text-base flex items-center gap-2">
@@ -292,8 +292,8 @@ export default function VoteButtons({ assetId, name, symbol }: { assetId: string
         >
           <span className="flex items-center justify-center h-10">
             {voting && pressing === "shit"
-              ? <Loader2 className="w-9 h-9 text-red-400 animate-spin" />
-              : <Skull className="w-10 h-10 text-red-500 drop-shadow-[0_0_10px_rgba(239,68,68,0.6)]" strokeWidth={2.25} />
+              ? <EmojiIcon size={36} className="animate-spin">💫</EmojiIcon>
+              : <EmojiIcon size={40} className="drop-shadow-[0_0_10px_rgba(239,68,68,0.6)]">💀</EmojiIcon>
             }
           </span>
           <span className="text-red-400 text-base flex items-center gap-2">
@@ -325,7 +325,7 @@ export default function VoteButtons({ assetId, name, symbol }: { assetId: string
                   : "bg-red-950/40 border-red-800/60 text-red-400 hover:bg-red-900/50"
               }`}
             >
-              <Share2 className="w-3.5 h-3.5" />
+              <EmojiIcon size={14}>📤</EmojiIcon>
               Share
             </a>
 

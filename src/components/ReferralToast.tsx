@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Sparkles, X } from 'lucide-react';
+import { EmojiIcon } from '@/components/EmojiIcon';
 
 export default function ReferralToast() {
   const [referrer, setReferrer] = useState<string | null>(null);
@@ -27,7 +27,7 @@ export default function ReferralToast() {
     >
       <div className="bg-zinc-900 border border-neon/40 rounded-xl shadow-2xl px-4 py-3 flex items-start gap-3">
         <div className="shrink-0 mt-0.5">
-          <Sparkles className="w-5 h-5 text-neon drop-shadow-[0_0_8px_rgba(57,255,20,0.6)]" strokeWidth={2.25} />
+          <EmojiIcon size={22}>✨</EmojiIcon>
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-sm font-semibold text-white">You were referred</p>
@@ -49,7 +49,7 @@ export default function ReferralToast() {
           className="shrink-0 -mr-1 -mt-1 text-zinc-500 hover:text-white transition-colors"
           aria-label="Dismiss"
         >
-          <X className="w-4 h-4" />
+          <EmojiIcon size={16}>❌</EmojiIcon>
         </button>
       </div>
       <style jsx>{`

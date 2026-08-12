@@ -369,9 +369,9 @@ function Layout({ children }: { children: React.ReactNode }) {
         {/* Desktop nav */}
         <div className="hidden sm:flex items-center gap-4 text-sm text-zinc-400">
           <Link href="/" className="hover:text-foreground transition-colors">Home</Link>
-          <Link href="/stats" className="hover:text-foreground transition-colors">Stats</Link>
-          <Link href="/claim" className="hover:text-foreground transition-colors">Claim</Link>
-          <Link href="/referrals" className="hover:text-foreground transition-colors">Referrals</Link>
+          <Link href="/stats" className="hover:text-foreground transition-colors"><span className="emoji">📊</span> Stats</Link>
+          <Link href="/claim" className="hover:text-foreground transition-colors inline-flex items-center gap-1"><span className="emoji">💰</span>Claim</Link>
+          <Link href="/referrals" className="hover:text-foreground transition-colors"><span className="emoji">🔗</span> Referrals</Link>
           <ShitBalanceBadge />
           <XFollowersBadge compact />
           <ShareRefButton variant="compact" path="/" showLogin={false} />
