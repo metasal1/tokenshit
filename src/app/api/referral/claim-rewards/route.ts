@@ -69,12 +69,15 @@ export async function POST(request: NextRequest) {
 
     const unpaid = await tursoExecute(
       `SELECT referred_twitter FROM referrals r
-       WHERE lower(r.referrer_twitter) = ?
+       WHERE lower(r.referrer_twitter) = lower(?)
        AND NOT EXISTS (
          SELECT 1 FROM referral_rewards rr
          WHERE lower(rr.referred_twitter) = lower(r.referred_twitter)
+           AND rr.signature IS NOT NULL
+           AND rr.signature != ''
+           AND rr.signature != 'pending'
        )
-       LIMIT 5`,
+       LIMIT 10`,
       [twitter]
     );
 

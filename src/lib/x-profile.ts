@@ -12,11 +12,14 @@ export type XProfileMetrics = {
   profileImageUrl?: string;
   updatedAt: string;
   source: "live" | "cache" | "fallback";
+  /** Present when live fetch failed */
+  liveError?: string;
 };
 
-const CACHE_TTL_MS = 30 * 60 * 1000; // 30 min — X credits are tight
+const CACHE_TTL_MS = 15 * 60 * 1000; // 15 min
 const g = globalThis as unknown as {
   __xProfileCache?: { at: number; data: XProfileMetrics };
+  __xProfileLiveErr?: string;
 };
 
 function xBearer(): string {
@@ -55,6 +58,8 @@ async function readDbCache(): Promise<XProfileMetrics | null> {
     );
     if (!r.rows.length) return null;
     const row = r.rows[0];
+    const updatedAt = String(row[8] || "");
+    // SQLite datetime is UTC-ish without Z — treat as expired if parse fails age check below
     return {
       id: String(row[0]),
       username: String(row[1]),
@@ -64,12 +69,20 @@ async function readDbCache(): Promise<XProfileMetrics | null> {
       tweets: Number(row[5] || 0),
       likes: Number(row[6] || 0),
       profileImageUrl: row[7] ? String(row[7]) : undefined,
-      updatedAt: String(row[8] || new Date().toISOString()),
+      updatedAt: updatedAt.includes("T")
+        ? updatedAt
+        : updatedAt.replace(" ", "T") + "Z",
       source: "cache",
     };
   } catch {
     return null;
   }
+}
+
+function cacheAgeMs(m: XProfileMetrics): number {
+  const t = Date.parse(m.updatedAt);
+  if (!Number.isFinite(t)) return Number.POSITIVE_INFINITY;
+  return Date.now() - t;
 }
 
 async function writeDbCache(m: XProfileMetrics) {
@@ -104,17 +117,19 @@ async function writeDbCache(m: XProfileMetrics) {
   }
 }
 
-async function fetchLive(): Promise<XProfileMetrics | null> {
+async function fetchLive(): Promise<{
+  data: XProfileMetrics | null;
+  error?: string;
+}> {
   const bearer = xBearer();
-  if (!bearer) return null;
+  if (!bearer) return { data: null, error: "X_BEARER_TOKEN missing" };
 
-  // Prefer id lookup (stable); fall back to username
   const urls = [
     `https://api.x.com/2/users/${X_USER_ID}?user.fields=public_metrics,profile_image_url,name,username`,
     `https://api.x.com/2/users/by/username/${encodeURIComponent(X_HANDLE)}?user.fields=public_metrics,profile_image_url,name,username`,
-    `https://api.x.com/2/users/me?user.fields=public_metrics,profile_image_url,name,username`,
   ];
 
+  const errors: string[] = [];
   for (const url of urls) {
     try {
       const res = await fetch(url, {
@@ -124,38 +139,61 @@ async function fetchLive(): Promise<XProfileMetrics | null> {
         },
         cache: "no-store",
       });
-      if (!res.ok) continue;
-      const json = await res.json();
-      const d = json.data;
-      if (!d?.id) continue;
-      // If /me returned a different user, skip unless username matches
+      const text = await res.text();
+      if (!res.ok) {
+        errors.push(`${res.status}:${text.slice(0, 120)}`);
+        continue;
+      }
+      let json: { data?: Record<string, unknown> };
+      try {
+        json = JSON.parse(text);
+      } catch {
+        errors.push("non-json");
+        continue;
+      }
+      const d = json.data as
+        | {
+            id?: string;
+            username?: string;
+            name?: string;
+            profile_image_url?: string;
+            public_metrics?: Record<string, number>;
+          }
+        | undefined;
+      if (!d?.id) {
+        errors.push("no data.id");
+        continue;
+      }
       if (
         d.username &&
         String(d.username).toLowerCase() !== X_HANDLE.toLowerCase() &&
         String(d.id) !== X_USER_ID
       ) {
+        errors.push(`wrong user @${d.username}`);
         continue;
       }
       const pm = d.public_metrics || {};
       return {
-        id: String(d.id),
-        username: String(d.username || X_HANDLE),
-        name: String(d.name || "TOKENSHIT"),
-        followers: Number(pm.followers_count || 0),
-        following: Number(pm.following_count || 0),
-        tweets: Number(pm.tweet_count || 0),
-        likes: Number(pm.like_count || 0),
-        profileImageUrl: d.profile_image_url
-          ? String(d.profile_image_url).replace("_normal", "_bigger")
-          : undefined,
-        updatedAt: new Date().toISOString(),
-        source: "live",
+        data: {
+          id: String(d.id),
+          username: String(d.username || X_HANDLE),
+          name: String(d.name || "TOKENSHIT"),
+          followers: Number(pm.followers_count || 0),
+          following: Number(pm.following_count || 0),
+          tweets: Number(pm.tweet_count || 0),
+          likes: Number(pm.like_count || 0),
+          profileImageUrl: d.profile_image_url
+            ? String(d.profile_image_url).replace("_normal", "_bigger")
+            : undefined,
+          updatedAt: new Date().toISOString(),
+          source: "live",
+        },
       };
-    } catch {
-      continue;
+    } catch (e) {
+      errors.push(e instanceof Error ? e.message : String(e));
     }
   }
-  return null;
+  return { data: null, error: errors.join(" | ") || "live fetch failed" };
 }
 
 export async function getXProfileMetrics(opts?: {
@@ -164,33 +202,42 @@ export async function getXProfileMetrics(opts?: {
   const force = Boolean(opts?.force);
   const mem = g.__xProfileCache;
   if (!force && mem && Date.now() - mem.at < CACHE_TTL_MS) {
-    return { ...mem.data, source: "cache" };
+    return { ...mem.data, source: mem.data.source === "live" ? "cache" : mem.data.source };
   }
 
   const live = await fetchLive();
-  if (live) {
-    g.__xProfileCache = { at: Date.now(), data: live };
-    await writeDbCache(live);
-    return live;
+  if (live.data) {
+    g.__xProfileLiveErr = undefined;
+    g.__xProfileCache = { at: Date.now(), data: live.data };
+    await writeDbCache(live.data);
+    return live.data;
   }
+  g.__xProfileLiveErr = live.error;
 
   const db = await readDbCache();
   if (db) {
+    const age = cacheAgeMs(db);
+    // Still serve stale DB, but mark cache; client can force refresh
     g.__xProfileCache = { at: Date.now(), data: db };
-    return db;
+    return {
+      ...db,
+      source: "cache",
+      liveError: live.error,
+      // keep true updatedAt so UI can show staleness
+    };
   }
 
-  // Last-known seed from last successful xurl whoami (2026-08)
   const fallback: XProfileMetrics = {
     id: X_USER_ID,
     username: X_HANDLE,
     name: "TOKENSHIT",
-    followers: 44,
+    followers: 0,
     following: 0,
-    tweets: 10,
-    likes: 14,
+    tweets: 0,
+    likes: 0,
     updatedAt: new Date().toISOString(),
     source: "fallback",
+    liveError: live.error || "no cache",
   };
   return fallback;
 }

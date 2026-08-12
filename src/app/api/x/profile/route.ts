@@ -7,12 +7,11 @@ export async function GET(request: Request) {
     new URL(request.url).searchParams.get("refresh") === "1";
   try {
     const data = await getXProfileMetrics({ force });
+    const maxAge = data.source === "live" ? 120 : 30;
     return Response.json(data, {
       headers: {
-        "Cache-Control":
-          "public, s-maxage=300, stale-while-revalidate=1800, max-age=60",
-        "CDN-Cache-Control":
-          "public, s-maxage=300, stale-while-revalidate=1800",
+        "Cache-Control": `public, s-maxage=${maxAge}, stale-while-revalidate=600, max-age=30`,
+        "CDN-Cache-Control": `public, s-maxage=${maxAge}, stale-while-revalidate=600`,
       },
     });
   } catch (e) {
