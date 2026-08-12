@@ -20,12 +20,18 @@ export const BRAND = {
   colors: {
     background: "#0a0a0f",
     foreground: "#e4e4e7",
+    /** CTA / accent green — also the $ in the wordmark */
     neon: "#39ff14",
     neonDim: "#39ff1440",
     neonPurple: "#b94dff",
     neonBlue: "#00d4ff",
     neonMagenta: "#ff00ff",
     neonMagentaGlow: "#bc13fe",
+    /** Wordmark TOKEN/HIT cream neon (dark mode default) */
+    wordmark: "#fff8e7",
+    wordmarkGlow: "#f0c040",
+    /** Wordmark $ green */
+    wordmarkDollar: "#39ff14",
     card: "#12121a",
     cardHover: "#1a1a2e",
     border: "#2a2a3a",
