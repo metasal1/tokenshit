@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import Lottie from "lottie-react";
+import { useEffect, useRef, useState } from "react";
+import Lottie, { type LottieRefCurrentProps } from "lottie-react";
 
 type Src = object | string;
 
@@ -21,8 +21,9 @@ async function loadJson(src: string): Promise<object | null> {
 }
 
 /**
- * Lightweight Lottie wrapper — fetches JSON once, loops by default.
- * Free swipe assets from LottieFiles live under /public/lottie/
+ * Lottie wrapper with interaction hooks:
+ * - progress 0..1 → scrub frame (for drag-linked swipe)
+ * - playKey change → restart one-shot play
  */
 export default function LottiePlayer({
   src,
@@ -31,6 +32,10 @@ export default function LottiePlayer({
   autoplay = true,
   style,
   ariaLabel,
+  /** 0–1 scrub while dragging; null = normal play mode */
+  progress = null,
+  /** bump to replay a one-shot */
+  playKey = 0,
 }: {
   src: Src;
   className?: string;
@@ -38,10 +43,13 @@ export default function LottiePlayer({
   autoplay?: boolean;
   style?: React.CSSProperties;
   ariaLabel?: string;
+  progress?: number | null;
+  playKey?: number | string;
 }) {
   const [data, setData] = useState<object | null>(
     typeof src === "string" ? null : src
   );
+  const lottieRef = useRef<LottieRefCurrentProps>(null);
 
   useEffect(() => {
     if (typeof src !== "string") {
@@ -57,6 +65,32 @@ export default function LottiePlayer({
     };
   }, [src]);
 
+  // Scrub to progress while dragging
+  useEffect(() => {
+    const api = lottieRef.current;
+    if (!api || progress == null || !data) return;
+    try {
+      const frames = api.getDuration(true) || 60;
+      const frame = Math.max(0, Math.min(frames - 1, progress * (frames - 1)));
+      api.goToAndStop(frame, true);
+    } catch {
+      /* ignore */
+    }
+  }, [progress, data]);
+
+  // Replay one-shot when playKey changes
+  useEffect(() => {
+    if (progress != null) return;
+    const api = lottieRef.current;
+    if (!api || !data || !playKey) return;
+    try {
+      api.stop();
+      api.goToAndPlay(0, true);
+    } catch {
+      /* ignore */
+    }
+  }, [playKey, data, progress]);
+
   if (!data) {
     return (
       <div
@@ -69,7 +103,12 @@ export default function LottiePlayer({
 
   return (
     <div className={className} style={style} aria-label={ariaLabel} role="img">
-      <Lottie animationData={data} loop={loop} autoplay={autoplay} />
+      <Lottie
+        lottieRef={lottieRef}
+        animationData={data}
+        loop={progress != null ? false : loop}
+        autoplay={progress != null ? false : autoplay}
+      />
     </div>
   );
 }

@@ -2,8 +2,9 @@
 
 import { useRef, useState, useCallback, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import SwipeHint, { SwipeEdgeGlow } from "@/components/SwipeHint";
-import LottiePlayer from "@/components/LottiePlayer";
+import InteractiveSwipeLottie, {
+  SwipeEdgeGlow,
+} from "@/components/InteractiveSwipeLottie";
 import { sfx } from "@/lib/sfx";
 
 interface Props {
@@ -13,7 +14,7 @@ interface Props {
 }
 
 /**
- * Token pager with Lottie swipe affordance (LottieFiles free swipe).
+ * Token pager — Lottie follows the finger, bursts on commit.
  * Swipe right → prev · swipe left → next
  */
 export default function SwipeableToken({
@@ -31,6 +32,8 @@ export default function SwipeableToken({
   const [direction, setDirection] = useState<"left" | "right" | null>(null);
   const [visible, setVisible] = useState(true);
   const [burst, setBurst] = useState<"left" | "right" | null>(null);
+  const [burstKey, setBurstKey] = useState(0);
+  const [hintOnce, setHintOnce] = useState(true);
 
   useEffect(() => {
     setTransitioning(false);
@@ -41,9 +44,31 @@ export default function SwipeableToken({
     requestAnimationFrame(() => setVisible(true));
   }, [pathname]);
 
+  useEffect(() => {
+    // one-time idle coach: brief auto-progress pulse then hide
+    try {
+      if (sessionStorage.getItem("tokenshit_swipe_lottie_hint") === "1") {
+        setHintOnce(false);
+        return;
+      }
+    } catch {
+      /* ignore */
+    }
+    const t = window.setTimeout(() => {
+      setHintOnce(false);
+      try {
+        sessionStorage.setItem("tokenshit_swipe_lottie_hint", "1");
+      } catch {
+        /* ignore */
+      }
+    }, 2800);
+    return () => window.clearTimeout(t);
+  }, []);
+
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     setTouchStartX(e.touches[0].clientX);
     setTouchStartY(e.touches[0].clientY);
+    setHintOnce(false);
   }, []);
 
   const handleTouchMove = useCallback(
@@ -51,11 +76,10 @@ export default function SwipeableToken({
       if (touchStartX === null || touchStartY === null) return;
       const dx = e.touches[0].clientX - touchStartX;
       const dy = e.touches[0].clientY - touchStartY;
-      // ignore mostly-vertical scrolls
-      if (Math.abs(dy) > Math.abs(dx) * 1.2) return;
+      if (Math.abs(dy) > Math.abs(dx) * 1.15) return;
       if (dx > 0 && !prevAssetId) return;
       if (dx < 0 && !nextAssetId) return;
-      setOffsetX(dx * 0.45);
+      setOffsetX(dx * 0.55);
     },
     [touchStartX, touchStartY, prevAssetId, nextAssetId]
   );
@@ -64,20 +88,22 @@ export default function SwipeableToken({
     (dir: "left" | "right", id: string) => {
       setDirection(dir);
       setBurst(dir);
+      setBurstKey((k) => k + 1);
       setTransitioning(true);
+      setOffsetX(dir === "left" ? -140 : 140);
       try {
         sfx.whoosh();
       } catch {
         /* ignore */
       }
-      setTimeout(() => router.push(`/token/${id}`), 220);
+      setTimeout(() => router.push(`/token/${id}`), 280);
     },
     [router]
   );
 
   const handleTouchEnd = useCallback(() => {
     if (touchStartX === null) return;
-    const threshold = 72;
+    const threshold = 64;
 
     if (offsetX < -threshold && nextAssetId) {
       commit("left", nextAssetId);
@@ -130,56 +156,42 @@ export default function SwipeableToken({
       : "translateX(110%)"
     : `translateX(${offsetX}px)`;
 
-  const intensity = Math.min(1, Math.abs(offsetX) / 120);
+  const intensity = Math.min(1, Math.abs(offsetX) / 100);
   const glowSide: "left" | "right" | null =
     offsetX > 8 ? "left" : offsetX < -8 ? "right" : null;
 
+  // idle coach: gentle synthetic offset so Lottie scrubs once
+  const idleOffset =
+    hintOnce && nextAssetId && Math.abs(offsetX) < 1 && !burst
+      ? -36
+      : offsetX;
+
   return (
     <div className="relative overflow-hidden">
-      {/* Lottie coach + text hints */}
       {(prevAssetId || nextAssetId) && (
-        <div className="flex flex-col items-center gap-1 px-4 pt-3 pb-1">
-          <div className="w-full flex justify-center">
-            <SwipeHint mode="nav" />
-          </div>
-          <div className="w-full flex justify-between text-[10px] font-mono uppercase tracking-wider text-zinc-600 px-1">
-            <span>{prevAssetId ? "prev case" : ""}</span>
-            <span>{nextAssetId ? "next case" : ""}</span>
-          </div>
+        <div className="w-full flex justify-between text-[10px] font-mono uppercase tracking-wider text-zinc-600 px-4 pt-2 pb-1">
+          <span>{prevAssetId ? "swipe right · prev" : ""}</span>
+          <span>{nextAssetId ? "swipe left · next" : ""}</span>
         </div>
       )}
 
-      <div className="relative">
+      <div className="relative min-h-[120px]">
         {glowSide === "left" && (
-          <SwipeEdgeGlow side="left" intensity={intensity} />
+          <SwipeEdgeGlow side="left" intensity={intensity} mode="nav" />
         )}
         {glowSide === "right" && (
-          <SwipeEdgeGlow side="right" intensity={intensity} />
+          <SwipeEdgeGlow side="right" intensity={intensity} mode="nav" />
         )}
 
-        {/* commit burst Lottie */}
-        {burst && (
-          <div
-            className={`pointer-events-none absolute inset-y-0 z-30 flex items-center ${
-              burst === "left" ? "right-2" : "left-2"
-            }`}
-            aria-hidden
-          >
-            <div
-              className="h-20 w-20 opacity-90"
-              style={{
-                transform: burst === "left" ? "scaleX(-1)" : undefined,
-              }}
-            >
-              <LottiePlayer
-                src="/lottie/swipe-phone.json"
-                loop={false}
-                autoplay
-                className="h-full w-full"
-              />
-            </div>
-          </div>
-        )}
+        <InteractiveSwipeLottie
+          offsetX={idleOffset}
+          threshold={90}
+          burst={burst}
+          burstKey={burstKey}
+          variant="phone"
+          mode="nav"
+          size={104}
+        />
 
         <div
           ref={containerRef}
@@ -194,9 +206,9 @@ export default function SwipeableToken({
                 : "translateX(0)",
             transition:
               transitioning || touchStartX === null
-                ? "transform 0.22s ease-out, opacity 0.22s ease-out"
+                ? "transform 0.28s cubic-bezier(.2,.8,.2,1), opacity 0.22s ease-out"
                 : "none",
-            opacity: transitioning ? 0 : 1,
+            opacity: transitioning ? 0.15 : 1,
             touchAction: "pan-y",
           }}
         >
@@ -204,16 +216,15 @@ export default function SwipeableToken({
         </div>
       </div>
 
-      {/* Desktop arrow buttons */}
+      {/* Desktop: buttons fire the same Lottie burst via commit */}
       <div className="hidden sm:block">
         {prevAssetId && (
           <button
             onClick={goPrev}
-            className="fixed left-4 top-1/2 -translate-y-1/2 z-40 bg-zinc-800/80 hover:bg-zinc-700 text-white rounded-full w-10 h-10 flex items-center justify-center backdrop-blur-sm border border-zinc-700 transition-colors"
+            className="fixed left-4 top-1/2 -translate-y-1/2 z-40 bg-zinc-900/90 hover:bg-zinc-800 text-white rounded-full w-12 h-12 flex items-center justify-center backdrop-blur-sm border border-zinc-600 hover:border-neon/50 transition-colors"
             aria-label="Previous case"
             title="Previous case"
           >
-            <span className="sr-only">Previous</span>
             <span aria-hidden className="text-lg font-mono">
               {"<"}
             </span>
@@ -222,19 +233,11 @@ export default function SwipeableToken({
         {nextAssetId && (
           <button
             onClick={goNext}
-            className="fixed right-4 top-1/2 -translate-y-1/2 z-40 bg-zinc-800/80 hover:bg-zinc-700 text-white rounded-full w-12 h-12 flex items-center justify-center backdrop-blur-sm border border-zinc-700 transition-colors overflow-hidden"
+            className="fixed right-4 top-1/2 -translate-y-1/2 z-40 bg-zinc-900/90 hover:bg-zinc-800 text-white rounded-full w-12 h-12 flex items-center justify-center backdrop-blur-sm border border-zinc-600 hover:border-neon/50 transition-colors"
             aria-label="Next case"
             title="Next case"
           >
-            <span className="absolute inset-0 opacity-70 pointer-events-none">
-              <LottiePlayer
-                src="/lottie/swipe-hand.json"
-                className="h-full w-full scale-150"
-                loop
-                autoplay
-              />
-            </span>
-            <span aria-hidden className="relative text-lg font-mono z-10">
+            <span aria-hidden className="text-lg font-mono">
               {">"}
             </span>
           </button>
