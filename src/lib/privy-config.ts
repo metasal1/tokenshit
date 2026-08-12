@@ -11,10 +11,10 @@ export const SOLANA_WS_RPC =
   SOLANA_HTTP_RPC.replace(/^https:/i, "wss:");
 
 /**
- * Privy config for TOKENSHIT.
- * - email + twitter + github (email = webview-safe signup path)
- * - solana.rpcs required for fund/buy (else "No RPC configuration found")
- * - createOnLogin only if no wallet (avoids blocking login when wallet create fails)
+ * Privy config for TOKENSHIT — Solana only (no EVM).
+ * - appearance.walletChainType: solana-only hides ETH wallets
+ * - ethereum embedded createOnLogin: off
+ * - solana.rpcs required for fund/buy
  */
 export function getPrivyConfig() {
   return {
@@ -27,15 +27,24 @@ export function getPrivyConfig() {
       theme: "dark" as const,
       accentColor: "#39ff14" as `#${string}`,
       logo: "https://tokenshit.com/icons/icon-192.png",
+      /** Hide MetaMask / EVM connectors — Solana only */
+      walletChainType: "solana-only" as const,
+      showWalletLoginFirst: false,
     },
     embeddedWallets: {
+      ethereum: {
+        createOnLogin: "off" as const,
+      },
       solana: {
         createOnLogin: "users-without-wallets" as const,
       },
     },
     externalWallets: {
       solana: {
-        connectors: toSolanaWalletConnectors(),
+        connectors: toSolanaWalletConnectors({
+          // Phantom / Solflare etc. only — no WalletConnect EVM
+          shouldAutoConnect: false,
+        }),
       },
     },
     fundingMethodConfig: {
