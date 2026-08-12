@@ -157,6 +157,11 @@ export default function ClaimPanel() {
     nextClaimAt: string | null;
     msRemaining: number;
   } | null>(null);
+  /** claim progress steps for long X/treasury path */
+  const [claimPhase, setClaimPhase] = useState<
+    null | "session" | "verify" | "send" | "done"
+  >(null);
+  const [claimElapsed, setClaimElapsed] = useState(0);
 
   const twitter = user?.twitter?.username || null;
   const github = user?.github?.username || null;
@@ -206,6 +211,8 @@ export default function ClaimPanel() {
     setErr(null);
     setMsg(null);
     setSig(null);
+    setClaimPhase(null);
+    setClaimElapsed(0);
     if (!authenticated) {
       login();
       return;
@@ -228,12 +235,22 @@ export default function ClaimPanel() {
     }
 
     setBusy(kind);
+    setClaimPhase("session");
+    const t0 = Date.now();
+    const tick = window.setInterval(() => {
+      setClaimElapsed(Math.floor((Date.now() - t0) / 1000));
+    }, 250);
+
     try {
       const token = await getAccessToken();
       if (!token) {
         setErr("Session expired — log in again.");
         return;
       }
+      setClaimPhase("verify");
+      // advance to "send" after a short beat so UI always shows steps
+      const sendTimer = window.setTimeout(() => setClaimPhase("send"), 900);
+
       const res = await fetch("/api/claim", {
         method: "POST",
         headers: {
@@ -255,6 +272,8 @@ export default function ClaimPanel() {
             : {}),
         }),
       });
+      window.clearTimeout(sendTimer);
+      setClaimPhase("send");
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         const detail =
@@ -264,8 +283,10 @@ export default function ClaimPanel() {
               ? ` (${JSON.stringify(data.meta.errors).slice(0, 120)})`
               : "";
         setErr((data.error || `Claim failed (${res.status})`) + detail);
+        setClaimPhase(null);
         return;
       }
+      setClaimPhase("done");
       setMsg(
         `Sent ${Number(data.amount).toLocaleString()} $${SHIT_SYMBOL} to wallet.`
       );
@@ -309,9 +330,12 @@ export default function ClaimPanel() {
           .getElementById("claim-status")
           ?.scrollIntoView({ behavior: "smooth", block: "nearest" });
       });
+      window.setTimeout(() => setClaimPhase(null), 1600);
     } catch (e) {
       setErr(String(e));
+      setClaimPhase(null);
     } finally {
+      window.clearInterval(tick);
       setBusy(null);
     }
   }
@@ -399,6 +423,73 @@ export default function ClaimPanel() {
           </>
         )}
       </div>
+
+      {/* Live claim progress — X checks + chain send can take 10–30s */}
+      {claimPhase && (
+        <div
+          className="rounded-xl border border-neon/40 bg-zinc-950/90 p-3 sm:p-4 space-y-3 shadow-[0_0_30px_rgba(57,255,20,0.08)]"
+          role="status"
+          aria-live="polite"
+        >
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-sm font-bold text-white">
+              {claimPhase === "done" ? "Claim complete" : "Claiming…"}
+            </p>
+            <span className="text-[11px] font-mono text-zinc-500 tabular-nums">
+              {claimElapsed}s
+            </span>
+          </div>
+          <div className="h-1.5 rounded-full bg-zinc-800 overflow-hidden">
+            <div
+              className="h-full bg-neon transition-all duration-500 ease-out"
+              style={{
+                width:
+                  claimPhase === "session"
+                    ? "18%"
+                    : claimPhase === "verify"
+                      ? "48%"
+                      : claimPhase === "send"
+                        ? "78%"
+                        : "100%",
+              }}
+            />
+          </div>
+          <ol className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-[11px] font-mono">
+            {(
+              [
+                ["session", "1 · Session"],
+                ["verify", "2 · Verify"],
+                ["send", "3 · Send"],
+              ] as const
+            ).map(([key, label]) => {
+              const order = ["session", "verify", "send", "done"] as const;
+              const cur = order.indexOf(claimPhase);
+              const idx = order.indexOf(key);
+              const done = cur > idx || claimPhase === "done";
+              const active = claimPhase === key;
+              return (
+                <li
+                  key={key}
+                  className={`rounded-lg border px-2.5 py-2 ${
+                    done
+                      ? "border-neon/40 bg-neon/10 text-neon"
+                      : active
+                        ? "border-zinc-500 bg-zinc-900 text-white animate-pulse"
+                        : "border-zinc-800 text-zinc-600"
+                  }`}
+                >
+                  {label}
+                  {active ? " …" : done ? " ✓" : ""}
+                </li>
+              );
+            })}
+          </ol>
+          <p className="text-[11px] text-zinc-500 leading-snug">
+            Checking X + treasury, then sending on Solana. Usually 5–25s —
+            leave this tab open.
+          </p>
+        </div>
+      )}
 
       <div id="claim-status" className="space-y-2">
         {err && (
@@ -489,7 +580,11 @@ export default function ClaimPanel() {
                   className={BTN_NEON}
                 >
                   {busy === "x_tweet"
-                    ? "Checking…"
+                    ? claimPhase === "send"
+                    ? "Sending…"
+                    : claimPhase === "verify"
+                      ? "Verifying…"
+                      : "Starting…"
                     : statusLoading
                       ? "…"
                       : "2. Claim tweet"}
@@ -526,7 +621,11 @@ export default function ClaimPanel() {
                 className={BTN_SKY}
               >
                 {busy === "x_follow"
-                  ? "Checking…"
+                  ? claimPhase === "send"
+                    ? "Sending…"
+                    : claimPhase === "verify"
+                      ? "Verifying…"
+                      : "Starting…"
                   : claimedStatus["x_follow"]
                     ? "Already claimed"
                     : "Claim follow"}
@@ -551,7 +650,11 @@ export default function ClaimPanel() {
               className={BTN_SKY}
             >
               {busy === "x_premium"
-                ? "Claiming…"
+                ? claimPhase === "send"
+                ? "Sending…"
+                : claimPhase === "verify"
+                  ? "Verifying…"
+                  : "Starting…"
                 : claimedStatus["x_premium"] || claimedStatus["x_verified"]
                   ? "Already claimed"
                   : authenticated
@@ -577,7 +680,11 @@ export default function ClaimPanel() {
               className={BTN_SKY}
             >
               {busy === "x_verified"
-                ? "Claiming…"
+                ? claimPhase === "send"
+                ? "Sending…"
+                : claimPhase === "verify"
+                  ? "Verifying…"
+                  : "Starting…"
                 : claimedStatus["x_verified"] || claimedStatus["x_premium"]
                   ? "Already claimed"
                   : authenticated
@@ -606,7 +713,11 @@ export default function ClaimPanel() {
             className={BTN_NEON}
           >
             {busy === "email_list"
-              ? "Claiming…"
+              ? claimPhase === "send"
+                ? "Sending…"
+                : claimPhase === "verify"
+                  ? "Verifying…"
+                  : "Starting…"
               : claimedStatus["email_list"]
                 ? "Already claimed"
                 : authenticated
@@ -644,7 +755,11 @@ export default function ClaimPanel() {
             className={BTN_LIGHT}
           >
             {busy === "gh_fork"
-              ? "Claiming…"
+              ? claimPhase === "send"
+                ? "Sending…"
+                : claimPhase === "verify"
+                  ? "Verifying…"
+                  : "Starting…"
               : claimedStatus["gh_fork"]
                 ? "Already claimed"
                 : authenticated

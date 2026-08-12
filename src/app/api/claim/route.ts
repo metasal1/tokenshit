@@ -250,6 +250,51 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Fail fast: already claimed / empty treasury before X eligibility work
+    {
+      const amountPeek = AMOUNTS[kind];
+      const [claimedEarly, balPeek] = await Promise.all([
+        hasClaimed(kind, { twitter, github, wallet }),
+        getTreasuryBalances().catch(() => null),
+      ]);
+      if (claimedEarly) {
+        if (kind === "x_tweet") {
+          const cool = await getTweetClaimCooldown({ twitter, wallet });
+          return Response.json(
+            {
+              error: "Tweet claim every 24h. Come back later.",
+              code: "tweet_cooldown",
+              nextClaimAt: cool.nextClaimAt,
+              msRemaining: cool.msRemaining,
+            },
+            { status: 429 }
+          );
+        }
+        return Response.json({ error: "Already claimed" }, { status: 409 });
+      }
+      if (balPeek && balPeek.shit < amountPeek) {
+        return Response.json(
+          {
+            error: "Treasury empty — fund treasury then retry",
+            treasury: balPeek.address,
+            have: balPeek.shit,
+            need: amountPeek,
+          },
+          { status: 503 }
+        );
+      }
+      if (balPeek && balPeek.sol < 0.001) {
+        return Response.json(
+          {
+            error: "Treasury needs SOL for fees",
+            treasury: balPeek.address,
+            sol: balPeek.sol,
+          },
+          { status: 503 }
+        );
+      }
+    }
+
     const profileGate = await gateXProfileForClaim(twitter);
     if (!profileGate.ok) {
       await recordAbuseEvent("claim_blocked", ip, twitter, {
