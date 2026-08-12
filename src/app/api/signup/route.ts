@@ -1,5 +1,6 @@
 import { type NextRequest } from "next/server";
 import { tursoExecute } from "@/lib/turso";
+import { addAudienceContact } from "@/lib/resend";
 import { sendTelegramMessage, escapeHtml } from "@/lib/telegram";
 import { fetchXUserPublic } from "@/lib/claims";
 import {
@@ -247,7 +248,11 @@ export async function POST(request: NextRequest) {
       `source: ${escapeHtml(source)}`,
     ].filter(Boolean) as string[];
 
-    const [tgRes] = await Promise.allSettled([
+    const [listRes, tgRes] = await Promise.allSettled([
+      addAudienceContact({
+        email,
+        firstName: twitterHandle || undefined,
+      }),
       sendTelegramMessage(tgLines.join("\n")),
     ]);
 
@@ -257,7 +262,17 @@ export async function POST(request: NextRequest) {
       source,
     });
 
-    // Welcome emails disabled — list only + TG alert
+    if (
+      listRes.status === "rejected" ||
+      (listRes.status === "fulfilled" && listRes.value.error)
+    ) {
+      console.error(
+        "Resend audience add failed:",
+        listRes.status === "rejected"
+          ? listRes.reason
+          : listRes.value.error
+      );
+    }
     if (
       tgRes.status === "rejected" ||
       (tgRes.status === "fulfilled" && !tgRes.value.ok)
