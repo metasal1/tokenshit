@@ -17,6 +17,7 @@ import PwaProvider from '@/components/PwaProvider';
 import ShitBalanceBadge from '@/components/ShitBalanceBadge';
 import EmailSignupModal from '@/components/EmailSignupModal';
 import SignupGlitchToast from '@/components/SignupGlitchToast';
+import BetaScrollBanner from '@/components/BetaScrollBanner';
 import ClaimGlitchToast from '@/components/ClaimGlitchToast';
 import { TREASURY_ADDRESS, treasurySolscanUrl } from '@/lib/shit-token';
 import { getPrivyConfig } from '@/lib/privy-config';
@@ -430,6 +431,7 @@ function Layout({ children }: { children: React.ReactNode }) {
 
   return (
     <CanvasShell>
+      <BetaScrollBanner />
       {nav}
       <ReferralTracker />
       <ClaimGlitchToast />

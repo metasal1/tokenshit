@@ -416,3 +416,61 @@ body {
 /* Font utility classes */
 .font-monoton { font-family: var(--font-monoton), cursive; }
 .font-orbitron { font-family: var(--font-orbitron), sans-serif; }
+
+/* Diagonal scrolling beta banner */
+.beta-banner-root {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  overflow: hidden;
+  pointer-events: none;
+}
+.beta-banner-strip {
+  position: absolute;
+  /* diagonal ribbon across viewport */
+  top: 18%;
+  left: -20%;
+  width: 140%;
+  transform: rotate(-12deg);
+  transform-origin: center center;
+  background: #39ff14;
+  color: #0a0a0f;
+  border-top: 2px solid #0a0a0f;
+  border-bottom: 2px solid #0a0a0f;
+  box-shadow: 0 0 24px rgba(57, 255, 20, 0.45);
+  overflow: hidden;
+  white-space: nowrap;
+  line-height: 1;
+  padding: 0.55rem 0;
+}
+.beta-banner-track {
+  display: inline-flex;
+  width: max-content;
+  animation: beta-banner-scroll 28s linear infinite;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: lowercase;
+}
+.beta-banner-unit a {
+  color: inherit;
+}
+@media (min-width: 640px) {
+  .beta-banner-strip {
+    top: 22%;
+    padding: 0.65rem 0;
+  }
+  .beta-banner-track {
+    font-size: 0.85rem;
+  }
+}
+@keyframes beta-banner-scroll {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .beta-banner-track {
+    animation: none;
+  }
+}
