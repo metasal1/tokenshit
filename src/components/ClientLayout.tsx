@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { PrivyProvider, usePrivy } from '@privy-io/react-auth';
-import { toSolanaWalletConnectors } from '@privy-io/react-auth/solana';
 import Link from 'next/link';
 import AnimatedLogo from '@/components/AnimatedLogo';
 import PageTransition from '@/components/PageTransition';
@@ -17,6 +16,7 @@ import PwaProvider from '@/components/PwaProvider';
 import ShitBalanceBadge from '@/components/ShitBalanceBadge';
 import EmailSignupModal from '@/components/EmailSignupModal';
 import { TREASURY_ADDRESS, treasurySolscanUrl } from '@/lib/shit-token';
+import { getPrivyConfig } from '@/lib/privy-config';
 
 interface TokenBalance {
   mint: string;
@@ -480,31 +480,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   const appId = process.env.NEXT_PUBLIC_PRIVY_APP_ID || '';
 
   return (
-    <PrivyProvider
-      appId={appId}
-      config={{
-        loginMethods: ["twitter", "github"],
-        appearance: {
-          theme: "dark",
-          accentColor: "#39ff14",
-        },
-        embeddedWallets: {
-          solana: {
-            createOnLogin: "all-users",
-          },
-        },
-        externalWallets: {
-          solana: {
-            connectors: toSolanaWalletConnectors(),
-          },
-        },
-        fundingMethodConfig: {
-          moonpay: {
-            useSandbox: false,
-          },
-        },
-      }}
-    >
+    <PrivyProvider appId={appId} config={getPrivyConfig()}>
       <PwaProvider>
         <Layout>{children}</Layout>
       </PwaProvider>
