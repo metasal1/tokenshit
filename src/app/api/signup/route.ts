@@ -1,14 +1,13 @@
 import { type NextRequest } from "next/server";
 import { tursoExecute } from "@/lib/turso";
-import { sendTemplateEmail } from "@/lib/resend";
 import { sendTelegramMessage, escapeHtml } from "@/lib/telegram";
 import { fetchXUserPublic } from "@/lib/claims";
 import {
   getClientIp,
   gateSignupIp,
   isDisposableEmail,
-  recordAbuseEvent,
   qualityLabel,
+  recordAbuseEvent,
   MIN_X_FOLLOWERS_CLAIM,
 } from "@/lib/abuse";
 
@@ -248,24 +247,7 @@ export async function POST(request: NextRequest) {
       `source: ${escapeHtml(source)}`,
     ].filter(Boolean) as string[];
 
-    const greeting = twitterHandle ? `gm @${twitterHandle}` : "gm degen";
-
-    // Skip welcome email for obvious dust accounts (still store signup)
-    const skipWelcome =
-      xFollowers != null && xFollowers < 5 && source !== "claim-page";
-
-    const [emailRes, tgRes] = await Promise.allSettled([
-      skipWelcome
-        ? Promise.resolve({
-            id: undefined as string | undefined,
-            error: undefined as string | undefined,
-            mode: "inline" as const,
-          })
-        : sendTemplateEmail({
-            to: email,
-            template: "welcome",
-            variables: { GREETING: greeting },
-          }),
+    const [tgRes] = await Promise.allSettled([
       sendTelegramMessage(tgLines.join("\n")),
     ]);
 
@@ -275,17 +257,7 @@ export async function POST(request: NextRequest) {
       source,
     });
 
-    if (
-      emailRes.status === "rejected" ||
-      (emailRes.status === "fulfilled" && emailRes.value.error)
-    ) {
-      console.error(
-        "Resend send failed:",
-        emailRes.status === "rejected"
-          ? emailRes.reason
-          : emailRes.value.error
-      );
-    }
+    // Welcome emails disabled — list only + TG alert
     if (
       tgRes.status === "rejected" ||
       (tgRes.status === "fulfilled" && !tgRes.value.ok)
