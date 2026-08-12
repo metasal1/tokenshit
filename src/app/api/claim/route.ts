@@ -1,5 +1,6 @@
 import { type NextRequest } from "next/server";
 import {
+  CLAIM_EMAIL_LIST,
   CLAIM_GH_FORK,
   CLAIM_X_FOLLOW,
   CLAIM_X_PREMIUM,
@@ -14,6 +15,7 @@ import {
   checkXVerified,
   getTweetClaimCooldown,
   hasClaimed,
+  isOnEmailList,
   recordClaim,
   tweetIdAlreadyClaimed,
   type ClaimKind,
@@ -40,6 +42,7 @@ const AMOUNTS: Record<ClaimKind, number> = {
   gh_fork: CLAIM_GH_FORK,
   x_tweet: CLAIM_X_TWEET,
   x_follow: CLAIM_X_FOLLOW,
+  email_list: CLAIM_EMAIL_LIST,
 };
 
 function isKind(k: string): k is ClaimKind {
@@ -77,6 +80,7 @@ export async function GET(request: NextRequest) {
         verified: CLAIM_X_VERIFIED,
         premium: CLAIM_X_PREMIUM,
         ghFork: CLAIM_GH_FORK,
+        emailList: CLAIM_EMAIL_LIST,
         walletMustBePrivyLinkedToX: true,
       },
     });
@@ -113,6 +117,15 @@ export async function GET(request: NextRequest) {
       const f = await checkXFollowsTokenshit(twitter);
       detail = f;
       eligible = f.ok && f.following;
+    } else if (kind === "email_list") {
+      const email = sp.get("email");
+      const list = await isOnEmailList({
+        email,
+        twitter,
+        wallet,
+      });
+      detail = list;
+      eligible = list.ok;
     }
 
     const claimed = await hasClaimed(kind, { twitter, github, wallet });
@@ -375,6 +388,25 @@ export async function POST(request: NextRequest) {
           { error: "Follow @Tokenshit_ on X, then claim." },
           { status: 403 }
         );
+    } else if (kind === "email_list") {
+      const emailRaw = body.email ? String(body.email).trim().toLowerCase() : "";
+      const list = await isOnEmailList({
+        email: emailRaw || null,
+        twitter,
+        wallet,
+        privyId: auth.id.privyId,
+      });
+      if (!list.ok) {
+        return Response.json(
+          {
+            error:
+              "Join the email list first, then claim. Use the same X / wallet you signed up with.",
+            code: "not_on_list",
+          },
+          { status: 403 }
+        );
+      }
+      amount = CLAIM_EMAIL_LIST;
     }
 
     if (await hasClaimed(kind, { twitter, github, wallet })) {

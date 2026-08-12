@@ -10,6 +10,7 @@ import {
   CLAIM_X_FOLLOW,
   CLAIM_X_TWEET,
   CLAIM_X_VERIFIED,
+  CLAIM_EMAIL_LIST,
   GH_FORK_UPSTREAM,
   GLOBAL_TREASURY_DAILY_DROP,
   REFERRAL_REWARD_SHIT,
@@ -30,6 +31,7 @@ export default function ClaimPage() {
   const rewards = [
     { label: `Tweet @${X_HANDLE}`, amt: CLAIM_X_TWEET },
     { label: `Follow @${X_HANDLE}`, amt: CLAIM_X_FOLLOW },
+    { label: "Join list", amt: CLAIM_EMAIL_LIST },
     { label: "X verified", amt: CLAIM_X_VERIFIED },
     { label: "GH fork", amt: CLAIM_GH_FORK },
     { label: "Per referral", amt: REFERRAL_REWARD_SHIT },

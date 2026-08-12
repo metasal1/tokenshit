@@ -113,7 +113,7 @@ export default function EmailSignupModal() {
       >
         <div className="flex justify-between items-start mb-3">
           <h3 className="text-white font-semibold text-lg">
-            {done ? '✓ You’re in' : 'Stay in the loop'}
+            {done ? '✓ You’re in' : 'Join the list · 5k'}
           </h3>
           <button
             onClick={() => close(true)}
@@ -126,12 +126,12 @@ export default function EmailSignupModal() {
 
         {done ? (
           <p className="text-sm text-zinc-300">
-            Welcome email sent. See you on the leaderboard, degen.
+            You're on the list. Claim 5,000 $TOKENSHIT on /claim.
           </p>
         ) : (
           <>
             <p className="text-sm text-zinc-400 mb-4">
-              Drop your email for daily winners, new features, and the occasional drop. No spam.
+              Join the list for 5,000 $TOKENSHIT (claim once after signup). Drops + product news. No spam.
             </p>
             <input
               type="email"
