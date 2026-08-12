@@ -19,6 +19,21 @@ body {
   color: var(--color-foreground);
 }
 
+/*
+ * Noto Color Emoji — https://fonts.google.com/noto/specimen/Noto+Color+Emoji
+ * Use .emoji / .font-emoji for confetti, reactions, labels with emoji.
+ * Stack keeps system emoji as fallback when COLR font isn't applied (e.g. some Safari).
+ */
+.emoji,
+.font-emoji {
+  font-family: "Noto Color Emoji", "Apple Color Emoji", "Segoe UI Emoji",
+    "Segoe UI Symbol", "Android Emoji", sans-serif;
+  font-style: normal;
+  font-weight: 400;
+  line-height: 1;
+  font-variant-emoji: emoji;
+}
+
 ::selection {
   background: var(--color-neon-purple);
   color: white;
