@@ -282,6 +282,9 @@ async function fromFxTwitter(username: string): Promise<any> {
   }
 }
 
+const profileCache = new Map<string, { at: number; val: XUserPublic }>();
+const PROFILE_CACHE_MS = 5 * 60 * 1000;
+
 export async function fetchXUserPublic(username: string): Promise<XUserPublic> {
   const clean = username.replace(/^@/, "").trim();
   if (!clean) {
@@ -296,14 +299,31 @@ export async function fetchXUserPublic(username: string): Promise<XUserPublic> {
     });
   }
 
+  const hit = profileCache.get(clean.toLowerCase());
+  if (hit && Date.now() - hit.at < PROFILE_CACHE_MS) {
+    return hit.val;
+  }
+
   const official = await fromOfficialX(clean);
-  if (official?.ok) return withProfileFlags(official);
+  if (official?.ok) {
+    const v = withProfileFlags(official);
+    profileCache.set(clean.toLowerCase(), { at: Date.now(), val: v });
+    return v;
+  }
 
   const ta = await fromTweetApiUser(clean);
-  if (ta?.ok) return withProfileFlags(ta);
+  if (ta?.ok) {
+    const v = withProfileFlags(ta);
+    profileCache.set(clean.toLowerCase(), { at: Date.now(), val: v });
+    return v;
+  }
 
   const fx = await fromFxTwitter(clean);
-  if (fx?.ok) return withProfileFlags(fx);
+  if (fx?.ok) {
+    const v = withProfileFlags(fx);
+    profileCache.set(clean.toLowerCase(), { at: Date.now(), val: v });
+    return v;
+  }
 
   const fail = ta || official;
   if (fail) return withProfileFlags(fail);
