@@ -127,7 +127,18 @@ export async function POST(request: NextRequest) {
            VALUES (?, ?, ?, ?, ?)`,
           [twitter, referred, wallet, REFERRAL_REWARD_SHIT, "pending"]
         );
-        if ((reserved as { rowsAffected?: number }).rowsAffected === 0) {
+        // Turso HTTP may not surface rowsAffected — check pending row exists
+        const check = await tursoExecute(
+          `SELECT signature FROM referral_rewards
+           WHERE lower(referred_twitter) = lower(?) LIMIT 1`,
+          [referred]
+        );
+        const sig0 = check.rows[0]?.[0] != null ? String(check.rows[0][0]) : null;
+        if (sig0 && sig0 !== "pending") {
+          continue; // already paid
+        }
+        if (!sig0) {
+          // insert ignored and no row — unique race
           continue;
         }
 

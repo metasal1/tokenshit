@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { usePrivy } from "@privy-io/react-auth";
+import { useWallets } from "@privy-io/react-auth/solana";
 import {
   CLAIM_GH_FORK,
   CLAIM_X_FOLLOW,
   CLAIM_X_TWEET,
   CLAIM_X_VERIFIED,
+  GH_FORK_UPSTREAM,
   SHIT_MINT,
   SHIT_SYMBOL,
   TREASURY_ADDRESS,
@@ -19,6 +21,7 @@ import {
   tweetTagIntentUrl,
 } from "@/lib/shit-token";
 import { BalanceSkeleton } from "@/components/StatLoader";
+import ShareRefButton from "@/components/ShareRefButton";
 
 type ClaimKind = "x_verified" | "gh_fork" | "x_tweet" | "x_follow";
 
@@ -129,6 +132,7 @@ function RewardRow({
 export default function ClaimPanel() {
   const { ready, authenticated, user, login, getAccessToken, linkTwitter, linkGithub } =
     usePrivy();
+  const { wallets } = useWallets();
   const [busy, setBusy] = useState<ClaimKind | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -138,7 +142,19 @@ export default function ClaimPanel() {
 
   const twitter = user?.twitter?.username || null;
   const github = user?.github?.username || null;
-  const wallet = user?.wallet?.address || null;
+  const wallet = useMemo(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const list = (wallets || []) as any[];
+    const preferred =
+      list.find((w) => w?.standardWallet?.name || w?.walletClientType) ||
+      list[0];
+    return (
+      preferred?.address ||
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (user as any)?.wallet?.address ||
+      null
+    ) as string | null;
+  }, [wallets, user]);
 
   useEffect(() => {
     fetch("/api/treasury")
@@ -158,7 +174,7 @@ export default function ClaimPanel() {
       return;
     }
     if (!wallet) {
-      setErr("No Solana wallet — log in again to create one.");
+      setErr("No Solana wallet yet — wait a second after login, or re-login.");
       return;
     }
     if (
@@ -176,11 +192,15 @@ export default function ClaimPanel() {
     setBusy(kind);
     try {
       const token = await getAccessToken();
+      if (!token) {
+        setErr("Session expired — log in again.");
+        return;
+      }
       const res = await fetch("/api/claim", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           kind,
@@ -192,7 +212,7 @@ export default function ClaimPanel() {
             : {}),
         }),
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         setErr(data.error || `Claim failed (${res.status})`);
         return;
@@ -201,7 +221,6 @@ export default function ClaimPanel() {
         `Sent ${Number(data.amount).toLocaleString()} $${SHIT_SYMBOL} to wallet.`
       );
       setSig(data.signature || null);
-      // scroll status into view on mobile
       requestAnimationFrame(() => {
         document
           .getElementById("claim-status")
