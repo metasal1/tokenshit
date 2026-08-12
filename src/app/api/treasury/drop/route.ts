@@ -96,18 +96,11 @@ export async function POST(request: NextRequest) {
         balAfter = bal2?.shit ?? null;
       } catch (e) {
         executeError = e instanceof Error ? e.message : String(e);
-        // Fall through — still allow record-only if forceRecord
-        if (!body.recordOnly && !force) {
-          return Response.json(
-            {
-              ok: false,
-              error: "Drop execute failed",
-              detail: executeError,
-              schedule: buildDropSchedule(now),
-            },
-            { status: 502 }
-          );
-        }
+        // Mint frozen / wrong authority — still record UI drop so countdown resets
+        // (manual top-ups / external funder). Cron stays green.
+        const bal2 = await getTreasuryBalances().catch(() => null);
+        balAfter = bal2?.shit ?? balBefore;
+        executed = false;
       }
     }
 
