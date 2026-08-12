@@ -154,8 +154,7 @@ export default function SwapDesk() {
 
   const payDec =
     payAsset === "sol" ? 9 : payAsset === "usdc" ? USDC_DECIMALS : SHIT_DECIMALS;
-  const getDec =
-    getAsset === "sol" ? 9 : getAsset === "usdc" ? USDC_DECIMALS : SHIT_DECIMALS;
+  const getDec = getAsset === "usdc" ? USDC_DECIMALS : SHIT_DECIMALS;
 
   const payBalance =
     payAsset === "sol"
@@ -165,11 +164,7 @@ export default function SwapDesk() {
         : balances?.shit;
 
   const getBalance =
-    getAsset === "sol"
-      ? balances?.sol
-      : getAsset === "usdc"
-        ? balances?.usdc
-        : balances?.shit;
+    getAsset === "usdc" ? balances?.usdc : balances?.shit;
 
   const rawAmount = useMemo(() => {
     const n = Number(amount);
