@@ -95,11 +95,15 @@ export default function ReferralsPage() {
     setClaimBusy(true);
     try {
       const token = await getAccessToken();
+      if (!token) {
+        setClaimErr('Session missing — log out and log back in');
+        return;
+      }
       const res = await fetch('/api/referral/claim-rewards', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ twitter: twitterHandle, wallet }),
       });
