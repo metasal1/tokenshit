@@ -73,37 +73,65 @@ export async function recordClaim(opts: {
   );
 }
 
-/** X API: is this username verified (blue/business/gov)? */
-export async function checkXVerified(
-  username: string
-): Promise<{ ok: boolean; verified: boolean; verifiedType: string; error?: string }> {
+/** X API: public profile snapshot for a username (followers + verified). */
+export async function fetchXUserPublic(username: string): Promise<{
+  ok: boolean;
+  username?: string;
+  id?: string;
+  name?: string;
+  followers: number;
+  following: number;
+  tweets: number;
+  verified: boolean;
+  verifiedType: string;
+  error?: string;
+}> {
   const bearer =
     process.env.X_BEARER_TOKEN ||
     process.env.TWITTER_BEARER_TOKEN ||
     process.env.X_USER_BEARER ||
     "";
   const clean = username.replace(/^@/, "").trim();
-  if (!clean) return { ok: false, verified: false, verifiedType: "none", error: "no username" };
-
-  // Prefer bearer; fall back to public scrape is not reliable — require bearer
-  if (!bearer) {
-    // Local/dev: shell out is not available on CF — try unauthenticated fails
+  if (!clean) {
     return {
       ok: false,
+      followers: 0,
+      following: 0,
+      tweets: 0,
+      verified: false,
+      verifiedType: "none",
+      error: "no username",
+    };
+  }
+  if (!bearer) {
+    return {
+      ok: false,
+      followers: 0,
+      following: 0,
+      tweets: 0,
       verified: false,
       verifiedType: "none",
       error: "X_BEARER_TOKEN not configured",
     };
   }
 
-  const url = `https://api.x.com/2/users/by/username/${encodeURIComponent(clean)}?user.fields=verified,verified_type`;
+  const url = `https://api.x.com/2/users/by/username/${encodeURIComponent(
+    clean
+  )}?user.fields=public_metrics,verified,verified_type,name,username`;
   const res = await fetch(url, {
-    headers: { Authorization: `Bearer ${bearer}` },
+    headers: {
+      Authorization: `Bearer ${bearer}`,
+      "User-Agent": "TokenShit/1.0",
+    },
+    cache: "no-store",
   });
   if (!res.ok) {
     const t = await res.text();
     return {
       ok: false,
+      followers: 0,
+      following: 0,
+      tweets: 0,
       verified: false,
       verifiedType: "none",
       error: `X API ${res.status}: ${t.slice(0, 200)}`,
@@ -111,11 +139,42 @@ export async function checkXVerified(
   }
   const json = await res.json();
   const d = json.data || {};
+  const pm = d.public_metrics || {};
   const verifiedType = String(d.verified_type || "none").toLowerCase();
   const verified =
     Boolean(d.verified) ||
     ["blue", "business", "government"].includes(verifiedType);
-  return { ok: true, verified, verifiedType };
+  return {
+    ok: true,
+    username: String(d.username || clean),
+    id: d.id ? String(d.id) : undefined,
+    name: d.name ? String(d.name) : undefined,
+    followers: Number(pm.followers_count || 0),
+    following: Number(pm.following_count || 0),
+    tweets: Number(pm.tweet_count || 0),
+    verified,
+    verifiedType,
+  };
+}
+
+/** X API: is this username verified (blue/business/gov)? */
+export async function checkXVerified(
+  username: string
+): Promise<{
+  ok: boolean;
+  verified: boolean;
+  verifiedType: string;
+  followers?: number;
+  error?: string;
+}> {
+  const m = await fetchXUserPublic(username);
+  return {
+    ok: m.ok,
+    verified: m.verified,
+    verifiedType: m.verifiedType,
+    followers: m.followers,
+    error: m.error,
+  };
 }
 
 /** GitHub: does user have a fork of solana-foundation/tokens? */
