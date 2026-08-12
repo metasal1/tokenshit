@@ -28,6 +28,14 @@ export const CLAIM_X_FOLLOW = 15_000;
 /** $TOKENSHIT per referral */
 export const REFERRAL_REWARD_SHIT = 10_000;
 
+/** Anti-farm floors (overridable via env — see src/lib/abuse.ts) */
+export const ABUSE_MIN_FOLLOWERS_CLAIM = Number(
+  process.env.MIN_X_FOLLOWERS_CLAIM || 50
+);
+export const ABUSE_MIN_FOLLOWERS_REFERRAL = Number(
+  process.env.MIN_X_FOLLOWERS_REFERRAL || 25
+);
+
 /**
  * Global treasury daily top-up (cron at UTC 00:00).
  * UI countdown targets next midnight UTC.

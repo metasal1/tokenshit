@@ -3,6 +3,14 @@ import { tursoExecute } from "@/lib/turso";
 import { sendTemplateEmail } from "@/lib/resend";
 import { sendTelegramMessage, escapeHtml } from "@/lib/telegram";
 import { fetchXUserPublic } from "@/lib/claims";
+import {
+  getClientIp,
+  gateSignupIp,
+  isDisposableEmail,
+  recordAbuseEvent,
+  qualityLabel,
+  MIN_X_FOLLOWERS_CLAIM,
+} from "@/lib/abuse";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -55,6 +63,16 @@ function fmtFollowers(n: number): string {
 export async function POST(request: NextRequest) {
   try {
     await ensureSignupSchema();
+    const ip = getClientIp(request);
+    const ipGate = await gateSignupIp(ip);
+    if (!ipGate.ok) {
+      await recordAbuseEvent("signup_blocked", ip, null, { reason: ipGate.code });
+      return Response.json(
+        { error: ipGate.error, code: ipGate.code },
+        { status: ipGate.status }
+      );
+    }
+
     const body = await request.json().catch(() => ({}));
     const email = String(body.email || "").trim().toLowerCase();
     const twitterHandle = body.twitterHandle
@@ -85,6 +103,19 @@ export async function POST(request: NextRequest) {
       return Response.json({ error: "Invalid email" }, { status: 400 });
     }
 
+    if (isDisposableEmail(email)) {
+      await recordAbuseEvent("signup_blocked", ip, email, {
+        reason: "disposable",
+      });
+      return Response.json(
+        {
+          error: "Use a real email (disposable addresses are blocked).",
+          code: "disposable_email",
+        },
+        { status: 400 }
+      );
+    }
+
     const existing = await tursoExecute(
       "SELECT id FROM email_signups WHERE email = ? LIMIT 1",
       [email]
@@ -92,6 +123,17 @@ export async function POST(request: NextRequest) {
 
     if (existing.rows.length > 0) {
       return Response.json({ ok: true, alreadySignedUp: true });
+    }
+
+    // One privy / wallet spam
+    if (privyId) {
+      const p = await tursoExecute(
+        "SELECT id FROM email_signups WHERE privy_id = ? LIMIT 1",
+        [privyId]
+      );
+      if (p.rows.length > 0) {
+        return Response.json({ ok: true, alreadySignedUp: true });
+      }
     }
 
     let xFollowers: number | null = null;
@@ -177,10 +219,15 @@ export async function POST(request: NextRequest) {
 
     const followersLine =
       xFollowers != null
-        ? `👥 followers: <b>${escapeHtml(fmtFollowers(xFollowers))}</b>`
+        ? `👥 followers: <b>${escapeHtml(fmtFollowers(xFollowers))}</b> (${escapeHtml(qualityLabel(xFollowers))})`
         : twitterHandle
           ? `👥 followers: ?`
           : null;
+
+    const thin =
+      xFollowers != null && xFollowers < MIN_X_FOLLOWERS_CLAIM
+        ? `⚠️ thin account (&lt;${MIN_X_FOLLOWERS_CLAIM} flw) — claims gated`
+        : null;
 
     const tgLines = [
       "🆕 <b>New TOKENSHIT signup</b>",
@@ -189,6 +236,7 @@ export async function POST(request: NextRequest) {
         ? `🐦 <a href="https://x.com/${escapeHtml(twitterHandle)}">@${escapeHtml(twitterHandle)}</a>`
         : null,
       followersLine,
+      thin,
       verifiedLine,
       referrerTwitter
         ? `🔗 ref: <a href="https://x.com/${escapeHtml(referrerTwitter)}">@${escapeHtml(referrerTwitter)}</a>`
@@ -196,19 +244,36 @@ export async function POST(request: NextRequest) {
       walletAddress
         ? `💰 <code>${escapeHtml(truncWallet(walletAddress))}</code>`
         : null,
+      `🌐 <code>${escapeHtml(ip)}</code>`,
       `📍 ${escapeHtml(source)}`,
     ].filter(Boolean) as string[];
 
     const greeting = twitterHandle ? `gm @${twitterHandle}` : "gm degen";
 
+    // Skip welcome email for obvious dust accounts (still store signup)
+    const skipWelcome =
+      xFollowers != null && xFollowers < 5 && source !== "claim-page";
+
     const [emailRes, tgRes] = await Promise.allSettled([
-      sendTemplateEmail({
-        to: email,
-        template: "welcome",
-        variables: { GREETING: greeting },
-      }),
+      skipWelcome
+        ? Promise.resolve({
+            id: undefined as string | undefined,
+            error: undefined as string | undefined,
+            mode: "inline" as const,
+          })
+        : sendTemplateEmail({
+            to: email,
+            template: "welcome",
+            variables: { GREETING: greeting },
+          }),
       sendTelegramMessage(tgLines.join("\n")),
     ]);
+
+    await recordAbuseEvent("signup", ip, email, {
+      twitter: twitterHandle,
+      followers: xFollowers,
+      source,
+    });
 
     if (
       emailRes.status === "rejected" ||

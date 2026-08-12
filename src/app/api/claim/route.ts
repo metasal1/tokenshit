@@ -18,6 +18,12 @@ import {
 import { getTreasuryBalances, sendShitFromTreasury } from "@/lib/treasury";
 import { requirePrivy } from "@/lib/privy-server";
 import { assertNotBlacklisted } from "@/lib/security";
+import {
+  getClientIp,
+  gateClaimIp,
+  gateXFollowersForClaim,
+  recordAbuseEvent,
+} from "@/lib/abuse";
 
 export const dynamic = "force-dynamic";
 
@@ -100,6 +106,16 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    const ip = getClientIp(request);
+    const ipGate = await gateClaimIp(ip);
+    if (!ipGate.ok) {
+      await recordAbuseEvent("claim_blocked", ip, null, { reason: ipGate.code });
+      return Response.json(
+        { error: ipGate.error, code: ipGate.code },
+        { status: ipGate.status }
+      );
+    }
+
     const body = await request.json();
     const kindRaw = String(body.kind || "");
     if (!isKind(kindRaw)) {
@@ -130,8 +146,23 @@ export async function POST(request: NextRequest) {
         kind === "x_verified" || kind === "x_tweet" || kind === "x_follow",
     });
     if (!auth.ok) return auth.res;
-    if (auth.id.twitter) {
-      // force match
+
+    // Follower floor on tweet/follow claims
+    const flGate = await gateXFollowersForClaim(twitter || auth.id.twitter, kind);
+    if (!flGate.ok) {
+      await recordAbuseEvent("claim_blocked", ip, twitter, {
+        reason: flGate.code,
+        kind,
+        followers: flGate.followers,
+      });
+      return Response.json(
+        {
+          error: flGate.error,
+          code: flGate.code,
+          followers: flGate.followers,
+        },
+        { status: flGate.status }
+      );
     }
 
     const amount = AMOUNTS[kind];
@@ -279,6 +310,12 @@ export async function POST(request: NextRequest) {
       `UPDATE shit_claims SET signature = ? WHERE claim_kind = ? AND wallet = ? AND signature = 'pending'`,
       [signature, kind, wallet]
     );
+
+    await recordAbuseEvent("claim", ip, twitter || wallet, {
+      kind,
+      amount,
+      followers: flGate.followers,
+    });
 
     return Response.json({
       ok: true,
