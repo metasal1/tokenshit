@@ -149,8 +149,7 @@ export default function SwapDesk() {
 
   const payLabel =
     payAsset === "sol" ? "SOL" : payAsset === "usdc" ? USDC_SYMBOL : `$${SHIT_SYMBOL}`;
-  const getLabel =
-    getAsset === "sol" ? "SOL" : getAsset === "usdc" ? USDC_SYMBOL : `$${SHIT_SYMBOL}`;
+  const getLabel = getAsset === "usdc" ? USDC_SYMBOL : `$${SHIT_SYMBOL}`;
 
   const payDec =
     payAsset === "sol" ? 9 : payAsset === "usdc" ? USDC_DECIMALS : SHIT_DECIMALS;
