@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import VoteButtons from "./VoteButtons";
 import SkipNextButton from "./SkipNextButton";
-import LottiePlayer from "./LottiePlayer";
 
 interface TokenInfo {
   assetId: string;
@@ -49,6 +48,7 @@ export default function RandomTokenVote() {
       <div className="p-4 border-b border-border flex items-center justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0">
           {token.logo ? (
+            // eslint-disable-next-line @next/next/no-img-element
             <img
               src={token.logo}
               alt={token.symbol}
@@ -77,12 +77,7 @@ export default function RandomTokenVote() {
           disabled={loading}
         />
       </div>
-      <div className="px-4 pt-2 flex justify-center sm:hidden">
-        <div className="h-12 w-12 opacity-80" aria-hidden>
-          <LottiePlayer src="/lottie/swipe-hint.json" className="h-full w-full" loop autoplay />
-        </div>
-      </div>
-      <div className="p-4 pt-2">
+      <div className="p-4 pt-3">
         <VoteButtons assetId={token.assetId} symbol={token.symbol} />
       </div>
     </div>

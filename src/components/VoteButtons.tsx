@@ -7,8 +7,9 @@ import { CanvasPanelFx } from "@/components/CanvasShell";
 import ShareRefButton from "@/components/ShareRefButton";
 import { getRefHandle, getVoterId } from "@/lib/privy-identity";
 import { sfx } from "@/lib/sfx";
-import SwipeHint, { SwipeEdgeGlow } from "@/components/SwipeHint";
-import LottiePlayer from "@/components/LottiePlayer";
+import InteractiveSwipeLottie, {
+  SwipeEdgeGlow,
+} from "@/components/InteractiveSwipeLottie";
 import { memeStudioUrl } from "@/lib/meme-templates";
 import SkipNextButton from "@/components/SkipNextButton";
 /** Noto Color Emoji packs — brand HIT/SHIT only */
@@ -259,6 +260,7 @@ export default function VoteButtons({
   const swipeStart = useRef<{ x: number; y: number } | null>(null);
   const [swipeX, setSwipeX] = useState(0);
   const [swipeBurst, setSwipeBurst] = useState<"hit" | "shit" | null>(null);
+  const [burstKey, setBurstKey] = useState(0);
 
   const onSwipeStart = (e: React.TouchEvent) => {
     if (hasVoted || voting) return;
@@ -271,8 +273,8 @@ export default function VoteButtons({
     if (!swipeStart.current || hasVoted || voting) return;
     const dx = e.touches[0].clientX - swipeStart.current.x;
     const dy = e.touches[0].clientY - swipeStart.current.y;
-    if (Math.abs(dy) > Math.abs(dx) * 1.3) return;
-    setSwipeX(dx * 0.5);
+    if (Math.abs(dy) > Math.abs(dx) * 1.25) return;
+    setSwipeX(dx * 0.55);
     if (dx > 24) setPressing("hit");
     else if (dx < -24) setPressing("shit");
     else setPressing(null);
@@ -286,17 +288,28 @@ export default function VoteButtons({
     }
     const dx = swipeX;
     swipeStart.current = null;
-    setSwipeX(0);
-    setPressing(null);
-    if (dx > 64) {
+    if (dx > 56) {
       setSwipeBurst("hit");
+      setBurstKey((k) => k + 1);
+      setSwipeX(110);
       void handleVote("hit");
-      setTimeout(() => setSwipeBurst(null), 900);
-    } else if (dx < -64) {
+      setTimeout(() => {
+        setSwipeBurst(null);
+        setSwipeX(0);
+      }, 900);
+    } else if (dx < -56) {
       setSwipeBurst("shit");
+      setBurstKey((k) => k + 1);
+      setSwipeX(-110);
       void handleVote("shit");
-      setTimeout(() => setSwipeBurst(null), 900);
+      setTimeout(() => {
+        setSwipeBurst(null);
+        setSwipeX(0);
+      }, 900);
+    } else {
+      setSwipeX(0);
     }
+    setPressing(null);
   };
 
   return (
@@ -309,40 +322,35 @@ export default function VoteButtons({
     >
       {dropPack && <EmojiDrop pack={dropPack} />}
       {swipeX > 10 && (
-        <SwipeEdgeGlow side="left" intensity={Math.min(1, swipeX / 100)} />
+        <SwipeEdgeGlow
+          side="left"
+          intensity={Math.min(1, swipeX / 90)}
+          mode="vote"
+        />
       )}
       {swipeX < -10 && (
         <SwipeEdgeGlow
           side="right"
-          intensity={Math.min(1, Math.abs(swipeX) / 100)}
+          intensity={Math.min(1, Math.abs(swipeX) / 90)}
+          mode="vote"
         />
       )}
-      {swipeBurst && (
-        <div
-          className={`pointer-events-none absolute inset-y-0 z-20 flex items-center ${
-            swipeBurst === "hit" ? "left-1" : "right-1"
-          }`}
-          aria-hidden
-        >
-          <div
-            className="h-16 w-16"
-            style={{
-              transform: swipeBurst === "shit" ? "scaleX(-1)" : undefined,
-            }}
-          >
-            <LottiePlayer
-              src="/lottie/swipe-hand.json"
-              loop={false}
-              autoplay
-              className="h-full w-full"
-            />
-          </div>
-        </div>
-      )}
+      <InteractiveSwipeLottie
+        offsetX={swipeX}
+        threshold={80}
+        burst={swipeBurst}
+        burstKey={burstKey}
+        variant="hand"
+        mode="vote"
+        size={100}
+      />
 
       <div className="text-center mb-2">
         <p className="text-lg font-bold text-white">
-          Is this token 🎯 or 💩?
+          Is this token HIT or SHIT?
+        </p>
+        <p className="text-[10px] font-mono uppercase tracking-wider text-zinc-500 mt-1 sm:hidden">
+          swipe right HIT · left SHIT
         </p>
         {loaded && totalVotes > 0 && (
           <p className="text-xs text-zinc-600 mt-1">
@@ -351,12 +359,6 @@ export default function VoteButtons({
           </p>
         )}
       </div>
-
-      {!hasVoted && (
-        <div className="sm:hidden mb-3 flex justify-center">
-          <SwipeHint mode="vote" force={false} />
-        </div>
-      )}
 
       {needsLogin && (
         <p className="text-center text-xs text-zinc-500 mb-3">
@@ -367,7 +369,7 @@ export default function VoteButtons({
         className="flex gap-4"
         style={{
           transform: `translateX(${swipeX}px)`,
-          transition: swipeStart.current ? "none" : "transform 0.15s ease-out",
+          transition: swipeStart.current ? "none" : "transform 0.18s ease-out",
         }}
       >
         <button
