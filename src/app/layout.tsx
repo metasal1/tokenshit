@@ -25,6 +25,16 @@ const orbitron = Orbitron({
   subsets: ["latin"],
 });
 
+/** Static OG card — same for / and /?ref=… (referral query does not need unique art). */
+const OG_IMAGE = {
+  url: "https://tokenshit.com/brand/og-share.png",
+  secureUrl: "https://tokenshit.com/brand/og-share.png",
+  width: 1200,
+  height: 630,
+  type: "image/png" as const,
+  alt: "TOKEN$HIT — Every token is shit until proven otherwise.",
+};
+
 export const metadata: Metadata = {
   metadataBase: new URL("https://tokenshit.com"),
   title: {
@@ -55,7 +65,7 @@ export const metadata: Metadata = {
     title: "TOKEN$HIT — Every token is shit until proven otherwise",
     description:
       "Every token is shit until proven otherwise. Vote HIT or SHIT on Solana.",
-    // opengraph-image.tsx generates 1200×630 (cream lockup + green $)
+    images: [OG_IMAGE],
   },
   twitter: {
     card: "summary_large_image",
@@ -64,6 +74,7 @@ export const metadata: Metadata = {
     title: "TOKEN$HIT — Every token is shit until proven otherwise",
     description:
       "Every token is shit until proven otherwise. Vote HIT or SHIT on Solana.",
+    images: [OG_IMAGE.url],
   },
   icons: {
     icon: [
@@ -103,14 +114,25 @@ export default function RootLayout({
           href="https://fonts.gstatic.com"
           crossOrigin="anonymous"
         />
-        {/* Noto Color Emoji — consistent fun emoji across platforms */}
         <link
           href="https://fonts.googleapis.com/css2?family=Noto+Color+Emoji&display=swap"
           rel="stylesheet"
         />
+        {/* Explicit static OG for crawlers that skip Next metadata merge */}
+        <meta property="og:image" content={OG_IMAGE.url} />
+        <meta property="og:image:secure_url" content={OG_IMAGE.secureUrl} />
+        <meta property="og:image:type" content="image/png" />
+        <meta property="og:image:width" content="1200" />
+        <meta property="og:image:height" content="630" />
+        <meta property="og:image:alt" content={OG_IMAGE.alt} />
+        <meta name="twitter:image" content={OG_IMAGE.url} />
+        <meta name="twitter:card" content="summary_large_image" />
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <meta
+          name="apple-mobile-web-app-status-bar-style"
+          content="black-translucent"
+        />
         <Script
           src="https://www.googletagmanager.com/gtag/js?id=G-XTVEWC915F"
           strategy="afterInteractive"
@@ -124,7 +146,10 @@ export default function RootLayout({
           `}
         </Script>
       </head>
-      <body className="min-h-full flex flex-col font-sans" suppressHydrationWarning>
+      <body
+        className="min-h-full flex flex-col font-sans"
+        suppressHydrationWarning
+      >
         <ClientLayout>{children}</ClientLayout>
       </body>
     </html>
