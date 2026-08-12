@@ -9,6 +9,7 @@ import { getRefHandle, getVoterId } from "@/lib/privy-identity";
 import { sfx } from "@/lib/sfx";
 import SwipeHint, { SwipeEdgeGlow } from "@/components/SwipeHint";
 import LottiePlayer from "@/components/LottiePlayer";
+import { memeStudioUrl } from "@/lib/meme-templates";
 function EmojiDrop({ emoji, count = 20 }: { emoji: string; count?: number }) {
   const [particles, setParticles] = useState<{ id: number; left: number; delay: number; size: number; duration: number }[]>([]);
 
@@ -228,15 +229,8 @@ export default function VoteButtons({
   const openMemeStudio = () => {
     const sym = (symbol || "???").toUpperCase();
     const hit = userVote === "hit";
-    // Prefer branded Drake blank on memes.sal.fun, fall back to classic drake id
-    const top = hit ? "Reading charts all day" : `$${sym} bagholders`;
-    const bottom = hit ? `$${sym} = HIT` : `$${sym} = SHIT`;
-    const u = new URL("https://memes.sal.fun/");
-    u.searchParams.set("t", "sol-au-drake");
-    u.searchParams.set("top", top);
-    u.searchParams.set("bottom", bottom);
-    u.searchParams.set("q", "drake");
-    window.open(u.toString(), "_blank", "noopener,noreferrer");
+    const url = memeStudioUrl({ symbol: sym, hit });
+    window.open(url, "_blank", "noopener,noreferrer");
   };
 
   const hasVoted = userVote !== null;
