@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { PrivyProvider, usePrivy } from '@privy-io/react-auth';
+import { useWallets } from '@privy-io/react-auth/solana';
 import Link from 'next/link';
 import AnimatedLogo from '@/components/AnimatedLogo';
 import PageTransition from '@/components/PageTransition';
@@ -18,6 +19,7 @@ import EmailSignupModal from '@/components/EmailSignupModal';
 import SignupGlitchToast from '@/components/SignupGlitchToast';
 import { TREASURY_ADDRESS, treasurySolscanUrl } from '@/lib/shit-token';
 import { getPrivyConfig } from '@/lib/privy-config';
+import { pickSolanaAddress } from '@/lib/privy-identity';
 
 interface TokenBalance {
   mint: string;
