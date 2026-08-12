@@ -114,7 +114,7 @@ export default function AdminPage() {
           disabled={loading}
           className="flex items-center gap-2 text-xs px-3 py-1.5 rounded-md border border-zinc-700 text-zinc-400 hover:text-white hover:border-zinc-500 transition-colors disabled:opacity-50"
         >
-          <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
+          <span className={`emoji inline-block text-sm ${loading ? "animate-spin" : ""}`} aria-hidden>🔄</span>
           Refresh
         </button>
       </div>
