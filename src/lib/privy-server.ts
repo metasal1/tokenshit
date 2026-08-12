@@ -1,4 +1,4 @@
-import { importSPKI, jwtVerify } from "jose";
+import { importSPKI, jwtVerify, type KeyLike } from "jose";
 import type { NextRequest } from "next/server";
 
 /**
@@ -20,11 +20,10 @@ export type PrivyIdentity = {
   wallets: string[];
 };
 
-let cachedSpki: CryptoKey | null = null;
+let cachedSpki: KeyLike | null = null;
 let cachedPem: string | null = null;
 
 function basicAuthHeader(): string {
-  // btoa works on Workers; Node Buffer fallback
   const raw = `${PRIVY_APP_ID}:${PRIVY_APP_SECRET}`;
   try {
     return `Basic ${btoa(raw)}`;
@@ -33,9 +32,27 @@ function basicAuthHeader(): string {
   }
 }
 
+/** Normalize PEM that may arrive single-line or with escaped newlines. */
+function normalizePem(input: string): string {
+  let pem = input.trim().replace(/\\n/g, "\n");
+  if (pem.includes("BEGIN PUBLIC KEY") && !pem.includes("\n")) {
+    const body = pem
+      .replace(/-----BEGIN PUBLIC KEY-----/g, "")
+      .replace(/-----END PUBLIC KEY-----/g, "")
+      .replace(/\s+/g, "");
+    const lines = ["-----BEGIN PUBLIC KEY-----"];
+    for (let i = 0; i < body.length; i += 64) {
+      lines.push(body.slice(i, i + 64));
+    }
+    lines.push("-----END PUBLIC KEY-----");
+    pem = lines.join("\n");
+  }
+  return pem;
+}
+
 async function fetchVerificationPem(): Promise<string> {
   if (PRIVY_VERIFICATION_KEY.includes("BEGIN PUBLIC KEY")) {
-    return PRIVY_VERIFICATION_KEY.replace(/\\n/g, "\n");
+    return normalizePem(PRIVY_VERIFICATION_KEY);
   }
   if (!PRIVY_APP_ID || !PRIVY_APP_SECRET) {
     throw new Error("PRIVY_APP_ID / PRIVY_APP_SECRET missing");
@@ -54,10 +71,10 @@ async function fetchVerificationPem(): Promise<string> {
   const data = (await res.json()) as { verification_key?: string };
   const pem = (data.verification_key || "").trim();
   if (!pem) throw new Error("No verification_key in Privy app settings");
-  return pem;
+  return normalizePem(pem);
 }
 
-async function getVerifyKey(): Promise<CryptoKey> {
+async function getVerifyKey(): Promise<KeyLike> {
   const pem = await fetchVerificationPem();
   if (cachedSpki && cachedPem === pem) return cachedSpki;
   const key = await importSPKI(pem, "ES256");
@@ -224,7 +241,6 @@ export async function requirePrivy(
 
   if (opts?.requireTwitter) {
     if (!id.twitter) {
-      // allow body twitter only if we couldn't load user profile
       if (opts.twitter) {
         id.twitter = opts.twitter.toLowerCase().replace(/^@/, "");
       } else {
