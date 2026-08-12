@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import { PrivyProvider } from '@privy-io/react-auth';
-import { toSolanaWalletConnectors } from '@privy-io/react-auth/solana';
+import { PrivyProvider } from "@privy-io/react-auth";
+import { getPrivyConfig } from "@/lib/privy-config";
 
 export default function PrivyClientProvider({
   children,
@@ -11,31 +11,7 @@ export default function PrivyClientProvider({
   appId: string;
 }) {
   return (
-    <PrivyProvider
-      appId={appId}
-      config={{
-        loginMethods: ['twitter', 'github'],
-        appearance: {
-          theme: 'dark',
-          accentColor: '#39ff14',
-        },
-        embeddedWallets: {
-          solana: {
-            createOnLogin: 'all-users',
-          },
-        },
-        externalWallets: {
-          solana: {
-            connectors: toSolanaWalletConnectors(),
-          },
-        },
-        fundingMethodConfig: {
-          moonpay: {
-            useSandbox: false,
-          },
-        },
-      }}
-    >
+    <PrivyProvider appId={appId} config={getPrivyConfig()}>
       {children}
     </PrivyProvider>
   );
