@@ -1,20 +1,12 @@
-import {
-  importJWK,
-  importSPKI,
-  jwtVerify,
-  decodeJwt,
-  decodeProtectedHeader,
-  type KeyLike,
-  type JWK,
-} from "jose";
+import { decodeJwt, decodeProtectedHeader } from "jose";
 import type { NextRequest } from "next/server";
 
 /**
  * Edge-safe Privy auth for Cloudflare Workers / OpenNext.
  *
- * DO NOT use jose.createRemoteJWKSet — it calls Node https.get which throws
- *   [unenv] https.get is not implemented yet!
- * on CF Workers. Fetch JWKS with global fetch + importJWK instead.
+ * CRITICAL: `jose.jwtVerify` + `importJWK`/`importSPKI` fails signature checks
+ * on CF Workers (unenv / subtle mismatch) even when the same token verifies
+ * with pure `crypto.subtle`. Use WebCrypto ECDSA P-256 verify only.
  */
 
 const PRIVY_APP_ID = (
@@ -23,7 +15,6 @@ const PRIVY_APP_ID = (
   ""
 ).trim();
 const PRIVY_APP_SECRET = (process.env.PRIVY_APP_SECRET || "").trim();
-const PRIVY_VERIFICATION_KEY = (process.env.PRIVY_VERIFICATION_KEY || "").trim();
 const PRIVY_APP_ID_FALLBACK = (process.env.PRIVY_APP_ID_FALLBACK || "").trim();
 
 export type PrivyIdentity = {
@@ -33,9 +24,11 @@ export type PrivyIdentity = {
   wallets: string[];
 };
 
-type JwksDoc = { keys: JWK[] };
+type Jwk = JsonWebKey & { kid?: string; alg?: string };
+type JwksDoc = { keys: Jwk[] };
+
 const jwksDocCache = new Map<string, { at: number; doc: JwksDoc }>();
-const jwkKeyCache = new Map<string, CryptoKey | KeyLike>();
+const cryptoKeyCache = new Map<string, CryptoKey>();
 const JWKS_TTL_MS = 60 * 60 * 1000;
 
 function basicAuthHeader(appId: string, secret: string): string {
@@ -47,6 +40,7 @@ function basicAuthHeader(appId: string, secret: string): string {
   }
 }
 
+/** Keep for health endpoint / env tooling */
 export function normalizePem(input: string): string {
   let pem = input.trim().replace(/\\n/g, "\n").replace(/\r/g, "");
   if (!pem.includes("BEGIN PUBLIC KEY")) {
@@ -72,7 +66,15 @@ export function normalizePem(input: string): string {
   return pem;
 }
 
-/** Workers-safe JWKS load via fetch (not Node https). */
+function b64urlToBytes(s: string): Uint8Array {
+  const pad = "=".repeat((4 - (s.length % 4)) % 4);
+  const b64 = (s + pad).replace(/-/g, "+").replace(/_/g, "/");
+  const bin = atob(b64);
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
+}
+
 async function loadJwksDoc(appId: string): Promise<JwksDoc> {
   const hit = jwksDocCache.get(appId);
   if (hit && Date.now() - hit.at < JWKS_TTL_MS) return hit.doc;
@@ -80,88 +82,50 @@ async function loadJwksDoc(appId: string): Promise<JwksDoc> {
     `https://auth.privy.io/api/v1/apps/${encodeURIComponent(appId)}/jwks.json`,
     { cache: "no-store" }
   );
-  if (!res.ok) {
-    throw new Error(`JWKS HTTP ${res.status}`);
-  }
+  if (!res.ok) throw new Error(`JWKS HTTP ${res.status}`);
   const doc = (await res.json()) as JwksDoc;
   if (!doc?.keys?.length) throw new Error("JWKS empty");
   jwksDocCache.set(appId, { at: Date.now(), doc });
   return doc;
 }
 
-async function getKeyFromJwks(
-  appId: string,
-  kid?: string
-): Promise<CryptoKey | KeyLike> {
+async function getCryptoKey(appId: string, kid?: string): Promise<CryptoKey> {
   const cacheKey = `${appId}:${kid || "*"}`;
-  if (jwkKeyCache.has(cacheKey)) return jwkKeyCache.get(cacheKey)!;
+  if (cryptoKeyCache.has(cacheKey)) return cryptoKeyCache.get(cacheKey)!;
 
   const doc = await loadJwksDoc(appId);
   let jwk = kid ? doc.keys.find((k) => k.kid === kid) : undefined;
   if (!jwk) jwk = doc.keys.find((k) => k.alg === "ES256") || doc.keys[0];
   if (!jwk) throw new Error("no JWK");
 
-  const key = (await importJWK(
-    jwk as import("jose").JWK,
-    jwk.alg || "ES256"
-  )) as CryptoKey | KeyLike;
-  jwkKeyCache.set(cacheKey, key);
-  if (jwk.kid) jwkKeyCache.set(`${appId}:${jwk.kid}`, key);
+  const key = await crypto.subtle.importKey(
+    "jwk",
+    { ...jwk, key_ops: ["verify"], ext: true },
+    { name: "ECDSA", namedCurve: "P-256" },
+    false,
+    ["verify"]
+  );
+  cryptoKeyCache.set(cacheKey, key);
+  if (jwk.kid) cryptoKeyCache.set(`${appId}:${jwk.kid}`, key);
   return key;
 }
 
-async function getKeyFromSpki(appId: string): Promise<CryptoKey | KeyLike | null> {
-  const cacheKey = `spki:${appId}`;
-  if (jwkKeyCache.has(cacheKey)) return jwkKeyCache.get(cacheKey)!;
-
-  let pem = "";
-
-  // 1) env map
-  const mapRaw = process.env.PRIVY_VERIFICATION_KEYS_JSON || "";
-  if (mapRaw) {
-    try {
-      const map = JSON.parse(mapRaw) as Record<string, string>;
-      if (map[appId]) pem = normalizePem(map[appId]);
-    } catch {
-      /* ignore */
-    }
-  }
-
-  // 2) single env
-  if (!pem && appId === PRIVY_APP_ID && PRIVY_VERIFICATION_KEY) {
-    pem = normalizePem(PRIVY_VERIFICATION_KEY);
-  }
-
-  // 3) live fetch app settings (Workers fetch works)
-  if (!pem && PRIVY_APP_SECRET) {
-    try {
-      const res = await fetch(
-        `https://auth.privy.io/api/v1/apps/${encodeURIComponent(appId)}`,
-        {
-          headers: {
-            Authorization: basicAuthHeader(appId, PRIVY_APP_SECRET),
-            "privy-app-id": appId,
-          },
-          cache: "no-store",
-        }
-      );
-      if (res.ok) {
-        const data = (await res.json()) as { verification_key?: string };
-        if (data.verification_key) pem = normalizePem(data.verification_key);
-      }
-    } catch {
-      /* ignore */
-    }
-  }
-
-  if (!pem) return null;
-  try {
-    const key = await importSPKI(pem, "ES256");
-    jwkKeyCache.set(cacheKey, key);
-    return key;
-  } catch {
-    return null;
-  }
+/** Pure WebCrypto ES256 JWT verify (Workers-safe). */
+async function webcryptoJwtVerifyEs256(
+  token: string,
+  key: CryptoKey
+): Promise<boolean> {
+  const parts = token.split(".");
+  if (parts.length !== 3) return false;
+  const [h, p, s] = parts;
+  const data = new TextEncoder().encode(`${h}.${p}`);
+  const sig = b64urlToBytes(s);
+  return crypto.subtle.verify(
+    { name: "ECDSA", hash: "SHA-256" },
+    key,
+    sig as BufferSource,
+    data
+  );
 }
 
 export function bearerFrom(req: NextRequest): string | null {
@@ -231,49 +195,57 @@ export async function verifyPrivyAccessToken(
     };
   }
 
+  if (header.alg && header.alg !== "ES256") {
+    return { ok: false, error: `Unsupported alg ${String(header.alg)}` };
+  }
+
+  // exp check (clockTolerance 120s)
+  const now = Math.floor(Date.now() / 1000);
+  const exp = typeof claims.exp === "number" ? claims.exp : 0;
+  const iat = typeof claims.iat === "number" ? claims.iat : 0;
+  if (exp && now > exp + 120) {
+    return { ok: false, error: "token expired" };
+  }
+  if (iat && iat > now + 120) {
+    return { ok: false, error: "token nbf/iat in future" };
+  }
+  if (claims.iss && claims.iss !== "privy.io") {
+    return { ok: false, error: `bad iss ${String(claims.iss)}` };
+  }
+
   const kid = typeof header.kid === "string" ? header.kid : undefined;
   const aud = claims.aud as string | string[] | undefined;
   const apps = candidateAppIds(aud);
   const errors: string[] = [];
 
   for (const appId of apps) {
-    // 1) Workers-safe JWKS via fetch + importJWK
-    try {
-      const key = await getKeyFromJwks(appId, kid);
-      const { payload } = await jwtVerify(cleaned, key, {
-        issuer: "privy.io",
-        audience: appId,
-        algorithms: ["ES256"],
-        clockTolerance: 120,
-      });
-      const userId = typeof payload.sub === "string" ? payload.sub : "";
-      if (userId) return { ok: true, userId, appId };
-      errors.push(`${appId}/jwk: missing sub`);
-    } catch (e) {
-      errors.push(
-        `${appId}/jwk: ${e instanceof Error ? e.message : String(e)}`
-      );
+    // audience must match when present
+    const audOk = !aud
+      ? true
+      : Array.isArray(aud)
+        ? aud.includes(appId)
+        : aud === appId;
+    if (!audOk) {
+      errors.push(`${appId}: aud mismatch`);
+      continue;
     }
 
-    // 2) SPKI (env or live-fetched app settings)
     try {
-      const key = await getKeyFromSpki(appId);
-      if (!key) {
-        errors.push(`${appId}/spki: no key`);
+      const key = await getCryptoKey(appId, kid);
+      const ok = await webcryptoJwtVerifyEs256(cleaned, key);
+      if (!ok) {
+        errors.push(`${appId}/webcrypto: signature invalid`);
         continue;
       }
-      const { payload } = await jwtVerify(cleaned, key, {
-        issuer: "privy.io",
-        audience: appId,
-        algorithms: ["ES256"],
-        clockTolerance: 120,
-      });
-      const userId = typeof payload.sub === "string" ? payload.sub : "";
-      if (userId) return { ok: true, userId, appId };
-      errors.push(`${appId}/spki: missing sub`);
+      const userId = typeof claims.sub === "string" ? claims.sub : "";
+      if (!userId) {
+        errors.push(`${appId}: missing sub`);
+        continue;
+      }
+      return { ok: true, userId, appId };
     } catch (e) {
       errors.push(
-        `${appId}/spki: ${e instanceof Error ? e.message : String(e)}`
+        `${appId}/webcrypto: ${e instanceof Error ? e.message : String(e)}`
       );
     }
   }
@@ -284,7 +256,6 @@ export async function verifyPrivyAccessToken(
     meta: {
       alg: header.alg,
       kid: header.kid,
-      typ: header.typ,
       iss: claims.iss,
       aud: claims.aud,
       sub: typeof claims.sub === "string" ? claims.sub.slice(0, 28) : null,
