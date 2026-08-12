@@ -1,8 +1,12 @@
 /**
  * TOKENSHIT brand tokens — single source of truth.
- * Keep in sync with globals.css @theme + layout fonts.
+ * Keep in sync with globals.css (.neon-text / .neon-dollar) + logo PNGs.
+ *
+ * Dark-mode lockup (canonical):
+ *   TOKEN / HIT = cream #fff8e7 (+ gold glow #f0c040)
+ *   $           = neon green #39ff14
+ *   bg          = #0a0a0f
  */
-
 export const BRAND = {
   name: "TOKENSHIT",
   nameDisplay: "TOKEN$HIT",
@@ -16,11 +20,12 @@ export const BRAND = {
   xHandle: "Tokenshit_",
   mint: "fEbiuDdZZ1QaWYpJFPqk23ZkaRnAyHg4aivhrCTshit",
   treasury: "SHTy7yoA5uAZoevKT3BFcSeDeFaHEyqWc55uApd3MJB",
+  typefullySocialSetId: 326045,
 
   colors: {
     background: "#0a0a0f",
     foreground: "#e4e4e7",
-    /** CTA / accent green — also the $ in the wordmark */
+    /** Primary CTA green — also the $ in the wordmark */
     neon: "#39ff14",
     neonDim: "#39ff1440",
     neonPurple: "#b94dff",
@@ -52,18 +57,11 @@ export const BRAND = {
   },
 
   logo: {
-    /** CSS classes for wordmark pieces */
     tokenClass: "neon-text",
     dollarClass: "neon-dollar",
     hitClass: "neon-text",
     fontClass: "font-monoton",
-    /** Public assets (bare logos — no boxes in shares) */
     assets: {
-      iconSvg: "/brand/icon.svg",
-      squareSolid: "/brand/square-solid.png",
-      squareOutline: "/brand/square-outline.png",
-      squareGradient: "/brand/square-gradient.png",
-      logoJpg: "/logo.jpg",
       logoPng: "/brand/logo.png",
       logoTransparent: "/brand/logo-transparent.png",
       logoWide: "/brand/logo-wide.png",
@@ -71,6 +69,12 @@ export const BRAND = {
       logoSquareTransparent: "/brand/logo-square-transparent.png",
       logoMark: "/brand/logo-mark.png",
       logoMarkDark: "/brand/logo-mark-dark.png",
+      logoRoot: "/logo.png",
+      iconSvg: "/brand/icon.svg",
+      squareSolid: "/brand/square-solid.png",
+      squareOutline: "/brand/square-outline.png",
+      squareGradient: "/brand/square-gradient.png",
+      logoJpg: "/logo.jpg",
       banner: "/banner.jpeg",
       xBanner: "/brand/x-banner.jpg",
     },
@@ -80,6 +84,7 @@ export const BRAND = {
     tone: ["irreverent", "direct", "CT-native", "funny-not-cringe"],
     do: [
       "Bare logos — no boxes, no chrome frames on shares",
+      "Cream TOKEN/HIT + green $ on dark (never green wordmark + magenta $)",
       "Lowercase sentence case for body; ALL CAPS only for brand lockups",
       "Use HIT / SHIT as verdict verbs",
       "Link product (token page, claim, ref) not empty vibes",
@@ -92,6 +97,7 @@ export const BRAND = {
       "No purple mainnet Solana palette as primary brand",
       "No scientific notation on prices in UI",
       "Don't say $SHIT ticker — ticker is $TOKENSHIT",
+      "Don't paint TOKEN/HIT green or $ magenta",
     ],
   },
 
@@ -114,10 +120,23 @@ export const BRAND_COLOR_SWATCHES: {
   { key: "card", hex: BRAND.colors.card, role: "Surfaces" },
   { key: "border", hex: BRAND.colors.border, role: "Dividers" },
   { key: "foreground", hex: BRAND.colors.foreground, role: "Body text" },
-  { key: "neon", hex: BRAND.colors.neon, role: "Primary brand / CTA" },
+  {
+    key: "wordmark",
+    hex: BRAND.colors.wordmark,
+    role: "TOKEN / HIT cream neon",
+  },
+  {
+    key: "wordmarkGlow",
+    hex: BRAND.colors.wordmarkGlow,
+    role: "Wordmark gold glow",
+  },
+  {
+    key: "wordmarkDollar / neon",
+    hex: BRAND.colors.wordmarkDollar,
+    role: "$ + primary CTA green",
+  },
   { key: "neonBlue", hex: BRAND.colors.neonBlue, role: "Links / info" },
-  { key: "neonPurple", hex: BRAND.colors.neonPurple, role: "Selection / accent" },
-  { key: "neonMagenta", hex: BRAND.colors.neonMagenta, role: "Dollar / glitch S" },
+  { key: "neonPurple", hex: BRAND.colors.neonPurple, role: "Selection" },
   { key: "hit", hex: BRAND.colors.hit, role: "HIT vote" },
   { key: "shit", hex: BRAND.colors.shit, role: "SHIT vote" },
 ];

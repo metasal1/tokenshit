@@ -6,7 +6,7 @@ import { BRAND, BRAND_COLOR_SWATCHES } from "@/lib/brand";
 export const metadata: Metadata = {
   title: "Brand — TOKENSHIT",
   description:
-    "TOKENSHIT brand guide: colors, type, logo, voice, assets. Every token is shit until proven otherwise.",
+    "TOKENSHIT brand guide: cream wordmark, green $, colors, type, assets.",
   alternates: { canonical: "/brand" },
 };
 
@@ -37,7 +37,7 @@ export default function BrandPage() {
     <div className="mx-auto w-full max-w-4xl px-3 sm:px-4 pt-6 pb-16 sm:py-12 space-y-12">
       <header className="space-y-4">
         <p className="text-xs font-mono uppercase tracking-widest text-zinc-500">
-          Brand guide · v1
+          Brand guide · v2 · dark lockup
         </p>
         <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
           <AnimatedLogo size="hero" />
@@ -46,14 +46,16 @@ export default function BrandPage() {
           </p>
         </div>
         <nav className="flex flex-wrap gap-2 text-xs font-mono">
-          {[
-            ["#logo", "Logo"],
-            ["#colors", "Colors"],
-            ["#type", "Type"],
-            ["#voice", "Voice"],
-            ["#product", "Product"],
-            ["#assets", "Assets"],
-          ].map(([href, label]) => (
+          {(
+            [
+              ["#logo", "Logo"],
+              ["#colors", "Colors"],
+              ["#type", "Type"],
+              ["#voice", "Voice"],
+              ["#product", "Product"],
+              ["#assets", "Assets"],
+            ] as const
+          ).map(([href, label]) => (
             <a
               key={href}
               href={href}
@@ -67,32 +69,54 @@ export default function BrandPage() {
 
       <Section id="logo" title="Logo">
         <p className="text-sm text-zinc-400 leading-relaxed">
-          Wordmark is <span className="font-monoton text-neon">TOKEN</span>
+          Wordmark is{" "}
+          <span className="font-monoton neon-text">TOKEN</span>
           <span className="font-monoton neon-dollar">$</span>
-          <span className="font-monoton text-neon">HIT</span> in{" "}
-          <strong className="text-zinc-200">Monoton</strong>. The{" "}
-          <span className="neon-dollar">$</span> is magenta neon — not green.
-          Bare mark only: no boxes, no app-icon chrome on social shares.
+          <span className="font-monoton neon-text">HIT</span> in{" "}
+          <strong className="text-zinc-200">Monoton</strong>. Dark mode
+          default:{" "}
+          <strong className="text-zinc-200">cream</strong> TOKEN/HIT (
+          <code className="text-neon text-xs">{BRAND.colors.wordmark}</code>
+          ) and <strong className="text-neon">green</strong>{" "}
+          <span className="neon-dollar">$</span> (
+          <code className="text-neon text-xs">
+            {BRAND.colors.wordmarkDollar}
+          </code>
+          ). Bare mark only — no boxes on shares.
         </p>
         <div className="grid sm:grid-cols-2 gap-4">
-          <div className="rounded-xl border border-border bg-card p-8 flex items-center justify-center min-h-[140px]">
+          <div className="rounded-xl border border-border bg-card p-8 flex flex-col items-center justify-center min-h-[140px] gap-3">
+            <p className="text-[10px] uppercase tracking-widest text-zinc-500 font-mono">
+              Dark (default)
+            </p>
             <AnimatedLogo size="nav" />
           </div>
-          <div className="rounded-xl border border-border bg-white p-8 flex items-center justify-center min-h-[140px]">
+          <div className="rounded-xl border border-border bg-zinc-100 p-8 flex flex-col items-center justify-center min-h-[140px] gap-3">
+            <p className="text-[10px] uppercase tracking-widest text-zinc-500 font-mono">
+              On light (ink)
+            </p>
             <span className="text-3xl font-monoton">
               <span style={{ color: BRAND.colors.background }}>TOKEN</span>
-              <span style={{ color: BRAND.colors.neonMagenta }}>$</span>
+              <span style={{ color: BRAND.colors.neon }}>$</span>
               <span style={{ color: BRAND.colors.background }}>HIT</span>
             </span>
           </div>
         </div>
+        <div className="rounded-xl border border-border bg-background overflow-hidden">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={BRAND.logo.assets.logoPng}
+            alt="TOKEN$HIT logo PNG"
+            className="w-full h-auto object-contain"
+          />
+        </div>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {(
             [
-              ["Icon", BRAND.logo.assets.iconSvg],
-              ["Solid $", BRAND.logo.assets.squareSolid],
-              ["Outline", BRAND.logo.assets.squareOutline],
-              ["Gradient", BRAND.logo.assets.squareGradient],
+              ["Logo PNG", BRAND.logo.assets.logoPng],
+              ["Transparent", BRAND.logo.assets.logoTransparent],
+              ["Square", BRAND.logo.assets.logoSquare],
+              ["$ mark", BRAND.logo.assets.logoMark],
             ] as const
           ).map(([label, src]) => (
             <a
@@ -103,23 +127,33 @@ export default function BrandPage() {
               className="rounded-xl border border-border bg-card p-4 flex flex-col items-center gap-2 hover:border-neon/50 transition-colors"
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={src} alt={label} className="h-16 w-16 object-contain" />
-              <span className="text-[11px] font-mono text-zinc-500">{label}</span>
+              <img
+                src={src}
+                alt={label}
+                className="h-16 w-full object-contain bg-zinc-950 rounded"
+              />
+              <span className="text-[11px] font-mono text-zinc-500">
+                {label}
+              </span>
             </a>
           ))}
         </div>
         <ul className="text-sm text-zinc-400 space-y-1 list-disc pl-5">
           <li>
-            Clear space: ≥ height of the <code className="text-neon">$</code> on
-            all sides
+            Clear space: ≥ height of the{" "}
+            <code className="text-neon">$</code> on all sides
           </li>
-          <li>Min digital size: 24px tall wordmark; 32px for icon</li>
-          <li>Never recolor $ to green or stretch Monoton</li>
+          <li>Min digital size: 24px tall wordmark; 32px for mark</li>
+          <li>
+            Never recolor TOKEN/HIT to green or{" "}
+            <code className="text-neon">$</code> to magenta
+          </li>
+          <li>Never stretch Monoton</li>
         </ul>
       </Section>
 
       <Section id="colors" title="Colors">
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
           {BRAND_COLOR_SWATCHES.map((c) => (
             <div
               key={c.key}
@@ -131,7 +165,9 @@ export default function BrandPage() {
                 title={c.hex}
               />
               <div className="p-2.5 space-y-0.5">
-                <div className="text-xs font-semibold text-zinc-200">{c.key}</div>
+                <div className="text-xs font-semibold text-zinc-200">
+                  {c.key}
+                </div>
                 <div className="text-[11px] font-mono text-neon">{c.hex}</div>
                 <div className="text-[10px] text-zinc-500 leading-snug">
                   {c.role}
@@ -140,7 +176,11 @@ export default function BrandPage() {
             </div>
           ))}
         </div>
-        <pre className="rounded-xl border border-border bg-card p-4 text-[11px] sm:text-xs font-mono text-zinc-400 overflow-x-auto leading-relaxed">{`/* globals.css @theme */
+        <pre className="rounded-xl border border-border bg-card p-4 text-[11px] sm:text-xs font-mono text-zinc-400 overflow-x-auto leading-relaxed">{`/* Wordmark */
+.neon-text   { color: ${BRAND.colors.wordmark}; }
+.neon-dollar { color: ${BRAND.colors.wordmarkDollar}; }
+
+/* Theme */
 --color-background: ${BRAND.colors.background};
 --color-neon:        ${BRAND.colors.neon};
 --color-neon-blue:   ${BRAND.colors.neonBlue};
@@ -155,8 +195,10 @@ export default function BrandPage() {
             <p className="text-[10px] uppercase tracking-widest text-zinc-500 font-mono">
               Brand · Monoton
             </p>
-            <p className="font-monoton text-3xl sm:text-4xl neon-text leading-none">
-              TOKEN$HIT
+            <p className="font-monoton text-3xl sm:text-4xl leading-none">
+              <span className="neon-text">TOKEN</span>
+              <span className="neon-dollar">$</span>
+              <span className="neon-text">HIT</span>
             </p>
             <p className="text-xs text-zinc-500">
               Lockups, hero, 404, OG brand mark only
@@ -178,9 +220,7 @@ export default function BrandPage() {
             <p className="text-[10px] uppercase tracking-widest text-zinc-500 font-mono">
               UI · Geist
             </p>
-            <p className="text-lg text-foreground">
-              Every token is shit until proven otherwise.
-            </p>
+            <p className="text-lg text-foreground">{BRAND.tagline}</p>
             <p className="text-xs text-zinc-500">Body, buttons, nav</p>
           </div>
           <div className="rounded-xl border border-border bg-card p-5 space-y-3">
@@ -220,16 +260,6 @@ export default function BrandPage() {
             </ul>
           </div>
         </div>
-        <div className="rounded-xl border border-border bg-card p-4 space-y-2 text-sm">
-          <p className="text-zinc-500 text-xs font-mono uppercase">Example</p>
-          <p className="text-zinc-200">
-            “Voted SHIT on that bag. Court adjourned.{" "}
-            <span className="text-neon-blue">tokenshit.com</span>”
-          </p>
-          <p className="text-zinc-600 line-through">
-            “Excited to announce our innovative token rating ecosystem!!!”
-          </p>
-        </div>
       </Section>
 
       <Section id="product" title="Product marks">
@@ -239,7 +269,7 @@ export default function BrandPage() {
             <div className="text-neon text-base">{BRAND.tickerDisplay}</div>
           </div>
           <div className="rounded-xl border border-border bg-card p-4 space-y-1 font-mono text-xs">
-            <div className="text-zinc-500">X</div>
+            <div className="text-zinc-500">X · Typefully</div>
             <a
               href={BRAND.x}
               className="text-neon-blue hover:underline text-base"
@@ -248,6 +278,7 @@ export default function BrandPage() {
             >
               @{BRAND.xHandle}
             </a>
+            <div className="text-zinc-600">set {BRAND.typefullySocialSetId}</div>
           </div>
           <div className="rounded-xl border border-border bg-card p-4 space-y-1 font-mono text-xs sm:col-span-2">
             <div className="text-zinc-500">Mint</div>
@@ -278,11 +309,12 @@ export default function BrandPage() {
         <div className="grid sm:grid-cols-3 gap-3">
           {(
             [
-              ["Logo", BRAND.logo.assets.logoJpg],
-              ["Banner", BRAND.logo.assets.banner],
+              ["Logo PNG", BRAND.logo.assets.logoPng],
+              ["Transparent", BRAND.logo.assets.logoTransparent],
+              ["Wide", BRAND.logo.assets.logoWide],
+              ["Square", BRAND.logo.assets.logoSquare],
+              ["$ mark", BRAND.logo.assets.logoMark],
               ["X banner", BRAND.logo.assets.xBanner],
-              ["Icon SVG", BRAND.logo.assets.iconSvg],
-              ["Square solid", BRAND.logo.assets.squareSolid],
             ] as const
           ).map(([label, src]) => (
             <a
@@ -296,7 +328,7 @@ export default function BrandPage() {
               <img
                 src={src}
                 alt={label}
-                className="w-full h-28 object-cover bg-zinc-900"
+                className="w-full h-28 object-contain bg-zinc-950"
               />
               <div className="px-3 py-2 text-xs font-mono text-zinc-400 flex justify-between gap-2">
                 <span>{label}</span>

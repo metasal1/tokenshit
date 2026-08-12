@@ -4,13 +4,17 @@ Site: https://tokenshit.com
 Guide: https://tokenshit.com/brand  
 Source: `src/lib/brand.ts`
 
-## Wordmark
+## Wordmark (dark mode — canonical)
 
 **TOKEN$HIT** — Monoton.
 
-- `TOKEN` + `HIT` = neon green `#39ff14` with glow
-- `$` = magenta neon `#ff00ff` (class `neon-dollar`)
-- Bare logos only — no boxes on shares
+| Part | Color | CSS |
+|------|--------|-----|
+| `TOKEN` + `HIT` | cream `#fff8e7` + gold glow `#f0c040` | `.neon-text` |
+| `$` | neon green `#39ff14` (+ `#0fa` glow) | `.neon-dollar` |
+| Background | `#0a0a0f` | page |
+
+**Do not** paint TOKEN/HIT green or `$` magenta. Bare logos only — no boxes on shares.
 
 ## Tagline
 
@@ -22,10 +26,11 @@ Source: `src/lib/brand.ts`
 |-------|-----|------|
 | background | `#0a0a0f` | Page |
 | foreground | `#e4e4e7` | Body |
-| neon | `#39ff14` | Primary / CTA |
+| wordmark | `#fff8e7` | TOKEN / HIT |
+| wordmarkGlow | `#f0c040` | Wordmark halo |
+| neon / wordmarkDollar | `#39ff14` | `$` + primary CTA |
 | neon-blue | `#00d4ff` | Links |
 | neon-purple | `#b94dff` | Selection |
-| neon-magenta | `#ff00ff` | Dollar |
 | card | `#12121a` | Surfaces |
 | border | `#2a2a3a` | Dividers |
 | hit | `#4ade80` | HIT vote |
@@ -46,6 +51,7 @@ Prices: plain decimals only (`$0.0000373`), never `3.73e-5`.
 
 - Ticker: **$TOKENSHIT** (not $SHIT)
 - X: [@Tokenshit_](https://x.com/Tokenshit_)
+- Typefully social set: **326045**
 - Mint: `fEbiuDdZZ1QaWYpJFPqk23ZkaRnAyHg4aivhrCTshit`
 - Treasury: `SHTy7yoA5uAZoevKT3BFcSeDeFaHEyqWc55uApd3MJB`
 
@@ -54,21 +60,29 @@ Prices: plain decimals only (`$0.0000373`), never `3.73e-5`.
 Do: irreverent, short, CT-native, product links, HIT/SHIT verbs.  
 Don't: hashtags on X, auto-post, lame daily meme spam, corporate announce-speak.
 
-## Assets
+## Assets (PNG)
 
 | File | Path |
 |------|------|
+| Logo dark 1600×480 | `/brand/logo.png` |
+| Logo transparent | `/brand/logo-transparent.png` |
+| Logo wide 2400×600 | `/brand/logo-wide.png` |
+| Logo square 1024 | `/brand/logo-square.png` |
+| Logo square transparent | `/brand/logo-square-transparent.png` |
+| $ mark | `/brand/logo-mark.png` |
+| $ mark dark | `/brand/logo-mark-dark.png` |
+| Root alias | `/logo.png` |
 | Icon SVG | `/brand/icon.svg` |
-| Square solid | `/brand/square-solid.png` |
-| Square outline | `/brand/square-outline.png` |
-| Square gradient | `/brand/square-gradient.png` |
-| Logo | `/logo.jpg` |
-| Banner | `/banner.jpeg` |
 | X banner 1500×500 | `/brand/x-banner.jpg` |
 
 ## CSS
 
 ```css
+/* Wordmark */
+.neon-text   { color: #fff8e7; /* cream */ }
+.neon-dollar { color: #39ff14; /* green $ */ }
+
+/* Theme */
 --color-background: #0a0a0f;
 --color-neon: #39ff14;
 --color-neon-blue: #00d4ff;
