@@ -207,45 +207,45 @@ export async function POST(request: NextRequest) {
     const verifiedLine =
       xVerified == null
         ? xLookupErr
-          ? `✅ verified: ? <i>(${escapeHtml(xLookupErr.slice(0, 80))})</i>`
+          ? `verified: ? <i>(${escapeHtml(xLookupErr.slice(0, 80))})</i>`
           : null
         : xVerified
-          ? `✅ verified: <b>yes</b>${
+          ? `verified: <b>yes</b>${
               xVerifiedType && xVerifiedType !== "none"
                 ? ` (${escapeHtml(xVerifiedType)})`
                 : ""
             }`
-          : `✅ verified: no`;
+          : `verified: no`;
 
     const followersLine =
       xFollowers != null
-        ? `👥 followers: <b>${escapeHtml(fmtFollowers(xFollowers))}</b> (${escapeHtml(qualityLabel(xFollowers))})`
+        ? `followers: <b>${escapeHtml(fmtFollowers(xFollowers))}</b> (${escapeHtml(qualityLabel(xFollowers))})`
         : twitterHandle
-          ? `👥 followers: ?`
+          ? `followers: ?`
           : null;
 
     const thin =
       xFollowers != null && xFollowers < MIN_X_FOLLOWERS_CLAIM
-        ? `⚠️ thin account (&lt;${MIN_X_FOLLOWERS_CLAIM} flw) — claims gated`
+        ? `thin account (&lt;${MIN_X_FOLLOWERS_CLAIM} flw) — claims gated`
         : null;
 
     const tgLines = [
-      "🆕 <b>New TOKENSHIT signup</b>",
-      `📧 ${escapeHtml(email)}`,
+      "<b>New TOKENSHIT signup</b>",
+      `email: ${escapeHtml(email)}`,
       twitterHandle
-        ? `🐦 <a href="https://x.com/${escapeHtml(twitterHandle)}">@${escapeHtml(twitterHandle)}</a>`
+        ? `x: <a href="https://x.com/${escapeHtml(twitterHandle)}">@${escapeHtml(twitterHandle)}</a>`
         : null,
       followersLine,
       thin,
       verifiedLine,
       referrerTwitter
-        ? `🔗 ref: <a href="https://x.com/${escapeHtml(referrerTwitter)}">@${escapeHtml(referrerTwitter)}</a>`
+        ? `ref: <a href="https://x.com/${escapeHtml(referrerTwitter)}">@${escapeHtml(referrerTwitter)}</a>`
         : null,
       walletAddress
-        ? `💰 <code>${escapeHtml(truncWallet(walletAddress))}</code>`
+        ? `wallet: <code>${escapeHtml(truncWallet(walletAddress))}</code>`
         : null,
-      `🌐 <code>${escapeHtml(ip)}</code>`,
-      `📍 ${escapeHtml(source)}`,
+      `ip: <code>${escapeHtml(ip)}</code>`,
+      `source: ${escapeHtml(source)}`,
     ].filter(Boolean) as string[];
 
     const greeting = twitterHandle ? `gm @${twitterHandle}` : "gm degen";

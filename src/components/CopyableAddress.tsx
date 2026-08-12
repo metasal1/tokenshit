@@ -71,10 +71,7 @@ export default function CopyableAddress({
           aria-label={copied ? "Copied" : `Copy ${label || "address"}`}
           title={copied ? "Copied" : "Copy"}
         >
-          <span className="emoji" aria-hidden>
-            {copied ? "✅" : "📋"}
-          </span>
-          <span className="ml-1 hidden sm:inline">
+          <span className="ml-1">
             {copied ? "Copied" : "Copy"}
           </span>
         </button>

@@ -98,14 +98,14 @@ export function hitScoreRoast(score: number | undefined | null): string {
 }
 
 export function hitScoreEmoji(score: number | undefined | null): string {
-  if (score == null) return "🤷";
-  if (score >= 90) return "💎";
-  if (score >= 75) return "✅";
-  if (score >= 60) return "🤔";
-  if (score >= 45) return "🌶️";
-  if (score >= 30) return "⚠️";
-  if (score >= 15) return "🚨";
-  return "☠️";
+  if (score == null) return "—";
+  if (score >= 90) return "HIT+";
+  if (score >= 75) return "HIT";
+  if (score >= 60) return "mid";
+  if (score >= 45) return "spicy";
+  if (score >= 30) return "risk";
+  if (score >= 15) return "bad";
+  return "SHIT";
 }
 
 /** @deprecated use hitScoreEmoji — Lucide removed for Noto emoji UI */
