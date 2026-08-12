@@ -27,6 +27,8 @@ export async function GET(request: NextRequest) {
   url.searchParams.set("outputMint", SHIT_MINT);
   url.searchParams.set("amount", amountLamports);
   url.searchParams.set("slippageBps", slippageBps);
+  // Prefer routes that fit legacy txs (Privy cannot resolve ALTs)
+  url.searchParams.set("asLegacyTransaction", "true");
   if (withFee) {
     url.searchParams.set("platformFeeBps", String(BUY_FEE_BPS));
   }
@@ -54,6 +56,7 @@ export async function GET(request: NextRequest) {
         u2.searchParams.set("outputMint", SHIT_MINT);
         u2.searchParams.set("amount", amountLamports);
         u2.searchParams.set("slippageBps", slippageBps);
+        u2.searchParams.set("asLegacyTransaction", "true");
         const r2 = await fetch(u2.toString(), {
           headers: jupHeaders(),
           cache: "no-store",
@@ -114,7 +117,9 @@ export async function POST(request: NextRequest) {
       wrapAndUnwrapSol: true,
       dynamicComputeUnitLimit: true,
       prioritizationFeeLamports: "auto",
-      asLegacyTransaction: false,
+      // CRITICAL: Privy / @solana/kit fail on v0 ALTs with
+      // Solana error #5663005 "Contents of these address lookup tables unknown"
+      asLegacyTransaction: true,
     };
     if (useFee) {
       payload.feeAccount = body.feeAccount || SHIT_FEE_ATA;
@@ -147,6 +152,7 @@ export async function POST(request: NextRequest) {
             wrapAndUnwrapSol: true,
             dynamicComputeUnitLimit: true,
             prioritizationFeeLamports: "auto",
+            asLegacyTransaction: true,
           }),
         });
         const t2 = await r2.text();
@@ -159,7 +165,12 @@ export async function POST(request: NextRequest) {
           );
         }
         if (r2.ok) {
-          return Response.json({ ...data, feeBps: 0, feeAccount: null });
+          return Response.json({
+            ...data,
+            feeBps: 0,
+            feeAccount: null,
+            legacy: true,
+          });
         }
       }
       return Response.json(
@@ -171,6 +182,7 @@ export async function POST(request: NextRequest) {
       ...data,
       feeBps: useFee ? BUY_FEE_BPS : 0,
       feeAccount: useFee ? SHIT_FEE_ATA : null,
+      legacy: true,
     });
   } catch (e) {
     return Response.json({ error: String(e) }, { status: 500 });
