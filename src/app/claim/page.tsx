@@ -1,9 +1,10 @@
 import ClaimPanel from "@/components/ClaimPanel";
-import BuyShitPanel from "@/components/BuyShitPanel";
-import SwapShitUsdcPanel from "@/components/SwapShitUsdcPanel";
 import GlobalTreasuryBanner from "@/components/GlobalTreasuryBanner";
 import ShareRefButton from "@/components/ShareRefButton";
 import EmailCaptureCard from "@/components/EmailCaptureCard";
+import WalletAddressCard from "@/components/WalletAddressCard";
+import CopyableAddress from "@/components/CopyableAddress";
+import Link from "next/link";
 import {
   CLAIM_GH_FORK,
   CLAIM_X_FOLLOW,
@@ -18,17 +19,12 @@ import {
   X_HANDLE,
   treasurySolscanUrl,
 } from "@/lib/shit-token";
-import { BUY_FEE_BPS } from "@/lib/buy-fee";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: `Buy, Swap & Claim $${SHIT_SYMBOL} — TokenShit`,
-  description: `Buy $${SHIT_SYMBOL}, tweet+tag @${X_HANDLE}, follow, claim verified/fork rewards. Global treasury +1M daily @ 00:00 UTC.`,
+  title: `Claim $${SHIT_SYMBOL} — TokenShit`,
+  description: `Tweet+tag @${X_HANDLE}, follow, claim verified/fork rewards. Global treasury +1M daily @ 00:00 UTC.`,
 };
-
-function short(addr: string, n = 4) {
-  return `${addr.slice(0, n)}…${addr.slice(-n)}`;
-}
 
 export default function ClaimPage() {
   const rewards = [
@@ -41,15 +37,30 @@ export default function ClaimPage() {
   ];
 
   return (
-    <div className="mx-auto w-full max-w-3xl px-3 sm:px-4 pt-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:py-10 space-y-4 sm:space-y-8">
+    <div className="mx-auto w-full max-w-3xl px-3 sm:px-4 pt-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:py-10 space-y-4 sm:space-y-6">
       <header className="space-y-3">
         <h1 className="text-2xl sm:text-3xl font-black leading-tight tracking-tight">
-          <span className="neon-text">${SHIT_SYMBOL}</span>
-          <span className="text-white"> buy & claim</span>
+          <span className="emoji mr-1.5" aria-hidden>
+            🎁
+          </span>
+          <span className="neon-text">Claim</span>
+          <span className="text-white"> ${SHIT_SYMBOL}</span>
         </h1>
         <p className="text-zinc-400 text-sm leading-snug sm:leading-relaxed">
-          Card → SOL → $TOKENSHIT, or swap $TOKENSHIT ↔ USDC. Claims + daily treasury.
+          One-time social drops + referrals. Treasury tops up every day at 00:00
+          UTC.
         </p>
+        <div className="flex flex-wrap gap-2">
+          <Link
+            href="/swap"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-neon/40 bg-neon/10 px-3 py-2 text-xs font-semibold text-neon hover:bg-neon/20 transition-colors"
+          >
+            <span className="emoji" aria-hidden>
+              🔁
+            </span>
+            Buy / swap →
+          </Link>
+        </div>
 
         <div className="-mx-3 px-3 sm:mx-0 sm:px-0 overflow-x-auto no-scrollbar">
           <ul className="flex sm:flex-wrap gap-2 min-w-max sm:min-w-0 pb-1">
@@ -69,60 +80,27 @@ export default function ClaimPage() {
       </header>
 
       <GlobalTreasuryBanner />
+      <WalletAddressCard />
       <EmailCaptureCard source="claim-page" />
       <ShareRefButton path="/" />
-      <BuyShitPanel />
-      <SwapShitUsdcPanel />
       <ClaimPanel />
 
-      <details className="rounded-xl border border-border bg-card overflow-hidden group">
-        <summary className="cursor-pointer list-none px-4 py-3.5 text-sm font-semibold text-zinc-200 flex items-center justify-between gap-2 select-none [&::-webkit-details-marker]:hidden">
-          <span>Details</span>
-          <span className="text-zinc-500 text-xs font-mono group-open:hidden">
-            mint · treasury · fees
-          </span>
-          <span className="text-zinc-500 text-xs font-mono hidden group-open:inline">
-            hide
-          </span>
-        </summary>
-        <div className="px-4 pb-4 space-y-2.5 text-xs sm:text-sm text-zinc-400 font-mono border-t border-border/60 pt-3">
-          <div className="flex flex-col gap-0.5">
-            <span className="text-zinc-600">mint</span>
-            <a
-              href={`https://solscan.io/token/${SHIT_MINT}`}
-              className="break-all text-zinc-200 hover:text-neon active:text-neon"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              <span className="sm:hidden">{short(SHIT_MINT, 6)}</span>
-              <span className="hidden sm:inline">{SHIT_MINT}</span>
-            </a>
-          </div>
-          <div className="flex flex-col gap-0.5">
-            <span className="text-zinc-600">treasury</span>
-            <a
-              href={treasurySolscanUrl()}
-              className="break-all text-zinc-200 hover:text-neon active:text-neon"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              <span className="sm:hidden">{short(TREASURY_ADDRESS, 6)}</span>
-              <span className="hidden sm:inline">{TREASURY_ADDRESS}</span>
-            </a>
-          </div>
-          <div>
-            <span className="text-zinc-600">buy fee </span>
-            {BUY_FEE_BPS / 100}% → treasury
-          </div>
-          <div>
-            <span className="text-zinc-600">daily drop </span>
-            {GLOBAL_TREASURY_DAILY_DROP.toLocaleString()} @ 00:00 UTC
-          </div>
-          <div className="text-zinc-500 break-all">
-            fork {GH_FORK_UPSTREAM}
-          </div>
-        </div>
-      </details>
+      <section className="rounded-xl border border-border bg-card p-3.5 sm:p-4 space-y-3">
+        <h2 className="text-sm font-semibold text-foreground">Addresses</h2>
+        <CopyableAddress
+          address={SHIT_MINT}
+          label={`$${SHIT_SYMBOL} mint`}
+          explorer={`https://solscan.io/token/${SHIT_MINT}`}
+        />
+        <CopyableAddress
+          address={TREASURY_ADDRESS}
+          label="Treasury"
+          explorer={treasurySolscanUrl()}
+        />
+        <p className="text-[11px] text-zinc-600 font-mono break-all">
+          fork {GH_FORK_UPSTREAM}
+        </p>
+      </section>
     </div>
   );
 }
