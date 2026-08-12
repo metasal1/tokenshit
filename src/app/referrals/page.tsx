@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { usePrivy } from '@privy-io/react-auth';
+import { useWallets } from '@privy-io/react-auth/solana';
 import Link from 'next/link';
 import { REFERRAL_REWARD_SHIT, SHIT_SYMBOL } from '@/lib/shit-token';
 import ShareRefButton from '@/components/ShareRefButton';
@@ -23,6 +24,7 @@ interface UserStats {
 
 export default function ReferralsPage() {
   const { authenticated, user, login, getAccessToken } = usePrivy();
+  const { wallets } = useWallets();
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [userStats, setUserStats] = useState<UserStats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -48,7 +50,18 @@ export default function ReferralsPage() {
   }, [authenticated, user]);
 
   const twitterHandle = user?.twitter?.username?.toLowerCase();
-  const wallet = user?.wallet?.address;
+  const wallet = useMemo(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const list = (wallets || []) as any[];
+    const preferred =
+      list.find((w) => w?.standardWallet?.name || w?.walletClientType) ||
+      list[0];
+    return (
+      preferred?.address ||
+      user?.wallet?.address ||
+      null
+    ) as string | null;
+  }, [wallets, user]);
   const referralLink = twitterHandle
     ? `https://tokenshit.com/?ref=${twitterHandle}`
     : null;
@@ -89,11 +102,21 @@ export default function ReferralsPage() {
         setClaimErr(data.error || 'Claim failed');
         return;
       }
+      if (data.errors?.length) {
+        setClaimErr(data.errors.join('; '));
+      }
       setClaimMsg(
         data.paid
-          ? `Paid ${Number(data.amount).toLocaleString()} $SHIT for ${data.paid} referral(s)`
+          ? `Paid ${Number(data.amount).toLocaleString()} $${'TOKENSHIT'} for ${data.paid} referral(s)`
           : data.message || 'Nothing to claim'
       );
+      // refresh stats
+      if (twitterHandle) {
+        fetch(`/api/referral/stats?username=${encodeURIComponent(twitterHandle)}`)
+          .then((r) => r.json())
+          .then((d) => setUserStats(d))
+          .catch(() => {});
+      }
     } catch (e) {
       setClaimErr(String(e));
     } finally {
@@ -135,9 +158,13 @@ export default function ReferralsPage() {
                 </p>
               </div>
               <div className="bg-zinc-800/50 rounded-lg p-4">
-                <p className="text-zinc-500 text-sm mb-1">Potential ${SHIT_SYMBOL}</p>
+                <p className="text-zinc-500 text-sm mb-1">Unpaid / potential</p>
                 <p className="text-3xl font-bold text-neon font-mono">
-                  {potential.toLocaleString()}
+                  {((userStats as UserStats & { unpaidCount?: number })?.unpaidCount ?? userStats?.totalReferrals ?? 0) *
+                    REFERRAL_REWARD_SHIT}
+                </p>
+                <p className="text-[11px] text-zinc-500 mt-1">
+                  paid {(userStats as UserStats & { paidAmount?: number })?.paidAmount?.toLocaleString?.() ?? 0}
                 </p>
               </div>
               <div className="bg-zinc-800/50 rounded-lg p-4">
