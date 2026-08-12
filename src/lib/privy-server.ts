@@ -1,20 +1,20 @@
 import {
-  createRemoteJWKSet,
+  importJWK,
   importSPKI,
   jwtVerify,
   decodeJwt,
   decodeProtectedHeader,
-  type JWTVerifyGetKey,
   type KeyLike,
+  type JWK,
 } from "jose";
 import type { NextRequest } from "next/server";
 
 /**
- * Edge-safe Privy auth for Cloudflare Workers.
+ * Edge-safe Privy auth for Cloudflare Workers / OpenNext.
  *
- * Prefer JWKS (remote) — PEM secrets get mangled by wrangler multi-line storage.
- * Real access tokens verify with:
- *   jose.createRemoteJWKSet(https://auth.privy.io/api/v1/apps/{appId}/jwks.json)
+ * DO NOT use jose.createRemoteJWKSet — it calls Node https.get which throws
+ *   [unenv] https.get is not implemented yet!
+ * on CF Workers. Fetch JWKS with global fetch + importJWK instead.
  */
 
 const PRIVY_APP_ID = (
@@ -33,8 +33,10 @@ export type PrivyIdentity = {
   wallets: string[];
 };
 
-const jwksCache = new Map<string, JWTVerifyGetKey>();
-const spkiCache = new Map<string, KeyLike>();
+type JwksDoc = { keys: JWK[] };
+const jwksDocCache = new Map<string, { at: number; doc: JwksDoc }>();
+const jwkKeyCache = new Map<string, KeyLike>();
+const JWKS_TTL_MS = 60 * 60 * 1000;
 
 function basicAuthHeader(appId: string, secret: string): string {
   const raw = `${appId}:${secret}`;
@@ -70,23 +72,50 @@ export function normalizePem(input: string): string {
   return pem;
 }
 
-function getJwks(appId: string): JWTVerifyGetKey {
-  let jwks = jwksCache.get(appId);
-  if (!jwks) {
-    jwks = createRemoteJWKSet(
-      new URL(`https://auth.privy.io/api/v1/apps/${appId}/jwks.json`)
-    );
-    jwksCache.set(appId, jwks);
+/** Workers-safe JWKS load via fetch (not Node https). */
+async function loadJwksDoc(appId: string): Promise<JwksDoc> {
+  const hit = jwksDocCache.get(appId);
+  if (hit && Date.now() - hit.at < JWKS_TTL_MS) return hit.doc;
+  const res = await fetch(
+    `https://auth.privy.io/api/v1/apps/${encodeURIComponent(appId)}/jwks.json`,
+    { cache: "no-store" }
+  );
+  if (!res.ok) {
+    throw new Error(`JWKS HTTP ${res.status}`);
   }
-  return jwks;
+  const doc = (await res.json()) as JwksDoc;
+  if (!doc?.keys?.length) throw new Error("JWKS empty");
+  jwksDocCache.set(appId, { at: Date.now(), doc });
+  return doc;
 }
 
-async function getSpkiFallback(appId: string): Promise<KeyLike | null> {
-  if (spkiCache.has(appId)) return spkiCache.get(appId)!;
+async function getKeyFromJwks(
+  appId: string,
+  kid?: string
+): Promise<KeyLike> {
+  const cacheKey = `${appId}:${kid || "*"}`;
+  if (jwkKeyCache.has(cacheKey)) return jwkKeyCache.get(cacheKey)!;
 
-  // map secret
-  const mapRaw = process.env.PRIVY_VERIFICATION_KEYS_JSON || "";
+  const doc = await loadJwksDoc(appId);
+  let jwk = kid ? doc.keys.find((k) => k.kid === kid) : undefined;
+  if (!jwk) jwk = doc.keys.find((k) => k.alg === "ES256") || doc.keys[0];
+  if (!jwk) throw new Error("no JWK");
+
+  const key = await importJWK(jwk, jwk.alg || "ES256");
+  jwkKeyCache.set(cacheKey, key);
+  // also cache under actual kid
+  if (jwk.kid) jwkKeyCache.set(`${appId}:${jwk.kid}`, key);
+  return key;
+}
+
+async function getKeyFromSpki(appId: string): Promise<KeyLike | null> {
+  const cacheKey = `spki:${appId}`;
+  if (jwkKeyCache.has(cacheKey)) return jwkKeyCache.get(cacheKey)!;
+
   let pem = "";
+
+  // 1) env map
+  const mapRaw = process.env.PRIVY_VERIFICATION_KEYS_JSON || "";
   if (mapRaw) {
     try {
       const map = JSON.parse(mapRaw) as Record<string, string>;
@@ -95,18 +124,25 @@ async function getSpkiFallback(appId: string): Promise<KeyLike | null> {
       /* ignore */
     }
   }
+
+  // 2) single env
   if (!pem && appId === PRIVY_APP_ID && PRIVY_VERIFICATION_KEY) {
     pem = normalizePem(PRIVY_VERIFICATION_KEY);
   }
+
+  // 3) live fetch app settings (Workers fetch works)
   if (!pem && PRIVY_APP_SECRET) {
     try {
-      const res = await fetch(`https://auth.privy.io/api/v1/apps/${appId}`, {
-        headers: {
-          Authorization: basicAuthHeader(appId, PRIVY_APP_SECRET),
-          "privy-app-id": appId,
-        },
-        cache: "no-store",
-      });
+      const res = await fetch(
+        `https://auth.privy.io/api/v1/apps/${encodeURIComponent(appId)}`,
+        {
+          headers: {
+            Authorization: basicAuthHeader(appId, PRIVY_APP_SECRET),
+            "privy-app-id": appId,
+          },
+          cache: "no-store",
+        }
+      );
       if (res.ok) {
         const data = (await res.json()) as { verification_key?: string };
         if (data.verification_key) pem = normalizePem(data.verification_key);
@@ -115,10 +151,11 @@ async function getSpkiFallback(appId: string): Promise<KeyLike | null> {
       /* ignore */
     }
   }
+
   if (!pem) return null;
   try {
     const key = await importSPKI(pem, "ES256");
-    spkiCache.set(appId, key);
+    jwkKeyCache.set(cacheKey, key);
     return key;
   } catch {
     return null;
@@ -192,15 +229,16 @@ export async function verifyPrivyAccessToken(
     };
   }
 
+  const kid = typeof header.kid === "string" ? header.kid : undefined;
   const aud = claims.aud as string | string[] | undefined;
   const apps = candidateAppIds(aud);
   const errors: string[] = [];
 
   for (const appId of apps) {
-    // 1) JWKS (primary — works on CF Workers)
+    // 1) Workers-safe JWKS via fetch + importJWK
     try {
-      const jwks = getJwks(appId);
-      const { payload } = await jwtVerify(cleaned, jwks, {
+      const key = await getKeyFromJwks(appId, kid);
+      const { payload } = await jwtVerify(cleaned, key, {
         issuer: "privy.io",
         audience: appId,
         algorithms: ["ES256"],
@@ -208,16 +246,16 @@ export async function verifyPrivyAccessToken(
       });
       const userId = typeof payload.sub === "string" ? payload.sub : "";
       if (userId) return { ok: true, userId, appId };
-      errors.push(`${appId}/jwks: missing sub`);
+      errors.push(`${appId}/jwk: missing sub`);
     } catch (e) {
       errors.push(
-        `${appId}/jwks: ${e instanceof Error ? e.message : String(e)}`
+        `${appId}/jwk: ${e instanceof Error ? e.message : String(e)}`
       );
     }
 
-    // 2) SPKI PEM fallback
+    // 2) SPKI (env or live-fetched app settings)
     try {
-      const key = await getSpkiFallback(appId);
+      const key = await getKeyFromSpki(appId);
       if (!key) {
         errors.push(`${appId}/spki: no key`);
         continue;
