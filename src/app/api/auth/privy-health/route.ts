@@ -102,7 +102,7 @@ export async function POST(request: NextRequest) {
   try {
     const { importJWK, jwtVerify } = await import("jose");
     if (jwk) {
-      const key = await importJWK(jwk, "ES256");
+      const key = await importJWK(jwk as import("jose").JWK, "ES256");
       await jwtVerify(token, key, {
         issuer: "privy.io",
         audience: appId,

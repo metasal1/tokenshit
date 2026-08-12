@@ -101,7 +101,10 @@ async function getKeyFromJwks(
   if (!jwk) jwk = doc.keys.find((k) => k.alg === "ES256") || doc.keys[0];
   if (!jwk) throw new Error("no JWK");
 
-  const key = (await importJWK(jwk, jwk.alg || "ES256")) as CryptoKey | KeyLike;
+  const key = (await importJWK(
+    jwk as import("jose").JWK,
+    jwk.alg || "ES256"
+  )) as CryptoKey | KeyLike;
   jwkKeyCache.set(cacheKey, key);
   if (jwk.kid) jwkKeyCache.set(`${appId}:${jwk.kid}`, key);
   return key;
