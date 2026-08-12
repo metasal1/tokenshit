@@ -438,11 +438,8 @@ export async function checkXTweetTag(
 }
 
 /**
- * Check if sourceUser follows Tokenshit_ via user lookup + following endpoint.
- * Uses Tokenshit_ app user token when available (followers lookup).
- * Fallback: search if user replied/mentioned after follow intent is weak —
- * primary path is GET /2/users/:id/followers is expensive; use
- * GET /2/users/:source/following/:target or friendships/show.
+ * Check if sourceUser follows @Tokenshit_.
+ * App bearer cannot use v1.1 friendships/show — paginate v2 following list.
  */
 export async function checkXFollowsTokenshit(
   username: string
@@ -457,10 +454,9 @@ export async function checkXFollowsTokenshit(
       error: "X_BEARER_TOKEN not configured",
     };
 
-  // Resolve user id
   const uRes = await fetch(
     `https://api.x.com/2/users/by/username/${encodeURIComponent(user)}`,
-    { headers: { Authorization: `Bearer ${bearer}` } }
+    { headers: { Authorization: `Bearer ${bearer}` }, cache: "no-store" }
   );
   if (!uRes.ok) {
     return {
@@ -476,43 +472,46 @@ export async function checkXFollowsTokenshit(
 
   const targetId =
     process.env.X_TOKENSHIT_USER_ID || "2037761105359986688";
+  const targetUser = "tokenshit_";
 
-  // Official relationship endpoint (v1.1) — works with user context
-  const rel = await fetch(
-    `https://api.x.com/1.1/friendships/show.json?source_id=${encodeURIComponent(
-      sourceId
-    )}&target_id=${encodeURIComponent(targetId)}`,
-    { headers: { Authorization: `Bearer ${bearer}` } }
-  );
-  if (rel.ok) {
-    const r = await rel.json();
-    const following = Boolean(
-      r.relationship?.source?.following || r.relationship?.target?.followed_by
+  let next: string | null = null;
+  for (let page = 0; page < 5; page++) {
+    const url = new URL(
+      `https://api.x.com/2/users/${sourceId}/following`
     );
-    return { ok: true, following };
+    url.searchParams.set("max_results", "1000");
+    url.searchParams.set("user.fields", "username");
+    if (next) url.searchParams.set("pagination_token", next);
+
+    const fRes = await fetch(url.toString(), {
+      headers: { Authorization: `Bearer ${bearer}` },
+      cache: "no-store",
+    });
+    if (!fRes.ok) {
+      const t = await fRes.text();
+      // If first page fails, surface error; else stop pagination
+      if (page === 0) {
+        return {
+          ok: false,
+          following: false,
+          error: `following ${fRes.status}: ${t.slice(0, 160)}`,
+        };
+      }
+      break;
+    }
+    const fJson = await fRes.json();
+    const list = (fJson.data || []) as { id: string; username?: string }[];
+    const following = list.some(
+      (u) =>
+        u.id === targetId ||
+        (u.username || "").toLowerCase() === targetUser
+    );
+    if (following) return { ok: true, following: true };
+
+    next = (fJson.meta?.next_token as string) || null;
+    if (!next) break;
   }
 
-  // v2: GET /2/users/:id/following?max_results=1000 is heavy; try target following me
-  // Alternative: following lookup
-  const fRes = await fetch(
-    `https://api.x.com/2/users/${sourceId}/following?max_results=1000&user.fields=username`,
-    { headers: { Authorization: `Bearer ${bearer}` } }
-  );
-  if (!fRes.ok) {
-    const t = await fRes.text();
-    return {
-      ok: false,
-      following: false,
-      error: `following ${fRes.status}: ${t.slice(0, 160)}`,
-    };
-  }
-  const fJson = await fRes.json();
-  const list = (fJson.data || []) as { id: string; username?: string }[];
-  const following = list.some(
-    (u) =>
-      u.id === targetId ||
-      (u.username || "").toLowerCase() === "tokenshit_"
-  );
-  return { ok: true, following };
+  return { ok: true, following: false };
 }
 

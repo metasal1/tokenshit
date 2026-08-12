@@ -211,7 +211,13 @@ export async function POST(request: NextRequest) {
           { error: "Twitter handle required" },
           { status: 400 }
         );
-      const tweetUrl = body.tweetUrl ? String(body.tweetUrl) : null;
+      const tweetUrl = body.tweetUrl ? String(body.tweetUrl).trim() : "";
+      if (!tweetUrl) {
+        return Response.json(
+          { error: "Paste your tweet URL to claim (X search is flaky)." },
+          { status: 400 }
+        );
+      }
       const t = await checkXTweetTag(twitter, tweetUrl);
       if (!t.ok)
         return Response.json(

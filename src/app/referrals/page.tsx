@@ -16,9 +16,15 @@ interface LeaderboardEntry {
 interface UserStats {
   totalReferrals: number;
   username: string;
+  paidCount?: number;
+  unpaidCount?: number;
+  paidAmount?: number;
   referrals: Array<{
     referred_twitter: string;
     created_at: string;
+    paid?: boolean;
+    amount?: number | null;
+    signature?: string | null;
   }>;
 }
 
@@ -158,13 +164,12 @@ export default function ReferralsPage() {
                 </p>
               </div>
               <div className="bg-zinc-800/50 rounded-lg p-4">
-                <p className="text-zinc-500 text-sm mb-1">Unpaid / potential</p>
+                <p className="text-zinc-500 text-sm mb-1">Unpaid rewards</p>
                 <p className="text-3xl font-bold text-neon font-mono">
-                  {((userStats as UserStats & { unpaidCount?: number })?.unpaidCount ?? userStats?.totalReferrals ?? 0) *
-                    REFERRAL_REWARD_SHIT}
+                  {((userStats?.unpaidCount ?? 0) * REFERRAL_REWARD_SHIT).toLocaleString()}
                 </p>
                 <p className="text-[11px] text-zinc-500 mt-1">
-                  paid {(userStats as UserStats & { paidAmount?: number })?.paidAmount?.toLocaleString?.() ?? 0}
+                  paid {(userStats?.paidAmount ?? 0).toLocaleString()} · {userStats?.paidCount ?? 0} done
                 </p>
               </div>
               <div className="bg-zinc-800/50 rounded-lg p-4">
@@ -173,6 +178,15 @@ export default function ReferralsPage() {
               </div>
             </div>
 
+            <div className="mb-4 flex flex-wrap items-center gap-2 text-xs">
+              {wallet ? (
+                <span className="font-mono text-zinc-400 px-2 py-1 rounded bg-zinc-800 border border-zinc-700">
+                  {wallet.slice(0, 4)}…{wallet.slice(-4)}
+                </span>
+              ) : (
+                <span className="text-amber-400">Solana wallet not ready — re-login if this sticks</span>
+              )}
+            </div>
             <div className="mb-4">
               <ShareRefButton path="/" handle={twitterHandle} />
             </div>
@@ -180,10 +194,16 @@ export default function ReferralsPage() {
             <div className="flex flex-col sm:flex-row gap-3 mb-4">
               <button
                 onClick={claimRewards}
-                disabled={claimBusy}
+                disabled={claimBusy || !wallet || (userStats?.unpaidCount ?? 0) === 0}
                 className="flex-1 bg-neon text-black hover:brightness-110 font-semibold py-2.5 rounded-lg transition disabled:opacity-50"
               >
-                {claimBusy ? 'Paying…' : 'Claim $TOKENSHIT rewards'}
+                {claimBusy
+                  ? 'Paying…'
+                  : !wallet
+                    ? 'Waiting for wallet…'
+                    : (userStats?.unpaidCount ?? 0) === 0
+                      ? 'Nothing to claim'
+                      : `Claim ${(userStats?.unpaidCount ?? 0) * REFERRAL_REWARD_SHIT} $TOKENSHIT`}
               </button>
             </div>
             {claimMsg && <p className="text-sm text-green-400 mb-2">{claimMsg}</p>}
@@ -198,14 +218,25 @@ export default function ReferralsPage() {
                   {userStats.referrals.map((ref, i) => (
                     <div
                       key={i}
-                      className="flex items-center justify-between bg-zinc-800/30 rounded px-3 py-2"
+                      className="flex items-center justify-between gap-2 bg-zinc-800/30 rounded px-3 py-2"
                     >
-                      <span className="text-sm text-zinc-300 font-mono">
+                      <span className="text-sm text-zinc-300 font-mono truncate">
                         @{ref.referred_twitter}
                       </span>
-                      <span className="text-xs text-zinc-600">
-                        {new Date(ref.created_at).toLocaleDateString()}
-                      </span>
+                      <div className="flex items-center gap-2 shrink-0">
+                        {ref.paid ? (
+                          <span className="text-[10px] font-mono text-neon bg-neon/10 border border-neon/30 rounded px-1.5 py-0.5">
+                            paid
+                          </span>
+                        ) : (
+                          <span className="text-[10px] font-mono text-amber-400/90 bg-amber-400/10 border border-amber-500/30 rounded px-1.5 py-0.5">
+                            unpaid
+                          </span>
+                        )}
+                        <span className="text-xs text-zinc-600">
+                          {new Date(ref.created_at + (ref.created_at.includes('T') ? '' : 'Z')).toLocaleDateString()}
+                        </span>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -286,7 +317,7 @@ export default function ReferralsPage() {
                       </td>
                       <td className="px-4 py-3 text-right font-mono text-neon">
                         {(
-                          Number(entry.referralCount) * REFERRAL_REWARD_SHIT
+                          (Number(entry.referralCount) || 0) * REFERRAL_REWARD_SHIT
                         ).toLocaleString()}
                       </td>
                     </tr>

@@ -1,20 +1,32 @@
 import { type NextRequest } from "next/server";
 import { tursoExecute } from "@/lib/turso";
 
-export async function GET(request: NextRequest) {
+export const dynamic = "force-dynamic";
+
+export async function GET(_request: NextRequest) {
   try {
-    // Get top 20 referrers with their referral counts
+    await tursoExecute(
+      `CREATE TABLE IF NOT EXISTS referrals (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        referrer_twitter TEXT NOT NULL,
+        referred_twitter TEXT NOT NULL UNIQUE,
+        referred_wallet TEXT,
+        created_at TEXT DEFAULT (datetime('now'))
+      )`,
+      []
+    ).catch(() => {});
+
     const result = await tursoExecute(
-      `SELECT referrer_twitter, COUNT(*) as referral_count 
-       FROM referrals 
-       GROUP BY referrer_twitter 
-       ORDER BY referral_count DESC 
+      `SELECT lower(referrer_twitter) as u, COUNT(*) as c
+       FROM referrals
+       GROUP BY lower(referrer_twitter)
+       ORDER BY c DESC
        LIMIT 20`
     );
 
     const leaderboard = result.rows.map((row) => ({
-      username: row[0],
-      referralCount: row[1],
+      username: String(row[0] || ""),
+      referralCount: Number(row[1] || 0),
     }));
 
     return Response.json({ leaderboard });
