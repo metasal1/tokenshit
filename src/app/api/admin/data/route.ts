@@ -1,50 +1,45 @@
 import { type NextRequest } from "next/server";
-import { createRemoteJWKSet, jwtVerify } from "jose";
 import { tursoBatch } from "@/lib/turso";
-
-const PRIVY_APP_ID = process.env.NEXT_PUBLIC_PRIVY_APP_ID || "";
-const ADMIN_PRIVY_ID = process.env.ADMIN_PRIVY_ID || "";
+import { requireCronSecret } from "@/lib/api-guard";
+import { requirePrivy } from "@/lib/privy-server";
 
 export const dynamic = "force-dynamic";
 
-async function verifyPrivyToken(token: string): Promise<string | null> {
-  try {
-    const JWKS = createRemoteJWKSet(
-      new URL(`https://auth.privy.io/api/v1/apps/${PRIVY_APP_ID}/jwks.json`)
-    );
-    const { payload } = await jwtVerify(token, JWKS, {
-      issuer: "privy.io",
-      audience: PRIVY_APP_ID,
-    });
-    // Return the Privy user ID (sub)
-    return (payload.sub as string) ?? null;
-  } catch {
-    return null;
-  }
-}
-
+/**
+ * Admin dump — fail closed.
+ * Auth: CRON_SECRET Bearer OR Privy token whose sub is in ADMIN_PRIVY_ID.
+ * ADMIN_PRIVY_ID must be set (comma-separated did:privy:…).
+ */
 export async function GET(req: NextRequest) {
-  const auth = req.headers.get("authorization");
-  const token = auth?.startsWith("Bearer ") ? auth.slice(7) : null;
-  if (!token) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  const adminIds = (process.env.ADMIN_PRIVY_ID || "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
 
-  const privyId = await verifyPrivyToken(token);
-  if (!privyId) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  if (adminIds.length === 0 && !process.env.CRON_SECRET) {
+    return Response.json(
+      { error: "Admin not configured" },
+      { status: 503 }
+    );
+  }
 
-  const allowedIds = (ADMIN_PRIVY_ID || "").split(",").map((s) => s.trim()).filter(Boolean);
-  if (allowedIds.length > 0 && !allowedIds.includes(privyId)) {
-    // Return the id so it can be added to ADMIN_PRIVY_ID env var
-    return Response.json({ error: "Forbidden", yourPrivyId: privyId }, { status: 403 });
+  // Prefer cron secret (Workers-safe); else Privy admin allowlist
+  const cronDenied = requireCronSecret(req);
+  if (cronDenied) {
+    if (adminIds.length === 0) return cronDenied;
+    const auth = await requirePrivy(req, {});
+    if (!auth.ok) return auth.res;
+    if (!adminIds.includes(auth.id.privyId)) {
+      return Response.json({ error: "Forbidden" }, { status: 403 });
+    }
   }
 
   const results = await tursoBatch([
-    // All signed-up users
     {
       sql: `SELECT email, twitter_handle, wallet_address, source, created_at
-            FROM email_signups ORDER BY created_at DESC`,
+            FROM email_signups ORDER BY created_at DESC LIMIT 500`,
       args: [],
     },
-    // Vote counts per voter (twitter or device)
     {
       sql: `SELECT device_id, COUNT(*) as total,
               SUM(CASE WHEN vote='hit' THEN 1 ELSE 0 END) as hits,
@@ -53,13 +48,11 @@ export async function GET(req: NextRequest) {
             FROM votes GROUP BY device_id ORDER BY total DESC LIMIT 100`,
       args: [],
     },
-    // Referrals
     {
       sql: `SELECT referrer_twitter, referred_twitter, referred_wallet, created_at
             FROM referrals ORDER BY created_at DESC LIMIT 100`,
       args: [],
     },
-    // Aggregate stats
     {
       sql: `SELECT
               (SELECT COUNT(*) FROM email_signups) as signups,

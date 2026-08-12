@@ -52,21 +52,23 @@ export async function POST(request: NextRequest) {
       .replace(/^@/, "")
       .trim();
     const wallet = String(body.wallet || "").trim();
+
+    // Auth first — never leak payout state unauthenticated
+    const auth = await requirePrivy(request, {
+      twitter: twitter || null,
+      wallet: wallet || null,
+      requireTwitter: true,
+      body: body as Record<string, unknown>,
+    });
+    if (!auth.ok) return auth.res;
+    if (auth.id.twitter) twitter = auth.id.twitter;
+
     if (!/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(wallet)) {
       return Response.json({ error: "valid wallet required" }, { status: 400 });
     }
 
     const blocked = assertNotBlacklisted(wallet);
     if (blocked) return blocked;
-
-    const auth = await requirePrivy(request, {
-      twitter: twitter || null,
-      wallet,
-      requireTwitter: true,
-      body: body as Record<string, unknown>,
-    });
-    if (!auth.ok) return auth.res;
-    if (auth.id.twitter) twitter = auth.id.twitter;
 
     await tursoExecute(
       `CREATE TABLE IF NOT EXISTS referral_rewards (

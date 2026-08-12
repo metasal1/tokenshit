@@ -1,17 +1,24 @@
 import { getPrivyUserCount } from "@/lib/privy-users";
 import { tursoExecute } from "@/lib/turso";
+import { requireCronSecret } from "@/lib/api-guard";
 
 export const dynamic = "force-dynamic";
 
 /**
  * GET /api/signup/count
- * Public ticker metric — Privy accounts (primary).
- * Also returns email list size for debugging.
+ * Public ticker metric — Privy accounts (cached).
+ * ?refresh=1 only with CRON_SECRET (expensive full page).
  */
 export async function GET(request: Request) {
   try {
     const url = new URL(request.url);
-    const force = url.searchParams.get("refresh") === "1";
+    const wantRefresh = url.searchParams.get("refresh") === "1";
+    let force = false;
+    if (wantRefresh) {
+      const denied = requireCronSecret(request);
+      if (denied) return denied;
+      force = true;
+    }
 
     const privy = await getPrivyUserCount({ force });
 
@@ -43,7 +50,6 @@ export async function GET(request: Request) {
       },
       {
         headers: {
-          // short CDN cache; real refresh is Turso TTL inside getPrivyUserCount
           "Cache-Control": "public, s-maxage=30, stale-while-revalidate=60",
         },
       }

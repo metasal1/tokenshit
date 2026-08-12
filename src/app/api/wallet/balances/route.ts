@@ -53,6 +53,15 @@ export async function GET(request: NextRequest) {
     return Response.json({ error: "Invalid address" }, { status: 400 });
   }
 
+  const { getClientIp, rateLimitIp } = await import("@/lib/api-guard");
+  const limited = await rateLimitIp({
+    ip: getClientIp(request),
+    bucket: "wallet_bal",
+    limit: 120,
+    windowHours: 1,
+  });
+  if (limited) return limited;
+
   try {
     const [balJson, usdc, shit] = await Promise.all([
       rpc("getBalance", [address, { commitment: "confirmed" }]),
