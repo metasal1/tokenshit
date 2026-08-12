@@ -1,5 +1,6 @@
 import ClaimPanel from "@/components/ClaimPanel";
 import BuyShitPanel from "@/components/BuyShitPanel";
+import SwapShitUsdcPanel from "@/components/SwapShitUsdcPanel";
 import GlobalTreasuryBanner from "@/components/GlobalTreasuryBanner";
 import ShareRefButton from "@/components/ShareRefButton";
 import EmailCaptureCard from "@/components/EmailCaptureCard";
@@ -21,7 +22,7 @@ import { BUY_FEE_BPS } from "@/lib/buy-fee";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: `Buy & Claim $${SHIT_SYMBOL} — TokenShit`,
+  title: `Buy, Swap & Claim $${SHIT_SYMBOL} — TokenShit`,
   description: `Buy $${SHIT_SYMBOL}, tweet+tag @${X_HANDLE}, follow, claim verified/fork rewards. Global treasury +1M daily @ 00:00 UTC.`,
 };
 
@@ -47,8 +48,7 @@ export default function ClaimPage() {
           <span className="text-white"> buy & claim</span>
         </h1>
         <p className="text-zinc-400 text-sm leading-snug sm:leading-relaxed">
-          Card → SOL → swap. One-time drops + global treasury refill every day
-          at 00:00 UTC.
+          Card → SOL → $TOKENSHIT, or swap $TOKENSHIT ↔ USDC. Claims + daily treasury.
         </p>
 
         <div className="-mx-3 px-3 sm:mx-0 sm:px-0 overflow-x-auto no-scrollbar">
@@ -72,6 +72,7 @@ export default function ClaimPage() {
       <EmailCaptureCard source="claim-page" />
       <ShareRefButton path="/" />
       <BuyShitPanel />
+      <SwapShitUsdcPanel />
       <ClaimPanel />
 
       <details className="rounded-xl border border-border bg-card overflow-hidden group">

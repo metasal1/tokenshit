@@ -22,6 +22,10 @@ export const JUP_SWAP =
   process.env.JUP_SWAP_URL || "https://lite-api.jup.ag/swap/v1/swap";
 
 export const SOL_MINT = "So11111111111111111111111111111111111111112";
+/** Circle USDC mainnet */
+export const USDC_MINT =
+  process.env.NEXT_PUBLIC_USDC_MINT ||
+  "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
 
 export function jupiterBuyUrlWithFee(): string {
   return shitBuyUrl();
