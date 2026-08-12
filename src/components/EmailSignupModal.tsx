@@ -74,6 +74,10 @@ export default function EmailSignupModal() {
           walletAddress: user.wallet?.address || null,
           privyId: user.id,
           source: 'post-login-modal',
+          referrerTwitter:
+            (typeof window !== 'undefined' &&
+              localStorage.getItem('tokenshit_referrer')) ||
+            null,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -85,6 +89,12 @@ export default function EmailSignupModal() {
       writeState({ ...readState(), collected: true });
       setDone(true);
       sfx.chime();
+      // site-wide glitch toast (this tab + pollers)
+      if (data.event) {
+        window.dispatchEvent(
+          new CustomEvent('tokenshit:signup', { detail: data.event })
+        );
+      }
       window.setTimeout(() => setOpen(false), 1500);
     } catch {
       setError('Network error');
