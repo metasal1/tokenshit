@@ -10,52 +10,63 @@ import InteractiveSwipeLottie, {
 } from "@/components/InteractiveSwipeLottie";
 import { memeStudioUrl } from "@/lib/meme-templates";
 import SkipNextButton from "@/components/SkipNextButton";
+import { EmojiIcon } from "@/components/EmojiIcon";
 
-/** Brand confetti — HIT/SHIT wordmarks only (no default emoji pack) */
+/** Brand confetti — HIT/SHIT emoji marks (Noto) */
 function BrandDrop({ pack }: { pack: "hit" | "shit" }) {
   const [parts, setParts] = useState<
-    { id: number; left: number; delay: number; size: number; duration: number; spin: number }[]
+    {
+      id: number;
+      left: number;
+      delay: number;
+      size: number;
+      duration: number;
+      spin: number;
+      char: string;
+    }[]
   >([]);
   useEffect(() => {
+    const pool =
+      pack === "hit"
+        ? ["🎯", "🎯", "✨", "🟩"]
+        : ["💩", "💩", "💀", "🗑️"];
     setParts(
-      Array.from({ length: 22 }, (_, i) => ({
+      Array.from({ length: 26 }, (_, i) => ({
         id: i,
         left: Math.random() * 100,
         delay: Math.random() * 0.5,
-        size: 11 + Math.random() * 10,
+        size: 16 + Math.random() * 22,
         duration: 1.1 + Math.random() * 1.4,
         spin: (Math.random() > 0.5 ? 1 : -1) * (180 + Math.random() * 280),
+        char: pool[Math.floor(Math.random() * pool.length)]!,
       }))
     );
   }, [pack]);
-  const label = pack === "hit" ? "HIT" : "SHIT";
-  const color = pack === "hit" ? "#39ff14" : "#f87171";
   return (
-    <div className="fixed inset-0 pointer-events-none z-[200] overflow-hidden" aria-hidden>
+    <div
+      className="fixed inset-0 pointer-events-none z-[200] overflow-hidden"
+      aria-hidden
+    >
       {parts.map((p) => (
         <div
           key={p.id}
+          className="emoji"
           style={{
             position: "absolute",
             left: `${p.left}%`,
-            top: "-32px",
+            top: "-40px",
             fontSize: `${p.size}px`,
-            fontFamily: "ui-monospace, monospace",
-            fontWeight: 800,
-            letterSpacing: "0.06em",
-            color,
-            textShadow: `0 0 10px ${color}88`,
             animation: `brandfall ${p.duration}s ease-in ${p.delay}s forwards`,
             ["--spin" as string]: `${p.spin}deg`,
           }}
         >
-          {label}
+          {p.char}
         </div>
       ))}
       <style>{`
         @keyframes brandfall {
-          0% { transform: translateY(0) rotate(0deg) scale(0.7); opacity: 0; }
-          12% { opacity: 1; transform: translateY(8vh) rotate(calc(var(--spin) * 0.12)) scale(1); }
+          0% { transform: translateY(0) rotate(0deg) scale(0.6); opacity: 0; }
+          12% { opacity: 1; transform: translateY(8vh) rotate(calc(var(--spin) * 0.15)) scale(1); }
           85% { opacity: 1; }
           100% { transform: translateY(105vh) rotate(var(--spin)); opacity: 0; }
         }
@@ -106,11 +117,25 @@ function ResultBar({
         />
       </div>
       <div className="flex justify-between text-[11px] font-mono">
-        <span className={userVote === "hit" ? "text-neon font-bold" : "text-zinc-400"}>
+        <span
+          className={
+            userVote === "hit" ? "text-neon font-bold" : "text-zinc-400"
+          }
+        >
+          <span className="emoji mr-0.5" aria-hidden>
+            🎯
+          </span>
           HIT {total ? `${hitPct.toFixed(0)}%` : "—"} · {hits}
         </span>
-        <span className={userVote === "shit" ? "text-red-400 font-bold" : "text-zinc-400"}>
-          {shits} · {total ? `${shitPct.toFixed(0)}%` : "—"} SHIT
+        <span
+          className={
+            userVote === "shit" ? "text-red-400 font-bold" : "text-zinc-400"
+          }
+        >
+          {shits} · {total ? `${shitPct.toFixed(0)}%` : "—"} SHIT{" "}
+          <span className="emoji ml-0.5" aria-hidden>
+            💩
+          </span>
         </span>
       </div>
     </div>
@@ -448,12 +473,26 @@ export default function VoteButtons({
               ${!hasVoted && !voting ? "cursor-pointer active:scale-[0.97]" : "cursor-not-allowed"}
               ${pressing === "hit" && !hasVoted ? "scale-[0.96] brightness-110" : ""}
             `}
-            style={{ WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}
+            style={{
+              WebkitTapHighlightColor: "transparent",
+              touchAction: "manipulation",
+            }}
+            aria-label="Vote HIT"
           >
-            <span className="text-[11px] font-mono uppercase tracking-[0.2em] text-neon/80">
-              Verdict
-            </span>
-            <span className="text-3xl sm:text-4xl tracking-tight text-neon drop-shadow-[0_0_12px_rgba(57,255,20,0.55)]">
+            {voting && pressing === "hit" ? (
+              <EmojiIcon size={40} className="animate-pulse opacity-80">
+                🎯
+              </EmojiIcon>
+            ) : (
+              <EmojiIcon
+                size={44}
+                className="drop-shadow-[0_0_12px_rgba(57,255,20,0.65)]"
+                label="HIT"
+              >
+                🎯
+              </EmojiIcon>
+            )}
+            <span className="text-base sm:text-lg tracking-tight text-neon">
               HIT
             </span>
             <span className="text-sm font-mono text-neon/90 tabular-nums">
@@ -486,12 +525,26 @@ export default function VoteButtons({
               ${!hasVoted && !voting ? "cursor-pointer active:scale-[0.97]" : "cursor-not-allowed"}
               ${pressing === "shit" && !hasVoted ? "scale-[0.96] brightness-110" : ""}
             `}
-            style={{ WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}
+            style={{
+              WebkitTapHighlightColor: "transparent",
+              touchAction: "manipulation",
+            }}
+            aria-label="Vote SHIT"
           >
-            <span className="text-[11px] font-mono uppercase tracking-[0.2em] text-red-400/80">
-              Verdict
-            </span>
-            <span className="text-3xl sm:text-4xl tracking-tight text-red-400 drop-shadow-[0_0_12px_rgba(248,113,113,0.5)]">
+            {voting && pressing === "shit" ? (
+              <EmojiIcon size={40} className="animate-pulse opacity-80">
+                💩
+              </EmojiIcon>
+            ) : (
+              <EmojiIcon
+                size={44}
+                className="drop-shadow-[0_0_12px_rgba(239,68,68,0.6)]"
+                label="SHIT"
+              >
+                💩
+              </EmojiIcon>
+            )}
+            <span className="text-base sm:text-lg tracking-tight text-red-400">
               SHIT
             </span>
             <span className="text-sm font-mono text-red-300/90 tabular-nums">
@@ -521,7 +574,21 @@ export default function VoteButtons({
                     userVote === "hit" ? "text-neon" : "text-red-400"
                   }
                 >
-                  {userVote === "hit" ? "HIT" : "SHIT"}
+                  {userVote === "hit" ? (
+                    <>
+                      <span className="emoji" aria-hidden>
+                        🎯
+                      </span>{" "}
+                      HIT
+                    </>
+                  ) : (
+                    <>
+                      <span className="emoji" aria-hidden>
+                        💩
+                      </span>{" "}
+                      SHIT
+                    </>
+                  )}
                 </span>
                 {twitterUsername ? (
                   <span className="text-zinc-500 font-normal">
