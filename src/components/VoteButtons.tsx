@@ -10,42 +10,60 @@ import { sfx } from "@/lib/sfx";
 import SwipeHint, { SwipeEdgeGlow } from "@/components/SwipeHint";
 import LottiePlayer from "@/components/LottiePlayer";
 import { memeStudioUrl } from "@/lib/meme-templates";
-function EmojiDrop({ emoji, count = 20 }: { emoji: string; count?: number }) {
-  const [particles, setParticles] = useState<{ id: number; left: number; delay: number; size: number; duration: number }[]>([]);
+/** Noto Color Emoji packs */
+const HIT_EMOJIS = ["🎯", "🚀", "💎", "🔥", "✨", "🟩", "🤑", "💪", "🏆", "⚡"];
+const SHIT_EMOJIS = ["💩", "💀", "🗑️", "🔻", "😭", "🤡", "📉", "☠️", "🧻", "🤢"];
+
+function EmojiDrop({
+  pack,
+  count = 28,
+}: {
+  pack: "hit" | "shit";
+  count?: number;
+}) {
+  const pool = pack === "hit" ? HIT_EMOJIS : SHIT_EMOJIS;
+  const [particles, setParticles] = useState<
+    { id: number; left: number; delay: number; size: number; duration: number; char: string; spin: number }[]
+  >([]);
 
   useEffect(() => {
     setParticles(
       Array.from({ length: count }, (_, i) => ({
         id: i,
         left: Math.random() * 100,
-        delay: Math.random() * 0.5,
-        size: 16 + Math.random() * 24,
-        duration: 1 + Math.random() * 1.5,
+        delay: Math.random() * 0.55,
+        size: 18 + Math.random() * 28,
+        duration: 1 + Math.random() * 1.6,
+        char: pool[Math.floor(Math.random() * pool.length)]!,
+        spin: (Math.random() > 0.5 ? 1 : -1) * (240 + Math.random() * 400),
       }))
     );
-  }, [count]);
+  }, [count, pack]);
 
   return (
     <div className="fixed inset-0 pointer-events-none z-[200] overflow-hidden">
-      {particles.map(p => (
+      {particles.map((p) => (
         <div
           key={p.id}
+          className="emoji"
           style={{
             position: "absolute",
             left: `${p.left}%`,
             top: "-40px",
             fontSize: `${p.size}px`,
             animation: `emojifall ${p.duration}s ease-in ${p.delay}s forwards`,
+            ["--spin" as string]: `${p.spin}deg`,
           }}
         >
-          {emoji}
+          {p.char}
         </div>
       ))}
       <style>{`
         @keyframes emojifall {
-          0% { transform: translateY(0) rotate(0deg); opacity: 1; }
-          80% { opacity: 1; }
-          100% { transform: translateY(105vh) rotate(${Math.random() > 0.5 ? '' : '-'}360deg); opacity: 0; }
+          0% { transform: translateY(0) rotate(0deg) scale(0.6); opacity: 0; }
+          12% { opacity: 1; transform: translateY(8vh) rotate(calc(var(--spin) * 0.15)) scale(1); }
+          85% { opacity: 1; }
+          100% { transform: translateY(105vh) rotate(var(--spin)); opacity: 0; }
         }
       `}</style>
     </div>
@@ -88,7 +106,7 @@ export default function VoteButtons({
   const [userVote, setUserVote] = useState<"hit" | "shit" | null>(null);
   const [voting, setVoting] = useState(false);
   const [loaded, setLoaded] = useState(false);
-  const [dropEmoji, setDropEmoji] = useState<string | null>(null);
+  const [dropPack, setDropPack] = useState<"hit" | "shit" | null>(null);
   const [symbol, setSymbol] = useState(symbolProp || "");
   const [shareText, setShareText] = useState("");
   const [copied, setCopied] = useState(false);
@@ -164,8 +182,8 @@ export default function VoteButtons({
     setShits((s) => (vote === "shit" ? s + 1 : s));
     if (vote === "hit") sfx.hit();
     else sfx.shit();
-    setDropEmoji(vote === "hit" ? "🎯" : "💩");
-    setTimeout(() => setDropEmoji(null), 3000);
+    setDropPack(vote === "hit" ? "hit" : "shit");
+    setTimeout(() => setDropPack(null), 3200);
     const line = pickLine(
       vote,
       (symbol || symbolProp || assetId).toUpperCase()
@@ -288,7 +306,7 @@ export default function VoteButtons({
       onTouchEnd={onSwipeEnd}
       style={{ touchAction: "pan-y" }}
     >
-      {dropEmoji && <EmojiDrop emoji={dropEmoji} />}
+      {dropPack && <EmojiDrop pack={dropPack} />}
       {swipeX > 10 && (
         <SwipeEdgeGlow side="left" intensity={Math.min(1, swipeX / 100)} />
       )}

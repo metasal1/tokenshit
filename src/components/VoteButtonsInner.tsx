@@ -10,42 +10,73 @@ import { getDeviceId, incrementAnonVoteCount } from "@/lib/device-id";
 const HIT_CURSOR = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 24 24' fill='none' stroke='%2339ff14' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Ccircle cx='12' cy='12' r='6'/%3E%3Ccircle cx='12' cy='12' r='2'/%3E%3C/svg%3E") 14 14, crosshair`;
 const SHIT_CURSOR = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 24 24' fill='none' stroke='%23ef4444' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='9' cy='12' r='1'/%3E%3Ccircle cx='15' cy='12' r='1'/%3E%3Cpath d='M8 20v2h8v-2'/%3E%3Cpath d='M12.5 17l-.5-1-.5 1h1z'/%3E%3Cpath d='M16 20a2 2 0 0 0 1.56-3.25 8 8 0 1 0-11.12 0A2 2 0 0 0 8 20'/%3E%3C/svg%3E") 14 14, pointer`;
 
-function EmojiDrop({ emoji, count = 20 }: { emoji: string; count?: number }) {
-  const [particles, setParticles] = useState<{ id: number; left: number; delay: number; size: number; duration: number }[]>([]);
+/** Noto Color Emoji packs — HIT = green/win energy, SHIT = dump/chaos */
+const HIT_EMOJIS = ["🎯", "🚀", "💎", "🔥", "✨", "🟩", "🤑", "💪", "🏆", "⚡"];
+const SHIT_EMOJIS = ["💩", "💀", "🗑️", "🔻", "😭", "🤡", "📉", "☠️", "🧻", "🤢"];
+
+function EmojiDrop({
+  emoji,
+  pack,
+  count = 28,
+}: {
+  emoji?: string;
+  pack?: "hit" | "shit";
+  count?: number;
+}) {
+  const pool =
+    pack === "hit" ? HIT_EMOJIS : pack === "shit" ? SHIT_EMOJIS : emoji ? [emoji] : HIT_EMOJIS;
+
+  const [particles, setParticles] = useState<
+    {
+      id: number;
+      left: number;
+      delay: number;
+      size: number;
+      duration: number;
+      char: string;
+      spin: number;
+    }[]
+  >([]);
 
   useEffect(() => {
     setParticles(
       Array.from({ length: count }, (_, i) => ({
         id: i,
         left: Math.random() * 100,
-        delay: Math.random() * 0.5,
-        size: 16 + Math.random() * 24,
-        duration: 1 + Math.random() * 1.5,
+        delay: Math.random() * 0.55,
+        size: 18 + Math.random() * 28,
+        duration: 1 + Math.random() * 1.6,
+        char: pool[Math.floor(Math.random() * pool.length)]!,
+        spin: (Math.random() > 0.5 ? 1 : -1) * (240 + Math.random() * 400),
       }))
     );
-  }, [count]);
+  }, [count, pack, emoji]);
 
   return (
     <div className="fixed inset-0 pointer-events-none z-[200] overflow-hidden">
-      {particles.map(p => (
+      {particles.map((p) => (
         <div
           key={p.id}
+          className="emoji"
           style={{
             position: "absolute",
             left: `${p.left}%`,
             top: "-40px",
             fontSize: `${p.size}px`,
             animation: `emojifall ${p.duration}s ease-in ${p.delay}s forwards`,
+            // per-particle spin via CSS var
+            ["--spin" as string]: `${p.spin}deg`,
           }}
         >
-          {emoji}
+          {p.char}
         </div>
       ))}
       <style>{`
         @keyframes emojifall {
-          0% { transform: translateY(0) rotate(0deg); opacity: 1; }
-          80% { opacity: 1; }
-          100% { transform: translateY(105vh) rotate(${Math.random() > 0.5 ? '' : '-'}360deg); opacity: 0; }
+          0% { transform: translateY(0) rotate(0deg) scale(0.6); opacity: 0; }
+          12% { opacity: 1; transform: translateY(8vh) rotate(calc(var(--spin) * 0.15)) scale(1); }
+          85% { opacity: 1; }
+          100% { transform: translateY(105vh) rotate(var(--spin)); opacity: 0; }
         }
       `}</style>
     </div>
@@ -64,7 +95,7 @@ export default function VoteButtons({ assetId, name, symbol }: { assetId: string
   const [userVote, setUserVote] = useState<"hit" | "shit" | null>(null);
   const [voting, setVoting] = useState(false);
   const [loaded, setLoaded] = useState(false);
-  const [dropEmoji, setDropEmoji] = useState<string | null>(null);
+  const [dropPack, setDropPack] = useState<"hit" | "shit" | null>(null);
   const [pressing, setPressing] = useState<"hit" | "shit" | null>(null);
   const [nextUrl, setNextUrl] = useState<string | null>(null);
 
@@ -102,8 +133,8 @@ export default function VoteButtons({ assetId, name, symbol }: { assetId: string
     setShits((s) => (vote === "shit" ? s + 1 : s));
     if (vote === "hit") sfx.hit();
     else sfx.shit();
-    setDropEmoji(vote === "hit" ? "🎯" : "🚽");
-    setTimeout(() => setDropEmoji(null), 3000);
+    setDropPack(vote === "hit" ? "hit" : "shit");
+    setTimeout(() => setDropPack(null), 3200);
 
     try {
       const res = await fetch("/api/vote", {
@@ -189,7 +220,7 @@ export default function VoteButtons({ assetId, name, symbol }: { assetId: string
 
   return (
     <div className="border border-zinc-800 rounded-xl bg-zinc-900/80 p-5 relative">
-      {dropEmoji && <EmojiDrop emoji={dropEmoji} />}
+      {dropPack && <EmojiDrop pack={dropPack} />}
       <div className="text-center mb-4">
         <p className="text-lg font-bold text-white">
           Is this token a <span className="text-green-400">HIT</span> or <span className="text-red-400">SHIT</span>?
