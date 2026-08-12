@@ -33,15 +33,17 @@ function getDeviceId(): string {
 }
 
 /**
- * Scrolling header ticker — treasury + users + online.
+ * Scrolling header ticker — treasury · holders · users · online.
  */
 export default function HeaderTicker() {
   const [data, setData] = useState<Payload | null>(null);
   const [online, setOnline] = useState<number | null>(null);
   const [users, setUsers] = useState<number | null>(null);
+  const [holders, setHolders] = useState<number | null>(null);
   const [treasuryLoading, setTreasuryLoading] = useState(true);
   const [onlineLoading, setOnlineLoading] = useState(true);
   const [usersLoading, setUsersLoading] = useState(true);
+  const [holdersLoading, setHoldersLoading] = useState(true);
 
   useEffect(() => {
     let alive = true;
@@ -67,6 +69,17 @@ export default function HeaderTicker() {
           if (alive) setUsersLoading(false);
         });
     };
+    const loadHolders = () => {
+      fetch("/api/token/holders", { cache: "no-store" })
+        .then((r) => r.json())
+        .then((d) => {
+          if (alive && typeof d.holders === "number") setHolders(d.holders);
+        })
+        .catch(() => {})
+        .finally(() => {
+          if (alive) setHoldersLoading(false);
+        });
+    };
     const ping = () => {
       fetch("/api/heartbeat", {
         method: "POST",
@@ -84,14 +97,15 @@ export default function HeaderTicker() {
     };
     loadTreasury();
     loadUsers();
+    loadHolders();
     ping();
     const a = setInterval(loadTreasury, 30_000);
     const b = setInterval(ping, 30_000);
     const c = setInterval(loadUsers, 45_000);
+    const d = setInterval(loadHolders, 120_000);
 
     const onSignup = () => {
       setUsers((n) => (typeof n === "number" ? n + 1 : n));
-      // reconcile shortly after
       window.setTimeout(loadUsers, 1500);
     };
     window.addEventListener("tokenshit:signup", onSignup);
@@ -101,12 +115,14 @@ export default function HeaderTicker() {
       clearInterval(a);
       clearInterval(b);
       clearInterval(c);
+      clearInterval(d);
       window.removeEventListener("tokenshit:signup", onSignup);
     };
   }, []);
 
   const bal = fmt(data?.shit);
   const usersLabel = fmt(users);
+  const holdersLabel = fmt(holders);
 
   const items = [
     {
@@ -123,6 +139,23 @@ export default function HeaderTicker() {
             <span className="text-neon font-semibold">
               {bal} ${SHIT_SYMBOL}
             </span>
+          )}
+        </Link>
+      ),
+    },
+    {
+      key: "holders",
+      node: (
+        <Link
+          href="/swap"
+          className="inline-flex items-center gap-1.5 hover:text-neon transition-colors"
+          title={`$${SHIT_SYMBOL} token accounts`}
+        >
+          <span className="text-zinc-500">Holders</span>
+          {holdersLoading || holdersLabel == null ? (
+            <BalanceSkeleton />
+          ) : (
+            <span className="text-white font-semibold">{holdersLabel}</span>
           )}
         </Link>
       ),
@@ -173,7 +206,7 @@ export default function HeaderTicker() {
     >
       <div
         className="header-ticker-track absolute left-0 top-0 flex h-full items-center gap-0 whitespace-nowrap font-mono text-[11px] sm:text-xs text-zinc-400"
-        aria-label="Treasury, users, and online ticker"
+        aria-label="Treasury, holders, users, and online ticker"
       >
         {loop.map((it, i) => (
           <span key={`${it.key}-${i}`} className="inline-flex items-center">
