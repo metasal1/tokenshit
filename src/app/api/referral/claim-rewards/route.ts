@@ -1,7 +1,7 @@
 import { type NextRequest } from "next/server";
 import { tursoExecute } from "@/lib/turso";
 import { REFERRAL_REWARD_SHIT } from "@/lib/shit-token";
-import { sendShitFromTreasury } from "@/lib/treasury";
+import { payFromTreasury } from "@/lib/treasury-ledger";
 import { requirePrivy } from "@/lib/privy-server";
 import { assertNotBlacklisted } from "@/lib/security";
 import {
@@ -143,10 +143,14 @@ export async function POST(request: NextRequest) {
           continue;
         }
 
-        const { signature } = await sendShitFromTreasury(
-          wallet,
-          REFERRAL_REWARD_SHIT
-        );
+        const { signature } = await payFromTreasury({
+          kind: "referral",
+          recipient: wallet,
+          amount: REFERRAL_REWARD_SHIT,
+          twitter,
+          idempotencyKey: `ref:${twitter}:${referred.toLowerCase()}`,
+          meta: { referred },
+        });
         await tursoExecute(
           `UPDATE referral_rewards SET signature = ? WHERE referred_twitter = ? AND signature = 'pending'`,
           [signature, referred]

@@ -15,7 +15,8 @@ import {
   recordClaim,
   type ClaimKind,
 } from "@/lib/claims";
-import { getTreasuryBalances, sendShitFromTreasury } from "@/lib/treasury";
+import { getTreasuryBalances } from "@/lib/treasury";
+import { payFromTreasury } from "@/lib/treasury-ledger";
 import { requirePrivy } from "@/lib/privy-server";
 import { assertNotBlacklisted } from "@/lib/security";
 import {
@@ -136,9 +137,11 @@ export async function POST(request: NextRequest) {
     const kind = kindRaw;
     const wallet = String(body.wallet || "").trim();
     const twitter = body.twitter
-      ? String(body.twitter).replace(/^@/, "")
+      ? String(body.twitter).replace(/^@/, "").toLowerCase().trim()
       : null;
-    const github = body.github ? String(body.github).replace(/^@/, "") : null;
+    const github = body.github
+      ? String(body.github).replace(/^@/, "").toLowerCase().trim()
+      : null;
 
     if (!SOLANA_ADDR.test(wallet)) {
       return Response.json(
@@ -293,7 +296,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Reserve claim row BEFORE send — stops double-claim races / drain loops
+    // Unique claim row first (identity locks)
     try {
       await recordClaim({
         kind,
@@ -311,16 +314,32 @@ export async function POST(request: NextRequest) {
       throw e;
     }
 
+    // Ledger + caps + on-chain (single path — cannot bypass)
     let signature: string;
     try {
-      ({ signature } = await sendShitFromTreasury(wallet, amount));
+      const paid = await payFromTreasury({
+        kind,
+        recipient: wallet,
+        amount,
+        twitter,
+        github,
+        idempotencyKey: `claim:${kind}:${wallet.toLowerCase()}`,
+        meta: { twitter, github, tweetId },
+      });
+      signature = paid.signature;
     } catch (e) {
-      // allow retry if treasury send failed
       const { tursoExecute } = await import("@/lib/turso");
       await tursoExecute(
         `DELETE FROM shit_claims WHERE claim_kind = ? AND wallet = ? AND signature = 'pending'`,
         [kind, wallet]
       ).catch(() => {});
+      const err = e as Error & { code?: string; status?: number };
+      if (err.status && err.code) {
+        return Response.json(
+          { error: err.message, code: err.code },
+          { status: err.status }
+        );
+      }
       throw e;
     }
 
