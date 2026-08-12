@@ -51,8 +51,8 @@ export async function GET(request: NextRequest) {
   url.searchParams.set("outputMint", outputMint);
   url.searchParams.set("amount", amount);
   url.searchParams.set("slippageBps", slippageBps);
-  // Privy cannot resolve v0 ALTs (#5663005)
-  url.searchParams.set("asLegacyTransaction", "true");
+  // Do NOT set asLegacyTransaction on quote — kills multi-hop USDC↔TOKENSHIT.
+  // Legacy is forced on /swap build instead (Privy ALT #5663005).
 
   try {
     const res = await fetch(url.toString(), {
