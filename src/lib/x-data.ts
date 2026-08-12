@@ -431,6 +431,7 @@ async function tweetFromTweetApi(tweetId: string): Promise<{
   text?: string;
   authorUsername?: string;
   authorId?: string;
+  createdAt?: string;
   error?: string;
 }> {
   const key = tweetApiKey();
@@ -449,6 +450,9 @@ async function tweetFromTweetApi(tweetId: string): Promise<{
   const json = await res.json();
   const tw = json.data?.tweet || json.data || json.tweet || json;
   const author = tw.author || {};
+  const createdAt = String(
+    tw.createdAt || tw.created_at || tw.date || tw.timestamp || ""
+  );
   return {
     ok: true,
     text: String(tw.text || tw.fullText || ""),
@@ -456,13 +460,18 @@ async function tweetFromTweetApi(tweetId: string): Promise<{
       ? String(author.username).toLowerCase()
       : undefined,
     authorId: author.id ? String(author.id) : undefined,
+    createdAt: createdAt || undefined,
   };
 }
 
-async function tweetFromVx(tweetId: string, hintUser?: string): Promise<{
+async function tweetFromVx(
+  tweetId: string,
+  hintUser?: string
+): Promise<{
   ok: boolean;
   text?: string;
   authorUsername?: string;
+  createdAt?: string;
   error?: string;
 }> {
   const paths = [
@@ -483,8 +492,16 @@ async function tweetFromVx(tweetId: string, hintUser?: string): Promise<{
       const authorUsername = String(
         d.user_name || d.user_screen_name || d.username || ""
       ).toLowerCase();
+      const createdAt = String(
+        d.date || d.created_at || d.createdAt || d.time || ""
+      );
       if (text || authorUsername) {
-        return { ok: true, text, authorUsername: authorUsername || undefined };
+        return {
+          ok: true,
+          text,
+          authorUsername: authorUsername || undefined,
+          createdAt: createdAt || undefined,
+        };
       }
     } catch {
       /* try next */
@@ -498,6 +515,7 @@ async function tweetFromOfficial(tweetId: string): Promise<{
   text?: string;
   authorUsername?: string;
   authorId?: string;
+  createdAt?: string;
   error?: string;
 }> {
   const bearer = xBearer();
@@ -516,6 +534,9 @@ async function tweetFromOfficial(tweetId: string): Promise<{
   const json = await res.json();
   const text = String(json.data?.text || "");
   const authorId = json.data?.author_id as string | undefined;
+  const createdAt = json.data?.created_at
+    ? String(json.data.created_at)
+    : undefined;
   const users = (json.includes?.users || []) as {
     id: string;
     username?: string;
@@ -526,6 +547,7 @@ async function tweetFromOfficial(tweetId: string): Promise<{
     text,
     authorUsername: (author?.username || "").toLowerCase() || undefined,
     authorId,
+    createdAt,
   };
 }
 
@@ -545,6 +567,7 @@ export async function checkXTweetByUrl(
   found: boolean;
   tweetId?: string;
   text?: string;
+  createdAt?: string;
   error?: string;
 }> {
   const user = username.replace(/^@/, "").trim().toLowerCase();
@@ -559,8 +582,7 @@ export async function checkXTweetByUrl(
   }
 
   let got =
-    (await tweetFromOfficial(tweetId).catch(() => null)) ||
-    null;
+    (await tweetFromOfficial(tweetId).catch(() => null)) || null;
   if (!got?.ok) {
     got = await tweetFromTweetApi(tweetId);
   }
@@ -591,11 +613,59 @@ export async function checkXTweetByUrl(
       error: "Tweet must tag @Tokenshit_ (or link tokenshit.com).",
     };
   }
+
+  // Tweet must be less than 24 hours old
+  const createdRaw = got.createdAt;
+  let createdMs: number | null = null;
+  if (createdRaw) {
+    createdMs = Date.parse(createdRaw);
+    if (!Number.isFinite(createdMs)) {
+      const n = Number(createdRaw);
+      if (Number.isFinite(n)) {
+        createdMs = n < 1e12 ? n * 1000 : n;
+      } else {
+        createdMs = null;
+      }
+    }
+  }
+  // Fallback: Twitter snowflake timestamp from tweet id
+  if (createdMs == null && /^\d{5,}$/.test(tweetId)) {
+    try {
+      // snowflake: (id / 2^22) + twitter epoch
+      const idNum = Number(tweetId);
+      if (Number.isFinite(idNum)) {
+        createdMs = Math.floor(idNum / 2 ** 22) + 1288834974657;
+      }
+    } catch {
+      createdMs = null;
+    }
+  }
+  if (createdMs != null && Number.isFinite(createdMs)) {
+    const age = Date.now() - createdMs;
+    if (age > 24 * 60 * 60 * 1000) {
+      return {
+        ok: false,
+        found: false,
+        tweetId,
+        error:
+          "Tweet is older than 24 hours. Post a fresh tag and claim again.",
+      };
+    }
+  } else {
+    return {
+      ok: false,
+      found: false,
+      tweetId,
+      error: "Could not verify tweet age. Paste a fresh status link.",
+    };
+  }
+
   return {
     ok: true,
     found: true,
     tweetId,
     text: text.slice(0, 280),
+    createdAt: createdRaw || new Date(createdMs).toISOString(),
   };
 }
 

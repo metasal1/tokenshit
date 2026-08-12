@@ -24,7 +24,7 @@ export const CLAIM_X_VERIFIED = 10_000;
 export const CLAIM_X_PREMIUM = 20_000;
 /** GitHub fork of solana-foundation/tokens */
 export const CLAIM_GH_FORK = 100_000;
-/** Tweet + tag @Tokenshit_ (once) — minor */
+/** Tweet + tag @Tokenshit_ — every 24h; tweet must be <24h old */
 export const CLAIM_X_TWEET = 5_000;
 /** Follow @Tokenshit_ (once) — minor */
 export const CLAIM_X_FOLLOW = 3_000;

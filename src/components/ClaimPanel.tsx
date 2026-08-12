@@ -141,8 +141,15 @@ export default function ClaimPanel() {
   const [sig, setSig] = useState<string | null>(null);
   const [treasuryShit, setTreasuryShit] = useState<number | null>(null);
   const [tweetUrl, setTweetUrl] = useState("");
-  const [claimedStatus, setClaimedStatus] = useState<Record<string, boolean>>({});
+  const [claimedStatus, setClaimedStatus] = useState<Record<string, boolean>>(
+    {}
+  );
   const [statusLoading, setStatusLoading] = useState(false);
+  const [tweetCooldown, setTweetCooldown] = useState<{
+    onCooldown: boolean;
+    nextClaimAt: string | null;
+    msRemaining: number;
+  } | null>(null);
 
   const twitter = user?.twitter?.username || null;
   const github = user?.github?.username || null;
@@ -163,6 +170,7 @@ export default function ClaimPanel() {
   useEffect(() => {
     if (!authenticated) {
       setClaimedStatus({});
+      setTweetCooldown(null);
       return;
     }
     setStatusLoading(true);
@@ -175,6 +183,13 @@ export default function ClaimPanel() {
       .then((d) => {
         if (d.claimed) setClaimedStatus(d.claimed);
         if (typeof d.treasuryShit === "number") setTreasuryShit(d.treasuryShit);
+        if (d.tweet) {
+          setTweetCooldown({
+            onCooldown: !!d.tweet.onCooldown,
+            nextClaimAt: d.tweet.nextClaimAt || null,
+            msRemaining: Number(d.tweet.msRemaining || 0),
+          });
+        }
       })
       .catch(() => {})
       .finally(() => setStatusLoading(false));
@@ -318,7 +333,7 @@ export default function ClaimPanel() {
       <p className="text-[11px] sm:text-xs text-zinc-500 leading-snug rounded-lg border border-border/60 bg-zinc-950/40 px-3 py-2">
         <span className="text-zinc-300 font-medium">Rules:</span>{" "}
         X login required · PFP · 100+ followers · pay to Privy wallet linked to that X ·
-        verified 10k / premium 20k / GH fork 100k · 1 major claim per IP per day
+        verified 10k / premium 20k / GH fork 100k · tweet every 24h · 1 major claim per IP per day
       </p>
 
       {/* Account strip */}
@@ -400,7 +415,7 @@ export default function ClaimPanel() {
           amount={CLAIM_X_TWEET}
           hint={
             <>
-              Public tweet tagging{" "}
+              Fresh tweet (under 24h) tagging{" "}
               <a
                 href={X_URL}
                 className="text-neon-blue"
@@ -408,47 +423,64 @@ export default function ClaimPanel() {
                 rel="noopener noreferrer"
               >
                 @{X_HANDLE}
-              </a>{" "}
-              (last ~7 days).
+              </a>
+              . Claim once every 24h.
             </>
           }
         >
           <div className="grid grid-cols-1 gap-2">
-            <a
-              href={tweetTagIntentUrl()}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={`${BTN_OUTLINE} text-center`}
-            >
-              1. Post tweet
-            </a>
-            <input
-              type="url"
-              inputMode="url"
-              placeholder="Paste tweet URL (required)"
-              value={tweetUrl}
-              onChange={(e) => setTweetUrl(e.target.value)}
-              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-zinc-600"
-            />
-            <div className="flex items-center justify-between gap-2">
-              {claimedStatus["x_tweet"] ? (
-            <span className="text-xs font-mono text-neon bg-neon/10 border border-neon/30 rounded-md px-2 py-1">Claimed ✓</span>
-          ) : statusLoading ? (
-            <span className="text-[10px] text-zinc-600">…</span>
-          ) : null}
-            </div>
-            <button
-              type="button"
-              disabled={busy !== null || !!claimedStatus["x_tweet"] || !tweetUrl.trim()}
-              onClick={() => claim("x_tweet")}
-              className={BTN_NEON}
-            >
-              {busy === "x_tweet"
-                ? "Checking…"
-                : claimedStatus["x_tweet"]
-                  ? "Already claimed"
-                  : "2. Claim tweet"}
-            </button>
+            {tweetCooldown?.onCooldown ? (
+              <div className="rounded-lg border border-neon/30 bg-neon/10 px-3 py-3 space-y-1">
+                <p className="text-sm font-semibold text-neon">
+                  Tweet claim locked
+                </p>
+                <p className="text-xs text-zinc-400">
+                  Already claimed in the last 24h — no need to search or paste
+                  again.
+                </p>
+                {tweetCooldown.nextClaimAt && (
+                  <p className="text-[11px] font-mono text-zinc-500">
+                    Next claim after{" "}
+                    {new Date(tweetCooldown.nextClaimAt).toLocaleString()}
+                  </p>
+                )}
+              </div>
+            ) : (
+              <>
+                <a
+                  href={tweetTagIntentUrl()}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`${BTN_OUTLINE} text-center`}
+                >
+                  1. Post tweet
+                </a>
+                <input
+                  type="url"
+                  inputMode="url"
+                  placeholder="Paste tweet URL (required, under 24h old)"
+                  value={tweetUrl}
+                  onChange={(e) => setTweetUrl(e.target.value)}
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-zinc-600"
+                />
+                <button
+                  type="button"
+                  disabled={
+                    busy !== null ||
+                    !!tweetCooldown?.onCooldown ||
+                    !tweetUrl.trim()
+                  }
+                  onClick={() => claim("x_tweet")}
+                  className={BTN_NEON}
+                >
+                  {busy === "x_tweet"
+                    ? "Checking…"
+                    : statusLoading
+                      ? "…"
+                      : "2. Claim tweet"}
+                </button>
+              </>
+            )}
           </div>
         </RewardRow>
 
