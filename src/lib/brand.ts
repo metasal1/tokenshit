@@ -12,7 +12,7 @@ export const BRAND = {
   nameDisplay: "TOKEN$HIT",
   wordmark: "TOKEN$HIT",
   tagline: "Every token is shit until proven otherwise.",
-  shortTagline: "HIT or SHIT. Court is in session.",
+  shortTagline: "HIT or SHIT. Every token is shit until proven otherwise.",
   ticker: "TOKENSHIT",
   tickerDisplay: "$TOKENSHIT",
   site: "https://tokenshit.com",
