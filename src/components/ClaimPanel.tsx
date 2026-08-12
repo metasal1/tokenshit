@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { usePrivy } from "@privy-io/react-auth";
 import { useWallets } from "@privy-io/react-auth/solana";
 import {
+  CLAIM_EMAIL_LIST,
   CLAIM_GH_FORK,
   CLAIM_X_FOLLOW,
   CLAIM_X_PREMIUM,
@@ -25,7 +26,13 @@ import { BalanceSkeleton } from "@/components/StatLoader";
 import ShareRefButton from "@/components/ShareRefButton";
 import { pickSolanaAddress } from "@/lib/privy-identity";
 
-type ClaimKind = "x_verified" | "x_premium" | "gh_fork" | "x_tweet" | "x_follow";
+type ClaimKind =
+  | "x_verified"
+  | "x_premium"
+  | "gh_fork"
+  | "x_tweet"
+  | "x_follow"
+  | "email_list";
 
 const BTN =
   "w-full min-h-11 touch-manipulation rounded-lg text-sm font-semibold py-3 px-3 transition disabled:opacity-50 active:scale-[0.98]";
@@ -243,6 +250,9 @@ export default function ClaimPanel() {
           ...(kind === "x_tweet" && tweetUrl.trim()
             ? { tweetUrl: tweetUrl.trim() }
             : {}),
+          ...(kind === "email_list" && user?.email?.address
+            ? { email: user.email.address }
+            : {}),
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -262,19 +272,24 @@ export default function ClaimPanel() {
       setSig(data.signature || null);
       try {
         const handle = (twitter || github || "").replace(/^@/, "") || null;
+        const kindLabel =
+          kind === "x_verified"
+            ? "X verified"
+            : kind === "x_premium"
+              ? "X premium"
+              : kind === "gh_fork"
+                ? "GH fork"
+                : kind === "email_list"
+                  ? "list join"
+                  : kind === "x_tweet"
+                    ? "tweet tag"
+                    : "X follow";
         window.dispatchEvent(
           new CustomEvent("tokenshit:claim", {
             detail: {
               id: Date.now(),
               kind,
-              kindLabel:
-                kind === "x_verified"
-                  ? "X verified"
-                  : kind === "gh_fork"
-                    ? "GH fork"
-                    : kind === "x_tweet"
-                      ? "tweet tag"
-                      : "X follow",
+              kindLabel,
               handle,
               twitter: twitter || null,
               github: github || null,
@@ -571,6 +586,34 @@ export default function ClaimPanel() {
             </button>
           </RewardRow>
         </div>
+
+        <RewardRow
+          title="Join the list"
+          amount={CLAIM_EMAIL_LIST}
+          hint="One-time 5,000 after email signup (same X / wallet). Join above, then claim."
+        >
+          {claimedStatus["email_list"] ? (
+            <span className="text-xs font-mono text-neon bg-neon/10 border border-neon/30 rounded-md px-2 py-1">
+              Claimed
+            </span>
+          ) : statusLoading ? (
+            <span className="text-[10px] text-zinc-600">…</span>
+          ) : null}
+          <button
+            type="button"
+            disabled={busy !== null || !!claimedStatus["email_list"]}
+            onClick={() => claim("email_list")}
+            className={BTN_NEON}
+          >
+            {busy === "email_list"
+              ? "Claiming…"
+              : claimedStatus["email_list"]
+                ? "Already claimed"
+                : authenticated
+                  ? "Claim list 5k"
+                  : "Login with X"}
+          </button>
+        </RewardRow>
 
         <RewardRow
           title="GitHub fork"

@@ -28,6 +28,8 @@ export const CLAIM_GH_FORK = 100_000;
 export const CLAIM_X_TWEET = 5_000;
 /** Follow @Tokenshit_ (once) — minor */
 export const CLAIM_X_FOLLOW = 3_000;
+/** Join email list (once) */
+export const CLAIM_EMAIL_LIST = 5_000;
 /** $TOKENSHIT per referral */
 export const REFERRAL_REWARD_SHIT = 2_000;
 

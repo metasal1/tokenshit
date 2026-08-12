@@ -65,7 +65,9 @@ export default function EmailCaptureCard({
           {already ? "You’re already on the list" : "You’re in"}
         </p>
         <p className="text-xs text-zinc-400 mt-1">
-          You&apos;re on the list. Login with the same email anytime.
+          {already
+            ? "Already on the list — claim 5,000 $TOKENSHIT on /claim if you have not."
+            : "On the list. Login with X → Claim → list 5k."}
         </p>
       </div>
     );
@@ -77,10 +79,12 @@ export default function EmailCaptureCard({
       className={`rounded-xl border border-border bg-card p-4 space-y-3 ${className}`}
     >
       <div>
-        <h3 className="text-sm font-bold text-white">Join the list</h3>
+        <h3 className="text-sm font-bold text-white">
+          Join the list · 5,000 $TOKENSHIT
+        </h3>
         <p className="text-xs text-zinc-500 mt-0.5">
-          Email signup works in Telegram / in-app browsers. No X required for
-          the list.
+          Email signup works in Telegram / in-app browsers. Then claim 5k on
+          /claim after login with X.
         </p>
       </div>
       <div className="flex flex-col sm:flex-row gap-2">

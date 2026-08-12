@@ -5,7 +5,8 @@ export type ClaimKind =
   | "x_premium"
   | "gh_fork"
   | "x_tweet"
-  | "x_follow";
+  | "x_follow"
+  | "email_list";
 
 /** Tweet claim cooldown + max tweet age */
 export const TWEET_CLAIM_COOLDOWN_MS = 24 * 60 * 60 * 1000;
@@ -249,6 +250,57 @@ export async function tweetIdAlreadyClaimed(
     [tweetId]
   );
   return r.rows.length > 0;
+}
+
+/** True if this identity is on the mailing list (email_signups). */
+export async function isOnEmailList(opts: {
+  email?: string | null;
+  twitter?: string | null;
+  wallet?: string | null;
+  privyId?: string | null;
+}): Promise<{ ok: boolean; email?: string }> {
+  await tursoExecute(
+    `CREATE TABLE IF NOT EXISTS email_signups (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      email TEXT NOT NULL UNIQUE,
+      twitter_handle TEXT,
+      wallet_address TEXT,
+      privy_id TEXT,
+      source TEXT,
+      created_at TEXT DEFAULT (datetime('now'))
+    )`,
+    []
+  ).catch(() => {});
+
+  if (opts.email) {
+    const r = await tursoExecute(
+      `SELECT email FROM email_signups WHERE lower(email) = lower(?) LIMIT 1`,
+      [opts.email.trim()]
+    );
+    if (r.rows.length) return { ok: true, email: String(r.rows[0][0]) };
+  }
+  if (opts.wallet) {
+    const r = await tursoExecute(
+      `SELECT email FROM email_signups WHERE wallet_address = ? LIMIT 1`,
+      [opts.wallet]
+    );
+    if (r.rows.length) return { ok: true, email: String(r.rows[0][0]) };
+  }
+  if (opts.privyId) {
+    const r = await tursoExecute(
+      `SELECT email FROM email_signups WHERE privy_id = ? LIMIT 1`,
+      [opts.privyId]
+    );
+    if (r.rows.length) return { ok: true, email: String(r.rows[0][0]) };
+  }
+  if (opts.twitter) {
+    const r = await tursoExecute(
+      `SELECT email FROM email_signups WHERE lower(twitter_handle) = lower(?) LIMIT 1`,
+      [opts.twitter]
+    );
+    if (r.rows.length) return { ok: true, email: String(r.rows[0][0]) };
+  }
+  return { ok: false };
 }
 
 export async function recordClaim(opts: {

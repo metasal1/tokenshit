@@ -5,6 +5,7 @@ import {
   type ClaimKind,
 } from "@/lib/claims";
 import {
+  CLAIM_EMAIL_LIST,
   CLAIM_GH_FORK,
   CLAIM_X_FOLLOW,
   CLAIM_X_PREMIUM,
@@ -21,6 +22,7 @@ const KINDS: ClaimKind[] = [
   "x_verified",
   "x_premium",
   "gh_fork",
+  "email_list",
 ];
 
 const AMOUNTS: Record<ClaimKind, number> = {
@@ -29,11 +31,11 @@ const AMOUNTS: Record<ClaimKind, number> = {
   gh_fork: CLAIM_GH_FORK,
   x_tweet: CLAIM_X_TWEET,
   x_follow: CLAIM_X_FOLLOW,
+  email_list: CLAIM_EMAIL_LIST,
 };
 
 /**
  * GET /api/claim/status?twitter=&github=&wallet=
- * Claimed flags + tweet 24h cooldown for UI.
  */
 export async function GET(request: NextRequest) {
   const sp = request.nextUrl.searchParams;
@@ -50,7 +52,6 @@ export async function GET(request: NextRequest) {
     );
 
     const tweetCooldown = await getTweetClaimCooldown({ twitter, wallet });
-    // claimed.x_tweet means "on cooldown" for tweet kind
     claimed.x_tweet = tweetCooldown.onCooldown;
 
     const bal = await getTreasuryBalances().catch(() => null);
