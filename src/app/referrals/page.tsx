@@ -97,12 +97,23 @@ export default function ReferralsPage() {
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
+          'x-privy-token': token,
         },
-        body: JSON.stringify({ twitter: twitterHandle, wallet }),
+        body: JSON.stringify({
+          twitter: twitterHandle,
+          wallet,
+          accessToken: token,
+        }),
       });
       const data = await res.json();
       if (!res.ok) {
-        setClaimErr(data.error || 'Claim failed');
+        const detail =
+          typeof data.detail === 'string'
+            ? ` (${data.detail})`
+            : data.meta?.errors
+              ? ` (${JSON.stringify(data.meta.errors).slice(0, 120)})`
+              : '';
+        setClaimErr((data.error || 'Claim failed') + detail);
         return;
       }
       if (data.errors?.length) {

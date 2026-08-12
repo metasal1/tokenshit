@@ -144,6 +144,7 @@ export async function POST(request: NextRequest) {
       wallet,
       requireTwitter:
         kind === "x_verified" || kind === "x_tweet" || kind === "x_follow",
+      body: body as Record<string, unknown>,
     });
     if (!auth.ok) return auth.res;
 

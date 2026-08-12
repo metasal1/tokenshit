@@ -63,6 +63,7 @@ export async function POST(request: NextRequest) {
       twitter: twitter || null,
       wallet,
       requireTwitter: true,
+      body: body as Record<string, unknown>,
     });
     if (!auth.ok) return auth.res;
     if (auth.id.twitter) twitter = auth.id.twitter;
