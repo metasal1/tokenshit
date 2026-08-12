@@ -1,32 +1,34 @@
 /**
  * Anti-abuse for signups + treasury claims.
- * Goal: slow farm bots / throwaway X accounts without blocking real degens.
  *
- * Env knobs (all optional):
- *   MIN_X_FOLLOWERS_CLAIM=50        — tweet/follow claims
- *   MIN_X_FOLLOWERS_REFERRAL=25     — referred account must clear this for payout
- *   SIGNUP_PER_IP_HOUR=8
+ * Metasal claim rules:
+ *   - X login compulsory
+ *   - min 100 followers + real PFP
+ *   - major claims (verified/premium/gh): 1 IP / day
+ *
+ * Env knobs (optional):
+ *   MIN_X_FOLLOWERS_CLAIM=100
+ *   MIN_X_FOLLOWERS_REFERRAL=100
+ *   MAJOR_CLAIMS_PER_IP_DAY=1
  *   CLAIM_PER_IP_DAY=12
- *   SIGNUP_BLOCK_DISPOSABLE=1       — default on
- *   ABUSE_SOFT_MODE=1               — log/tag only, don't hard-block (testing)
+ *   ABUSE_SOFT_MODE=1
  */
 import { tursoExecute } from "@/lib/turso";
 import { fetchXUserPublic } from "@/lib/claims";
+import {
+  ABUSE_MIN_FOLLOWERS_CLAIM,
+  ABUSE_MIN_FOLLOWERS_REFERRAL,
+  CLAIM_REQUIRE_PFP,
+  MAJOR_CLAIMS_PER_IP_DAY,
+} from "@/lib/shit-token";
 
-export const MIN_X_FOLLOWERS_CLAIM = Number(
-  process.env.MIN_X_FOLLOWERS_CLAIM || 50
-);
-export const MIN_X_FOLLOWERS_REFERRAL = Number(
-  process.env.MIN_X_FOLLOWERS_REFERRAL || 25
-);
-export const SIGNUP_PER_IP_HOUR = Number(
-  process.env.SIGNUP_PER_IP_HOUR || 8
-);
+export const MIN_X_FOLLOWERS_CLAIM = ABUSE_MIN_FOLLOWERS_CLAIM;
+export const MIN_X_FOLLOWERS_REFERRAL = ABUSE_MIN_FOLLOWERS_REFERRAL;
+export const SIGNUP_PER_IP_HOUR = Number(process.env.SIGNUP_PER_IP_HOUR || 8);
 export const CLAIM_PER_IP_DAY = Number(process.env.CLAIM_PER_IP_DAY || 12);
 
 const SOFT = process.env.ABUSE_SOFT_MODE === "1";
 
-/** Common disposable / burn email hosts */
 const DISPOSABLE = new Set(
   [
     "mailinator.com",
@@ -48,56 +50,29 @@ const DISPOSABLE = new Set(
     "mailnesia.com",
     "maildrop.cc",
     "fakeinbox.com",
+    "trashmail.me",
     "emailondeck.com",
     "mintemail.com",
-    "moakt.com",
-    "tmpmail.org",
-    "tmpmail.net",
-    "tmail.ws",
-    "dispostable.com",
-    "mailcatch.com",
     "mytemp.email",
     "tempail.com",
-    "tempr.email",
-    "discardmail.com",
-    "spamgourmet.com",
-    "mailnull.com",
-    "jetable.org",
-    "inboxkitten.com",
-    "emailfake.com",
-    "crazymailing.com",
-    "mailforspam.com",
-    "trash-mail.com",
-  ].map((d) => d.toLowerCase())
+    "dispostable.com",
+  ].map((h) => h.toLowerCase())
 );
 
-export function getClientIp(request: Request): string {
-  const h = (name: string) => request.headers.get(name) || "";
-  const cf = h("cf-connecting-ip").trim();
-  if (cf) return cf.slice(0, 64);
-  const xff = h("x-forwarded-for").split(",")[0]?.trim();
-  if (xff) return xff.slice(0, 64);
-  const real = h("x-real-ip").trim();
-  if (real) return real.slice(0, 64);
-  return "unknown";
-}
+export type GateResult = {
+  ok: boolean;
+  status?: number;
+  error?: string;
+  code?: string;
+  soft?: string;
+};
 
-export function isDisposableEmail(email: string): boolean {
-  if (process.env.SIGNUP_BLOCK_DISPOSABLE === "0") return false;
-  const host = email.split("@")[1]?.toLowerCase().trim();
-  if (!host) return true;
-  if (DISPOSABLE.has(host)) return true;
-  // plus-address farms on free providers still allowed — rate limit covers
-  if (/^(temp|trash|fake|spam|disposable)/i.test(host)) return true;
-  return false;
-}
-
-async function ensureAbuseSchema() {
+export async function ensureAbuseSchema() {
   await tursoExecute(
     `CREATE TABLE IF NOT EXISTS abuse_events (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       kind TEXT NOT NULL,
-      ip TEXT NOT NULL,
+      ip TEXT,
       subject TEXT,
       meta TEXT,
       created_at TEXT DEFAULT (datetime('now'))
@@ -105,62 +80,68 @@ async function ensureAbuseSchema() {
     []
   );
   await tursoExecute(
-    `CREATE INDEX IF NOT EXISTS idx_abuse_ip_kind_time
-     ON abuse_events(ip, kind, created_at)`,
+    `CREATE INDEX IF NOT EXISTS idx_abuse_kind_ip_time
+     ON abuse_events(kind, ip, created_at)`,
     []
   ).catch(() => {});
 }
 
 export async function recordAbuseEvent(
   kind: string,
-  ip: string,
-  subject?: string | null,
+  ip: string | null,
+  subject: string | null,
   meta?: Record<string, unknown>
 ) {
-  try {
-    await ensureAbuseSchema();
-    await tursoExecute(
-      `INSERT INTO abuse_events (kind, ip, subject, meta) VALUES (?, ?, ?, ?)`,
-      [
-        kind.slice(0, 64),
-        (ip || "unknown").slice(0, 64),
-        subject ? String(subject).slice(0, 128) : null,
-        meta ? JSON.stringify(meta).slice(0, 500) : null,
-      ]
-    );
-  } catch (e) {
-    console.error("abuse event log failed", e);
-  }
+  await ensureAbuseSchema();
+  await tursoExecute(
+    `INSERT INTO abuse_events (kind, ip, subject, meta) VALUES (?, ?, ?, ?)`,
+    [kind, ip, subject, meta ? JSON.stringify(meta) : null]
+  );
 }
 
-/** Count events of kind for ip in last `hours` */
-export async function countAbuseRecent(
+export function getClientIp(req: {
+  headers: { get(name: string): string | null };
+}): string {
+  const xf = req.headers.get("x-forwarded-for");
+  if (xf) return xf.split(",")[0]!.trim();
+  const real = req.headers.get("x-real-ip");
+  if (real) return real.trim();
+  const cf = req.headers.get("cf-connecting-ip");
+  if (cf) return cf.trim();
+  return "unknown";
+}
+
+export function isDisposableEmail(email: string): boolean {
+  const host = email.split("@")[1]?.toLowerCase().trim();
+  if (!host) return true;
+  if (DISPOSABLE.has(host)) return true;
+  return (
+    host.endsWith(".tk") ||
+    host.includes("tempmail") ||
+    host.includes("throwaway")
+  );
+}
+
+async function countAbuseRecent(
   kind: string,
   ip: string,
   hours: number
 ): Promise<number> {
-  try {
-    await ensureAbuseSchema();
-    const r = await tursoExecute(
-      `SELECT COUNT(*) FROM abuse_events
-       WHERE kind = ? AND ip = ?
-         AND created_at >= datetime('now', ?)`,
-      [kind, ip, `-${Math.max(1, hours)} hours`]
-    );
-    return Number(r.rows[0]?.[0] || 0);
-  } catch {
-    return 0;
-  }
+  await ensureAbuseSchema();
+  const r = await tursoExecute(
+    `SELECT COUNT(*) FROM abuse_events
+     WHERE kind = ? AND ip = ?
+       AND created_at >= datetime('now', ?)`,
+    [kind, ip, `-${hours} hours`]
+  );
+  return Number(r.rows[0]?.[0] || 0);
 }
-
-export type GateResult =
-  | { ok: true; soft?: string }
-  | { ok: false; status: number; error: string; code?: string };
 
 export async function gateSignupIp(ip: string): Promise<GateResult> {
   const n = await countAbuseRecent("signup", ip, 1);
   if (n >= SIGNUP_PER_IP_HOUR) {
-    if (SOFT) return { ok: true, soft: `signup rate soft ${n}/${SIGNUP_PER_IP_HOUR}` };
+    if (SOFT)
+      return { ok: true, soft: `signup rate soft ${n}/${SIGNUP_PER_IP_HOUR}` };
     return {
       ok: false,
       status: 429,
@@ -174,7 +155,8 @@ export async function gateSignupIp(ip: string): Promise<GateResult> {
 export async function gateClaimIp(ip: string): Promise<GateResult> {
   const n = await countAbuseRecent("claim", ip, 24);
   if (n >= CLAIM_PER_IP_DAY) {
-    if (SOFT) return { ok: true, soft: `claim rate soft ${n}/${CLAIM_PER_IP_DAY}` };
+    if (SOFT)
+      return { ok: true, soft: `claim rate soft ${n}/${CLAIM_PER_IP_DAY}` };
     return {
       ok: false,
       status: 429,
@@ -185,55 +167,97 @@ export async function gateClaimIp(ip: string): Promise<GateResult> {
   return { ok: true };
 }
 
-export async function gateXFollowersForClaim(
-  twitter: string | null | undefined,
+/** Major claims: verified / premium / GH fork — 1 per IP per day */
+export async function gateMajorClaimIp(
+  ip: string,
   kind: string
-): Promise<GateResult & { followers?: number }> {
-  // Verified claim already requires blue; GH fork is GH quality. Soft/hard on tweet+follow.
-  if (kind !== "x_tweet" && kind !== "x_follow") return { ok: true };
-  if (!twitter) {
-    return { ok: false, status: 400, error: "Twitter required", code: "no_twitter" };
+): Promise<GateResult> {
+  const major =
+    kind === "x_verified" || kind === "x_premium" || kind === "gh_fork";
+  if (!major) return { ok: true };
+  const limit = MAJOR_CLAIMS_PER_IP_DAY > 0 ? MAJOR_CLAIMS_PER_IP_DAY : 1;
+  const n = await countAbuseRecent("claim_major", ip, 24);
+  if (n >= limit) {
+    if (SOFT) return { ok: true, soft: `major claim soft ${n}/${limit}` };
+    return {
+      ok: false,
+      status: 429,
+      error:
+        "One major claim (verified / premium / GitHub) per network per day. Try again tomorrow.",
+      code: "ip_rate_major",
+    };
   }
-  if (MIN_X_FOLLOWERS_CLAIM <= 0) return { ok: true };
+  return { ok: true };
+}
 
+/** All claims: X profile, ≥100 followers, real PFP. Fail closed on lookup fail. */
+export async function gateXProfileForClaim(
+  twitter: string | null | undefined
+): Promise<
+  GateResult & {
+    followers?: number;
+    hasPfp?: boolean;
+    premium?: boolean;
+    verified?: boolean;
+  }
+> {
+  if (!twitter) {
+    return {
+      ok: false,
+      status: 400,
+      error: "Sign in with X is required.",
+      code: "no_twitter",
+    };
+  }
   const x = await fetchXUserPublic(twitter);
   if (!x.ok) {
-    // Don't hard-block when X API is flaky/credits out — farms still hit
-    // follower floor when lookup works.
-    console.warn("gateXFollowersForClaim lookup failed", x.error);
-    return { ok: true, soft: `x_lookup_failed:${x.error || "unknown"}` };
+    return {
+      ok: false,
+      status: 502,
+      error: x.error || "Could not verify your X profile. Try again shortly.",
+      code: "x_lookup_failed",
+    };
   }
   const followers = x.followers;
   if (followers < MIN_X_FOLLOWERS_CLAIM) {
-    if (SOFT) {
-      return {
-        ok: true,
-        soft: `followers ${followers} < ${MIN_X_FOLLOWERS_CLAIM}`,
-        followers,
-      };
-    }
     return {
       ok: false,
       status: 403,
-      error: `X account needs at least ${MIN_X_FOLLOWERS_CLAIM} followers to claim this reward (you have ${followers}). Grow a bit, then come back — keeps the treasury for real users.`,
+      error: `Need at least ${MIN_X_FOLLOWERS_CLAIM} X followers (you have ${followers}).`,
       code: "low_followers",
       followers,
+      hasPfp: x.hasPfp,
+      premium: x.premium,
+      verified: x.verified,
     };
   }
-  // very thin brand-new profiles only
-  if (followers < 15 && (x.tweets || 0) < 2) {
-    if (!SOFT) {
-      return {
-        ok: false,
-        status: 403,
-        error:
-          "X account looks brand-new (almost no posts). Post a bit, then claim.",
-        code: "thin_account",
-        followers,
-      };
-    }
+  if (CLAIM_REQUIRE_PFP && !x.hasPfp) {
+    return {
+      ok: false,
+      status: 403,
+      error: "Set a profile picture on X, then claim.",
+      code: "no_pfp",
+      followers,
+      hasPfp: false,
+      premium: x.premium,
+      verified: x.verified,
+    };
   }
-  return { ok: true, followers };
+  return {
+    ok: true,
+    followers,
+    hasPfp: x.hasPfp,
+    premium: x.premium,
+    verified: x.verified,
+  };
+}
+
+/** @deprecated use gateXProfileForClaim */
+export async function gateXFollowersForClaim(
+  twitter: string | null | undefined,
+  _kind: string
+): Promise<GateResult & { followers?: number }> {
+  return gateXProfileForClaim(twitter);
 }
 
 export async function gateReferredForPayout(
@@ -242,27 +266,45 @@ export async function gateReferredForPayout(
   if (MIN_X_FOLLOWERS_REFERRAL <= 0) return { ok: true };
   const x = await fetchXUserPublic(referredTwitter);
   if (!x.ok) {
-    // Fail open on lookup errors so one bad API day doesn't freeze all refs
-    console.warn("gateReferredForPayout lookup failed", referredTwitter, x.error);
-    return { ok: true, soft: "x_lookup_failed" };
+    return {
+      ok: false,
+      status: 502,
+      error: `Could not verify @${referredTwitter}`,
+      code: "x_lookup_failed",
+    };
   }
   if (x.followers < MIN_X_FOLLOWERS_REFERRAL) {
     return {
       ok: false,
       status: 403,
-      error: `@${referredTwitter} has ${x.followers} followers (need ${MIN_X_FOLLOWERS_REFERRAL}+ for referral pay)`,
+      error: `@${referredTwitter} has ${x.followers} followers (need ${MIN_X_FOLLOWERS_REFERRAL}+)`,
       code: "low_followers_referred",
+      followers: x.followers,
+    };
+  }
+  if (CLAIM_REQUIRE_PFP && !x.hasPfp) {
+    return {
+      ok: false,
+      status: 403,
+      error: `@${referredTwitter} needs a profile picture`,
+      code: "no_pfp_referred",
       followers: x.followers,
     };
   }
   return { ok: true, followers: x.followers };
 }
 
-export function qualityLabel(followers: number | null | undefined): string {
-  if (followers == null) return "unknown";
-  if (followers < 10) return "dust";
-  if (followers < MIN_X_FOLLOWERS_CLAIM) return "thin";
-  if (followers < 500) return "small";
-  if (followers < 5000) return "mid";
-  return "solid";
+
+export function qualityLabel(followers: number): string {
+  if (followers >= 10000) return "whale";
+  if (followers >= 1000) return "solid";
+  if (followers >= 100) return "ok";
+  if (followers >= 25) return "thin";
+  return "micro";
+}
+
+export function fmtFollowers(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`;
+  return String(n);
 }

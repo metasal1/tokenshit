@@ -42,4 +42,18 @@
 ## Do not reopen if
 - Kill switches still needed for ops reason  
 - GH fork check still gameable and amount not tiny  
-- No monitoring on `treasury_payouts` / hour outflow  
+- No monitoring on `treasury_payouts` / hour outflow
+
+## Claim rules (Metasal — product)
+
+| Rule | Value |
+|------|--------|
+| Auth | **X (Twitter) sign-in compulsory** via Privy |
+| Wallet | **Only Privy Solana wallet linked to that X** |
+| Profile | **PFP required** + **≥100 followers** |
+| Verified (non-premium) | **10,000** $TOKENSHIT once |
+| X Premium (blue) | **20,000** once (not stackable with verified) |
+| GH fork `solana-foundation/tokens` | **100,000** once (still needs X+PFP+100 followers) |
+| Major claims IP | **1 per IP per day** (verified / premium / GH) |
+| Kill switches | Still apply until reopen |
+

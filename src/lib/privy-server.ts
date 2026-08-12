@@ -337,6 +337,8 @@ export async function requirePrivy(
     github?: string | null;
     wallet?: string | null;
     requireTwitter?: boolean;
+    /** Wallet must appear on the Privy user's linked Solana accounts */
+    requireLinkedWallet?: boolean;
     body?: Record<string, unknown> | null;
   }
 ): Promise<{ ok: true; id: PrivyIdentity } | { ok: false; res: Response }> {
@@ -379,19 +381,18 @@ export async function requirePrivy(
 
   const id = await fetchPrivyUser(verified.userId, verified.appId);
 
+  if (opts?.requireTwitter !== false) {
+    // default: X compulsory when flag omitted? only when true
+  }
   if (opts?.requireTwitter) {
     if (!id.twitter) {
-      if (opts.twitter) {
-        id.twitter = opts.twitter.toLowerCase().replace(/^@/, "");
-      } else {
-        return {
-          ok: false,
-          res: Response.json(
-            { error: "Link X to your account" },
-            { status: 403 }
-          ),
-        };
-      }
+      return {
+        ok: false,
+        res: Response.json(
+          { error: "Sign in with X is required — link X in Privy" },
+          { status: 403 }
+        ),
+      };
     }
   }
 
@@ -418,6 +419,42 @@ export async function requirePrivy(
           { status: 403 }
         ),
       };
+    }
+  }
+
+  if (opts?.requireLinkedWallet) {
+    if (!id.wallets.length) {
+      return {
+        ok: false,
+        res: Response.json(
+          {
+            error:
+              "No Solana wallet on this Privy account. Create/link a wallet while signed in with X.",
+          },
+          { status: 403 }
+        ),
+      };
+    }
+    if (opts.wallet) {
+      const want = opts.wallet.trim();
+      const ok = id.wallets.some(
+        (w) => w.toLowerCase() === want.toLowerCase()
+      );
+      if (!ok) {
+        return {
+          ok: false,
+          res: Response.json(
+            {
+              error:
+                "Payout wallet must be the Privy Solana wallet linked to your X account",
+              linkedWallets: id.wallets.map(
+                (w) => `${w.slice(0, 4)}…${w.slice(-4)}`
+              ),
+            },
+            { status: 403 }
+          ),
+        };
+      }
     }
   }
 
