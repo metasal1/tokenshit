@@ -150,9 +150,9 @@ export default function EmailSignupModal() {
               <button
                 onClick={submit}
                 disabled={submitting || !email}
-                className="flex-1 text-xs px-3 py-2 rounded-md bg-blue-600 hover:bg-blue-500 text-white font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 text-xs px-3 py-2.5 min-h-11 rounded-md bg-neon hover:brightness-110 text-black font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {submitting ? 'Sending...' : 'Sign me up'}
+                {submitting ? "Sending..." : "Sign me up"}
               </button>
             </div>
           </>

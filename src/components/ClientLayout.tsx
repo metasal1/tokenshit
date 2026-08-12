@@ -15,6 +15,7 @@ import HeaderTicker from '@/components/HeaderTicker';
 import SfxMuteToggle from '@/components/SfxMuteToggle';
 import PwaProvider from '@/components/PwaProvider';
 import ShitBalanceBadge from '@/components/ShitBalanceBadge';
+import EmailSignupModal from '@/components/EmailSignupModal';
 import { TREASURY_ADDRESS, treasurySolscanUrl } from '@/lib/shit-token';
 
 interface TokenBalance {
@@ -370,10 +371,8 @@ function Layout({ children }: { children: React.ReactNode }) {
           <Link href="/" className="hover:text-foreground transition-colors">Home</Link>
           <Link href="/stats" className="hover:text-foreground transition-colors">Stats</Link>
           <Link href="/claim" className="hover:text-foreground transition-colors">Claim</Link>
-          <Link href="/brand" className="hover:text-foreground transition-colors">Brand</Link>
           <Link href="/referrals" className="hover:text-foreground transition-colors">Referrals</Link>
           <ShitBalanceBadge />
-          <Link href="/test" className="hover:text-foreground transition-colors text-zinc-600">Test</Link>
           <XFollowersBadge compact />
           <ShareRefButton variant="compact" path="/" showLogin={false} />
           <SfxMuteToggle />
@@ -412,7 +411,6 @@ function Layout({ children }: { children: React.ReactNode }) {
           <Link href="/" className="text-zinc-400 hover:text-foreground transition-colors" onClick={() => setMenuOpen(false)}>Home</Link>
           <Link href="/stats" className="text-zinc-400 hover:text-foreground transition-colors" onClick={() => setMenuOpen(false)}>Stats</Link>
           <Link href="/claim" className="text-zinc-400 hover:text-foreground transition-colors" onClick={() => setMenuOpen(false)}>Claim</Link>
-          <Link href="/brand" className="text-zinc-400 hover:text-foreground transition-colors" onClick={() => setMenuOpen(false)}>Brand</Link>
           <Link href="/referrals" className="text-zinc-400 hover:text-foreground transition-colors" onClick={() => setMenuOpen(false)}>Referrals</Link>
           <ShitBalanceBadge />
           <XFollowersBadge compact />
@@ -427,6 +425,7 @@ function Layout({ children }: { children: React.ReactNode }) {
     <CanvasShell>
       {nav}
       <ReferralTracker />
+      <EmailSignupModal />
       <main className="flex-1"><PageTransition>{children}</PageTransition></main>
       <footer className="border-t border-border py-6 text-center text-sm text-zinc-500">
         <p>TokenShit — Every token is shit until proven otherwise.</p>
@@ -456,9 +455,21 @@ function Layout({ children }: { children: React.ReactNode }) {
             </svg>
           </a>
           <span className="text-zinc-700">·</span>
-          <a href={treasurySolscanUrl()} className="text-zinc-500 hover:text-zinc-300 transition-colors font-mono text-xs" target="_blank" rel="noopener noreferrer">
+          <a
+            href={treasurySolscanUrl()}
+            className="text-zinc-500 hover:text-zinc-300 transition-colors font-mono text-xs"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
             Treasury
           </a>
+          <span className="text-zinc-700">·</span>
+          <Link
+            href="/brand"
+            className="text-zinc-500 hover:text-zinc-300 transition-colors"
+          >
+            Brand
+          </Link>
         </p>
       </footer>
     </CanvasShell>
