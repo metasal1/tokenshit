@@ -27,8 +27,7 @@ export async function GET(request: NextRequest) {
   url.searchParams.set("outputMint", SHIT_MINT);
   url.searchParams.set("amount", amountLamports);
   url.searchParams.set("slippageBps", slippageBps);
-  // Prefer routes that fit legacy txs (Privy cannot resolve ALTs)
-  url.searchParams.set("asLegacyTransaction", "true");
+  // Legacy forced on swap POST only — quote flag blocks multi-hop routes
   if (withFee) {
     url.searchParams.set("platformFeeBps", String(BUY_FEE_BPS));
   }
@@ -56,7 +55,6 @@ export async function GET(request: NextRequest) {
         u2.searchParams.set("outputMint", SHIT_MINT);
         u2.searchParams.set("amount", amountLamports);
         u2.searchParams.set("slippageBps", slippageBps);
-        u2.searchParams.set("asLegacyTransaction", "true");
         const r2 = await fetch(u2.toString(), {
           headers: jupHeaders(),
           cache: "no-store",
