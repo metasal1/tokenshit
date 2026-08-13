@@ -2,8 +2,10 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { usePrivy } from '@privy-io/react-auth';
+import { useWallets } from '@privy-io/react-auth/solana';
 import { EmojiIcon } from '@/components/EmojiIcon';
 import { sfx } from '@/lib/sfx';
+import { pickSolanaAddress } from '@/lib/privy-identity';
 
 interface TokenBalance {
   mint: string;
@@ -200,6 +202,7 @@ function WalletPanel({ address, twitterUsername, onClose, children }: { address:
 
 export function ReferralTracker() {
   const { authenticated, user, getAccessToken } = usePrivy();
+  const { wallets } = useWallets();
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -233,7 +236,7 @@ export function ReferralTracker() {
         body: JSON.stringify({
           referrerTwitter: referrer,
           referredTwitter: twitterUsername,
-          referredWallet: user.wallet?.address || null,
+          referredWallet: pickSolanaAddress(wallets, user),
         }),
       })
     )
@@ -250,7 +253,7 @@ export function ReferralTracker() {
         localStorage.removeItem('tokenshit_referrer');
       })
       .catch(() => {});
-  }, [authenticated, user]);
+  }, [authenticated, user, getAccessToken, wallets]);
 
   return null;
 }
@@ -296,6 +299,7 @@ function ReferralButton({ twitterUsername }: { twitterUsername?: string }) {
 
 export function LoginButton() {
   const { ready, authenticated, user, login, logout } = usePrivy();
+  const { wallets } = useWallets();
   const [showWallet, setShowWallet] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
 
@@ -303,7 +307,7 @@ export function LoginButton() {
 
   if (authenticated && user) {
     const twitterHandle = user.twitter?.username;
-    const walletAddress = user.wallet?.address;
+    const walletAddress = pickSolanaAddress(wallets, user);
     const displayLabel = twitterHandle ? `@${twitterHandle}` : 'Connected';
 
     return (

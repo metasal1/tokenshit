@@ -2,8 +2,10 @@
 
 import { useEffect, useState } from 'react';
 import { usePrivy } from '@privy-io/react-auth';
+import { useWallets } from '@privy-io/react-auth/solana';
 import { EmojiIcon } from '@/components/EmojiIcon';
 import { sfx } from '@/lib/sfx';
+import { pickSolanaAddress } from '@/lib/privy-identity';
 
 const STORAGE_KEY = 'tokenshit_email_state';
 const DISMISS_COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000;
@@ -26,6 +28,7 @@ function writeState(s: EmailState) {
 
 export default function EmailSignupModal() {
   const { ready, authenticated, user } = usePrivy();
+  const { wallets } = useWallets();
   const [open, setOpen] = useState(false);
   const [email, setEmail] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -71,7 +74,8 @@ export default function EmailSignupModal() {
         body: JSON.stringify({
           email: trimmed,
           twitterHandle: user.twitter?.username || null,
-          walletAddress: user.wallet?.address || null,
+          // Solana only — never bare user.wallet (often empty / 0x)
+          walletAddress: pickSolanaAddress(wallets, user),
           privyId: user.id,
           source: 'post-login-modal',
           referrerTwitter:
