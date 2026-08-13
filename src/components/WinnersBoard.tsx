@@ -7,6 +7,7 @@ import { EmojiIcon } from "@/components/EmojiIcon";
 import { SHIT_SYMBOL } from "@/lib/shit-token";
 import VrfProofLinks from "@/components/VrfProofLinks";
 import type { VrfLink, VrfRecord } from "@/lib/day-vrf-links";
+import { HOUR_PRODUCT } from "@/lib/hour-product";
 
 type Winner = {
   utcHour: string;
@@ -91,13 +92,20 @@ export default function WinnersBoard({
       <div className="rounded-2xl border border-border bg-card p-4 sm:p-5 space-y-3">
         <div className="flex items-center gap-2">
           <EmojiIcon size={28}>{hit ? "🎯" : "💀"}</EmojiIcon>
-          <h1 className="text-xl sm:text-2xl font-bold text-white">Winners</h1>
+          <div>
+            <p className="text-[10px] font-orbitron uppercase tracking-[0.2em] text-neon">
+              {HOUR_PRODUCT.name}
+            </p>
+            <h1 className="text-xl sm:text-2xl font-bold text-white font-orbitron tracking-wide">
+              Winners
+            </h1>
+          </div>
         </div>
         <p className="text-xs text-zinc-500">
-          Past hour bags + wallet winners (or treasury). Newest first.
+          Past bags + wallet winners (or treasury). Newest first.
         </p>
 
-        <div className="flex rounded-xl border border-border overflow-hidden text-sm font-bold">
+        <div className="flex rounded-xl border border-border overflow-hidden text-sm font-bold font-orbitron tracking-wide uppercase">
           <button
             type="button"
             onClick={() => setSide("hit")}
@@ -108,7 +116,7 @@ export default function WinnersBoard({
             }`}
           >
             <EmojiIcon size={18}>🎯</EmojiIcon>
-            Hitters
+            HIT
           </button>
           <button
             type="button"
@@ -120,17 +128,19 @@ export default function WinnersBoard({
             }`}
           >
             <EmojiIcon size={18}>💀</EmojiIcon>
-            Shitters
+            SHIT
           </button>
         </div>
 
-        <div className="flex gap-3 text-xs">
-          <Link href="/hour" className="text-neon-blue hover:underline">
-            Play this hour
+        <div className="flex flex-wrap gap-3 text-[11px]">
+          <Link href={HOUR_PRODUCT.path} className="text-neon-blue hover:underline">
+            ← {HOUR_PRODUCT.name}
           </Link>
-          <span className="text-zinc-700">·</span>
-          <Link href="/day/prev" className="text-zinc-500 hover:text-white">
-            Last hour receipt
+          <Link
+            href={HOUR_PRODUCT.prevPath}
+            className="text-zinc-500 hover:text-white"
+          >
+            Last hour
           </Link>
         </div>
       </div>
@@ -159,7 +169,7 @@ export default function WinnersBoard({
         {rows?.map((w, i) => (
           <Link
             key={w.utcHour}
-            href={`/day/${encodeURIComponent(w.utcHour)}`}
+            href={`/hour/${encodeURIComponent(w.utcHour)}`}
             className={`block rounded-xl border p-3 sm:p-4 transition-colors hover:bg-zinc-900/80 ${
               hit
                 ? "border-green-900/40 bg-green-950/20"

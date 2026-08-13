@@ -7,10 +7,11 @@ import GlobalTreasuryBanner from "@/components/GlobalTreasuryBanner";
 import XFollowersBadge from "@/components/XFollowersBadge";
 import ShareRefButton from "@/components/ShareRefButton";
 import DayGamePanel from "@/components/DayGamePanel";
+import Link from "next/link";
+import { HOUR_PRODUCT } from "@/lib/hour-product";
 
 /**
- * Main feature = Hit/Shit of the Hour.
- * Arena vote + registry sit below.
+ * Homepage hero = THE HOUR (hourly HIT/SHIT stakes).
  */
 export const dynamic = "force-dynamic";
 
@@ -23,15 +24,24 @@ export default function Home() {
           <h1 className="mb-2">
             <AnimatedLogo size="hero" />
           </h1>
-          <p className="text-base sm:text-xl text-zinc-400 mb-1 max-w-2xl mx-auto">
-            Stake the hour. Call HIT or SHIT.
+          <p className="text-[10px] sm:text-xs font-orbitron uppercase tracking-[0.28em] text-neon mb-2">
+            {HOUR_PRODUCT.name}
           </p>
-          <p className="text-sm text-zinc-500 mb-5 max-w-xl mx-auto">
-            1,000 $TOKENSHIT · real majors · best/worst % wins the pot · every UTC
-            hour.
+          <p className="text-base sm:text-xl text-zinc-400 mb-1 max-w-2xl mx-auto">
+            {HOUR_PRODUCT.tagline}
+          </p>
+          <p className="text-sm text-zinc-500 mb-2 max-w-xl mx-auto">
+            1,000 $TOKENSHIT · real majors · every UTC hour · VRF
+          </p>
+          <p className="mb-5">
+            <Link
+              href={HOUR_PRODUCT.path}
+              className="text-xs font-orbitron uppercase tracking-wider text-neon-blue hover:underline"
+            >
+              Open full page → {HOUR_PRODUCT.path}
+            </Link>
           </p>
 
-          {/* PRIMARY — hourly game */}
           <div className="max-w-lg mx-auto text-left relative z-10 mb-8">
             <DayGamePanel />
           </div>
@@ -48,14 +58,13 @@ export default function Home() {
         <ShareRefButton path="/" />
       </section>
 
-      {/* Secondary — free arena votes */}
       <section className="mx-auto max-w-2xl w-full px-4 py-8 border-t border-border">
         <div className="rounded-2xl border border-border bg-card/80 p-4 sm:p-5">
           <div className="flex items-center justify-between gap-2 mb-3">
-            <h2 className="text-sm sm:text-base font-bold text-white">
+            <h2 className="text-sm sm:text-base font-bold text-white font-orbitron tracking-wide uppercase">
               Free arena vote
             </h2>
-            <span className="text-[10px] sm:text-xs font-mono uppercase tracking-wider text-zinc-500 border border-border rounded-full px-2.5 py-0.5">
+            <span className="text-[10px] sm:text-xs font-orbitron uppercase tracking-wider text-zinc-500 border border-border rounded-full px-2.5 py-0.5">
               Practice
             </span>
           </div>
@@ -64,7 +73,9 @@ export default function Home() {
       </section>
 
       <section className="mx-auto max-w-7xl w-full px-4 pt-6 pb-6">
-        <h2 className="text-2xl font-bold mb-2">Arena boards</h2>
+        <h2 className="text-2xl font-bold mb-2 font-orbitron tracking-wide uppercase">
+          Arena boards
+        </h2>
         <p className="text-sm text-zinc-500 mb-6">
           HIT / SHIT tallies by category.
         </p>
@@ -72,7 +83,9 @@ export default function Home() {
       </section>
 
       <section className="mx-auto max-w-7xl w-full px-4 py-12">
-        <h2 className="text-2xl font-bold mb-6">Browse the registry</h2>
+        <h2 className="text-2xl font-bold mb-6 font-orbitron tracking-wide uppercase">
+          Browse the registry
+        </h2>
         <CuratedLists />
       </section>
     </div>
