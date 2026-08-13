@@ -1,42 +1,42 @@
 "use client";
 
 /**
- * Subtle diagonal beta notice — site-wide, non-blocking.
+ * Flat neon beta ticker under the header (no diagonal tilt).
  */
 const MSG =
-  "beta — things break — bugs@tokenshit.com";
+  "this app is currently in beta — shit will break — report it bugs@tokenshit.com";
 
 export default function BetaScrollBanner() {
   const unit = (
-    <span className="beta-banner-unit inline-flex items-center gap-3 px-3 shrink-0">
-      <span aria-hidden className="opacity-40">
-        ·
+    <span className="beta-banner-unit inline-flex items-center gap-4 px-4 shrink-0">
+      <span aria-hidden className="text-black/45">
+        ◆
       </span>
       <span>
-        beta — shit breaks —{" "}
+        this app is currently in beta — shit will break — report it{" "}
         <a
           href="mailto:bugs@tokenshit.com"
-          className="underline underline-offset-2 decoration-white/30 hover:decoration-neon hover:text-neon pointer-events-auto"
+          className="underline font-bold decoration-2 underline-offset-2 hover:text-black/80 pointer-events-auto"
           onClick={(e) => e.stopPropagation()}
         >
           bugs@tokenshit.com
         </a>
       </span>
-      <span aria-hidden className="opacity-40">
-        ·
+      <span aria-hidden className="text-black/45">
+        ◆
       </span>
     </span>
   );
 
   return (
     <div
-      className="beta-banner-root pointer-events-none select-none"
+      className="beta-banner-root"
       role="status"
       aria-label={MSG}
     >
       <div className="beta-banner-strip">
         <div className="beta-banner-track">
-          {Array.from({ length: 10 }).map((_, i) => (
+          {Array.from({ length: 8 }).map((_, i) => (
             <span key={i} className="contents">
               {unit}
             </span>

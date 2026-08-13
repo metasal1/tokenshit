@@ -417,41 +417,35 @@ body {
 .font-monoton { font-family: var(--font-monoton), cursive; }
 .font-orbitron { font-family: var(--font-orbitron), sans-serif; }
 
-/* Diagonal scrolling beta banner — subtle */
+/* Flat neon beta ticker under header */
 .beta-banner-root {
-  position: fixed;
-  inset: 0;
+  position: relative;
   z-index: 40;
+  width: 100%;
   overflow: hidden;
   pointer-events: none;
+  border-b: 1px solid rgba(10, 10, 15, 0.35);
 }
 .beta-banner-strip {
-  position: absolute;
-  top: 14%;
-  left: -25%;
-  width: 150%;
-  transform: rotate(-11deg);
-  transform-origin: center center;
-  background: rgba(18, 18, 26, 0.55);
-  color: rgba(228, 228, 231, 0.55);
-  border-top: 1px solid rgba(57, 255, 20, 0.12);
-  border-bottom: 1px solid rgba(57, 255, 20, 0.12);
+  position: relative;
+  width: 100%;
+  transform: none;
+  background: #39ff14;
+  color: #0a0a0f;
   box-shadow: none;
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
   overflow: hidden;
   white-space: nowrap;
   line-height: 1;
-  padding: 0.28rem 0;
+  padding: 0.35rem 0;
 }
 .beta-banner-track {
   display: inline-flex;
   width: max-content;
-  animation: beta-banner-scroll 42s linear infinite;
+  animation: beta-banner-scroll 32s linear infinite;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  font-size: 0.62rem;
-  font-weight: 500;
-  letter-spacing: 0.06em;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
   text-transform: lowercase;
 }
 .beta-banner-unit a {
@@ -459,11 +453,10 @@ body {
 }
 @media (min-width: 640px) {
   .beta-banner-strip {
-    top: 16%;
-    padding: 0.32rem 0;
+    padding: 0.4rem 0;
   }
   .beta-banner-track {
-    font-size: 0.68rem;
+    font-size: 0.75rem;
   }
 }
 @keyframes beta-banner-scroll {
@@ -473,10 +466,5 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .beta-banner-track {
     animation: none;
-  }
-}
-@media (max-width: 480px) {
-  .beta-banner-strip {
-    opacity: 0.75;
   }
 }
