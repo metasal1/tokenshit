@@ -33,17 +33,21 @@ function getDeviceId(): string {
 }
 
 /**
- * Scrolling header ticker — treasury · holders · users · online.
+ * Scrolling header ticker — treasury · tokens · holders · users · X · online.
  */
 export default function HeaderTicker() {
   const [data, setData] = useState<Payload | null>(null);
   const [online, setOnline] = useState<number | null>(null);
   const [users, setUsers] = useState<number | null>(null);
   const [holders, setHolders] = useState<number | null>(null);
+  const [tokens, setTokens] = useState<number | null>(null);
+  const [xFollowers, setXFollowers] = useState<number | null>(null);
   const [treasuryLoading, setTreasuryLoading] = useState(true);
   const [onlineLoading, setOnlineLoading] = useState(true);
   const [usersLoading, setUsersLoading] = useState(true);
   const [holdersLoading, setHoldersLoading] = useState(true);
+  const [tokensLoading, setTokensLoading] = useState(true);
+  const [xLoading, setXLoading] = useState(true);
 
   useEffect(() => {
     let alive = true;
@@ -80,6 +84,30 @@ export default function HeaderTicker() {
           if (alive) setHoldersLoading(false);
         });
     };
+    const loadTokens = () => {
+      fetch("/api/category-counts", { cache: "no-store" })
+        .then((r) => r.json())
+        .then((d) => {
+          if (alive && typeof d.total === "number") setTokens(d.total);
+        })
+        .catch(() => {})
+        .finally(() => {
+          if (alive) setTokensLoading(false);
+        });
+    };
+    const loadX = () => {
+      fetch("/api/x/profile?refresh=1", { cache: "no-store" })
+        .then((r) => r.json())
+        .then((d) => {
+          if (alive && typeof d.followers === "number" && d.followers > 0) {
+            setXFollowers(d.followers);
+          }
+        })
+        .catch(() => {})
+        .finally(() => {
+          if (alive) setXLoading(false);
+        });
+    };
     const ping = () => {
       fetch("/api/heartbeat", {
         method: "POST",
@@ -98,11 +126,15 @@ export default function HeaderTicker() {
     loadTreasury();
     loadUsers();
     loadHolders();
+    loadTokens();
+    loadX();
     ping();
     const a = setInterval(loadTreasury, 30_000);
     const b = setInterval(ping, 30_000);
     const c = setInterval(loadUsers, 45_000);
     const d = setInterval(loadHolders, 120_000);
+    const e = setInterval(loadTokens, 300_000);
+    const f = setInterval(loadX, 120_000);
 
     const onSignup = () => {
       setUsers((n) => (typeof n === "number" ? n + 1 : n));
@@ -116,6 +148,8 @@ export default function HeaderTicker() {
       clearInterval(b);
       clearInterval(c);
       clearInterval(d);
+      clearInterval(e);
+      clearInterval(f);
       window.removeEventListener("tokenshit:signup", onSignup);
     };
   }, []);
@@ -123,6 +157,8 @@ export default function HeaderTicker() {
   const bal = fmt(data?.shit);
   const usersLabel = fmt(users);
   const holdersLabel = fmt(holders);
+  const tokensLabel = fmt(tokens);
+  const xLabel = fmt(xFollowers);
 
   const items = [
     {
@@ -139,6 +175,23 @@ export default function HeaderTicker() {
             <span className="text-neon font-semibold">
               {bal} ${SHIT_SYMBOL}
             </span>
+          )}
+        </Link>
+      ),
+    },
+    {
+      key: "tokens",
+      node: (
+        <Link
+          href="/"
+          className="inline-flex items-center gap-1.5 hover:text-neon transition-colors"
+          title="Assets in the registry"
+        >
+          <span className="text-zinc-500">Tokens</span>
+          {tokensLoading || tokensLabel == null ? (
+            <BalanceSkeleton />
+          ) : (
+            <span className="text-white font-semibold">{tokensLabel}</span>
           )}
         </Link>
       ),
@@ -178,6 +231,25 @@ export default function HeaderTicker() {
       ),
     },
     {
+      key: "x",
+      node: (
+        <a
+          href="https://x.com/Tokenshit_"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1.5 hover:text-sky-400 transition-colors"
+          title="@Tokenshit_ followers"
+        >
+          <span className="text-zinc-500">X</span>
+          {xLoading || xLabel == null ? (
+            <BalanceSkeleton />
+          ) : (
+            <span className="text-sky-400 font-semibold">{xLabel}</span>
+          )}
+        </a>
+      ),
+    },
+    {
       key: "online",
       node: (
         <span className="inline-flex items-center gap-1.5">
@@ -206,7 +278,7 @@ export default function HeaderTicker() {
     >
       <div
         className="header-ticker-track absolute left-0 top-0 flex h-full items-center gap-0 whitespace-nowrap font-mono text-[11px] sm:text-xs text-zinc-400"
-        aria-label="Treasury, holders, users, and online ticker"
+        aria-label="Treasury, tokens, holders, users, X followers, and online ticker"
       >
         {loop.map((it, i) => (
           <span key={`${it.key}-${i}`} className="inline-flex items-center">
