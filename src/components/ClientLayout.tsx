@@ -378,6 +378,7 @@ function Layout({ children }: { children: React.ReactNode }) {
           <Link href="/stats" className="hover:text-foreground transition-colors">Stats</Link>
           <Link href="/hour" className="hover:text-foreground transition-colors">Hour</Link>
           <Link href="/winners" className="hover:text-foreground transition-colors">Winners</Link>
+          <Link href="/memes" className="hover:text-foreground transition-colors">Memes</Link>
           <Link href="/swap" className="hover:text-foreground transition-colors">Swap</Link>
           <Link href="/claim" className="hover:text-foreground transition-colors">Claim</Link>
           <Link href="/referrals" className="hover:text-foreground transition-colors">Referrals</Link>
@@ -421,6 +422,7 @@ function Layout({ children }: { children: React.ReactNode }) {
           <Link href="/stats" className="text-zinc-400 hover:text-foreground transition-colors" onClick={() => setMenuOpen(false)}>Stats</Link>
           <Link href="/hour" className="text-zinc-400 hover:text-foreground transition-colors" onClick={() => setMenuOpen(false)}>Hour</Link>
           <Link href="/winners" className="text-zinc-400 hover:text-foreground transition-colors" onClick={() => setMenuOpen(false)}>Winners</Link>
+          <Link href="/memes" className="text-zinc-400 hover:text-foreground transition-colors" onClick={() => setMenuOpen(false)}>Memes</Link>
           <Link href="/swap" className="text-zinc-400 hover:text-foreground transition-colors" onClick={() => setMenuOpen(false)}>Swap</Link>
           <Link href="/claim" className="text-zinc-400 hover:text-foreground transition-colors" onClick={() => setMenuOpen(false)}>Claim</Link>
           <Link href="/referrals" className="text-zinc-400 hover:text-foreground transition-colors" onClick={() => setMenuOpen(false)}>Referrals</Link>
