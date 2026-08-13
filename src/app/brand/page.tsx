@@ -206,15 +206,18 @@ export default function BrandPage() {
           </div>
           <div className="rounded-xl border border-border bg-card p-5 space-y-3">
             <p className="text-[10px] uppercase tracking-widest text-zinc-500 font-mono">
-              Display · Orbitron
+              Secondary · Orbitron
             </p>
             <p
-              className="text-2xl font-bold tracking-wide"
+              className="text-2xl font-bold tracking-wide uppercase"
               style={{ fontFamily: "var(--font-orbitron), sans-serif" }}
             >
-              ARENA COURT
+              Home · Hour · Memes · Claim
             </p>
-            <p className="text-xs text-zinc-500">Optional display / HUD labels</p>
+            <p className="text-xs text-zinc-500">
+              Nav menu, mobile drawer, section labels, HUD chips —{" "}
+              <code className="text-zinc-400">font-orbitron</code>
+            </p>
           </div>
           <div className="rounded-xl border border-border bg-card p-5 space-y-3">
             <p className="text-[10px] uppercase tracking-widest text-zinc-500 font-mono">

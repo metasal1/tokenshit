@@ -373,7 +373,7 @@ function Layout({ children }: { children: React.ReactNode }) {
         </Link>
 
         {/* Desktop nav */}
-        <div className="hidden sm:flex items-center gap-4 text-sm text-zinc-400">
+        <div className="hidden sm:flex items-center gap-4 text-sm text-zinc-400 font-orbitron tracking-wide uppercase">
           <Link href="/" className="hover:text-foreground transition-colors">Home</Link>
           <Link href="/stats" className="hover:text-foreground transition-colors">Stats</Link>
           <Link href="/hour" className="hover:text-foreground transition-colors">Hour</Link>
@@ -417,15 +417,15 @@ function Layout({ children }: { children: React.ReactNode }) {
 
       {/* Mobile dropdown */}
       {menuOpen && (
-        <div className="sm:hidden border-t border-border bg-background/95 backdrop-blur-xl px-4 py-3 flex flex-col gap-3 text-sm">
-          <Link href="/" className="text-zinc-400 hover:text-foreground transition-colors" onClick={() => setMenuOpen(false)}>Home</Link>
-          <Link href="/stats" className="text-zinc-400 hover:text-foreground transition-colors" onClick={() => setMenuOpen(false)}>Stats</Link>
-          <Link href="/hour" className="text-zinc-400 hover:text-foreground transition-colors" onClick={() => setMenuOpen(false)}>Hour</Link>
-          <Link href="/winners" className="text-zinc-400 hover:text-foreground transition-colors" onClick={() => setMenuOpen(false)}>Winners</Link>
-          <Link href="/memes" className="text-zinc-400 hover:text-foreground transition-colors" onClick={() => setMenuOpen(false)}>Memes</Link>
-          <Link href="/swap" className="text-zinc-400 hover:text-foreground transition-colors" onClick={() => setMenuOpen(false)}>Swap</Link>
-          <Link href="/claim" className="text-zinc-400 hover:text-foreground transition-colors" onClick={() => setMenuOpen(false)}>Claim</Link>
-          <Link href="/referrals" className="text-zinc-400 hover:text-foreground transition-colors" onClick={() => setMenuOpen(false)}>Referrals</Link>
+        <div className="sm:hidden border-t border-border bg-background/95 backdrop-blur-xl px-4 py-3 flex flex-col gap-3 text-sm font-orbitron tracking-wide uppercase">
+          <Link href="/" className="text-zinc-400 hover:text-foreground transition-colors py-1" onClick={() => setMenuOpen(false)}>Home</Link>
+          <Link href="/stats" className="text-zinc-400 hover:text-foreground transition-colors py-1" onClick={() => setMenuOpen(false)}>Stats</Link>
+          <Link href="/hour" className="text-zinc-400 hover:text-foreground transition-colors py-1" onClick={() => setMenuOpen(false)}>Hour</Link>
+          <Link href="/winners" className="text-zinc-400 hover:text-foreground transition-colors py-1" onClick={() => setMenuOpen(false)}>Winners</Link>
+          <Link href="/memes" className="text-zinc-400 hover:text-foreground transition-colors py-1" onClick={() => setMenuOpen(false)}>Memes</Link>
+          <Link href="/swap" className="text-zinc-400 hover:text-foreground transition-colors py-1" onClick={() => setMenuOpen(false)}>Swap</Link>
+          <Link href="/claim" className="text-zinc-400 hover:text-foreground transition-colors py-1" onClick={() => setMenuOpen(false)}>Claim</Link>
+          <Link href="/referrals" className="text-zinc-400 hover:text-foreground transition-colors py-1" onClick={() => setMenuOpen(false)}>Referrals</Link>
           <ShitBalanceBadge />
           <XFollowersBadge compact />
           <ShareRefButton variant="compact" path="/" />
@@ -444,9 +444,9 @@ function Layout({ children }: { children: React.ReactNode }) {
       <SignupGlitchToast />
       <EmailSignupModal />
       <main className="flex-1"><PageTransition>{children}</PageTransition></main>
-      <footer className="border-t border-border py-6 text-center text-sm text-zinc-500">
-        <p>TokenShit — Every token is shit until proven otherwise.</p>
-        <p className="mt-2 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-zinc-600">
+      <footer className="border-t border-border py-6 text-center text-sm text-zinc-500 font-orbitron tracking-wide">
+        <p className="font-sans normal-case tracking-normal">TokenShit — Every token is shit until proven otherwise.</p>
+        <p className="mt-2 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-zinc-600 uppercase text-xs">
           <TreasuryBalanceBadge />
           <span className="text-zinc-700">·</span>
           <a href="https://tokens.xyz" className="text-neon-blue hover:underline" target="_blank" rel="noopener noreferrer">

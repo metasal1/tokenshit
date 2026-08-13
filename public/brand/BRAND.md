@@ -41,7 +41,7 @@ Source: `src/lib/brand.ts`
 | Use | Family |
 |-----|--------|
 | Brand lockup | **Monoton** |
-| Display / HUD | Orbitron |
+| Secondary / nav / menus / HUD | **Orbitron** (`font-orbitron`) |
 | UI body | Geist |
 | Prices / mints | Geist Mono |
 | Icons / emoji / confetti | **Noto Color Emoji** (`.emoji` / `EmojiIcon`) |
