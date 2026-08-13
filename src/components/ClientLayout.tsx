@@ -215,6 +215,7 @@ function WalletPanel({ address, twitterUsername, onClose, children }: { address:
 
 function ReferralTracker() {
   const { authenticated, user, getAccessToken } = usePrivy();
+  const { wallets } = useWallets();
 
   useEffect(() => {
     // Capture ref param on load
@@ -251,7 +252,7 @@ function ReferralTracker() {
           body: JSON.stringify({
             referrerTwitter: referrer,
             referredTwitter: twitterUsername,
-            referredWallet: user.wallet?.address || null,
+            referredWallet: pickSolanaAddress(wallets, user),
           }),
         });
         localStorage.removeItem('tokenshit_referrer');
@@ -259,7 +260,7 @@ function ReferralTracker() {
         /* ignore */
       }
     })();
-  }, [authenticated, user, getAccessToken]);
+  }, [authenticated, user, getAccessToken, wallets]);
 
   return null;
 }

@@ -3,6 +3,7 @@ import { tursoExecute } from "@/lib/turso";
 import { addAudienceContact } from "@/lib/resend";
 import { sendTelegramMessage, escapeHtml } from "@/lib/telegram";
 import { fetchXUserPublic } from "@/lib/claims";
+import { isSolanaAddress } from "@/lib/privy-identity";
 import {
   getClientIp,
   gateSignupIp,
@@ -47,12 +48,6 @@ async function ensureSignupSchema() {
   }
 }
 
-function truncWallet(addr?: string | null): string {
-  if (!addr) return "";
-  if (addr.length <= 12) return addr;
-  return `${addr.slice(0, 4)}…${addr.slice(-4)}`;
-}
-
 function fmtFollowers(n: number): string {
   if (!Number.isFinite(n)) return "—";
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
@@ -78,9 +73,9 @@ export async function POST(request: NextRequest) {
     const twitterHandle = body.twitterHandle
       ? String(body.twitterHandle).toLowerCase().replace(/^@/, "")
       : null;
-    const walletAddress = body.walletAddress
-      ? String(body.walletAddress)
-      : null;
+    // Accept Solana pubs only — drop EVM 0x noise from bare user.wallet
+    const rawWallet = body.walletAddress ? String(body.walletAddress).trim() : "";
+    const walletAddress = isSolanaAddress(rawWallet) ? rawWallet : null;
     const privyId = body.privyId ? String(body.privyId) : null;
     const source = body.source
       ? String(body.source).slice(0, 64)
@@ -242,8 +237,8 @@ export async function POST(request: NextRequest) {
         ? `ref: <a href="https://x.com/${escapeHtml(referrerTwitter)}">@${escapeHtml(referrerTwitter)}</a>`
         : null,
       walletAddress
-        ? `wallet: <code>${escapeHtml(truncWallet(walletAddress))}</code>`
-        : null,
+        ? `wallet: <a href="https://solscan.io/account/${escapeHtml(walletAddress)}"><code>${escapeHtml(walletAddress)}</code></a>`
+        : `wallet: <i>none (no Solana linked)</i>`,
       `ip: <code>${escapeHtml(ip)}</code>`,
       `source: ${escapeHtml(source)}`,
     ].filter(Boolean) as string[];
