@@ -1,5 +1,6 @@
 import { apiFetch } from "@/lib/api";
 import type { CuratedListKey } from "@/lib/lists";
+import { filterMajorsList } from "@/lib/majors-filter";
 
 export interface CuratedAssetItem {
   assetId: string;
@@ -59,9 +60,12 @@ export async function fetchCuratedList(
     `/assets/curated?list=${encodeURIComponent(list)}&groupBy=asset`
   );
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const raw: any[] = Array.isArray(data)
+  let raw: any[] = Array.isArray(data)
     ? data
     : data.assets || data.results || data.items || [];
+  if (list === "majors") {
+    raw = filterMajorsList(raw);
+  }
   return raw.map(mapCuratedRow).filter((a) => a.assetId);
 }
 

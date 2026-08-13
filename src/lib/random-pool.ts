@@ -1,5 +1,6 @@
 import { apiFetch } from "@/lib/api";
 import { tursoExecute } from "@/lib/turso";
+import { filterMajorsList } from "@/lib/majors-filter";
 
 export interface PoolToken {
   assetId: string;
@@ -64,10 +65,13 @@ async function fetchList(list: string): Promise<PoolToken[]> {
     const data = await apiFetch(
       `/assets/curated?list=${encodeURIComponent(list)}&groupBy=asset`
     );
-    const assets = (data?.assets ||
+    let assets = (data?.assets ||
       data?.results ||
       data?.data ||
       []) as Record<string, unknown>[];
+    if (list === "majors") {
+      assets = filterMajorsList(assets as Parameters<typeof filterMajorsList>[0]) as typeof assets;
+    }
     return assets
       .map((a) => {
         const asset = (a.asset || a) as Record<string, unknown>;
