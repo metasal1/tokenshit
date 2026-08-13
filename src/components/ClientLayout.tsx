@@ -431,8 +431,8 @@ function Layout({ children }: { children: React.ReactNode }) {
 
   return (
     <CanvasShell>
-      <BetaScrollBanner />
       {nav}
+      <BetaScrollBanner />
       <ReferralTracker />
       <ClaimGlitchToast />
       <SignupGlitchToast />
