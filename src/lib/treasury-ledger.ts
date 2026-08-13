@@ -18,6 +18,8 @@ export type PayoutKind =
   | "x_follow"
   | "email_list"
   | "referral"
+  | "day_hit"
+  | "day_shit"
   | "manual"
   | "other";
 
@@ -168,7 +170,8 @@ export async function reservePayout(opts: {
   }
 
   const dayTotal = await sumPaid(`created_at >= ?`, [dayStart]);
-  if (dayTotal + amount > DAY_BUDGET) {
+  const isDayGame = opts.kind === "day_hit" || opts.kind === "day_shit";
+  if (!isDayGame && dayTotal + amount > DAY_BUDGET) {
     return {
       ok: false,
       error: `Daily treasury budget hit (${DAY_BUDGET.toLocaleString()}). Try tomorrow.`,
@@ -181,7 +184,7 @@ export async function reservePayout(opts: {
     `recipient = ? AND created_at >= ?`,
     [recipient, dayStart]
   );
-  if (walletDay + amount > WALLET_DAY_CAP) {
+  if (!isDayGame && walletDay + amount > WALLET_DAY_CAP) {
     return {
       ok: false,
       error: `Wallet daily cap (${WALLET_DAY_CAP.toLocaleString()}) reached.`,
@@ -191,7 +194,7 @@ export async function reservePayout(opts: {
   }
 
   const walletLife = await sumPaid(`recipient = ?`, [recipient]);
-  if (walletLife + amount > WALLET_LIFE_CAP) {
+  if (!isDayGame && walletLife + amount > WALLET_LIFE_CAP) {
     return {
       ok: false,
       error: `Wallet lifetime cap (${WALLET_LIFE_CAP.toLocaleString()}) reached.`,
@@ -202,7 +205,7 @@ export async function reservePayout(opts: {
 
   const tw = opts.twitter?.toLowerCase().replace(/^@/, "") || null;
   const gh = opts.github?.toLowerCase().replace(/^@/, "") || null;
-  if (tw) {
+  if (!isDayGame && tw) {
     const idLife = await sumPaid(`lower(twitter) = lower(?)`, [tw]);
     if (idLife + amount > IDENTITY_LIFE_CAP) {
       return {
@@ -213,7 +216,7 @@ export async function reservePayout(opts: {
       };
     }
   }
-  if (gh) {
+  if (!isDayGame && gh) {
     const idLife = await sumPaid(`lower(github) = lower(?)`, [gh]);
     if (idLife + amount > IDENTITY_LIFE_CAP) {
       return {
