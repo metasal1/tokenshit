@@ -53,11 +53,16 @@ async function pipelineFetch(
 }
 
 function mapArgs(args: (string | number | null)[]) {
-  return args.map((a) => ({
-    type:
-      typeof a === "number" ? "integer" : a === null ? "null" : "text",
-    value: a === null ? undefined : String(a),
-  }));
+  return args.map((a) => {
+    if (a === null) return { type: "null" as const, value: undefined };
+    if (typeof a === "number") {
+      if (Number.isInteger(a)) {
+        return { type: "integer" as const, value: String(a) };
+      }
+      return { type: "float" as const, value: String(a) };
+    }
+    return { type: "text" as const, value: String(a) };
+  });
 }
 
 export async function tursoExecute(

@@ -176,8 +176,9 @@ export async function snapshotPrices(
         utcDay,
         phase,
         m.assetId,
-        m.price,
-        m.volume24h,
+        // Turso bindings: pass decimals as strings
+        String(m.price),
+        String(m.volume24h),
         m.name,
         m.symbol,
         m.logo,
