@@ -11,6 +11,7 @@ import {
   friendlySolanaSendError,
 } from "@/lib/solana-send";
 import Link from "next/link";
+import DaySpinner from "@/components/DaySpinner";
 
 type Major = {
   assetId: string;
@@ -88,6 +89,7 @@ export default function DayGamePanel() {
   const [q, setQ] = useState("");
   const [selected, setSelected] = useState<Major | null>(null);
   const [side, setSide] = useState<"hit" | "shit">("hit");
+  const [pickMode, setPickMode] = useState<"spin" | "list">("spin");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
@@ -291,49 +293,98 @@ export default function DayGamePanel() {
           </button>
         </div>
 
-        <input
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder="Filter majors…"
-          className="w-full rounded-xl border border-border bg-zinc-950 px-3 py-2.5 text-sm"
-        />
-
-        <div className="max-h-56 overflow-y-auto rounded-xl border border-border divide-y divide-border">
-          {filtered.map((m) => {
-            const on = selected?.assetId === m.assetId;
-            return (
-              <button
-                key={m.assetId}
-                type="button"
-                onClick={() => setSelected(m)}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 text-left hover:bg-zinc-900 ${
-                  on ? "bg-zinc-900 ring-1 ring-neon/40" : ""
-                }`}
-              >
-                {m.logo ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={m.logo} alt="" className="h-8 w-8 rounded-full bg-zinc-800" />
-                ) : (
-                  <div className="h-8 w-8 rounded-full bg-zinc-800" />
-                )}
-                <div className="min-w-0 flex-1">
-                  <div className="text-sm font-semibold text-white truncate">
-                    {m.symbol || m.name}
-                  </div>
-                  <div className="text-[11px] text-zinc-500 truncate">{m.name}</div>
-                </div>
-                <div className="text-xs font-mono text-zinc-400">
-                  ${m.price < 1 ? m.price.toPrecision(3) : m.price.toFixed(2)}
-                </div>
-              </button>
-            );
-          })}
-          {!filtered.length && (
-            <div className="px-3 py-6 text-center text-sm text-zinc-600">
-              No majors match
-            </div>
-          )}
+        <div className="flex rounded-xl border border-border overflow-hidden text-xs font-bold">
+          <button
+            type="button"
+            onClick={() => setPickMode("spin")}
+            className={`flex-1 min-h-10 ${
+              pickMode === "spin"
+                ? "bg-neon text-black"
+                : "bg-zinc-950 text-zinc-500"
+            }`}
+          >
+            🎰 Spinner
+          </button>
+          <button
+            type="button"
+            onClick={() => setPickMode("list")}
+            className={`flex-1 min-h-10 ${
+              pickMode === "list"
+                ? "bg-neon text-black"
+                : "bg-zinc-950 text-zinc-500"
+            }`}
+          >
+            📋 List
+          </button>
         </div>
+
+        {pickMode === "spin" ? (
+          <DaySpinner
+            majors={status?.majors || []}
+            side={side}
+            selectedId={selected?.assetId}
+            onSelect={(m) => {
+              setSelected(m);
+              setErr(null);
+            }}
+            disabled={busy || !status?.enabled}
+          />
+        ) : (
+          <>
+            <input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Filter majors…"
+              className="w-full rounded-xl border border-border bg-zinc-950 px-3 py-2.5 text-sm"
+            />
+
+            <div className="max-h-56 overflow-y-auto rounded-xl border border-border divide-y divide-border">
+              {filtered.map((m) => {
+                const on = selected?.assetId === m.assetId;
+                return (
+                  <button
+                    key={m.assetId}
+                    type="button"
+                    onClick={() => setSelected(m)}
+                    className={`w-full flex items-center gap-3 px-3 py-2.5 text-left hover:bg-zinc-900 ${
+                      on ? "bg-zinc-900 ring-1 ring-neon/40" : ""
+                    }`}
+                  >
+                    {m.logo ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={m.logo}
+                        alt=""
+                        className="h-8 w-8 rounded-full bg-zinc-800"
+                      />
+                    ) : (
+                      <div className="h-8 w-8 rounded-full bg-zinc-800" />
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <div className="text-sm font-semibold text-white truncate">
+                        {m.symbol || m.name}
+                      </div>
+                      <div className="text-[11px] text-zinc-500 truncate">
+                        {m.name}
+                      </div>
+                    </div>
+                    <div className="text-xs font-mono text-zinc-400">
+                      $
+                      {m.price < 1
+                        ? m.price.toPrecision(3)
+                        : m.price.toFixed(2)}
+                    </div>
+                  </button>
+                );
+              })}
+              {!filtered.length && (
+                <div className="px-3 py-6 text-center text-sm text-zinc-600">
+                  No majors match
+                </div>
+              )}
+            </div>
+          </>
+        )}
 
         {err && (
           <p className="text-sm text-red-400 bg-red-950/30 border border-red-900/40 rounded-lg px-3 py-2">
@@ -358,7 +409,9 @@ export default function DayGamePanel() {
               ? "Confirm in wallet…"
               : selected
                 ? `Stake 1,000 $${SHIT_SYMBOL} · ${side.toUpperCase()} ${selected.symbol || selected.name}`
-                : `Pick a bag · 1,000 $${SHIT_SYMBOL}`}
+                : pickMode === "spin"
+                  ? `Spin a bag first · 1,000 $${SHIT_SYMBOL}`
+                  : `Pick a bag · 1,000 $${SHIT_SYMBOL}`}
         </button>
 
         <div className="flex flex-wrap gap-3 text-[11px] text-zinc-600">
