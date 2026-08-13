@@ -1,9 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { EmojiIcon } from "@/components/EmojiIcon";
 import { SHIT_SYMBOL } from "@/lib/shit-token";
-import Link from "next/link";
+import type { VrfRecord } from "@/lib/day-vrf-links";
+import VrfProofLinks from "@/components/VrfProofLinks";
 
 export type HourSettlePayload = {
   utcHour: string;
@@ -18,6 +20,7 @@ export type HourSettlePayload = {
     prize: number | null;
     fee: number | null;
     sig: string | null;
+    vrf?: VrfRecord | null;
   };
   shit: {
     assetId: string | null;
@@ -29,6 +32,7 @@ export type HourSettlePayload = {
     prize: number | null;
     fee: number | null;
     sig: string | null;
+    vrf?: VrfRecord | null;
   };
 };
 
@@ -190,8 +194,11 @@ function WinnerBlock({
               rel="noopener noreferrer"
               className="text-[11px] text-neon-blue hover:underline"
             >
-              tx {data.sig.slice(0, 12)}…
+              payout tx {data.sig.slice(0, 12)}…
             </a>
+          )}
+          {data.vrf && (
+            <VrfProofLinks vrf={data.vrf} className="pt-1" />
           )}
         </div>
       )}
@@ -366,11 +373,16 @@ export function settleToPayload(data: {
   round?: Record<string, unknown> | null;
   hitMeta?: { name?: string; symbol?: string; logo?: string } | null;
   shitMeta?: { name?: string; symbol?: string; logo?: string } | null;
+  hitVrf?: VrfRecord | null;
+  shitVrf?: VrfRecord | null;
+  meta?: { hitVrf?: VrfRecord; shitVrf?: VrfRecord } | null;
 }): HourSettlePayload | null {
   const r = data.round;
   if (!r || String(r.status) !== "settled") return null;
   const hour = String(data.utcHour || data.utcDay || "");
   if (!hour) return null;
+  if (!data.hitVrf && data.meta?.hitVrf) data.hitVrf = data.meta.hitVrf;
+  if (!data.shitVrf && data.meta?.shitVrf) data.shitVrf = data.meta.shitVrf;
   return {
     utcHour: hour,
     hourLabel: data.hourLabel,
@@ -384,6 +396,7 @@ export function settleToPayload(data: {
       prize: r.hitPrize != null ? Number(r.hitPrize) : null,
       fee: r.hitFee != null ? Number(r.hitFee) : null,
       sig: r.hitSig ? String(r.hitSig) : null,
+      vrf: (data.hitVrf as VrfRecord) || null,
     },
     shit: {
       assetId: r.shitAssetId ? String(r.shitAssetId) : null,
@@ -395,6 +408,7 @@ export function settleToPayload(data: {
       prize: r.shitPrize != null ? Number(r.shitPrize) : null,
       fee: r.shitFee != null ? Number(r.shitFee) : null,
       sig: r.shitSig ? String(r.shitSig) : null,
+      vrf: (data.shitVrf as VrfRecord) || null,
     },
   };
 }

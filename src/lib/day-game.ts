@@ -317,6 +317,8 @@ export type PastWinner = {
   fee: number;
   pot: number;
   sig: string | null;
+  vrf: import("@/lib/day-vrf-links").VrfRecord | null;
+  vrfLink: import("@/lib/day-vrf-links").VrfLink | null;
 };
 
 /** Past settled HIT or SHIT winners (newest first). */
@@ -329,12 +331,12 @@ export async function listPastWinners(
   const isHit = side === "hit";
   const r = await tursoExecute(
     isHit
-      ? `SELECT utc_day, settled_at, hit_asset_id, hit_pct, hit_winner, hit_prize, hit_fee, hit_pot, hit_sig
+      ? `SELECT utc_day, settled_at, hit_asset_id, hit_pct, hit_winner, hit_prize, hit_fee, hit_pot, hit_sig, meta
          FROM day_rounds
          WHERE status = 'settled' AND hit_asset_id IS NOT NULL
          ORDER BY utc_day DESC
          LIMIT ${lim}`
-      : `SELECT utc_day, settled_at, shit_asset_id, shit_pct, shit_winner, shit_prize, shit_fee, shit_pot, shit_sig
+      : `SELECT utc_day, settled_at, shit_asset_id, shit_pct, shit_winner, shit_prize, shit_fee, shit_pot, shit_sig, meta
          FROM day_rounds
          WHERE status = 'settled' AND shit_asset_id IS NOT NULL
          ORDER BY utc_day DESC
@@ -342,6 +344,7 @@ export async function listPastWinners(
     []
   );
 
+  const { vrfPrimaryLink } = await import("@/lib/day-vrf-links");
   const out: PastWinner[] = [];
   for (const row of r.rows) {
     const hour = String(row[0]);
@@ -363,6 +366,16 @@ export async function listPastWinners(
         logo = String(m.rows[0][2] || "");
       }
     }
+    let vrf = null;
+    try {
+      const metaRaw = row[9] ? String(row[9]) : "";
+      if (metaRaw) {
+        const meta = JSON.parse(metaRaw);
+        vrf = isHit ? meta.hitVrf || null : meta.shitVrf || null;
+      }
+    } catch {
+      vrf = null;
+    }
     out.push({
       utcHour: hour,
       hourLabel: formatHourLabel(hour),
@@ -377,6 +390,8 @@ export async function listPastWinners(
       fee: Number(row[6] || 0),
       pot: Number(row[7] || 0),
       sig: row[8] ? String(row[8]) : null,
+      vrf,
+      vrfLink: vrfPrimaryLink(vrf),
     });
   }
   return out;

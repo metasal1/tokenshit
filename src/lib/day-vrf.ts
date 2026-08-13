@@ -3,6 +3,14 @@
  * Default: Solana slot + blockhash hash. Optional Proof Network HTTP VRF.
  */
 import { rpc } from "@/lib/treasury";
+import type { VrfRecord } from "@/lib/day-vrf-links";
+
+export type { VrfRecord, VrfLink } from "@/lib/day-vrf-links";
+export {
+  PROOFNETWORK,
+  vrfExplorerLinks,
+  vrfPrimaryLink,
+} from "@/lib/day-vrf-links";
 
 export type VrfProvider = "solana-blockhash" | "proofnetwork";
 
@@ -57,10 +65,6 @@ async function solanaEntropy(): Promise<{
   };
 }
 
-/**
- * Optional Proof Network HTTP VRF (when env set).
- * Falls back to solana-blockhash.
- */
 async function proofNetworkSeed(
   requestKey: string
 ): Promise<{ seed: string; id: number | null } | null> {
@@ -97,7 +101,6 @@ async function proofNetworkSeed(
 
 export async function pickWinnerWallet(opts: {
   tickets: string[];
-  /** domain separation */
   label: string;
 }): Promise<{
   winner: string;
@@ -148,3 +151,5 @@ export async function pickWinnerWallet(opts: {
     entriesHash,
   };
 }
+
+export type { VrfRecord as VrfDrawMeta };

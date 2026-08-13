@@ -7,6 +7,7 @@ import {
   getRound,
 } from "@/lib/day-game";
 import { tursoExecute } from "@/lib/turso";
+import { vrfExplorerLinks, type VrfRecord } from "@/lib/day-vrf-links";
 
 export const dynamic = "force-dynamic";
 
@@ -24,6 +25,46 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { date } = await params;
   const key = resolveKey(date);
   return { title: `Hour ${key} · Hit/Shit` };
+}
+
+function VrfSection({ vrf, label }: { vrf: VrfRecord | null; label: string }) {
+  if (!vrf || vrf.error) return null;
+  const links = vrfExplorerLinks(vrf);
+  if (!links.length && !vrf.blockhash) return null;
+  return (
+    <div className="pt-2 border-t border-white/10 space-y-1">
+      <div className="text-[10px] uppercase text-zinc-500">
+        {label} VRF
+        {vrf.provider ? (
+          <span className="normal-case text-zinc-600"> · {vrf.provider}</span>
+        ) : null}
+      </div>
+      <div className="flex flex-wrap gap-x-3 gap-y-1">
+        {links.map((l) => (
+          <a
+            key={l.label}
+            href={l.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs text-neon-blue hover:underline font-mono"
+          >
+            {l.label}
+            {l.detail ? ` · ${l.detail}` : ""}
+          </a>
+        ))}
+      </div>
+      {vrf.blockhash && (
+        <div className="text-[10px] font-mono text-zinc-600 break-all">
+          bh {vrf.blockhash}
+        </div>
+      )}
+      {vrf.verificationHash && (
+        <div className="text-[10px] font-mono text-zinc-600 break-all">
+          verify {vrf.verificationHash}
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default async function DayReceiptPage({ params }: Props) {
@@ -54,6 +95,18 @@ export default async function DayReceiptPage({ params }: Props) {
         name: String(r.rows[0][0] || ""),
         symbol: String(r.rows[0][1] || ""),
       };
+  }
+
+  let hitVrf: VrfRecord | null = null;
+  let shitVrf: VrfRecord | null = null;
+  if (round?.meta) {
+    try {
+      const m = JSON.parse(round.meta);
+      hitVrf = m.hitVrf || null;
+      shitVrf = m.shitVrf || null;
+    } catch {
+      /* ignore */
+    }
   }
 
   return (
@@ -95,9 +148,10 @@ export default async function DayReceiptPage({ params }: Props) {
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                tx {round.hitSig.slice(0, 12)}…
+                payout tx {round.hitSig.slice(0, 12)}…
               </a>
             )}
+            <VrfSection vrf={hitVrf} label="HIT" />
           </div>
 
           <div className="rounded-xl border border-red-900/50 bg-red-950/20 p-3 space-y-1">
@@ -128,9 +182,10 @@ export default async function DayReceiptPage({ params }: Props) {
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                tx {round.shitSig.slice(0, 12)}…
+                payout tx {round.shitSig.slice(0, 12)}…
               </a>
             )}
+            <VrfSection vrf={shitVrf} label="SHIT" />
           </div>
         </div>
       </div>
@@ -142,6 +197,10 @@ export default async function DayReceiptPage({ params }: Props) {
         {" · "}
         <Link href="/day" className="text-neon-blue hover:underline">
           Play this hour
+        </Link>
+        {" · "}
+        <Link href="/winners" className="text-neon-blue hover:underline">
+          Winners
         </Link>
       </p>
     </div>
