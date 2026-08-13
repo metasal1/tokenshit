@@ -17,6 +17,7 @@ import Link from "next/link";
 import { EmojiIcon } from "@/components/EmojiIcon";
 import HourCelebrate, { useHourCelebrate } from "@/components/HourCelebrate";
 import { HOUR_PRODUCT } from "@/lib/hour-product";
+import { HIT_CURSOR, SHIT_CURSOR, sideCursor } from "@/lib/cursors";
 
 type Major = {
   assetId: string;
@@ -106,13 +107,14 @@ function LeaderCard({
           price: leader.price,
         });
       }}
-      className={`rounded-xl border text-left transition-colors w-full ${
+      className={`rounded-xl border text-left transition-colors w-full cursor-pointer ${
         compact ? "p-2" : "p-3"
       } ${
         hit
           ? "border-green-800/50 bg-green-950/30 hover:bg-green-950/50"
           : "border-red-800/50 bg-red-950/30 hover:bg-red-950/50"
-      } disabled:opacity-60`}
+      } disabled:opacity-60 disabled:cursor-not-allowed`}
+      style={{ cursor: leader ? (hit ? HIT_CURSOR : SHIT_CURSOR) : undefined }}
     >
       <div
         className={`text-[9px] uppercase flex items-center gap-1 ${
@@ -481,6 +483,7 @@ export default function DayGamePanel({
               <button
                 type="button"
                 onClick={() => setSide("hit")}
+                style={{ cursor: HIT_CURSOR }}
                 className={`flex-1 min-h-10 rounded-xl font-bold text-xs sm:text-sm border-2 inline-flex items-center justify-center gap-1.5 font-orbitron tracking-wide ${
                   side === "hit"
                     ? "border-green-500 bg-green-900/50 text-green-300"
@@ -493,6 +496,7 @@ export default function DayGamePanel({
               <button
                 type="button"
                 onClick={() => setSide("shit")}
+                style={{ cursor: SHIT_CURSOR }}
                 className={`flex-1 min-h-10 rounded-xl font-bold text-xs sm:text-sm border-2 inline-flex items-center justify-center gap-1.5 font-orbitron tracking-wide ${
                   side === "shit"
                     ? "border-red-500 bg-red-900/50 text-red-300"
@@ -517,6 +521,7 @@ export default function DayGamePanel({
                   ? "max-h-[min(38vh,280px)] lg:max-h-[min(48vh,360px)]"
                   : "max-h-56"
               }`}
+              style={{ cursor: sideCursor(side) }}
             >
               {filtered.map((m) => {
                 const on = selected?.assetId === m.assetId;
@@ -525,6 +530,7 @@ export default function DayGamePanel({
                     key={m.assetId}
                     type="button"
                     onClick={() => setSelected(m)}
+                    style={{ cursor: sideCursor(side) }}
                     className={`w-full flex items-center gap-2.5 px-2.5 py-2 text-left hover:bg-zinc-900 ${
                       on ? "bg-zinc-900 ring-1 ring-inset ring-neon/40" : ""
                     }`}
@@ -573,9 +579,14 @@ export default function DayGamePanel({
               type="button"
               disabled={busy || !status.enabled}
               onClick={() => void stake()}
+              style={
+                !busy && status.enabled
+                  ? { cursor: sideCursor(side) }
+                  : undefined
+              }
               className={`${
                 dense ? "hidden lg:inline-flex" : "inline-flex"
-              } w-full min-h-11 rounded-xl bg-neon text-black font-bold text-sm hover:brightness-110 disabled:opacity-50 items-center justify-center gap-2`}
+              } w-full min-h-11 rounded-xl bg-neon text-black font-bold text-sm hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed items-center justify-center gap-2`}
             >
               {stakeLabel}
             </button>
@@ -617,7 +628,12 @@ export default function DayGamePanel({
             type="button"
             disabled={busy || !status.enabled}
             onClick={() => void stake()}
-            className="w-full min-h-12 rounded-xl bg-neon text-black font-bold text-sm hover:brightness-110 disabled:opacity-50 inline-flex items-center justify-center gap-2"
+            style={
+              !busy && status.enabled
+                ? { cursor: sideCursor(side) }
+                : undefined
+            }
+            className="w-full min-h-12 rounded-xl bg-neon text-black font-bold text-sm hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2"
           >
             {stakeLabel}
           </button>

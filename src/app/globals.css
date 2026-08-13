@@ -21,6 +21,20 @@ body {
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
+/* Interactive defaults — pointer on real controls */
+a[href],
+button:not(:disabled),
+[role="button"]:not([aria-disabled="true"]),
+label[for],
+select,
+summary {
+  cursor: pointer;
+}
+button:disabled,
+[aria-disabled="true"] {
+  cursor: not-allowed;
+}
+
 /*
  * Noto Color Emoji — https://fonts.google.com/noto/specimen/Noto+Color+Emoji
  * Use .emoji / .font-emoji for confetti, reactions, labels with emoji.
