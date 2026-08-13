@@ -36,7 +36,7 @@ export function InlineLoader({
   );
 }
 
-/** Compact loading spinner — Noto Color Emoji (never system default bare emoji). */
+/** Compact loading spinner — Noto Color Emoji via EmojiIcon (loading only). */
 export function SpinLoader({
   size = 16,
   className = "",
@@ -56,5 +56,23 @@ export function SpinLoader({
         💫
       </EmojiIcon>
     </span>
+  );
+}
+
+/** Skeleton bar for balances */
+export function BalanceSkeleton({
+  className = "",
+  wide = false,
+}: {
+  className?: string;
+  wide?: boolean;
+}) {
+  return (
+    <span
+      className={`inline-block h-4 rounded bg-gradient-to-r from-zinc-800 via-zinc-700 to-zinc-800 animate-pulse ${
+        wide ? "w-24" : "w-14"
+      } ${className}`}
+      aria-hidden
+    />
   );
 }

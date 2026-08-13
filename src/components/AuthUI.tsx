@@ -122,7 +122,13 @@ function WalletPanel({ address, twitterUsername, onClose, children }: { address:
               className="w-full text-left text-[10px] text-zinc-300 bg-zinc-800 rounded-md px-2 py-1.5 font-mono break-all hover:bg-zinc-700 transition-colors leading-tight"
             >
               {address}
-              <span className="ml-1 text-zinc-500">{copied ? '✓' : '📋'}</span>
+              <span className="ml-1 text-zinc-500 inline-flex align-middle">
+                {copied ? (
+                  <EmojiIcon size={12}>✅</EmojiIcon>
+                ) : (
+                  <EmojiIcon size={12}>📋</EmojiIcon>
+                )}
+              </span>
             </button>
             <div className="mt-2">
               <p className="text-xs text-zinc-500">SOL Balance</p>
