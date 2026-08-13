@@ -29,7 +29,7 @@
 | `TREASURY_WALLET_DAY_CAP` | 25_000 |
 | `TREASURY_WALLET_LIFE_CAP` | 50_000 |
 | `TREASURY_IDENTITY_LIFE_CAP` | 50_000 |
-| `TREASURY_MAX_SINGLE` | 25_000 |
+| `TREASURY_MAX_SINGLE` | 100_000 (covers GH fork) |
 
 ## Safe reopen checklist
 1. Confirm treasury balance + SOL for fees  
