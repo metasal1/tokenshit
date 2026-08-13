@@ -24,6 +24,17 @@ type Major = {
   price: number;
 };
 
+type Leader = {
+  assetId: string;
+  name: string;
+  symbol: string;
+  logo: string;
+  openPrice: number;
+  price: number;
+  pct: number;
+  volume24h: number;
+};
+
 type DayStatus = {
   enabled: boolean;
   cadence?: string;
@@ -47,9 +58,101 @@ type DayStatus = {
     hitTickets: number;
     shitTickets: number;
   };
+  leaders?: {
+    hitting: Leader | null;
+    shitting: Leader | null;
+    topHit?: Leader[];
+    topShit?: Leader[];
+    stakesOnHitting?: number;
+    stakesOnShitting?: number;
+    compared?: number;
+  } | null;
   majors: Major[];
   majorsCount: number;
 };
+
+function fmtPct(n: number) {
+  const s = n >= 0 ? `+${n.toFixed(2)}` : n.toFixed(2);
+  return `${s}%`;
+}
+
+function LeaderCard({
+  kind,
+  leader,
+  stakesOn,
+  onPick,
+}: {
+  kind: "hit" | "shit";
+  leader: Leader | null;
+  stakesOn?: number;
+  onPick: (m: Major) => void;
+}) {
+  const hit = kind === "hit";
+  return (
+    <button
+      type="button"
+      disabled={!leader}
+      onClick={() => {
+        if (!leader) return;
+        onPick({
+          assetId: leader.assetId,
+          name: leader.name,
+          symbol: leader.symbol,
+          logo: leader.logo,
+          price: leader.price,
+        });
+      }}
+      className={`rounded-xl border p-3 text-left transition-colors w-full ${
+        hit
+          ? "border-green-800/50 bg-green-950/30 hover:bg-green-950/50"
+          : "border-red-800/50 bg-red-950/30 hover:bg-red-950/50"
+      } disabled:opacity-60`}
+    >
+      <div
+        className={`text-[10px] uppercase flex items-center gap-1 mb-1.5 ${
+          hit ? "text-green-500/90" : "text-red-500/90"
+        }`}
+      >
+        <EmojiIcon size={14}>{hit ? "🎯" : "💀"}</EmojiIcon>
+        {hit ? "Hitting now" : "Shitting now"}
+      </div>
+      {leader ? (
+        <div className="flex items-center gap-2.5">
+          {leader.logo ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={leader.logo}
+              alt=""
+              className="h-9 w-9 rounded-full bg-zinc-800 shrink-0"
+            />
+          ) : (
+            <div className="h-9 w-9 rounded-full bg-zinc-800 shrink-0" />
+          )}
+          <div className="min-w-0 flex-1">
+            <div className="text-sm font-bold text-white truncate">
+              {leader.symbol || leader.name}
+            </div>
+            <div className="text-[10px] text-zinc-500 truncate">{leader.name}</div>
+          </div>
+          <div className="text-right shrink-0">
+            <div
+              className={`text-sm font-mono font-bold ${
+                hit ? "text-green-400" : "text-red-400"
+              }`}
+            >
+              {fmtPct(leader.pct)}
+            </div>
+            <div className="text-[10px] text-zinc-600">
+              {stakesOn ?? 0} stake{(stakesOn ?? 0) === 1 ? "" : "s"}
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="text-xs text-zinc-600 py-2">Waiting for open prices…</div>
+      )}
+    </button>
+  );
+}
 
 function fmt(n: number) {
   return n.toLocaleString(undefined, { maximumFractionDigits: 0 });
@@ -104,7 +207,7 @@ export default function DayGamePanel() {
 
   useEffect(() => {
     load();
-    const a = setInterval(load, 30_000);
+    const a = setInterval(load, 20_000);
     const b = setInterval(() => setTick((t) => t + 1), 1000);
     return () => {
       clearInterval(a);
@@ -267,6 +370,35 @@ export default function DayGamePanel() {
             </div>
           </div>
         </div>
+
+        {/* Live leaders this hour */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <LeaderCard
+            kind="hit"
+            leader={status.leaders?.hitting || null}
+            stakesOn={status.leaders?.stakesOnHitting}
+            onPick={(m) => {
+              setSelected(m);
+              setSide("hit");
+              setErr(null);
+            }}
+          />
+          <LeaderCard
+            kind="shit"
+            leader={status.leaders?.shitting || null}
+            stakesOn={status.leaders?.stakesOnShitting}
+            onPick={(m) => {
+              setSelected(m);
+              setSide("shit");
+              setErr(null);
+            }}
+          />
+        </div>
+        {status.leaders?.compared != null && status.leaders.compared > 0 && (
+          <p className="text-[10px] text-zinc-600 text-center">
+            Live vs hour open · {status.leaders.compared} majors · tap to stake
+          </p>
+        )}
 
         <p className="text-[11px] text-zinc-600">
           Real majors · <strong className="text-zinc-400">hourly</strong> UTC

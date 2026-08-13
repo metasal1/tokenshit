@@ -482,6 +482,79 @@ function pickExtreme(
   return { assetId: top.assetId, pct: top.pct };
 }
 
+export type LiveLeader = {
+  assetId: string;
+  name: string;
+  symbol: string;
+  logo: string;
+  openPrice: number;
+  price: number;
+  pct: number;
+  volume24h: number;
+};
+
+/**
+ * Live HIT (best %) / SHIT (worst %) vs hour open snapshot.
+ * Auto-takes open snap if missing.
+ */
+export async function getLiveLeaders(utcHour: string): Promise<{
+  hitting: LiveLeader | null;
+  shitting: LiveLeader | null;
+  topHit: LiveLeader[];
+  topShit: LiveLeader[];
+  openCount: number;
+  liveCount: number;
+  compared: number;
+}> {
+  await ensureRound(utcHour);
+  let openM = await loadPhase(utcHour, "open");
+  if (openM.size === 0) {
+    await snapshotPrices(utcHour, "open");
+    openM = await loadPhase(utcHour, "open");
+  }
+
+  const live = await fetchRealMajorsLive();
+  const liveById = new Map(live.map((m) => [m.assetId, m]));
+
+  type Move = LiveLeader;
+  const moves: Move[] = [];
+  for (const [id, o] of openM) {
+    if (o.price <= 0) continue;
+    const L = liveById.get(id);
+    if (!L || L.price <= 0) continue;
+    const pct = ((L.price - o.price) / o.price) * 100;
+    moves.push({
+      assetId: id,
+      name: L.name || o.name || id,
+      symbol: L.symbol || o.symbol || "",
+      logo: L.logo || "",
+      openPrice: o.price,
+      price: L.price,
+      pct,
+      volume24h: L.volume24h || o.volume24h || 0,
+    });
+  }
+
+  const byHit = [...moves].sort((a, b) => {
+    if (b.pct !== a.pct) return b.pct - a.pct;
+    return b.volume24h - a.volume24h;
+  });
+  const byShit = [...moves].sort((a, b) => {
+    if (a.pct !== b.pct) return a.pct - b.pct;
+    return b.volume24h - a.volume24h;
+  });
+
+  return {
+    hitting: byHit[0] || null,
+    shitting: byShit[0] || null,
+    topHit: byHit.slice(0, 5),
+    topShit: byShit.slice(0, 5),
+    openCount: openM.size,
+    liveCount: live.length,
+    compared: moves.length,
+  };
+}
+
 export async function settleDay(utcDay: string): Promise<{
   ok: boolean;
   error?: string;
