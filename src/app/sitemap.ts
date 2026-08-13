@@ -12,7 +12,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 1,
     },
     {
-      url: `${SITE}/hour`,
+      url: `${SITE}/play`,
       lastModified: now,
       changeFrequency: "hourly",
       priority: 0.95,
@@ -21,7 +21,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
       url: `${SITE}/winners`,
       lastModified: now,
       changeFrequency: "hourly",
-      priority: 0.8,
+      priority: 0.7,
     },
     {
       url: `${SITE}/memes`,

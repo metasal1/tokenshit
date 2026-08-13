@@ -1,22 +1,24 @@
 /**
- * Product brand: THE HOUR
- * Hourly HIT / SHIT stake game — clear public name, page, link.
+ * Product brand: $SHIT OF THE DAY
+ * Public play surface at /play (hourly rounds under the hood).
  */
-export const HOUR_PRODUCT = {
+export const PLAY_PRODUCT = {
   /** Full product name */
-  name: "THE HOUR",
+  name: "$SHIT OF THE DAY",
+  /** Display without ticker $ for Monoton split if needed */
+  nameDisplay: "SHIT OF THE DAY",
   /** Short nav label */
-  nav: "Hour",
+  nav: "Play",
   /** One-liner */
-  tagline: "Call HIT or SHIT. Stake the hour.",
+  tagline: "Call HIT or SHIT. Stake the bag.",
   /** Rules blurb */
   blurb:
-    "1,000 $TOKENSHIT · real majors · best % takes HIT pot · worst % takes SHIT pot · every UTC hour · VRF picks one wallet · 25% treasury",
+    "1,000 $TOKENSHIT · real majors · best % takes HIT pot · worst % takes SHIT pot · VRF picks one wallet · 25% treasury",
   /** Canonical public paths */
-  path: "/hour",
+  path: "/play",
   winnersPath: "/winners",
-  prevPath: "/hour/prev",
-  receiptPath: (key: string) => `/hour/${encodeURIComponent(key)}`,
+  prevPath: "/play/prev",
+  receiptPath: (key: string) => `/play/${encodeURIComponent(key)}`,
   /** Keep internal API stable */
   api: {
     status: "/api/day",
@@ -24,3 +26,6 @@ export const HOUR_PRODUCT = {
     buildTransfer: "/api/day/build-transfer",
   },
 } as const;
+
+/** @deprecated use PLAY_PRODUCT */
+export const HOUR_PRODUCT = PLAY_PRODUCT;
