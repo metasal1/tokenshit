@@ -1,5 +1,9 @@
+/**
+ * Simplify x-profile: use fetchXUserPublic chain; always refresh stale low cache.
+ */
 import { tursoExecute } from "@/lib/turso";
 import { X_HANDLE, X_USER_ID } from "@/lib/shit-token";
+import { fetchXUserPublic } from "@/lib/x-data";
 
 export type XProfileMetrics = {
   username: string;
@@ -12,24 +16,14 @@ export type XProfileMetrics = {
   profileImageUrl?: string;
   updatedAt: string;
   source: "live" | "cache" | "fallback";
-  /** Present when live fetch failed */
+  liveSource?: string;
   liveError?: string;
 };
 
-const CACHE_TTL_MS = 15 * 60 * 1000; // 15 min
+const CACHE_TTL_MS = 10 * 60 * 1000;
 const g = globalThis as unknown as {
   __xProfileCache?: { at: number; data: XProfileMetrics };
-  __xProfileLiveErr?: string;
 };
-
-function xBearer(): string {
-  return (
-    process.env.X_BEARER_TOKEN ||
-    process.env.TWITTER_BEARER_TOKEN ||
-    process.env.X_USER_BEARER ||
-    ""
-  );
-}
 
 export async function ensureXMetricsSchema() {
   await tursoExecute(
@@ -53,13 +47,13 @@ async function readDbCache(): Promise<XProfileMetrics | null> {
     await ensureXMetricsSchema();
     const r = await tursoExecute(
       `SELECT id, username, name, followers, following, tweets, likes, profile_image_url, updated_at
-       FROM x_profile_cache WHERE id = ? LIMIT 1`,
-      [X_USER_ID]
+       FROM x_profile_cache WHERE id = ? OR lower(username) = lower(?)
+       ORDER BY datetime(updated_at) DESC LIMIT 1`,
+      [X_USER_ID, X_HANDLE]
     );
     if (!r.rows.length) return null;
     const row = r.rows[0];
     const updatedAt = String(row[8] || "");
-    // SQLite datetime is UTC-ish without Z — treat as expired if parse fails age check below
     return {
       id: String(row[0]),
       username: String(row[1]),
@@ -79,12 +73,6 @@ async function readDbCache(): Promise<XProfileMetrics | null> {
   }
 }
 
-function cacheAgeMs(m: XProfileMetrics): number {
-  const t = Date.parse(m.updatedAt);
-  if (!Number.isFinite(t)) return Number.POSITIVE_INFINITY;
-  return Date.now() - t;
-}
-
 async function writeDbCache(m: XProfileMetrics) {
   try {
     await ensureXMetricsSchema();
@@ -102,7 +90,7 @@ async function writeDbCache(m: XProfileMetrics) {
          profile_image_url = excluded.profile_image_url,
          updated_at = datetime('now')`,
       [
-        m.id,
+        m.id || X_USER_ID,
         m.username,
         m.name,
         m.followers,
@@ -117,117 +105,60 @@ async function writeDbCache(m: XProfileMetrics) {
   }
 }
 
-async function fetchLive(): Promise<{
-  data: XProfileMetrics | null;
-  error?: string;
-}> {
-  const bearer = xBearer();
-  if (!bearer) return { data: null, error: "X_BEARER_TOKEN missing" };
-
-  const urls = [
-    `https://api.x.com/2/users/${X_USER_ID}?user.fields=public_metrics,profile_image_url,name,username`,
-    `https://api.x.com/2/users/by/username/${encodeURIComponent(X_HANDLE)}?user.fields=public_metrics,profile_image_url,name,username`,
-  ];
-
-  const errors: string[] = [];
-  for (const url of urls) {
-    try {
-      const res = await fetch(url, {
-        headers: {
-          Authorization: `Bearer ${bearer}`,
-          "User-Agent": "TokenShit/1.0",
-        },
-        cache: "no-store",
-      });
-      const text = await res.text();
-      if (!res.ok) {
-        errors.push(`${res.status}:${text.slice(0, 120)}`);
-        continue;
-      }
-      let json: { data?: Record<string, unknown> };
-      try {
-        json = JSON.parse(text);
-      } catch {
-        errors.push("non-json");
-        continue;
-      }
-      const d = json.data as
-        | {
-            id?: string;
-            username?: string;
-            name?: string;
-            profile_image_url?: string;
-            public_metrics?: Record<string, number>;
-          }
-        | undefined;
-      if (!d?.id) {
-        errors.push("no data.id");
-        continue;
-      }
-      if (
-        d.username &&
-        String(d.username).toLowerCase() !== X_HANDLE.toLowerCase() &&
-        String(d.id) !== X_USER_ID
-      ) {
-        errors.push(`wrong user @${d.username}`);
-        continue;
-      }
-      const pm = d.public_metrics || {};
-      return {
-        data: {
-          id: String(d.id),
-          username: String(d.username || X_HANDLE),
-          name: String(d.name || "TOKENSHIT"),
-          followers: Number(pm.followers_count || 0),
-          following: Number(pm.following_count || 0),
-          tweets: Number(pm.tweet_count || 0),
-          likes: Number(pm.like_count || 0),
-          profileImageUrl: d.profile_image_url
-            ? String(d.profile_image_url).replace("_normal", "_bigger")
-            : undefined,
-          updatedAt: new Date().toISOString(),
-          source: "live",
-        },
-      };
-    } catch (e) {
-      errors.push(e instanceof Error ? e.message : String(e));
-    }
-  }
-  return { data: null, error: errors.join(" | ") || "live fetch failed" };
-}
-
 export async function getXProfileMetrics(opts?: {
   force?: boolean;
 }): Promise<XProfileMetrics> {
   const force = Boolean(opts?.force);
   const mem = g.__xProfileCache;
-  if (!force && mem && Date.now() - mem.at < CACHE_TTL_MS) {
-    return { ...mem.data, source: mem.data.source === "live" ? "cache" : mem.data.source };
+  if (!force && mem && Date.now() - mem.at < CACHE_TTL_MS && mem.data.followers > 0) {
+    return { ...mem.data, source: "cache" };
   }
 
-  const live = await fetchLive();
-  if (live.data) {
-    g.__xProfileLiveErr = undefined;
-    g.__xProfileCache = { at: Date.now(), data: live.data };
-    await writeDbCache(live.data);
-    return live.data;
+  let liveError: string | undefined;
+  try {
+    const m = await fetchXUserPublic(X_HANDLE);
+    if (m.ok && m.followers > 0) {
+      const data: XProfileMetrics = {
+        id: m.id || X_USER_ID,
+        username: m.username || X_HANDLE,
+        name: m.name || "TOKENSHIT",
+        followers: m.followers,
+        following: m.following,
+        tweets: m.tweets,
+        likes: 0,
+        profileImageUrl: m.profileImageUrl,
+        updatedAt: new Date().toISOString(),
+        source: "live",
+        liveSource: m.source,
+      };
+      // Prefer higher of live vs previous cache if free source under-reports
+      const prev = mem?.data || (await readDbCache());
+      if (
+        prev &&
+        prev.followers > data.followers &&
+        m.source !== "x-official" &&
+        m.source !== "tweetapi" &&
+        prev.followers - data.followers < 50
+      ) {
+        // small dip on free API — keep max
+        data.followers = Math.max(data.followers, prev.followers);
+      }
+      g.__xProfileCache = { at: Date.now(), data };
+      void writeDbCache(data);
+      return data;
+    }
+    liveError = m.error || "no followers";
+  } catch (e) {
+    liveError = e instanceof Error ? e.message : String(e);
   }
-  g.__xProfileLiveErr = live.error;
 
   const db = await readDbCache();
-  if (db) {
-    const age = cacheAgeMs(db);
-    // Still serve stale DB, but mark cache; client can force refresh
+  if (db && db.followers > 0) {
     g.__xProfileCache = { at: Date.now(), data: db };
-    return {
-      ...db,
-      source: "cache",
-      liveError: live.error,
-      // keep true updatedAt so UI can show staleness
-    };
+    return { ...db, source: "cache", liveError };
   }
 
-  const fallback: XProfileMetrics = {
+  return {
     id: X_USER_ID,
     username: X_HANDLE,
     name: "TOKENSHIT",
@@ -237,7 +168,6 @@ export async function getXProfileMetrics(opts?: {
     likes: 0,
     updatedAt: new Date().toISOString(),
     source: "fallback",
-    liveError: live.error || "no cache",
+    liveError: liveError || "no cache",
   };
-  return fallback;
 }
