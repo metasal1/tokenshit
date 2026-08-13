@@ -8,16 +8,36 @@ Tick in place: `[ ]` → `[x]`
 
 ## Day 1 — Foundations
 
-- [ ] **You:** Enable Privy Solana gas sponsorship + fund tank (app `cmdz9woca0012ky0bgpyfqept`)
-- [ ] **You:** Confirm `bugs@tokenshit.com` → inbox path still good
-- [ ] **Agent:** Mobile QA cold path — `/` vote → login → claim list or tweet
-- [ ] **Agent:** Confirm swap with sponsored fees on a 0-ish SOL bag (or document blocker)
-- [ ] **Agent:** Snapshot baseline → paste in note below  
-  - Holders:  
-  - Privy users:  
-  - X followers:  
-  - Treasury $TOKENSHIT:  
+**Ran:** 2026-08-13 ~03:33 UTC (Agent)
 
+- [ ] **You:** Enable Privy Solana gas sponsorship + fund tank (app `cmdz9woca0012ky0bgpyfqept`)
+- [x] **You/Agent:** `bugs@tokenshit.com` path — **fixed to `bugs@metasal.xyz`** (dest verified; was agentmail interim)
+- [x] **Agent:** HTTP cold surfaces — `/` `/claim` `/swap` `/referrals` `/api/claim` all **200** (full login/vote click path needs your phone)
+- [~] **Agent:** Swap + sponsor — client ships `sponsor: true` + fallback; **live wallet smoke still needs You** after Privy gas ON
+- [x] **Agent:** Snapshot baseline (2026-08-13)  
+  - Holders: **971**  
+  - Privy users: **487** (email signups 182)  
+  - X followers: **397** (live TweetAPI)  
+  - Treasury $TOKENSHIT: **558,000**  
+  - Treasury SOL: **~0.248**  
+  - Registry tokens: **488**  
+  - Daily drop: 1M marked dropped today; next ~00:00 UTC  
+
+### Day 1 notes / blockers
+1. **You must flip Privy gas sponsorship** — without it, 0-SOL bags still stall on fees.
+2. Treasury SOL **~0.25** is thin for claim payouts — top up when convenient.
+3. Agent could not finish interactive Privy login QA in this session (shell approval timeout on deep crawl); please 60s phone pass: home vote → claim list → swap banner visible.
+
+### Day 1 scorecard seed
+| Metric | Day 1 |
+|--------|------:|
+| Holders | 971 |
+| Privy users | 487 |
+| X followers | 397 |
+| Email signups | 182 |
+| Treasury SHIT | 558000 |
+| Treasury SOL | 0.248 |
+| Tokens (registry) | 488 |
 ## Day 2 — Share loop
 
 - [ ] **Agent:** Audit post-vote share always has `tokenshit.com/?ref={handle}`
@@ -116,12 +136,13 @@ Tick in place: `[ ]` → `[x]`
 
 | Metric | Day 1 | Day 7 | Day 14 |
 |--------|------:|------:|------:|
-| Holders | | | |
-| Privy users | | | |
-| X followers | | | |
-| Email signups (approx) | | | |
+| Holders | 971 | | |
+| Privy users | 487 | | |
+| X followers | 397 | | |
+| Email signups (approx) | 182 | | |
 | Claims last 24h | | | |
-| Notes | | | |
+| Treasury $TOKENSHIT | 558000 | | |
+| Notes | Day1 UTC 2026-08-13 · bugs→bugs@metasal.xyz | | |
 
 ---
 
