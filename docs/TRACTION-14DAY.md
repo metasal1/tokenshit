@@ -10,7 +10,7 @@ Tick in place: `[ ]` → `[x]`
 
 **Ran:** 2026-08-13 ~03:33 UTC (Agent)
 
-- [ ] **You:** Enable Privy Solana gas sponsorship + fund tank (app `cmdz9woca0012ky0bgpyfqept`)
+- [x] **You:** Enable Privy Solana gas sponsorship + fund tank (app `cmdz9woca0012ky0bgpyfqept`) — **confirmed 2026-08-13 (enabled + refilled)**
 - [x] **You/Agent:** `bugs@tokenshit.com` path — **fixed to `bugs@metasal.xyz`** (dest verified; was agentmail interim)
 - [x] **Agent:** HTTP cold surfaces — `/` `/claim` `/swap` `/referrals` `/api/claim` all **200** (full login/vote click path needs your phone)
 - [~] **Agent:** Swap + sponsor — client ships `sponsor: true` + fallback; **live wallet smoke still needs You** after Privy gas ON
@@ -24,9 +24,9 @@ Tick in place: `[ ]` → `[x]`
   - Daily drop: 1M marked dropped today; next ~00:00 UTC  
 
 ### Day 1 notes / blockers
-1. **You must flip Privy gas sponsorship** — without it, 0-SOL bags still stall on fees.
+1. ~~**You must flip Privy gas sponsorship**~~ **Done** (enabled + refilled).
 2. Treasury SOL **~0.25** is thin for claim payouts — top up when convenient.
-3. Agent could not finish interactive Privy login QA in this session (shell approval timeout on deep crawl); please 60s phone pass: home vote → claim list → swap banner visible.
+3. Phone QA still useful: home vote → claim list → **swap with sponsored gas** (0-SOL bag if possible).
 
 ### Day 1 scorecard seed
 | Metric | Day 1 |
