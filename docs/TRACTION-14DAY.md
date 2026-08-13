@@ -40,10 +40,20 @@ Tick in place: `[ ]` → `[x]`
 | Tokens (registry) | 488 |
 ## Day 2 — Share loop
 
-- [ ] **Agent:** Audit post-vote share always has `tokenshit.com/?ref={handle}`
-- [ ] **Agent:** Audit claim success share / toast CTA includes ref
-- [ ] **You:** Approve 1 TF draft — bag of the day + product link
+**Ran:** 2026-08-13 (Agent)
+
+- [x] **Agent:** Audit post-vote share — **VoteButtons already appends `?ref=`**; fixed dead `VoteButtonsInner` path too
+- [x] **Agent:** Claim success — **added Share ref + Tweet claim + ref CTA**; tweet-tag intent now embeds `?ref=` when logged in
+- [ ] **You:** Approve bag-of-day draft (draft only, not posted)  
+  - Edit: https://typefully.com/?d=10312749&a=326045  
+  - Preview: https://typefully.com/t/R3lK2nh  
+  - Topic: $SOL bag of the day · tokenshit.com/token/solana
 - [ ] **You:** Pin Talkin Shit or brand visual on X if not pinned
+
+### Day 2 product notes
+- ShareRefButton (nav + claim) already builds `/?ref=handle`
+- Glitch toast is social proof only (no share CTA — intentional; claim panel now has post-claim share)
+- Live stats at run: 919 total votes · today 31 · top HIT solana · top SHIT avalanche-2
 
 ## Day 3 — Referral surface
 

@@ -512,6 +512,28 @@ export default function ClaimPanel() {
             tx {sig.slice(0, 12)}…{sig.slice(-8)}
           </a>
         )}
+        {msg && (
+          <div className="rounded-xl border border-neon/30 bg-neon/5 p-3 space-y-2">
+            <p className="text-xs text-zinc-400">
+              Flex the claim — share your ref so friends earn you 2k $
+              {SHIT_SYMBOL}
+            </p>
+            <ShareRefButton path="/" variant="inline" handle={twitter || undefined} />
+            {twitter && (
+              <a
+                href={tweetTagIntentUrl(
+                  `Just claimed $${SHIT_SYMBOL} on @${X_HANDLE} — every token is shit until proven otherwise.\n\nhttps://tokenshit.com/?ref=${encodeURIComponent(twitter.toLowerCase())}`,
+                  twitter
+                )}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`${BTN_SKY} inline-flex items-center justify-center text-center no-underline`}
+              >
+                Tweet claim + ref
+              </a>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 gap-3">
@@ -554,7 +576,7 @@ export default function ClaimPanel() {
             ) : (
               <>
                 <a
-                  href={tweetTagIntentUrl()}
+                  href={tweetTagIntentUrl(undefined, twitter)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className={`${BTN_OUTLINE} text-center`}

@@ -106,11 +106,17 @@ export function mintSolscanUrl(): string {
   return `https://solscan.io/token/${SHIT_MINT}`;
 }
 
-/** Intent URL: compose tweet tagging @Tokenshit_ */
-export function tweetTagIntentUrl(text?: string): string {
+/** Intent URL: compose tweet tagging @Tokenshit_ (+ optional ref link) */
+export function tweetTagIntentUrl(text?: string, refHandle?: string | null): string {
+  const ref =
+    refHandle && refHandle.replace(/^@/, "").trim()
+      ? `https://tokenshit.com/?ref=${encodeURIComponent(
+          refHandle.replace(/^@/, "").toLowerCase()
+        )}`
+      : "https://tokenshit.com";
   const body =
     text ||
-    `Just judged bags on @${X_HANDLE} — every token is shit until proven otherwise.\n\nhttps://tokenshit.com`;
+    `Just judged bags on @${X_HANDLE} — every token is shit until proven otherwise.\n\n${ref}`;
   return `https://x.com/intent/tweet?text=${encodeURIComponent(body)}`;
 }
 

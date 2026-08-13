@@ -7,6 +7,7 @@ import { sfx } from "@/lib/sfx";
 import SkipNextButton from "@/components/SkipNextButton";
 import { EmojiIcon } from "@/components/EmojiIcon";
 import { getDeviceId, incrementAnonVoteCount } from "@/lib/device-id";
+import { X_HANDLE } from "@/lib/shit-token";
 
 const HIT_CURSOR = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 24 24' fill='none' stroke='%2339ff14' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Ccircle cx='12' cy='12' r='6'/%3E%3Ccircle cx='12' cy='12' r='2'/%3E%3C/svg%3E") 14 14, crosshair`;
 const SHIT_CURSOR = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 24 24' fill='none' stroke='%23ef4444' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='9' cy='12' r='1'/%3E%3Ccircle cx='15' cy='12' r='1'/%3E%3Cpath d='M8 20v2h8v-2'/%3E%3Cpath d='M12.5 17l-.5-1-.5 1h1z'/%3E%3Cpath d='M16 20a2 2 0 0 0 1.56-3.25 8 8 0 1 0-11.12 0A2 2 0 0 0 8 20'/%3E%3C/svg%3E") 14 14, pointer`;
@@ -212,12 +213,19 @@ export default function VoteButtons({ assetId, name, symbol }: { assetId: string
   const hasVoted = userVote !== null;
   const isAnonymous = !twitterUsername;
 
-  const tokenUrl = `https://tokenshit.com/token/${assetId}`;
+  const tokenUrl = (() => {
+    const base = `https://tokenshit.com/token/${encodeURIComponent(assetId)}`;
+    if (twitterUsername)
+      return `${base}?ref=${encodeURIComponent(twitterUsername.toLowerCase())}`;
+    return base;
+  })();
   const displayName = name && symbol ? `$${symbol}` : name || assetId.slice(0, 8);
   const tweetText = userVote
-    ? `I voted ${userVote === "hit" ? "🎯 HIT" : "💀 SHIT"} on ${displayName} on @tokenshit_\n\n${tokenUrl}`
+    ? `I voted ${userVote === "hit" ? "HIT" : "SHIT"} on ${displayName} on @${X_HANDLE || "Tokenshit_"}
+
+${tokenUrl}`
     : "";
-  const tweetUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(tweetText)}`;
+  const tweetUrl = `https://x.com/intent/tweet?text=${encodeURIComponent(tweetText)}`;
 
   return (
     <div className="border border-zinc-800 rounded-xl bg-zinc-900/80 p-5 relative">
