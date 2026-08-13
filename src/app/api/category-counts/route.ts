@@ -1,7 +1,6 @@
 import { CATEGORIES } from "@/lib/categories";
 import { getPool } from "@/lib/random-pool";
 import { apiFetch } from "@/lib/api";
-import { filterMajorsList } from "@/lib/majors-filter";
 
 export const dynamic = "force-dynamic";
 
@@ -12,21 +11,15 @@ let cache: {
   unique: number;
   source: string;
   summedLists?: number;
-  majorsRaw?: number;
 } | null = null;
 let cacheTime = 0;
 
-async function countOne(key: string): Promise<[string, number, number?]> {
+async function countOne(key: string): Promise<[string, number]> {
   try {
     const data = await apiFetch(`/assets/curated?list=${key}&groupBy=asset`);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let assets: any[] = data?.assets || data?.results || data?.items || data?.data || [];
-    if (!Array.isArray(assets)) assets = [];
-    const raw = assets.length;
-    if (key === "majors") {
-      assets = filterMajorsList(assets);
-    }
-    return [key, assets.length, key === "majors" ? raw : undefined];
+    const assets =
+      data?.assets || data?.results || data?.items || data?.data || [];
+    return [key, Array.isArray(assets) ? assets.length : 0];
   } catch {
     return [key, 0];
   }
@@ -34,8 +27,8 @@ async function countOne(key: string): Promise<[string, number, number?]> {
 
 /**
  * GET /api/category-counts
- * - counts: per list after quality filter (majors ≠ tier3 dust)
- * - unique / total: deduped vote-pool size
+ * - counts: per curated list (raw lengths; may overlap across lists)
+ * - unique / total: deduped assetIds (no duplicates) — same as vote pool
  */
 export async function GET() {
   if (cache && Date.now() - cacheTime < CACHE_TTL_MS) {
@@ -50,12 +43,7 @@ export async function GET() {
     Promise.all(CATEGORIES.map((c) => countOne(c.key))),
     getPool(),
   ]);
-  const counts: Record<string, number> = {};
-  let majorsRaw: number | undefined;
-  for (const [k, n, raw] of entries) {
-    counts[k] = n;
-    if (raw != null) majorsRaw = raw;
-  }
+  const counts = Object.fromEntries(entries);
   const unique = pool.length;
   const summed = Object.values(counts).reduce((a, b) => a + b, 0);
 
@@ -63,9 +51,8 @@ export async function GET() {
     counts,
     total: unique,
     unique,
-    source: "deduped-pool+majors-filter",
+    source: "deduped-pool-all",
     summedLists: summed,
-    majorsRaw,
   };
   cacheTime = Date.now();
 
