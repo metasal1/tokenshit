@@ -1,11 +1,11 @@
 import { redirect } from "next/navigation";
 
-/** Legacy day receipt → /hour/... */
-export default async function DayReceiptRedirect({
+/** /day/* → /play/* */
+export default async function DayDateRedirect({
   params,
 }: {
   params: Promise<{ date: string }>;
 }) {
   const { date } = await params;
-  redirect(`/hour/${encodeURIComponent(date)}`);
+  redirect(`/play/${encodeURIComponent(date)}`);
 }

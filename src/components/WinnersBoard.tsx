@@ -169,7 +169,7 @@ export default function WinnersBoard({
         {rows?.map((w, i) => (
           <Link
             key={w.utcHour}
-            href={`/hour/${encodeURIComponent(w.utcHour)}`}
+            href={`/play/${encodeURIComponent(w.utcHour)}`}
             className={`block rounded-xl border p-3 sm:p-4 transition-colors hover:bg-zinc-900/80 ${
               hit
                 ? "border-green-900/40 bg-green-950/20"

@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
-import { HOUR_PRODUCT } from "@/lib/hour-product";
+import { PLAY_PRODUCT } from "@/lib/hour-product";
 
-/** Legacy /day → canonical THE HOUR */
+/** /day → /play */
 export default function DayRedirect() {
-  redirect(HOUR_PRODUCT.path);
+  redirect(PLAY_PRODUCT.path);
 }

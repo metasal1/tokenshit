@@ -8,10 +8,10 @@ import XFollowersBadge from "@/components/XFollowersBadge";
 import ShareRefButton from "@/components/ShareRefButton";
 import DayGamePanel from "@/components/DayGamePanel";
 import Link from "next/link";
-import { HOUR_PRODUCT } from "@/lib/hour-product";
+import { PLAY_PRODUCT } from "@/lib/hour-product";
 
 /**
- * Homepage hero = THE HOUR (hourly HIT/SHIT stakes).
+ * Homepage hero = $SHIT OF THE DAY (/play)
  */
 export const dynamic = "force-dynamic";
 
@@ -25,20 +25,27 @@ export default function Home() {
             <AnimatedLogo size="hero" />
           </h1>
           <p className="text-[10px] sm:text-xs font-orbitron uppercase tracking-[0.28em] text-neon mb-2">
-            {HOUR_PRODUCT.name}
+            Main game
           </p>
-          <p className="text-base sm:text-xl text-zinc-400 mb-1 max-w-2xl mx-auto">
-            {HOUR_PRODUCT.tagline}
+          <p className="text-2xl sm:text-3xl font-monoton leading-none mb-2">
+            <span className="neon-dollar">$</span>
+            <span className="neon-text">SHIT</span>
+            <span className="block text-sm sm:text-base font-orbitron tracking-[0.2em] text-zinc-400 mt-2 uppercase">
+              of the day
+            </span>
+          </p>
+          <p className="text-base sm:text-lg text-zinc-400 mb-1 max-w-2xl mx-auto">
+            {PLAY_PRODUCT.tagline}
           </p>
           <p className="text-sm text-zinc-500 mb-2 max-w-xl mx-auto">
-            1,000 $TOKENSHIT · real majors · every UTC hour · VRF
+            1,000 $TOKENSHIT · real majors · VRF
           </p>
           <p className="mb-5">
             <Link
-              href={HOUR_PRODUCT.path}
+              href={PLAY_PRODUCT.path}
               className="text-xs font-orbitron uppercase tracking-wider text-neon-blue hover:underline"
             >
-              Open full page → {HOUR_PRODUCT.path}
+              Open {PLAY_PRODUCT.path} →
             </Link>
           </p>
 
