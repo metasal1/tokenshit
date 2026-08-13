@@ -273,11 +273,11 @@ export default function HeaderTicker() {
 
   return (
     <div
-      className="relative w-full overflow-hidden border-b border-border/60 bg-zinc-950/90"
-      style={{ height: 28 }}
+      className="relative w-full overflow-hidden border-b border-border/60 bg-zinc-950"
+      style={{ height: 32 }}
     >
       <div
-        className="header-ticker-track absolute left-0 top-0 flex h-full items-center gap-0 whitespace-nowrap font-mono text-[11px] sm:text-xs text-zinc-400"
+        className="header-ticker-track absolute left-0 top-0 flex h-full items-center gap-0 whitespace-nowrap font-mono text-[11px] sm:text-xs text-zinc-300"
         aria-label="Treasury, tokens, holders, users, X followers, and online ticker"
       >
         {loop.map((it, i) => (

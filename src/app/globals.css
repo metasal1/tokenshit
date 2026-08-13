@@ -17,6 +17,8 @@
 body {
   background: var(--color-background);
   color: var(--color-foreground);
+  /* iOS PWA: keep bottom UI clear of home indicator */
+  padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 /*
