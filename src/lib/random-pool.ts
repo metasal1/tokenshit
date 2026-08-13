@@ -71,15 +71,27 @@ async function fetchList(list: string): Promise<PoolToken[]> {
     return assets
       .map((a) => {
         const asset = (a.asset || a) as Record<string, unknown>;
-        const pv = (asset.primaryVariant || {}) as Record<string, unknown>;
+        const pv = (asset.primaryVariant ||
+          a.primaryVariant ||
+          {}) as Record<string, unknown>;
         const market = (pv.market || {}) as Record<string, unknown>;
+        const name = String(
+          asset.name || a.name || pv.name || pv.symbol || ""
+        ).trim();
+        const symbol = String(
+          asset.symbol || a.symbol || pv.symbol || pv.name || ""
+        ).trim();
+        const logo = String(
+          asset.imageUrl || market.logoURI || a.imageUrl || ""
+        ).trim();
+        const assetId = String(
+          asset.assetId || asset.id || a.assetId || a.id || ""
+        );
         return {
-          assetId: String(
-            asset.id || asset.assetId || a.id || a.assetId || ""
-          ),
-          name: String(asset.name || "Unknown"),
-          symbol: String(asset.symbol || ""),
-          logo: String(asset.imageUrl || market.logoURI || ""),
+          assetId,
+          name: name || symbol || assetId.slice(0, 12) || "Unknown",
+          symbol: symbol || (name ? name.slice(0, 12) : assetId.slice(0, 8)),
+          logo,
           list,
         };
       })

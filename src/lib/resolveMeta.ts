@@ -26,6 +26,49 @@ export function extractMint(assetId: string): string | null {
   return null;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function metaFromRow(a: any, assetId: string): AssetMeta | null {
+  if (!a || typeof a !== "object") return null;
+  const pv = a.primaryVariant || {};
+  const market = pv.market || a.market || {};
+  // Prefer variant labels — Tokens.xyz often collapses LST rows to parent SOL
+  // with null top-level name while primaryVariant has the real ticker.
+  const name = String(
+    a.name || a.profile?.name || pv.name || pv.symbol || ""
+  ).trim();
+  const symbol = String(
+    a.symbol || a.profile?.symbol || pv.symbol || pv.name || ""
+  ).trim();
+  const logo = String(
+    a.imageUrl ||
+      a.logo ||
+      market.logoURI ||
+      a.profile?.logo ||
+      pv.imageUrl ||
+      ""
+  ).trim();
+
+  // Reject parent SOL bleed when looking up solana-<mint>
+  const id = String(a.assetId || a.id || "");
+  if (
+    /^solana-/i.test(assetId) &&
+    (id === "solana" || name === "Solana" || symbol === "SOL") &&
+    !pv.name &&
+    !pv.symbol
+  ) {
+    return null;
+  }
+
+  if (!name && !symbol) return null;
+  if (name === assetId || symbol === assetId) return null;
+
+  return {
+    name: name || symbol,
+    symbol: symbol || (name ? name.slice(0, 12) : ""),
+    logo,
+  };
+}
+
 async function heliusMeta(mint: string): Promise<AssetMeta | null> {
   try {
     const res = await fetch(HELIUS_RPC, {
@@ -59,7 +102,6 @@ async function heliusMeta(mint: string): Promise<AssetMeta | null> {
     return {
       name: name || symbol || mint.slice(0, 8),
       symbol: symbol || name.slice(0, 8) || "",
-      // DexScreener first — j7tracker often blocked from serverless
       logo: dex,
       logoCandidates: candidates,
     };
@@ -70,10 +112,9 @@ async function heliusMeta(mint: string): Promise<AssetMeta | null> {
 
 /**
  * Resolve display name/symbol/logo for a voted assetId.
- * Tokens.xyz first; Helius DAS fallback for pump/unregistered mints.
+ * Tokens.xyz first (incl. primaryVariant); Helius DAS fallback.
  */
 export async function resolveAssetMeta(assetId: string): Promise<AssetMeta> {
-  // Official $SHIT mint — Tokens.xyz has null name/symbol
   const mintEarly = extractMint(assetId) || assetId;
   if (
     mintEarly === "fEbiuDdZZ1QaWYpJFPqk23ZkaRnAyHg4aivhrCTshit" ||
@@ -92,49 +133,49 @@ export async function resolveAssetMeta(assetId: string): Promise<AssetMeta> {
     logo: "",
   };
 
-  // 1) Tokens.xyz asset by id
+  // 1) Tokens.xyz asset by id — prefer primaryVariant for composite ids
   try {
     const d = await apiFetch(`/assets/${encodeURIComponent(assetId)}`);
     const a = d.asset || d;
-    const name = (a.name || a.profile?.name || "").trim();
-    const symbol = (a.symbol || a.profile?.symbol || "").trim();
-    const logo =
-      a.imageUrl ||
-      a.logo ||
-      a.primaryVariant?.market?.logoURI ||
-      a.profile?.logo ||
-      "";
-    if (name && name !== assetId) {
-      return { name, symbol, logo: logo || "" };
+    const m = metaFromRow(a, assetId) || metaFromRow(d, assetId);
+    if (m) return m;
+  } catch {
+    /* continue */
+  }
+
+  // 2) Scan curated majors for this id (has primaryVariant labels)
+  try {
+    const d = await apiFetch(`/assets/curated?list=majors&groupBy=asset`);
+    const assets = (d.assets || d.results || []) as Record<string, unknown>[];
+    const hit = assets.find(
+      (row) =>
+        String(row.assetId || row.id || "") === assetId ||
+        String((row as { asset?: { assetId?: string } }).asset?.assetId || "") ===
+          assetId
+    );
+    if (hit) {
+      const m = metaFromRow(hit, assetId);
+      if (m) return m;
     }
   } catch {
     /* continue */
   }
 
-  // 2) resolve by mint if composite / bare mint
+  // 3) resolve by mint
   const mint = extractMint(assetId);
   if (mint) {
     try {
       const d = await apiFetch(
         `/assets/resolve?mint=${encodeURIComponent(mint)}`
       );
-      const a = d.asset || d;
-      const name = (a.name || "").trim();
-      const symbol = (a.symbol || "").trim();
-      const logo =
-        a.imageUrl ||
-        a.logo ||
-        a.primaryVariant?.market?.logoURI ||
-        d.variant?.market?.logoURI ||
-        "";
-      if (name && name !== assetId && name !== mint) {
-        return { name, symbol, logo: logo || "" };
-      }
+      const a = d.asset || d.variant || d;
+      const m = metaFromRow(a, assetId) || metaFromRow(d, assetId);
+      if (m) return m;
     } catch {
       /* continue */
     }
 
-    // 3) Helius DAS — real name for pump tokens Tokens.xyz doesn't label
+    // 4) Helius DAS
     const h = await heliusMeta(mint);
     if (h) return h;
   }
