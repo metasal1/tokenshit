@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { EmojiIcon } from "@/components/EmojiIcon";
 import { SHIT_SYMBOL } from "@/lib/shit-token";
+import VrfProofLinks from "@/components/VrfProofLinks";
 
 type Winner = {
   utcHour: string;
@@ -20,6 +21,15 @@ type Winner = {
   fee: number;
   pot: number;
   sig: string | null;
+  vrf?: {
+    provider?: string;
+    slot?: number | null;
+    blockhash?: string | null;
+    proofnetworkId?: number | null;
+    verificationHash?: string | null;
+    entriesHash?: string | null;
+  } | null;
+  vrfLink?: { label: string; url: string; detail?: string } | null;
 };
 
 function fmtPct(n: number | null) {
@@ -207,6 +217,24 @@ export default function WinnersBoard({
             {w.winner && (
               <div className="mt-2 pt-2 border-t border-white/5 text-[10px] font-mono text-zinc-600 break-all">
                 {w.winner}
+              </div>
+            )}
+            {(w.vrf || w.vrfLink) && (
+              <div className="mt-2 pt-2 border-t border-white/5">
+                {w.vrf ? (
+                  <VrfProofLinks vrf={w.vrf} compact />
+                ) : w.vrfLink ? (
+                  <a
+                    href={w.vrfLink.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(e) => e.stopPropagation()}
+                    className="text-[11px] font-mono text-neon-blue hover:underline"
+                  >
+                    VRF on-chain
+                    {w.vrfLink.detail ? ` · ${w.vrfLink.detail}` : ""}
+                  </a>
+                ) : null}
               </div>
             )}
           </Link>

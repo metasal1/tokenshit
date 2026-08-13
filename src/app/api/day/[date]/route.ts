@@ -76,14 +76,24 @@ export async function GET(_req: Request, ctx: Ctx) {
       }
     }
 
-    let metaJson = null;
+    let metaJson: Record<string, unknown> | string | null = null;
+    let hitVrf = null;
+    let shitVrf = null;
     if (round?.meta) {
       try {
         metaJson = JSON.parse(round.meta);
+        if (metaJson && typeof metaJson === "object") {
+          hitVrf = (metaJson as { hitVrf?: unknown }).hitVrf || null;
+          shitVrf = (metaJson as { shitVrf?: unknown }).shitVrf || null;
+        }
       } catch {
         metaJson = round.meta;
       }
     }
+
+    const { vrfExplorerLinks, vrfPrimaryLink } = await import(
+      "@/lib/day-vrf-links"
+    );
 
     return Response.json({
       cadence: "hourly",
@@ -95,6 +105,12 @@ export async function GET(_req: Request, ctx: Ctx) {
       shitMeta,
       stakeCount: stakes.length,
       meta: metaJson,
+      hitVrf,
+      shitVrf,
+      hitVrfLink: vrfPrimaryLink(hitVrf as never),
+      shitVrfLink: vrfPrimaryLink(shitVrf as never),
+      hitVrfLinks: vrfExplorerLinks(hitVrf as never),
+      shitVrfLinks: vrfExplorerLinks(shitVrf as never),
     });
   } catch (e) {
     return Response.json(
