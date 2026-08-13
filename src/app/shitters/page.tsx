@@ -1,14 +1,6 @@
-import type { Metadata } from "next";
-import WinnersBoard from "@/components/WinnersBoard";
+import { redirect } from "next/navigation";
 
-export const dynamic = "force-dynamic";
-
-export const metadata: Metadata = {
-  title: "Shitters — past SHIT winners",
-  description:
-    "Past Shit of the Hour bags and wallet winners on TOKEN$HIT.",
-};
-
-export default function ShittersPage() {
-  return <WinnersBoard side="shit" />;
+/** Legacy → /winners?side=shit */
+export default function ShittersRedirect() {
+  redirect("/winners?side=shit");
 }
