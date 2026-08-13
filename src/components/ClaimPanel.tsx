@@ -226,7 +226,9 @@ export default function ClaimPanel() {
       return;
     }
     if (kind === "gh_fork" && !github) {
-      setErr("Link GitHub first.");
+      setMsg(null);
+      setErr("Link GitHub first (Privy popup), then claim the fork.");
+      linkGithub();
       return;
     }
     if (kind === "x_tweet" && !tweetUrl.trim()) {
@@ -408,9 +410,9 @@ export default function ClaimPanel() {
               <button
                 type="button"
                 onClick={() => linkGithub()}
-                className="min-h-9 px-3 rounded-md border border-zinc-600 text-zinc-300 font-medium"
+                className="min-h-9 px-3 rounded-md border border-neon/50 bg-neon/10 text-neon font-semibold"
               >
-                Link GitHub
+                + Link GitHub
               </button>
             )}
             {wallet ? (
@@ -749,46 +751,78 @@ export default function ClaimPanel() {
         </RewardRow>
 
         <RewardRow
-          title="GitHub fork"
-          amount={CLAIM_GH_FORK}
-          hint={
-            <>
-              100k · X required · 100+ followers · PFP · Fork{" "}
-              <a
-                href="https://github.com/solana-foundation/tokens"
-                className="text-neon-blue break-all"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                solana-foundation/tokens
-              </a>
-            </>
-          }
-        >
-          {claimedStatus["gh_fork"] ? (
-            <span className="text-xs font-mono text-neon bg-neon/10 border border-neon/30 rounded-md px-2 py-1">Claimed ✓</span>
-          ) : statusLoading ? (
-            <span className="text-[10px] text-zinc-600">…</span>
-          ) : null}
-          <button
-            type="button"
-            disabled={busy !== null || !!claimedStatus["gh_fork"]}
-            onClick={() => claim("gh_fork")}
-            className={BTN_LIGHT}
-          >
-            {busy === "gh_fork"
-              ? claimPhase === "send"
-                ? "Sending…"
-                : claimPhase === "verify"
-                  ? "Verifying…"
-                  : "Starting…"
-              : claimedStatus["gh_fork"]
-                ? "Already claimed"
-                : authenticated
-                  ? "Claim GH fork"
-                  : "Login"}
-          </button>
-        </RewardRow>
+                  title="GitHub fork"
+                  amount={CLAIM_GH_FORK}
+                  hint={
+                    <>
+                      100k · X required · 100+ followers · PFP · Link GitHub below · Fork{" "}
+                      <a
+                        href="https://github.com/solana-foundation/tokens"
+                        className="text-neon-blue break-all"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        solana-foundation/tokens
+                      </a>
+                    </>
+                  }
+                >
+                  {claimedStatus["gh_fork"] ? (
+                    <span className="text-xs font-mono text-neon bg-neon/10 border border-neon/30 rounded-md px-2 py-1">
+                      Claimed ✓
+                    </span>
+                  ) : statusLoading ? (
+                    <span className="text-[10px] text-zinc-600">…</span>
+                  ) : null}
+                  {!authenticated ? (
+                    <button type="button" onClick={() => login()} className={BTN_LIGHT}>
+                      Login with X
+                    </button>
+                  ) : !github ? (
+                    <div className="space-y-2">
+                      <p className="text-[11px] text-amber-300/90 leading-snug">
+                        X is linked. Tap below to attach GitHub to the same account (Privy
+                        OAuth) — required for the fork claim.
+                      </p>
+                      <button
+                        type="button"
+                        disabled={busy !== null}
+                        onClick={() => {
+                          setErr(null);
+                          try {
+                            linkGithub();
+                          } catch (e) {
+                            setErr(
+                              e instanceof Error
+                                ? e.message
+                                : "Could not open GitHub link. Try avatar menu → Link GitHub."
+                            );
+                          }
+                        }}
+                        className={BTN_NEON}
+                      >
+                        Link GitHub account
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled={busy !== null || !!claimedStatus["gh_fork"]}
+                      onClick={() => claim("gh_fork")}
+                      className={BTN_LIGHT}
+                    >
+                      {busy === "gh_fork"
+                        ? claimPhase === "send"
+                          ? "Sending…"
+                          : claimPhase === "verify"
+                            ? "Verifying…"
+                            : "Starting…"
+                        : claimedStatus["gh_fork"]
+                          ? "Already claimed"
+                          : `Claim fork as gh/${github}`}
+                    </button>
+                  )}
+                </RewardRow>
       </div>
 
       {treasuryShit != null && treasuryShit < CLAIM_X_TWEET && (
