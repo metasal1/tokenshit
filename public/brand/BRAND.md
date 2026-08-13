@@ -40,10 +40,23 @@ Source: `src/lib/brand.ts`
 
 | Use | Family |
 |-----|--------|
-| Brand lockup | Monoton |
+| Brand lockup | **Monoton** |
 | Display / HUD | Orbitron |
 | UI body | Geist |
 | Prices / mints | Geist Mono |
+| Icons / emoji / confetti | **Noto Color Emoji** (`.emoji` / `EmojiIcon`) |
+
+CSS stack for icons:
+
+```css
+.emoji, .font-emoji {
+  font-family: "Noto Color Emoji", "Apple Color Emoji", "Segoe UI Emoji",
+    "Segoe UI Symbol";
+  font-variant-emoji: emoji;
+}
+```
+
+Never bare system emoji in UI, posters, emails, TG, or X — always Noto via `.emoji` / `EmojiIcon`.
 
 Prices: plain decimals only (`$0.0000373`), never `3.73e-5`.
 
@@ -77,7 +90,10 @@ Don't: hashtags on X, auto-post, lame daily meme spam, corporate announce-speak.
 | OG / social 1200×630 | `/brand/og-image.png` |
 | OG share (wide lockup) | `/brand/og-share.png` |
 | Hit/Shit hour poster 1080×1350 | `/brand/hit-shit-hour-poster.png` |
+| Hit/Shit hour poster @2x 2160×2700 | `/brand/hit-shit-hour-poster@2x.png` |
 | Hit/Shit hour banner 1200×630 | `/brand/hit-shit-hour-banner.png` |
+| Hit/Shit hour banner @2x 2400×1260 | `/brand/hit-shit-hour-banner@2x.png` |
+| Noto emoji PNGs (icons) | `/brand/emoji/` |
 | Brand fonts (Monoton etc.) | `/brand/fonts/` |
 | Dynamic OG | `/opengraph-image` · `/twitter-image` |
 

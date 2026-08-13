@@ -234,6 +234,43 @@ export default function BrandPage() {
               Prices, mints, countdowns — never scientific notation
             </p>
           </div>
+          <div className="rounded-xl border border-border bg-card p-5 space-y-3 sm:col-span-2">
+            <p className="text-[10px] uppercase tracking-widest text-zinc-500 font-mono">
+              Icons · {BRAND.fonts.emoji}
+            </p>
+            <p className="flex flex-wrap items-center gap-4 text-3xl leading-none">
+              <span className="emoji" title="HIT">
+                🎯
+              </span>
+              <span className="emoji" title="SHIT">
+                💀
+              </span>
+              <span className="emoji" title="loading">
+                💫
+              </span>
+              <span className="emoji" title="sparkles">
+                ✨
+              </span>
+              <span className="emoji" title="fire">
+                🔥
+              </span>
+            </p>
+            <p className="text-xs text-zinc-500 leading-relaxed">
+              <strong className="text-zinc-300">{BRAND.fonts.emoji}</strong> via{" "}
+              <code className="text-neon-blue">{BRAND.fonts.emojiCss}</code>.
+              Stack: <code className="text-zinc-400">{BRAND.fonts.emojiStack}</code>.
+              Never bare OS default emoji in UI, posters, emails, TG, or X —
+              always Noto through <code className="text-zinc-400">EmojiIcon</code>.
+            </p>
+            <a
+              href={BRAND.fonts.emojiSource}
+              className="text-xs text-neon-blue hover:underline"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              fonts.google.com · Noto Color Emoji
+            </a>
+          </div>
         </div>
       </Section>
 
@@ -315,6 +352,10 @@ export default function BrandPage() {
               ["Square", BRAND.logo.assets.logoSquare],
               ["$ mark", BRAND.logo.assets.logoMark],
               ["X banner", BRAND.logo.assets.xBanner],
+              ["Hour poster", BRAND.logo.assets.hitShitHourPoster],
+              ["Hour poster @2x", BRAND.logo.assets.hitShitHourPoster2x],
+              ["Hour banner", BRAND.logo.assets.hitShitHourBanner],
+              ["Hour banner @2x", BRAND.logo.assets.hitShitHourBanner2x],
             ] as const
           ).map(([label, src]) => (
             <a
