@@ -87,7 +87,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#39ff14",
+  themeColor: "#0a0a0f",
   colorScheme: "dark",
   width: "device-width",
   initialScale: 1,
@@ -133,6 +133,8 @@ export default function RootLayout({
           name="apple-mobile-web-app-status-bar-style"
           content="black-translucent"
         />
+        <meta name="theme-color" content="#0a0a0f" />
+        <meta name="apple-mobile-web-app-title" content="TOKEN$HIT" />
         <Script
           src="https://www.googletagmanager.com/gtag/js?id=G-XTVEWC915F"
           strategy="afterInteractive"
