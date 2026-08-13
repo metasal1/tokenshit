@@ -379,7 +379,7 @@ export async function renderTokenshitMeme(
   blankUrl: string,
   boxes: MemeBox[],
   texts: string[],
-  opts?: { brand?: boolean }
+  _opts?: { brand?: boolean }
 ): Promise<string> {
   await ensureMonotonFont();
   const img = await loadImage(blankSrc(blankUrl));
@@ -392,6 +392,7 @@ export async function renderTokenshitMeme(
   boxes.forEach((box, i) => {
     drawMonotonBox(ctx, box, texts[i] || "", canvas.width, canvas.height);
   });
-  if (opts?.brand !== false) await drawWatermark(ctx, canvas.width, canvas.height);
+  // TOKENSHIT logo watermark is mandatory on every meme export
+  await drawWatermark(ctx, canvas.width, canvas.height);
   return canvas.toDataURL("image/png");
 }
