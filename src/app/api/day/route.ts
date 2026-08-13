@@ -5,11 +5,12 @@ import {
   DAY_STAKE_AMOUNT,
   ensureRound,
   fetchRealMajorsLive,
+  formatHourLabel,
   getRound,
   listStakes,
-  nextUtcMidnightMs,
+  nextUtcHourMs,
   recordStake,
-  utcDayString,
+  utcHourString,
   type DaySide,
 } from "@/lib/day-game";
 import { requirePrivy } from "@/lib/privy-server";
@@ -19,15 +20,15 @@ import { SHIT_MINT, TREASURY_ADDRESS } from "@/lib/shit-token";
 export const dynamic = "force-dynamic";
 
 /**
- * GET /api/day — today's round status
- * POST /api/day — stake { assetId, side, signature, wallet }
+ * GET /api/day — current hour round
+ * POST /api/day — stake
  */
 export async function GET() {
   try {
-    const day = utcDayString();
-    await ensureRound(day);
-    const round = await getRound(day);
-    const stakes = await listStakes(day);
+    const hour = utcHourString();
+    await ensureRound(hour);
+    const round = await getRound(hour);
+    const stakes = await listStakes(hour);
     const majors = await fetchRealMajorsLive().catch(() => []);
 
     const hitCount = stakes.filter((s) => s.side === "hit").length;
@@ -41,9 +42,12 @@ export async function GET() {
 
     return Response.json({
       enabled: DAY_GAME_ENABLED,
-      utcDay: day,
-      msToClose: Math.max(0, nextUtcMidnightMs() - Date.now()),
-      nextCloseAt: new Date(nextUtcMidnightMs()).toISOString(),
+      cadence: "hourly",
+      utcDay: hour,
+      utcHour: hour,
+      hourLabel: formatHourLabel(hour),
+      msToClose: Math.max(0, nextUtcHourMs() - Date.now()),
+      nextCloseAt: new Date(nextUtcHourMs()).toISOString(),
       stakeAmount: DAY_STAKE_AMOUNT,
       houseFeeBps: DAY_HOUSE_FEE_BPS,
       treasury: TREASURY_ADDRESS,
@@ -75,13 +79,13 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     if (!DAY_GAME_ENABLED) {
-      return Response.json({ error: "Day game paused" }, { status: 503 });
+      return Response.json({ error: "Hour game paused" }, { status: 503 });
     }
     const ip = getClientIp(request);
     const limited = await rateLimitIp({
       ip,
       bucket: "day_stake",
-      limit: 40,
+      limit: 60,
       windowHours: 1,
     });
     if (limited) return limited;
@@ -139,9 +143,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const day = utcDayString();
+    const hour = utcHourString();
     const rec = await recordStake({
-      utcDay: day,
+      utcDay: hour,
       wallet,
       assetId,
       side,
@@ -154,7 +158,8 @@ export async function POST(request: NextRequest) {
 
     return Response.json({
       ok: true,
-      utcDay: day,
+      utcDay: hour,
+      utcHour: hour,
       side,
       assetId,
       amount: DAY_STAKE_AMOUNT,

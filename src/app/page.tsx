@@ -6,49 +6,38 @@ import RandomTokenVote from "@/components/RandomTokenVote";
 import GlobalTreasuryBanner from "@/components/GlobalTreasuryBanner";
 import XFollowersBadge from "@/components/XFollowersBadge";
 import ShareRefButton from "@/components/ShareRefButton";
+import DayGamePanel from "@/components/DayGamePanel";
 
 /**
- * Home is a fast static shell. Heavy leaderboard/meta loads client-side
- * so CF Workers TTFB stays low (~sub-second) instead of 10s SSR waterfalls.
- * Primary CTA = vote (HIT/SHIT). Search sits high + above vote (not clipped).
+ * Main feature = Hit/Shit of the Hour.
+ * Arena vote + registry sit below.
  */
-export const dynamic = "force-static";
-export const revalidate = 300;
+export const dynamic = "force-dynamic";
 
 export default function Home() {
   return (
     <div className="flex flex-col">
       <section className="relative border-b border-border">
         <div className="absolute inset-0 bg-gradient-to-b from-neon/5 via-transparent to-transparent pointer-events-none" />
-        <div className="mx-auto max-w-4xl px-4 pt-8 sm:pt-12 pb-10 text-center relative">
-          <h1 className="mb-3">
+        <div className="mx-auto max-w-4xl px-3 sm:px-4 pt-6 sm:pt-10 pb-8 text-center relative">
+          <h1 className="mb-2">
             <AnimatedLogo size="hero" />
           </h1>
           <p className="text-base sm:text-xl text-zinc-400 mb-1 max-w-2xl mx-auto">
-            Every token is shit until proven otherwise.
+            Stake the hour. Call HIT or SHIT.
           </p>
           <p className="text-sm text-zinc-500 mb-5 max-w-xl mx-auto">
-            One tap. HIT or SHIT. CT does the rest.
+            1,000 $TOKENSHIT · real majors · best/worst % wins the pot · every UTC
+            hour.
           </p>
 
-          {/* Search first — high on page, dropdown not clipped by overflow */}
-          <div className="max-w-2xl mx-auto mb-6 relative z-[60]">
-            <SearchBar big />
+          {/* PRIMARY — hourly game */}
+          <div className="max-w-lg mx-auto text-left relative z-10 mb-8">
+            <DayGamePanel />
           </div>
 
-          {/* PRIMARY CTA — vote */}
-          <div className="max-w-2xl mx-auto text-left relative z-10">
-            <div className="rounded-2xl border border-neon/40 bg-card/80 shadow-[0_0_40px_rgba(57,255,20,0.08)] p-4 sm:p-5">
-              <div className="flex items-center justify-between gap-2 mb-3">
-                <h2 className="text-sm sm:text-base font-bold text-white">
-                  Rate this bag
-                </h2>
-                <span className="text-[10px] sm:text-xs font-mono uppercase tracking-wider text-neon border border-neon/40 rounded-full px-2.5 py-0.5">
-                  Vote now
-                </span>
-              </div>
-              <RandomTokenVote />
-            </div>
+          <div className="max-w-2xl mx-auto mb-4 relative z-[60]">
+            <SearchBar big />
           </div>
         </div>
       </section>
@@ -59,10 +48,25 @@ export default function Home() {
         <ShareRefButton path="/" />
       </section>
 
-      <section className="mx-auto max-w-7xl w-full px-4 pt-10 pb-6">
-        <h2 className="text-2xl font-bold mb-2">Arena</h2>
+      {/* Secondary — free arena votes */}
+      <section className="mx-auto max-w-2xl w-full px-4 py-8 border-t border-border">
+        <div className="rounded-2xl border border-border bg-card/80 p-4 sm:p-5">
+          <div className="flex items-center justify-between gap-2 mb-3">
+            <h2 className="text-sm sm:text-base font-bold text-white">
+              Free arena vote
+            </h2>
+            <span className="text-[10px] sm:text-xs font-mono uppercase tracking-wider text-zinc-500 border border-border rounded-full px-2.5 py-0.5">
+              Practice
+            </span>
+          </div>
+          <RandomTokenVote />
+        </div>
+      </section>
+
+      <section className="mx-auto max-w-7xl w-full px-4 pt-6 pb-6">
+        <h2 className="text-2xl font-bold mb-2">Arena boards</h2>
         <p className="text-sm text-zinc-500 mb-6">
-          HIT / SHIT by category — crypto, stocks, stables, more.
+          HIT / SHIT tallies by category.
         </p>
         <CategoryLeaderboard />
       </section>

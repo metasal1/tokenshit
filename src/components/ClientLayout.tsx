@@ -376,8 +376,8 @@ function Layout({ children }: { children: React.ReactNode }) {
         <div className="hidden sm:flex items-center gap-4 text-sm text-zinc-400">
           <Link href="/" className="hover:text-foreground transition-colors">Home</Link>
           <Link href="/stats" className="hover:text-foreground transition-colors">Stats</Link>
+          <Link href="/hour" className="hover:text-foreground transition-colors">Hour</Link>
           <Link href="/swap" className="hover:text-foreground transition-colors">Swap</Link>
-          <Link href="/day" className="hover:text-foreground transition-colors">Day</Link>
           <Link href="/claim" className="hover:text-foreground transition-colors">Claim</Link>
           <Link href="/referrals" className="hover:text-foreground transition-colors">Referrals</Link>
           <ShitBalanceBadge />
@@ -418,8 +418,8 @@ function Layout({ children }: { children: React.ReactNode }) {
         <div className="sm:hidden border-t border-border bg-background/95 backdrop-blur-xl px-4 py-3 flex flex-col gap-3 text-sm">
           <Link href="/" className="text-zinc-400 hover:text-foreground transition-colors" onClick={() => setMenuOpen(false)}>Home</Link>
           <Link href="/stats" className="text-zinc-400 hover:text-foreground transition-colors" onClick={() => setMenuOpen(false)}>Stats</Link>
+          <Link href="/hour" className="text-zinc-400 hover:text-foreground transition-colors" onClick={() => setMenuOpen(false)}>Hour</Link>
           <Link href="/swap" className="text-zinc-400 hover:text-foreground transition-colors" onClick={() => setMenuOpen(false)}>Swap</Link>
-          <Link href="/day" className="text-zinc-400 hover:text-foreground transition-colors" onClick={() => setMenuOpen(false)}>Day</Link>
           <Link href="/claim" className="text-zinc-400 hover:text-foreground transition-colors" onClick={() => setMenuOpen(false)}>Claim</Link>
           <Link href="/referrals" className="text-zinc-400 hover:text-foreground transition-colors" onClick={() => setMenuOpen(false)}>Referrals</Link>
           <ShitBalanceBadge />

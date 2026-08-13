@@ -5,9 +5,9 @@ import Link from "next/link";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Hit / Shit of the Day",
+  title: "Hit / Shit of the Hour",
   description:
-    "Stake 1,000 $TOKENSHIT on a major. Best price % wins the HIT pot; worst wins the SHIT pot. VRF picks one wallet. 25% to treasury.",
+    "Stake 1,000 $TOKENSHIT on a major every UTC hour. Best price % wins HIT pot; worst wins SHIT pot. VRF winner. 25% treasury.",
 };
 
 export default function DayPage() {
@@ -16,10 +16,10 @@ export default function DayPage() {
       <DayGamePanel />
       <p className="text-center text-[11px] text-zinc-600">
         <Link href="/" className="text-neon-blue hover:underline">
-          ← Arena
+          ← Home
         </Link>
         {" · "}
-        Rules: real majors · UTC day · 1 wallet = 1 ticket · volume tie-break
+        Hourly UTC · real majors · 1 wallet = 1 ticket · volume tie-break
       </p>
     </div>
   );
