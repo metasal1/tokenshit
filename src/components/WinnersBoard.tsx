@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { EmojiIcon } from "@/components/EmojiIcon";
 import { SHIT_SYMBOL } from "@/lib/shit-token";
 
@@ -32,13 +33,41 @@ function shortAddr(w: string | null) {
   return `${w.slice(0, 4)}…${w.slice(-4)}`;
 }
 
-export default function WinnersBoard({ side }: { side: "hit" | "shit" }) {
+export default function WinnersBoard({
+  initialSide = "hit",
+}: {
+  initialSide?: "hit" | "shit";
+}) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const fromQuery = searchParams.get("side");
+  const side: "hit" | "shit" =
+    fromQuery === "shit" || fromQuery === "hit"
+      ? fromQuery
+      : initialSide === "shit"
+        ? "shit"
+        : "hit";
+
   const hit = side === "hit";
   const [rows, setRows] = useState<Winner[] | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
+  const setSide = useCallback(
+    (next: "hit" | "shit") => {
+      const base =
+        pathname === "/hitters" || pathname === "/shitters"
+          ? "/winners"
+          : pathname || "/winners";
+      router.replace(`${base}?side=${next}`, { scroll: false });
+    },
+    [pathname, router]
+  );
+
   useEffect(() => {
     let cancelled = false;
+    setRows(null);
+    setErr(null);
     fetch(`/api/day/winners?side=${side}&limit=60`, { cache: "no-store" })
       .then(async (r) => {
         const d = await r.json();
@@ -55,26 +84,49 @@ export default function WinnersBoard({ side }: { side: "hit" | "shit" }) {
 
   return (
     <div className="mx-auto w-full max-w-lg px-3 sm:px-4 pt-4 pb-10 space-y-4">
-      <div className="rounded-2xl border border-border bg-card p-4 sm:p-5 space-y-2">
+      <div className="rounded-2xl border border-border bg-card p-4 sm:p-5 space-y-3">
         <div className="flex items-center gap-2">
           <EmojiIcon size={28}>{hit ? "🎯" : "💀"}</EmojiIcon>
-          <h1 className="text-xl sm:text-2xl font-bold text-white">
-            {hit ? "Hitters" : "Shitters"}
-          </h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-white">Winners</h1>
         </div>
         <p className="text-xs text-zinc-500">
-          Past hour {hit ? "HIT" : "SHIT"} bags + wallet winners (or treasury).
-          Newest first.
+          Past hour bags + wallet winners (or treasury). Newest first.
         </p>
-        <div className="flex gap-3 text-xs">
-          <Link
-            href={hit ? "/shitters" : "/hitters"}
-            className="text-neon-blue hover:underline"
+
+        <div className="flex rounded-xl border border-border overflow-hidden text-sm font-bold">
+          <button
+            type="button"
+            onClick={() => setSide("hit")}
+            className={`flex-1 min-h-11 inline-flex items-center justify-center gap-1.5 transition-colors ${
+              hit
+                ? "bg-green-600 text-white"
+                : "bg-zinc-950 text-zinc-500 hover:text-zinc-300"
+            }`}
           >
-            {hit ? "See Shitters →" : "← See Hitters"}
-          </Link>
-          <Link href="/hour" className="text-zinc-500 hover:text-white">
+            <EmojiIcon size={18}>🎯</EmojiIcon>
+            Hitters
+          </button>
+          <button
+            type="button"
+            onClick={() => setSide("shit")}
+            className={`flex-1 min-h-11 inline-flex items-center justify-center gap-1.5 transition-colors ${
+              !hit
+                ? "bg-red-600 text-white"
+                : "bg-zinc-950 text-zinc-500 hover:text-zinc-300"
+            }`}
+          >
+            <EmojiIcon size={18}>💀</EmojiIcon>
+            Shitters
+          </button>
+        </div>
+
+        <div className="flex gap-3 text-xs">
+          <Link href="/hour" className="text-neon-blue hover:underline">
             Play this hour
+          </Link>
+          <span className="text-zinc-700">·</span>
+          <Link href="/day/prev" className="text-zinc-500 hover:text-white">
+            Last hour receipt
           </Link>
         </div>
       </div>

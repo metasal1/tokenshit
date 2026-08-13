@@ -531,12 +531,8 @@ export default function DayGamePanel() {
             Last hour receipt
           </Link>
           <span>·</span>
-          <Link href="/hitters" className="text-neon-blue hover:underline">
-            Hitters
-          </Link>
-          <span>·</span>
-          <Link href="/shitters" className="text-neon-blue hover:underline">
-            Shitters
+          <Link href="/winners" className="text-neon-blue hover:underline">
+            Winners
           </Link>
           <span>·</span>
           <a
