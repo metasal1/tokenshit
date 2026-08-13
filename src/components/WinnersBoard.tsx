@@ -6,6 +6,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { EmojiIcon } from "@/components/EmojiIcon";
 import { SHIT_SYMBOL } from "@/lib/shit-token";
 import VrfProofLinks from "@/components/VrfProofLinks";
+import type { VrfLink, VrfRecord } from "@/lib/day-vrf-links";
 
 type Winner = {
   utcHour: string;
@@ -21,15 +22,8 @@ type Winner = {
   fee: number;
   pot: number;
   sig: string | null;
-  vrf?: {
-    provider?: string;
-    slot?: number | null;
-    blockhash?: string | null;
-    proofnetworkId?: number | null;
-    verificationHash?: string | null;
-    entriesHash?: string | null;
-  } | null;
-  vrfLink?: { label: string; url: string; detail?: string } | null;
+  vrf?: VrfRecord | null;
+  vrfLink?: VrfLink | null;
 };
 
 function fmtPct(n: number | null) {
