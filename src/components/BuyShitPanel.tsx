@@ -6,11 +6,20 @@ import {
   useFundWallet,
   useSolanaFundingPlugin,
   useSignAndSendTransaction,
+  useSignTransaction,
   useWallets,
 } from "@privy-io/react-auth/solana";
 import { jupiterBuyUrlWithFee } from "@/lib/buy-fee";
 import { SHIT_SYMBOL } from "@/lib/shit-token";
 import { BalanceSkeleton } from "@/components/StatLoader";
+import {
+  b64ToBytes,
+  encodeSigBs58,
+  friendlySolanaSendError,
+  isPrepareFailure,
+  sendRawBase64,
+} from "@/lib/solana-send";
+import { pickSolanaAddress } from "@/lib/privy-identity";
 
 function SolanaFundingBootstrap() {
   useSolanaFundingPlugin();
@@ -63,6 +72,7 @@ export default function BuyShitPanel() {
   const { fundWallet } = useFundWallet();
   const { wallets } = useWallets();
   const { signAndSendTransaction } = useSignAndSendTransaction();
+  const { signTransaction } = useSignTransaction();
 
   const [solAmount, setSolAmount] = useState("0.1");
   const [busy, setBusy] = useState<"fund" | "buy" | null>(null);
@@ -218,34 +228,39 @@ export default function BuyShitPanel() {
       }
 
       const raw = sData.swapTransaction as string;
-      const txBytes = Uint8Array.from(atob(raw), (c) => c.charCodeAt(0));
-
-      const result = await signAndSendTransaction({
-        transaction: txBytes,
-        wallet: walletObj,
-        chain: "solana:mainnet",
-        options: {
-          uiOptions: {
-            showWalletUIs: true,
-          },
-        },
-      });
+      const txBytes = b64ToBytes(raw);
 
       let signature: string | null = null;
-      const sigBytes = result?.signature;
-      if (sigBytes instanceof Uint8Array) {
-        signature = encodeSig(sigBytes);
-      } else if (typeof result?.signature === "string") {
-        signature = result.signature;
+      try {
+        const result = await signAndSendTransaction({
+          transaction: txBytes,
+          wallet: walletObj,
+          chain: "solana:mainnet",
+          options: { uiOptions: { showWalletUIs: true } },
+        });
+        const sigBytes = result?.signature;
+        if (sigBytes instanceof Uint8Array) signature = encodeSigBs58(sigBytes);
+        else if (typeof result?.signature === "string") signature = result.signature;
+      } catch (e) {
+        if (!isPrepareFailure(e)) throw e;
+        const signed = await signTransaction({
+          transaction: txBytes,
+          wallet: walletObj,
+          chain: "solana:mainnet",
+          options: { uiOptions: { showWalletUIs: true } },
+        });
+        if (!(signed?.signedTransaction instanceof Uint8Array)) throw e;
+        signature = await sendRawBase64(signed.signedTransaction, {
+          skipPreflight: true,
+        });
       }
 
       setSig(signature);
       setMsg(`Bought $${SHIT_SYMBOL}`);
       void refreshQuote();
     } catch (e) {
-      const m = e instanceof Error ? e.message : String(e);
-      // friendlier common errors
-      if (/insufficient|0x1|lamport/i.test(m)) {
+      const m = friendlySolanaSendError(e);
+      if (/insufficient|0x1|lamport|fees/i.test(m)) {
         setErr("Not enough SOL — add SOL first, then buy.");
       } else if (/User rejected|denied|cancel/i.test(m)) {
         setErr("Cancelled.");

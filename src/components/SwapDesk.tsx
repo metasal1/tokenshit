@@ -6,12 +6,20 @@ import {
   useFundWallet,
   useSolanaFundingPlugin,
   useSignAndSendTransaction,
+  useSignTransaction,
   useWallets,
 } from "@privy-io/react-auth/solana";
 import { jupiterBuyUrlWithFee, USDC_MINT } from "@/lib/buy-fee";
 import { SHIT_MINT, SHIT_SYMBOL, SHIT_DECIMALS } from "@/lib/shit-token";
 import { pickSolanaAddress } from "@/lib/privy-identity";
 import { BalanceSkeleton } from "@/components/StatLoader";
+import {
+  b64ToBytes,
+  encodeSigBs58,
+  friendlySolanaSendError,
+  isPrepareFailure,
+  sendRawBase64,
+} from "@/lib/solana-send";
 
 const SOL_MINT = "So11111111111111111111111111111111111111112";
 const USDC_DECIMALS = 6;
@@ -104,6 +112,7 @@ export default function SwapDesk() {
   const { ready, authenticated, user, login } = usePrivy();
   const { wallets } = useWallets();
   const { signAndSendTransaction } = useSignAndSendTransaction();
+  const { signTransaction } = useSignTransaction();
   const { fundWallet } = useFundWallet();
 
   const [mode, setMode] = useState<Mode>("buy");
@@ -424,39 +433,59 @@ export default function SwapDesk() {
       void refreshQuote();
       window.setTimeout(() => void loadBalances(), 2000);
     } catch (e) {
-      const m = e instanceof Error ? e.message : String(e);
-      if (/insufficient|0x1|lamport/i.test(m)) {
-        setErr(
-          `Not enough ${payLabel}${payAsset !== "sol" ? " (or SOL for fees)" : ""}.`
-        );
-      } else if (/User rejected|denied|cancel/i.test(m)) {
-        setErr("Cancelled.");
-      } else if (/5663005|lookup tables unknown|address lookup/i.test(m)) {
-        setErr("Wallet couldn’t load the route — refresh and try again.");
-      } else {
-        setErr(m);
-      }
+      setErr(friendlySolanaSendError(e));
     } finally {
       setBusy(null);
     }
   }
 
   async function sendTx(raw: string) {
-    const txBytes = Uint8Array.from(atob(raw), (c) => c.charCodeAt(0));
-    const result = await signAndSendTransaction({
-      transaction: txBytes,
-      wallet: walletObj,
-      chain: "solana:mainnet",
-      options: { uiOptions: { showWalletUIs: true } },
-    });
-    let signature: string | null = null;
-    const sigBytes = result?.signature;
-    if (sigBytes instanceof Uint8Array) {
-      signature = encodeSig(sigBytes);
-    } else if (typeof result?.signature === "string") {
-      signature = result.signature;
+    if (!walletObj) throw new Error("No wallet");
+    const txBytes = b64ToBytes(raw);
+
+    // Pre-check: need SOL for fees on non-SOL sells too
+    if ((balances?.sol ?? 0) < 0.005) {
+      throw new Error(
+        "Need ~0.01 SOL in this wallet for network fees before swapping."
+      );
     }
-    setSig(signature);
+
+    try {
+      const result = await signAndSendTransaction({
+        transaction: txBytes,
+        wallet: walletObj,
+        chain: "solana:mainnet",
+        options: { uiOptions: { showWalletUIs: true } },
+      });
+      let signature: string | null = null;
+      const sigBytes = result?.signature;
+      if (sigBytes instanceof Uint8Array) {
+        signature = encodeSigBs58(sigBytes);
+      } else if (typeof result?.signature === "string") {
+        signature = result.signature;
+      }
+      setSig(signature);
+      return signature;
+    } catch (e) {
+      // Privy "prepare" often dies on Token-2022 Jupiter routes (-32602).
+      // Fallback: sign only, broadcast via our RPC.
+      if (!isPrepareFailure(e)) throw e;
+      const signed = await signTransaction({
+        transaction: txBytes,
+        wallet: walletObj,
+        chain: "solana:mainnet",
+        options: { uiOptions: { showWalletUIs: true } },
+      });
+      const signedBytes = signed?.signedTransaction;
+      if (!(signedBytes instanceof Uint8Array)) {
+        throw e;
+      }
+      const signature = await sendRawBase64(signedBytes, {
+        skipPreflight: true,
+      });
+      setSig(signature);
+      return signature;
+    }
   }
 
   if (!ready) {

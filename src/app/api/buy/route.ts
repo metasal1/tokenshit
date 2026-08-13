@@ -15,6 +15,49 @@ export const dynamic = "force-dynamic";
 const MAX_BUY_LAMPORTS = 50 * 1e9;
 const MIN_BUY_LAMPORTS = 1_000_000;
 
+async function buildSwap(opts: {
+  quoteResponse: unknown;
+  userPublicKey: string;
+  feeAccount?: string | null;
+  asLegacyTransaction: boolean;
+}) {
+  const payload: Record<string, unknown> = {
+    quoteResponse: opts.quoteResponse,
+    userPublicKey: opts.userPublicKey,
+    wrapAndUnwrapSol: true,
+    dynamicComputeUnitLimit: true,
+    prioritizationFeeLamports: 100_000,
+    asLegacyTransaction: opts.asLegacyTransaction,
+  };
+  if (opts.feeAccount) payload.feeAccount = opts.feeAccount;
+
+  const res = await fetch(JUP_SWAP, {
+    method: "POST",
+    headers: jupHeaders(),
+    body: JSON.stringify(payload),
+  });
+  const text = await res.text();
+  let data: Record<string, unknown> = {};
+  try {
+    data = JSON.parse(text);
+  } catch {
+    return {
+      ok: false as const,
+      status: 502,
+      error: `Jupiter swap non-JSON: ${text.slice(0, 200)}`,
+    };
+  }
+  if (!res.ok || !data.swapTransaction) {
+    return {
+      ok: false as const,
+      status: res.status || 502,
+      error: String(data?.error || data?.message || text.slice(0, 200)),
+      data,
+    };
+  }
+  return { ok: true as const, data };
+}
+
 export async function GET(request: NextRequest) {
   const ip = getClientIp(request);
   const limited = await rateLimitIp({
@@ -33,7 +76,9 @@ export async function GET(request: NextRequest) {
   const n = Number(amountLamports);
   if (n < MIN_BUY_LAMPORTS || n > MAX_BUY_LAMPORTS) {
     return Response.json(
-      { error: `amountLamports must be ${MIN_BUY_LAMPORTS}–${MAX_BUY_LAMPORTS}` },
+      {
+        error: `amountLamports must be ${MIN_BUY_LAMPORTS}–${MAX_BUY_LAMPORTS}`,
+      },
       { status: 400 }
     );
   }
@@ -45,6 +90,7 @@ export async function GET(request: NextRequest) {
   url.searchParams.set("outputMint", SHIT_MINT);
   url.searchParams.set("amount", amountLamports);
   url.searchParams.set("slippageBps", slippageBps);
+  url.searchParams.set("maxAccounts", "40");
   if (withFee) {
     url.searchParams.set("platformFeeBps", String(BUY_FEE_BPS));
   }
@@ -71,6 +117,7 @@ export async function GET(request: NextRequest) {
         u2.searchParams.set("outputMint", SHIT_MINT);
         u2.searchParams.set("amount", amountLamports);
         u2.searchParams.set("slippageBps", slippageBps);
+        u2.searchParams.set("maxAccounts", "40");
         const r2 = await fetch(u2.toString(), {
           headers: jupHeaders(),
           cache: "no-store",
@@ -148,76 +195,46 @@ export async function POST(request: NextRequest) {
       body.fee === 1 ||
       (body.feeBps != null && Number(body.feeBps) > 0);
 
-    const payload: Record<string, unknown> = {
-      quoteResponse,
-      userPublicKey,
-      wrapAndUnwrapSol: true,
-      dynamicComputeUnitLimit: true,
-      prioritizationFeeLamports: "auto",
-      asLegacyTransaction: true,
-    };
-    if (useFee) {
-      payload.feeAccount = body.feeAccount || SHIT_FEE_ATA;
-    }
-
-    const res = await fetch(JUP_SWAP, {
-      method: "POST",
-      headers: jupHeaders(),
-      body: JSON.stringify(payload),
-    });
-    const text = await res.text();
-    let data: Record<string, unknown> = {};
-    try {
-      data = JSON.parse(text);
-    } catch {
-      return Response.json(
-        { error: `Jupiter swap non-JSON: ${text.slice(0, 200)}` },
-        { status: 502 }
-      );
-    }
-    if (!res.ok) {
-      if (useFee) {
-        const r2 = await fetch(JUP_SWAP, {
-          method: "POST",
-          headers: jupHeaders(),
-          body: JSON.stringify({
-            quoteResponse,
-            userPublicKey,
-            wrapAndUnwrapSol: true,
-            dynamicComputeUnitLimit: true,
-            prioritizationFeeLamports: "auto",
-            asLegacyTransaction: true,
-          }),
+    const feeAccount = useFee ? body.feeAccount || SHIT_FEE_ATA : null;
+    // Prefer versioned, then legacy (Privy prepare is picky)
+    for (const legacy of [false, true]) {
+      const built = await buildSwap({
+        quoteResponse,
+        userPublicKey,
+        feeAccount,
+        asLegacyTransaction: legacy,
+      });
+      if (built.ok) {
+        return Response.json({
+          ...built.data,
+          feeBps: useFee ? BUY_FEE_BPS : 0,
+          feeAccount: useFee ? SHIT_FEE_ATA : null,
+          legacy,
         });
-        const t2 = await r2.text();
-        try {
-          data = JSON.parse(t2);
-        } catch {
-          return Response.json(
-            { error: `Jupiter swap non-JSON: ${t2.slice(0, 200)}` },
-            { status: 502 }
-          );
-        }
-        if (r2.ok) {
+      }
+      // fee account often fails — retry without fee
+      if (useFee) {
+        const bare = await buildSwap({
+          quoteResponse,
+          userPublicKey,
+          feeAccount: null,
+          asLegacyTransaction: legacy,
+        });
+        if (bare.ok) {
           return Response.json({
-            ...data,
+            ...bare.data,
             feeBps: 0,
             feeAccount: null,
-            legacy: true,
+            legacy,
           });
         }
       }
-      return Response.json(
-        { error: data?.error || data?.message || text.slice(0, 200), data },
-        { status: res.status }
-      );
     }
-    return Response.json({
-      ...data,
-      feeBps: useFee ? BUY_FEE_BPS : 0,
-      feeAccount: useFee ? SHIT_FEE_ATA : null,
-      legacy: true,
-    });
+
+    return Response.json(
+      { error: "Could not build buy transaction — try again" },
+      { status: 502 }
+    );
   } catch (e) {
     return Response.json({ error: String(e) }, { status: 500 });
   }
