@@ -325,9 +325,9 @@ function LoginButton() {
             {!githubHandle && (
               <button
                 onClick={() => { linkGithub(); setShowMenu(false); }}
-                className="w-full text-left text-xs px-4 py-2.5 text-zinc-300 hover:bg-zinc-800 hover:text-white transition-colors"
+                className="w-full text-left text-xs px-4 py-2.5 text-neon hover:bg-zinc-800 transition-colors font-semibold"
               >
-                Link GitHub
+                + Link GitHub
               </button>
             )}
             <button
