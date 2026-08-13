@@ -17,6 +17,52 @@ function isMint(s: string) {
   return /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(s) && ALLOWED.has(s);
 }
 
+async function jupSwapBuild(opts: {
+  quoteResponse: unknown;
+  userPublicKey: string;
+  asLegacyTransaction: boolean;
+}) {
+  const payload = {
+    quoteResponse: opts.quoteResponse,
+    userPublicKey: opts.userPublicKey,
+    wrapAndUnwrapSol: true,
+    dynamicComputeUnitLimit: true,
+    // fixed priority fee (auto object shapes break some wallet prepare paths)
+    prioritizationFeeLamports: 100_000,
+    asLegacyTransaction: opts.asLegacyTransaction,
+  };
+  const res = await fetch(JUP_SWAP, {
+    method: "POST",
+    headers: jupHeaders(),
+    body: JSON.stringify(payload),
+  });
+  const text = await res.text();
+  let data: Record<string, unknown> = {};
+  try {
+    data = JSON.parse(text);
+  } catch {
+    return {
+      ok: false as const,
+      status: 502,
+      error: `Jupiter swap non-JSON: ${text.slice(0, 200)}`,
+    };
+  }
+  if (!res.ok || !data.swapTransaction) {
+    return {
+      ok: false as const,
+      status: res.status || 502,
+      error: String(
+        data?.error || data?.message || text.slice(0, 200) || "swap build failed"
+      ),
+      data,
+    };
+  }
+  return {
+    ok: true as const,
+    data: { ...data, legacy: opts.asLegacyTransaction },
+  };
+}
+
 /**
  * GET /api/swap?inputMint=&outputMint=&amount=&slippageBps=150
  * amount = raw integer (e.g. USDC/TOKENSHIT 6dp: 1 USDC = 1000000)
@@ -55,7 +101,6 @@ export async function GET(request: NextRequest) {
       { status: 400 }
     );
   }
-  // Cap raw amount absurd sizes (~1e15)
   if (amount.length > 15) {
     return Response.json({ error: "amount too large" }, { status: 400 });
   }
@@ -65,6 +110,8 @@ export async function GET(request: NextRequest) {
   url.searchParams.set("outputMint", outputMint);
   url.searchParams.set("amount", amount);
   url.searchParams.set("slippageBps", slippageBps);
+  // Prefer simpler routes for embedded wallets
+  url.searchParams.set("maxAccounts", "40");
 
   try {
     const res = await fetch(url.toString(), {
@@ -100,7 +147,8 @@ export async function GET(request: NextRequest) {
 
 /**
  * POST /api/swap
- * Body: { quoteResponse, userPublicKey }
+ * Body: { quoteResponse, userPublicKey, asLegacyTransaction? }
+ * Builds versioned first; falls back to legacy for wallet prep compatibility.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -116,6 +164,8 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const quoteResponse = body.quoteResponse || body.quote;
     const userPublicKey = String(body.userPublicKey || "");
+    const preferLegacy = body.asLegacyTransaction === true;
+
     if (!quoteResponse || !userPublicKey) {
       return Response.json(
         { error: "quoteResponse and userPublicKey required" },
@@ -133,43 +183,33 @@ export async function POST(request: NextRequest) {
       (quoteResponse as { outputMint?: string }).outputMint || ""
     );
     if (inMint && !ALLOWED.has(inMint)) {
-      return Response.json({ error: "quote input mint not allowed" }, { status: 400 });
+      return Response.json(
+        { error: "quote input mint not allowed" },
+        { status: 400 }
+      );
     }
     if (outMint && !ALLOWED.has(outMint)) {
-      return Response.json({ error: "quote output mint not allowed" }, { status: 400 });
-    }
-
-    const payload = {
-      quoteResponse,
-      userPublicKey,
-      wrapAndUnwrapSol: true,
-      dynamicComputeUnitLimit: true,
-      prioritizationFeeLamports: "auto" as const,
-      asLegacyTransaction: true,
-    };
-
-    const res = await fetch(JUP_SWAP, {
-      method: "POST",
-      headers: jupHeaders(),
-      body: JSON.stringify(payload),
-    });
-    const text = await res.text();
-    let data: Record<string, unknown> = {};
-    try {
-      data = JSON.parse(text);
-    } catch {
       return Response.json(
-        { error: `Jupiter swap non-JSON: ${text.slice(0, 200)}` },
-        { status: 502 }
+        { error: "quote output mint not allowed" },
+        { status: 400 }
       );
     }
-    if (!res.ok) {
-      return Response.json(
-        { error: data?.error || data?.message || text.slice(0, 200), data },
-        { status: res.status }
-      );
+
+    // Try preferred format, then alternate (Privy prepare is picky)
+    const order = preferLegacy ? [true, false] : [false, true];
+    let lastErr = "swap build failed";
+    for (const legacy of order) {
+      const built = await jupSwapBuild({
+        quoteResponse,
+        userPublicKey,
+        asLegacyTransaction: legacy,
+      });
+      if (built.ok) {
+        return Response.json(built.data);
+      }
+      lastErr = built.error;
     }
-    return Response.json({ ...data, legacy: true });
+    return Response.json({ error: lastErr }, { status: 502 });
   } catch (e) {
     return Response.json({ error: String(e) }, { status: 500 });
   }
