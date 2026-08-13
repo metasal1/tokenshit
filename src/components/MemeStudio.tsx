@@ -15,7 +15,6 @@ import {
   defaultBoxes,
   ensureMonotonFont,
   isDarkStyle,
-  renderTokenshitMeme,
   renderTokenshitMemeBlob,
   type MemeBox,
   type MemeTemplate,
@@ -47,12 +46,29 @@ export default function MemeStudio() {
   const [activeBox, setActiveBox] = useState(0);
   const [exporting, setExporting] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [copyMsg, setCopyMsg] = useState("Copy image");
+  const [statusMsg, setStatusMsg] = useState("");
   const [dragOver, setDragOver] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  const isMobile = useCallback(() => {
+    if (typeof navigator === "undefined") return false;
+    return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent || "");
+  }, []);
 
   useEffect(() => {
     void ensureMonotonFont();
   }, []);
+
+  // Lock body scroll while editor open (mobile)
+  useEffect(() => {
+    if (!selected) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [selected]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -80,6 +96,31 @@ export default function MemeStudio() {
   useEffect(() => {
     load();
   }, [load]);
+
+  // Deep link ?t=id&top=&bottom=
+  useEffect(() => {
+    if (typeof window === "undefined" || !items.length) return;
+    const sp = new URLSearchParams(window.location.search);
+    const tid = sp.get("t");
+    if (!tid) return;
+    const match =
+      items.find((t) => t.id === tid) ||
+      uploads.find((t) => t.id === tid);
+    if (!match) return;
+    open(match);
+    const top = sp.get("top");
+    const bottom = sp.get("bottom");
+    if (top || bottom) {
+      setTexts((prev) => {
+        const next = [...prev];
+        if (top != null) next[0] = top;
+        if (bottom != null) next[1] = bottom;
+        return next;
+      });
+    }
+    // only once per id load
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items]);
 
   const open = useCallback((t: MemeTemplate) => {
     setSelected(t);
@@ -230,49 +271,213 @@ export default function MemeStudio() {
     setActiveBox((i) => Math.max(0, Math.min(i, boxes.length - 2)));
   };
 
-  async function download() {
+  const getMemeBlob = useCallback(async (): Promise<Blob> => {
+    if (!selected) throw new Error("No meme selected");
+    const blob = await renderTokenshitMemeBlob(selected.blank, boxes, texts, {
+      brand: true,
+    });
+    if (blob.type === "image/png") return blob;
+    return new Blob([await blob.arrayBuffer()], { type: "image/png" });
+  }, [selected, boxes, texts]);
+
+  const shareCaption = useCallback(() => {
+    const lines = texts.map((t) => (t || "").trim()).filter(Boolean);
+    if (lines.length) return lines.map((l) => l.toUpperCase()).join(" / ");
+    return selected?.name || "TOKEN$HIT meme";
+  }, [texts, selected]);
+
+  const buildShareUrl = useCallback(() => {
+    if (!selected) return "https://tokenshit.com/memes";
+    const u = new URL("https://tokenshit.com/memes");
+    u.searchParams.set("t", selected.id);
+    const caps = texts.map((t) => (t || "").trim()).filter(Boolean);
+    if (caps[0]) u.searchParams.set("top", caps[0]);
+    if (caps[1]) u.searchParams.set("bottom", caps[1]);
+    return u.toString();
+  }, [selected, texts]);
+
+  const flashStatus = (msg: string, ms = 2000) => {
+    setStatusMsg(msg);
+    window.setTimeout(() => setStatusMsg(""), ms);
+  };
+
+  /** Native OS share sheet with PNG when available (iOS/Android). */
+  const shareNativeImage = useCallback(
+    async (text: string, url: string) => {
+      if (!selected) return false;
+      try {
+        const blob = await getMemeBlob();
+        const file = new File([blob], `${selected.id}-meme.png`, {
+          type: "image/png",
+        });
+        if (
+          typeof navigator.share === "function" &&
+          typeof navigator.canShare === "function" &&
+          navigator.canShare({ files: [file] })
+        ) {
+          await navigator.share({
+            files: [file],
+            title: selected.name,
+            text,
+            url,
+          });
+          return true;
+        }
+      } catch (e) {
+        if ((e as Error)?.name === "AbortError") return true;
+      }
+      return false;
+    },
+    [selected, getMemeBlob]
+  );
+
+  const download = useCallback(async () => {
     if (!selected) return;
     setExporting(true);
     try {
-      const url = await renderTokenshitMeme(selected.blank, boxes, texts, {
-        brand: true,
-      });
+      const blob = await getMemeBlob();
+      const fileName = `${selected.id}-meme.png`;
+
+      // iOS / Android: prefer share sheet (download attr often blocked)
+      if (isMobile()) {
+        const file = new File([blob], fileName, { type: "image/png" });
+        if (
+          typeof navigator.share === "function" &&
+          typeof navigator.canShare === "function" &&
+          navigator.canShare({ files: [file] })
+        ) {
+          try {
+            await navigator.share({
+              files: [file],
+              title: selected.name,
+            });
+            flashStatus("Shared — Save Image in the sheet");
+            return;
+          } catch (e) {
+            if ((e as Error)?.name === "AbortError") return;
+            // fall through to anchor / open
+          }
+        }
+      }
+
+      const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `tokenshit-${selected.id}.png`;
+      a.download = fileName;
+      a.type = "image/png";
+      a.rel = "noopener";
+      document.body.appendChild(a);
       a.click();
+      a.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 2500);
+
+      // If still on mobile without share files, open image for long-press save
+      if (isMobile()) {
+        window.open(url, "_blank", "noopener,noreferrer");
+        flashStatus("Long-press image → Save");
+      } else {
+        flashStatus("Downloading…");
+      }
     } catch (e) {
-      alert(e instanceof Error ? e.message : "Export failed");
+      console.error(e);
+      alert("Could not save image — try Share instead");
     } finally {
       setExporting(false);
     }
-  }
+  }, [selected, getMemeBlob, isMobile]);
 
-  async function copyImage() {
+  const copyImage = useCallback(async () => {
     if (!selected) return;
     setExporting(true);
     try {
-      const blob = await renderTokenshitMemeBlob(selected.blank, boxes, texts, {
-        brand: true,
+      const blob = await getMemeBlob();
+
+      // Clipboard API (desktop Chrome/Safari desktop)
+      if (
+        typeof ClipboardItem !== "undefined" &&
+        navigator.clipboard &&
+        typeof navigator.clipboard.write === "function"
+      ) {
+        try {
+          await navigator.clipboard.write([
+            new ClipboardItem({ "image/png": blob }),
+          ]);
+          setCopyMsg("Image copied");
+          setCopied(true);
+          window.setTimeout(() => {
+            setCopied(false);
+            setCopyMsg("Copy image");
+          }, 1600);
+          return;
+        } catch {
+          /* mobile often rejects clipboard images */
+        }
+      }
+
+      // Mobile: share sheet is the reliable "copy/save"
+      const file = new File([blob], `${selected.id}-meme.png`, {
+        type: "image/png",
       });
-      await navigator.clipboard.write([
-        new ClipboardItem({ "image/png": blob }),
-      ]);
+      if (
+        typeof navigator.share === "function" &&
+        typeof navigator.canShare === "function" &&
+        navigator.canShare({ files: [file] })
+      ) {
+        try {
+          await navigator.share({
+            files: [file],
+            title: selected.name,
+          });
+          setCopyMsg("Shared");
+          setCopied(true);
+          window.setTimeout(() => {
+            setCopied(false);
+            setCopyMsg("Copy image");
+          }, 1600);
+          return;
+        } catch (e) {
+          if ((e as Error)?.name === "AbortError") return;
+        }
+      }
+
+      // Fallback: open PNG tab for long-press
+      const url = URL.createObjectURL(blob);
+      window.open(url, "_blank", "noopener,noreferrer");
+      window.setTimeout(() => URL.revokeObjectURL(url), 30_000);
+      setCopyMsg("Opened — long-press");
       setCopied(true);
-      setTimeout(() => setCopied(false), 1600);
-    } catch {
-      alert("Copy failed — try Download");
+      window.setTimeout(() => {
+        setCopied(false);
+        setCopyMsg("Copy image");
+      }, 2000);
+    } catch (e) {
+      console.error(e);
+      alert("Copy not supported here — use Download / Share");
     } finally {
       setExporting(false);
     }
-  }
+  }, [selected, getMemeBlob]);
 
-  function shareX() {
-    const text = encodeURIComponent(
-      `Talkin' $HIT  ·  tokenshit.com/memes\n@Tokenshit_`
-    );
-    window.open(`https://x.com/intent/tweet?text=${text}`, "_blank");
-  }
+  const shareX = useCallback(async () => {
+    if (!selected) return;
+    setExporting(true);
+    try {
+      const url = buildShareUrl();
+      const caption = shareCaption();
+      // Caption lines + brand line (no hashtags)
+      const text = `${caption}\n\ntokenshit.com/memes\n@Tokenshit_`;
+
+      // Mobile: share PNG into X / system sheet first
+      if (await shareNativeImage(text, url)) return;
+
+      const intent = new URL("https://twitter.com/intent/tweet");
+      intent.searchParams.set("text", text);
+      intent.searchParams.set("url", url);
+      window.open(intent.toString(), "_blank", "noopener,noreferrer");
+    } finally {
+      setExporting(false);
+    }
+  }, [selected, buildShareUrl, shareCaption, shareNativeImage]);
 
   const featured = useMemo(
     () =>
@@ -288,7 +493,7 @@ export default function MemeStudio() {
 
   return (
     <div
-      className="mx-auto min-h-[70vh] w-full max-w-7xl px-3 sm:px-6 pb-20 pt-6"
+      className="mx-auto min-h-[70vh] w-full max-w-7xl px-3 sm:px-6 pb-[max(5rem,env(safe-area-inset-bottom))] pt-4 sm:pt-6"
       onDragOver={(e) => {
         e.preventDefault();
         setDragOver(true);
@@ -416,27 +621,27 @@ export default function MemeStudio() {
         ))}
       </div>
 
-      {/* Editor modal — same layout pattern as memes.sal.fun */}
+      {/* Editor modal */}
       {selected && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/80 p-0 backdrop-blur-sm md:items-center md:p-6">
-          <div className="flex max-h-[100svh] w-full max-w-5xl flex-col overflow-hidden rounded-t-3xl border border-white/10 bg-[#0a0a0a] md:max-h-[90svh] md:rounded-3xl">
-            <div className="flex items-center justify-between border-b border-white/10 px-4 py-3 md:px-6">
-              <div className="min-w-0">
-                <div className="truncate text-lg font-bold text-white">
+        <div className="fixed inset-0 z-50 flex items-stretch justify-center bg-black/85 md:items-center md:p-6">
+          <div className="flex h-[100dvh] w-full max-w-5xl flex-col overflow-hidden border-white/10 bg-[#0a0a0a] md:h-auto md:max-h-[90svh] md:rounded-3xl md:border">
+            <div className="flex items-center justify-between border-b border-white/10 px-3 py-2.5 pt-[max(0.65rem,env(safe-area-inset-top))] md:px-6 md:py-3 md:pt-3">
+              <div className="min-w-0 pr-2">
+                <div className="truncate text-base font-bold text-white sm:text-lg">
                   {selected.name}
                 </div>
-                <div className="text-xs text-zinc-500">
+                <div className="text-[11px] text-zinc-500">
                   {templateIndex >= 0
                     ? `${templateIndex + 1}/${filtered.length}`
                     : selected.id}
-                  {` · ${boxes.length} caption${boxes.length === 1 ? "" : "s"} · Monoton`}
+                  {` · ${boxes.length} caption${boxes.length === 1 ? "" : "s"}`}
                 </div>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex shrink-0 items-center gap-1.5">
                 <button
                   type="button"
                   onClick={() => goTemplate(-1)}
-                  className="rounded-full border border-white/10 p-2 text-zinc-300 hover:bg-white/10"
+                  className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 text-xl text-zinc-300 hover:bg-white/10"
                   aria-label="Previous"
                 >
                   ‹
@@ -444,7 +649,7 @@ export default function MemeStudio() {
                 <button
                   type="button"
                   onClick={() => goTemplate(1)}
-                  className="rounded-full border border-white/10 p-2 text-zinc-300 hover:bg-white/10"
+                  className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 text-xl text-zinc-300 hover:bg-white/10"
                   aria-label="Next"
                 >
                   ›
@@ -452,7 +657,7 @@ export default function MemeStudio() {
                 <button
                   type="button"
                   onClick={() => setSelected(null)}
-                  className="rounded-full border border-white/10 p-2 text-zinc-300 hover:bg-white/10"
+                  className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 text-lg text-zinc-300 hover:bg-white/10"
                   aria-label="Close"
                 >
                   ✕
@@ -460,8 +665,8 @@ export default function MemeStudio() {
               </div>
             </div>
 
-            <div className="grid min-h-0 flex-1 gap-0 overflow-y-auto md:grid-cols-2">
-              <div className="flex items-center justify-center bg-black p-4 md:p-8">
+            <div className="grid min-h-0 flex-1 gap-0 overflow-y-auto overscroll-contain md:grid-cols-2">
+              <div className="flex items-center justify-center bg-black p-3 sm:p-4 md:p-8">
                 <div className="relative w-full max-w-md">
                   <MemeStage
                     blankUrl={selected.blank}
@@ -475,12 +680,12 @@ export default function MemeStudio() {
                     onSwipe={goTemplate}
                   />
                   <p className="mt-2 text-center text-[11px] text-zinc-500">
-                    Swipe / arrows · drag caption · corner resize · light/dark
+                    Drag captions · corner to resize · light/dark
                   </p>
                 </div>
               </div>
 
-              <div className="flex flex-col gap-4 border-t border-white/10 p-4 md:border-l md:border-t-0 md:p-6">
+              <div className="flex flex-col gap-3 border-t border-white/10 p-3 pb-[max(1rem,env(safe-area-inset-bottom))] md:gap-4 md:border-l md:border-t-0 md:p-6">
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-xs font-medium uppercase tracking-wider text-zinc-500">
                     Captions
@@ -490,7 +695,7 @@ export default function MemeStudio() {
                       type="button"
                       onClick={removeBox}
                       disabled={boxes.length <= 1}
-                      className="rounded-xl border border-white/10 px-2.5 py-1.5 text-xs font-semibold disabled:opacity-40 hover:bg-white/10"
+                      className="min-h-10 rounded-xl border border-white/10 px-3 py-2 text-xs font-semibold disabled:opacity-40 hover:bg-white/10"
                     >
                       − Remove
                     </button>
@@ -498,7 +703,7 @@ export default function MemeStudio() {
                       type="button"
                       onClick={addBox}
                       disabled={boxes.length >= 8}
-                      className="rounded-xl border border-neon/30 bg-neon/10 px-2.5 py-1.5 text-xs font-semibold text-neon disabled:opacity-40 hover:bg-neon/20"
+                      className="min-h-10 rounded-xl border border-neon/30 bg-neon/10 px-3 py-2 text-xs font-semibold text-neon disabled:opacity-40 hover:bg-neon/20"
                     >
                       + Add
                     </button>
@@ -526,8 +731,8 @@ export default function MemeStudio() {
                       placeholder={(
                         box.label || `Caption ${i + 1}`
                       ).toUpperCase()}
-                      className="w-full resize-none rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm uppercase outline-none ring-neon/40 focus:ring-2 text-white"
-                      style={{ textTransform: "uppercase" }}
+                      className="w-full resize-none rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-base uppercase outline-none ring-neon/40 focus:ring-2 text-white"
+                      style={{ textTransform: "uppercase", fontSize: "16px" }}
                       autoCapitalize="characters"
                       spellCheck={false}
                       dir="ltr"
@@ -556,7 +761,7 @@ export default function MemeStudio() {
                         onChange={(e) =>
                           setFontScale(Number(e.target.value))
                         }
-                        className="w-full accent-[#39ff14]"
+                        className="w-full accent-[#39ff14] h-8"
                       />
                     </label>
 
@@ -568,9 +773,9 @@ export default function MemeStudio() {
                         <button
                           type="button"
                           onClick={() => setActiveTone(false)}
-                          className={`flex-1 rounded-xl border px-3 py-2 text-xs font-semibold ${
+                          className={`min-h-11 flex-1 rounded-xl border px-3 py-2.5 text-sm font-semibold ${
                             !isDarkStyle(boxes[activeBox].style)
-                              ? "border-neon bg-neon/15 text-cream"
+                              ? "border-neon bg-neon/15"
                               : "border-white/10 text-zinc-400"
                           }`}
                           style={
@@ -583,12 +788,12 @@ export default function MemeStudio() {
                               : undefined
                           }
                         >
-                          Light (glow)
+                          Light
                         </button>
                         <button
                           type="button"
                           onClick={() => setActiveTone(true)}
-                          className={`flex-1 rounded-xl border px-3 py-2 text-xs font-semibold ${
+                          className={`min-h-11 flex-1 rounded-xl border px-3 py-2.5 text-sm font-semibold ${
                             isDarkStyle(boxes[activeBox].style)
                               ? "border-zinc-300 bg-white text-black"
                               : "border-white/10 text-zinc-400"
@@ -601,32 +806,45 @@ export default function MemeStudio() {
                   </>
                 )}
 
-                <div className="mt-auto flex flex-col gap-2 pt-2">
-                  <div className="flex flex-col gap-2 sm:flex-row">
+                {statusMsg && (
+                  <p className="text-center text-xs text-neon font-medium">
+                    {statusMsg}
+                  </p>
+                )}
+
+                {/* Sticky action bar on mobile */}
+                <div className="sticky bottom-0 z-10 -mx-3 mt-auto border-t border-white/10 bg-[#0a0a0a]/95 px-3 pt-3 backdrop-blur md:static md:mx-0 md:border-0 md:bg-transparent md:px-0 md:pt-2 md:backdrop-blur-none">
+                  <div className="flex flex-col gap-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] md:pb-0">
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => void download()}
+                        disabled={exporting}
+                        className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-neon px-3 py-3 text-sm font-bold text-black hover:bg-[#5fff3a] disabled:opacity-50"
+                      >
+                        {exporting ? "…" : "Save / Share"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void copyImage()}
+                        disabled={exporting}
+                        className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-white/15 px-3 py-3 text-sm font-semibold hover:bg-white/10 disabled:opacity-50"
+                      >
+                        {copied ? copyMsg : "Copy"}
+                      </button>
+                    </div>
                     <button
                       type="button"
-                      onClick={() => void download()}
+                      onClick={() => void shareX()}
                       disabled={exporting}
-                      className="inline-flex flex-1 items-center justify-center gap-2 rounded-2xl bg-neon px-4 py-3 text-sm font-bold text-black hover:bg-[#5fff3a] disabled:opacity-50"
+                      className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-sky-400/30 bg-sky-400/10 px-4 py-3 text-sm font-bold text-sky-200 hover:bg-sky-400/20 disabled:opacity-50"
                     >
-                      Download image
+                      𝕏 Post to X
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => void copyImage()}
-                      disabled={exporting}
-                      className="inline-flex flex-1 items-center justify-center gap-2 rounded-2xl border border-white/15 px-4 py-3 text-sm font-semibold hover:bg-white/10 disabled:opacity-50"
-                    >
-                      {copied ? "Copied" : "Copy image"}
-                    </button>
+                    <p className="text-center text-[10px] text-zinc-600 pb-1">
+                      On phone: Save opens the share sheet → Save Image
+                    </p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={shareX}
-                    className="inline-flex items-center justify-center gap-2 rounded-2xl border border-sky-400/30 bg-sky-400/10 px-4 py-3 text-sm font-bold text-sky-200 hover:bg-sky-400/20"
-                  >
-                    𝕏 Share X
-                  </button>
                 </div>
               </div>
             </div>
