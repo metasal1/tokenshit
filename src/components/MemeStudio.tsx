@@ -15,7 +15,8 @@ import {
   defaultBoxes,
   ensureMonotonFont,
   isDarkStyle,
-  renderTokenshitMemeBlob,
+  proxiedBlank,
+  renderTokenshitMeme,
   type MemeBox,
   type MemeTemplate,
 } from "@/lib/meme-render";
@@ -44,17 +45,14 @@ export default function MemeStudio() {
   const [boxes, setBoxes] = useState<MemeBox[]>([]);
   const [texts, setTexts] = useState<string[]>([]);
   const [activeBox, setActiveBox] = useState(0);
+  const [preview, setPreview] = useState("");
+  const [imgLoading, setImgLoading] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [copied, setCopied] = useState(false);
   const [copyMsg, setCopyMsg] = useState("Copy image");
   const [statusMsg, setStatusMsg] = useState("");
   const [dragOver, setDragOver] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
-
-  const isMobile = useCallback(() => {
-    if (typeof navigator === "undefined") return false;
-    return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent || "");
-  }, []);
 
   useEffect(() => {
     void ensureMonotonFont();
@@ -123,13 +121,13 @@ export default function MemeStudio() {
   }, [items]);
 
   const open = useCallback((t: MemeTemplate) => {
-    setSelected(t);
-    const n = Math.max(1, Math.min(8, t.lines || 2));
+    const tpl = { ...t, blank: proxiedBlank(t.blank) };
+    setSelected(tpl);
+    const n = Math.max(1, Math.min(8, tpl.lines || 2));
     const b =
-      t.boxes && t.boxes.length
-        ? t.boxes.map((x) => ({
+      tpl.boxes && tpl.boxes.length
+        ? tpl.boxes.map((x) => ({
             ...x,
-            // preserve plain (dark) from API; otherwise light Monoton glow
             style: (isDarkStyle(x.style) ? "dark" : "light") as MemeBox["style"],
             fontScale: x.fontScale ?? 1,
           }))
@@ -137,6 +135,7 @@ export default function MemeStudio() {
     setBoxes(b);
     setTexts(b.map(() => ""));
     setActiveBox(0);
+    setPreview("");
   }, []);
 
   const openFromBlob = useCallback(
@@ -271,14 +270,48 @@ export default function MemeStudio() {
     setActiveBox((i) => Math.max(0, Math.min(i, boxes.length - 2)));
   };
 
+  // Keep PNG dataURL preview (same as memes.sal.fun) for reliable export
+  useEffect(() => {
+    if (!selected) {
+      setPreview("");
+      return;
+    }
+    let cancelled = false;
+    const t = window.setTimeout(() => {
+      void (async () => {
+        setImgLoading(true);
+        try {
+          const url = await renderTokenshitMeme(selected.blank, boxes, texts, {
+            brand: true,
+          });
+          if (!cancelled) setPreview(url);
+        } catch (e) {
+          console.error("preview render failed", e);
+          if (!cancelled) setPreview("");
+        } finally {
+          if (!cancelled) setImgLoading(false);
+        }
+      })();
+    }, 120);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(t);
+    };
+  }, [selected, texts, boxes]);
+
+  /** Exact method from memes.sal.fun — prefer cached preview dataURL */
   const getMemeBlob = useCallback(async (): Promise<Blob> => {
     if (!selected) throw new Error("No meme selected");
-    const blob = await renderTokenshitMemeBlob(selected.blank, boxes, texts, {
-      brand: true,
-    });
+    const dataUrl = preview.startsWith("data:")
+      ? preview
+      : await renderTokenshitMeme(selected.blank, boxes, texts, {
+          brand: true,
+        });
+    const res = await fetch(dataUrl);
+    const blob = await res.blob();
     if (blob.type === "image/png") return blob;
     return new Blob([await blob.arrayBuffer()], { type: "image/png" });
-  }, [selected, boxes, texts]);
+  }, [preview, selected, boxes, texts]);
 
   const shareCaption = useCallback(() => {
     const lines = texts.map((t) => (t || "").trim()).filter(Boolean);
@@ -287,21 +320,22 @@ export default function MemeStudio() {
   }, [texts, selected]);
 
   const buildShareUrl = useCallback(() => {
-    if (!selected) return "https://tokenshit.com/memes";
-    const u = new URL("https://tokenshit.com/memes");
-    u.searchParams.set("t", selected.id);
-    const caps = texts.map((t) => (t || "").trim()).filter(Boolean);
-    if (caps[0]) u.searchParams.set("top", caps[0]);
-    if (caps[1]) u.searchParams.set("bottom", caps[1]);
-    return u.toString();
+    if (!selected || typeof window === "undefined") return "";
+    if (selected.id.startsWith("upload-")) {
+      return `${window.location.origin}/memes`;
+    }
+    const params = new URLSearchParams();
+    params.set("t", selected.id);
+    texts.forEach((tx, i) => {
+      const v = (tx || "").trim();
+      if (!v) return;
+      if (i === 0) params.set("top", v);
+      else if (i === 1) params.set("bottom", v);
+      else params.set(`c${i}`, v);
+    });
+    return `${window.location.origin}/memes?${params.toString()}`;
   }, [selected, texts]);
 
-  const flashStatus = (msg: string, ms = 2000) => {
-    setStatusMsg(msg);
-    window.setTimeout(() => setStatusMsg(""), ms);
-  };
-
-  /** Native OS share sheet with PNG when available (iOS/Android). */
   const shareNativeImage = useCallback(
     async (text: string, url: string) => {
       if (!selected) return false;
@@ -331,148 +365,117 @@ export default function MemeStudio() {
     [selected, getMemeBlob]
   );
 
+  /** Ported from memes.sal.fun download() */
   const download = useCallback(async () => {
     if (!selected) return;
     setExporting(true);
     try {
       const blob = await getMemeBlob();
-      const fileName = `${selected.id}-meme.png`;
-
-      // iOS / Android: prefer share sheet (download attr often blocked)
-      if (isMobile()) {
-        const file = new File([blob], fileName, { type: "image/png" });
-        if (
-          typeof navigator.share === "function" &&
-          typeof navigator.canShare === "function" &&
-          navigator.canShare({ files: [file] })
-        ) {
-          try {
-            await navigator.share({
-              files: [file],
-              title: selected.name,
-            });
-            flashStatus("Shared — Save Image in the sheet");
-            return;
-          } catch (e) {
-            if ((e as Error)?.name === "AbortError") return;
-            // fall through to anchor / open
-          }
-        }
-      }
-
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = fileName;
+      a.download = `${selected.id}-meme.png`;
       a.type = "image/png";
       a.rel = "noopener";
       document.body.appendChild(a);
       a.click();
       a.remove();
-      window.setTimeout(() => URL.revokeObjectURL(url), 2500);
+      window.setTimeout(() => URL.revokeObjectURL(url), 2000);
 
-      // If still on mobile without share files, open image for long-press save
-      if (isMobile()) {
-        window.open(url, "_blank", "noopener,noreferrer");
-        flashStatus("Long-press image → Save");
-      } else {
-        flashStatus("Downloading…");
-      }
-    } catch (e) {
-      console.error(e);
-      alert("Could not save image — try Share instead");
-    } finally {
-      setExporting(false);
-    }
-  }, [selected, getMemeBlob, isMobile]);
-
-  const copyImage = useCallback(async () => {
-    if (!selected) return;
-    setExporting(true);
-    try {
-      const blob = await getMemeBlob();
-
-      // Clipboard API (desktop Chrome/Safari desktop)
       if (
-        typeof ClipboardItem !== "undefined" &&
-        navigator.clipboard &&
-        typeof navigator.clipboard.write === "function"
-      ) {
-        try {
-          await navigator.clipboard.write([
-            new ClipboardItem({ "image/png": blob }),
-          ]);
-          setCopyMsg("Image copied");
-          setCopied(true);
-          window.setTimeout(() => {
-            setCopied(false);
-            setCopyMsg("Copy image");
-          }, 1600);
-          return;
-        } catch {
-          /* mobile often rejects clipboard images */
-        }
-      }
-
-      // Mobile: share sheet is the reliable "copy/save"
-      const file = new File([blob], `${selected.id}-meme.png`, {
-        type: "image/png",
-      });
-      if (
+        typeof navigator !== "undefined" &&
         typeof navigator.share === "function" &&
-        typeof navigator.canShare === "function" &&
-        navigator.canShare({ files: [file] })
+        typeof navigator.canShare === "function"
       ) {
-        try {
-          await navigator.share({
-            files: [file],
-            title: selected.name,
-          });
-          setCopyMsg("Shared");
-          setCopied(true);
-          window.setTimeout(() => {
-            setCopied(false);
-            setCopyMsg("Copy image");
-          }, 1600);
-          return;
-        } catch (e) {
-          if ((e as Error)?.name === "AbortError") return;
+        const file = new File([blob], `${selected.id}-meme.png`, {
+          type: "image/png",
+        });
+        if (navigator.canShare({ files: [file] })) {
+          const ua = navigator.userAgent || "";
+          if (/iPhone|iPad|iPod|Android/i.test(ua)) {
+            try {
+              await navigator.share({
+                files: [file],
+                title: selected.name,
+              });
+            } catch {
+              /* user cancelled share */
+            }
+          }
         }
       }
-
-      // Fallback: open PNG tab for long-press
-      const url = URL.createObjectURL(blob);
-      window.open(url, "_blank", "noopener,noreferrer");
-      window.setTimeout(() => URL.revokeObjectURL(url), 30_000);
-      setCopyMsg("Opened — long-press");
-      setCopied(true);
-      window.setTimeout(() => {
-        setCopied(false);
-        setCopyMsg("Copy image");
-      }, 2000);
+      setStatusMsg("Saved");
+      window.setTimeout(() => setStatusMsg(""), 1600);
     } catch (e) {
       console.error(e);
-      alert("Copy not supported here — use Download / Share");
+      alert("Could not save image");
     } finally {
       setExporting(false);
     }
   }, [selected, getMemeBlob]);
 
+  /** Ported from memes.sal.fun copyImage() */
+  const copyImage = useCallback(async () => {
+    if (!selected) return;
+    setExporting(true);
+    try {
+      const blob = await getMemeBlob();
+      if (
+        typeof ClipboardItem !== "undefined" &&
+        navigator.clipboard &&
+        typeof navigator.clipboard.write === "function"
+      ) {
+        await navigator.clipboard.write([
+          new ClipboardItem({ "image/png": blob }),
+        ]);
+        setCopyMsg("Image copied");
+        setCopied(true);
+        window.setTimeout(() => {
+          setCopied(false);
+          setCopyMsg("Copy image");
+        }, 1600);
+        return;
+      }
+      const url = URL.createObjectURL(blob);
+      window.open(url, "_blank", "noopener,noreferrer");
+      window.setTimeout(() => URL.revokeObjectURL(url), 30_000);
+      setCopyMsg("Opened image");
+      setCopied(true);
+      window.setTimeout(() => {
+        setCopied(false);
+        setCopyMsg("Copy image");
+      }, 1600);
+    } catch (e) {
+      console.error(e);
+      try {
+        const blob = await getMemeBlob();
+        const file = new File([blob], `${selected.id}-meme.png`, {
+          type: "image/png",
+        });
+        if (navigator.share) {
+          await navigator.share({ files: [file], title: selected.name });
+          return;
+        }
+      } catch {
+        /* ignore */
+      }
+      alert("Copy image not supported in this browser — use Download image");
+    } finally {
+      setExporting(false);
+    }
+  }, [selected, getMemeBlob]);
+
+  /** Ported from memes.sal.fun shareToX() */
   const shareX = useCallback(async () => {
     if (!selected) return;
     setExporting(true);
     try {
       const url = buildShareUrl();
-      const caption = shareCaption();
-      // Caption lines + brand line (no hashtags)
-      const text = `${caption}\n\ntokenshit.com/memes\n@Tokenshit_`;
-
-      // Mobile: share PNG into X / system sheet first
+      const text = shareCaption();
       if (await shareNativeImage(text, url)) return;
-
       const intent = new URL("https://twitter.com/intent/tweet");
       intent.searchParams.set("text", text);
-      intent.searchParams.set("url", url);
+      if (url) intent.searchParams.set("url", url);
       window.open(intent.toString(), "_blank", "noopener,noreferrer");
     } finally {
       setExporting(false);
@@ -668,6 +671,13 @@ export default function MemeStudio() {
             <div className="grid min-h-0 flex-1 gap-0 overflow-y-auto overscroll-contain md:grid-cols-2">
               <div className="flex items-center justify-center bg-black p-3 sm:p-4 md:p-8">
                 <div className="relative w-full max-w-md">
+                  {(imgLoading || (!preview && selected)) && (
+                    <div className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center rounded-xl bg-black/30">
+                      <EmojiIcon size={22} className="animate-spin">
+                        💫
+                      </EmojiIcon>
+                    </div>
+                  )}
                   <MemeStage
                     blankUrl={selected.blank}
                     boxes={boxes}
@@ -681,6 +691,7 @@ export default function MemeStudio() {
                   />
                   <p className="mt-2 text-center text-[11px] text-zinc-500">
                     Drag captions · corner to resize · light/dark
+                    {preview.startsWith("data:") ? " · ready to save" : ""}
                   </p>
                 </div>
               </div>
@@ -819,30 +830,30 @@ export default function MemeStudio() {
                       <button
                         type="button"
                         onClick={() => void download()}
-                        disabled={exporting}
+                        disabled={exporting || !preview.startsWith("data:")}
                         className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-neon px-3 py-3 text-sm font-bold text-black hover:bg-[#5fff3a] disabled:opacity-50"
                       >
-                        {exporting ? "…" : "Save / Share"}
+                        {exporting ? "…" : "Download image"}
                       </button>
                       <button
                         type="button"
                         onClick={() => void copyImage()}
-                        disabled={exporting}
+                        disabled={exporting || !preview.startsWith("data:")}
                         className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-white/15 px-3 py-3 text-sm font-semibold hover:bg-white/10 disabled:opacity-50"
                       >
-                        {copied ? copyMsg : "Copy"}
+                        {copied ? copyMsg : "Copy image"}
                       </button>
                     </div>
                     <button
                       type="button"
                       onClick={() => void shareX()}
-                      disabled={exporting}
+                      disabled={exporting || !preview.startsWith("data:")}
                       className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-sky-400/30 bg-sky-400/10 px-4 py-3 text-sm font-bold text-sky-200 hover:bg-sky-400/20 disabled:opacity-50"
                     >
-                      𝕏 Post to X
+                      𝕏 Share X
                     </button>
                     <p className="text-center text-[10px] text-zinc-600 pb-1">
-                      On phone: Save opens the share sheet → Save Image
+                      Wait for “ready to save”, then Download / Copy / Share
                     </p>
                   </div>
                 </div>

@@ -275,6 +275,7 @@ export function defaultBoxes(n: number): MemeBox[] {
 function loadImage(url: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image();
+    // Same-origin proxy → CORS ok; needed for canvas export
     img.crossOrigin = "anonymous";
     img.onload = () => resolve(img);
     img.onerror = () => reject(new Error(`Failed to load blank`));
@@ -282,22 +283,37 @@ function loadImage(url: string): Promise<HTMLImageElement> {
   });
 }
 
+/**
+ * Always same-origin for canvas (memes.sal.fun has no ACAO on images).
+ * Mirrors memes.sal.fun `proxiedBlank`.
+ */
 export function blankSrc(url: string): string {
   if (!url) return url;
   if (url.startsWith("data:") || url.startsWith("blob:")) return url;
+  // already proxied
+  if (url.startsWith("/api/memes/blank")) return url;
+  // relative local
+  if (url.startsWith("/") && !url.startsWith("//")) return url;
   try {
-    const u = new URL(url);
+    const u = new URL(url, "https://tokenshit.com");
     if (
-      u.hostname === "memes.sal.fun" ||
-      u.hostname.endsWith(".sal.fun") ||
-      u.hostname === "tokenshit.com"
+      typeof window !== "undefined" &&
+      u.origin === window.location.origin
     ) {
-      return url;
+      return u.pathname + u.search;
     }
-    return `/api/memes/blank?url=${encodeURIComponent(url)}`;
+    if (u.hostname === "tokenshit.com" || u.hostname === "www.tokenshit.com") {
+      return u.pathname + u.search;
+    }
+    return `/api/memes/blank?url=${encodeURIComponent(u.toString())}`;
   } catch {
-    return url;
+    return `/api/memes/blank?url=${encodeURIComponent(url)}`;
   }
+}
+
+/** Alias used by studio open() — same as blankSrc */
+export function proxiedBlank(url: string): string {
+  return blankSrc(url);
 }
 
 export async function renderTokenshitMeme(
@@ -307,7 +323,8 @@ export async function renderTokenshitMeme(
   opts?: { brand?: boolean }
 ): Promise<string> {
   await ensureMonotonFont();
-  const img = await loadImage(blankSrc(blankUrl));
+  const src = blankSrc(blankUrl);
+  const img = await loadImage(src);
   const canvas = document.createElement("canvas");
   canvas.width = img.naturalWidth || img.width;
   canvas.height = img.naturalHeight || img.height;
@@ -319,7 +336,13 @@ export async function renderTokenshitMeme(
     drawMonotonBox(ctx, box, texts[i] || "", canvas.width, canvas.height);
   });
   if (opts?.brand !== false) drawWatermark(ctx, canvas.width, canvas.height);
-  return canvas.toDataURL("image/png");
+  try {
+    return canvas.toDataURL("image/png");
+  } catch (e) {
+    throw new Error(
+      "Canvas export blocked (CORS). Blank must be same-origin proxied."
+    );
+  }
 }
 
 export async function renderTokenshitMemeBlob(
@@ -330,5 +353,7 @@ export async function renderTokenshitMemeBlob(
 ): Promise<Blob> {
   const dataUrl = await renderTokenshitMeme(blankUrl, boxes, texts, opts);
   const res = await fetch(dataUrl);
-  return res.blob();
+  const blob = await res.blob();
+  if (blob.type === "image/png") return blob;
+  return new Blob([await blob.arrayBuffer()], { type: "image/png" });
 }
