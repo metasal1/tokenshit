@@ -26,7 +26,10 @@ type Major = {
 
 type DayStatus = {
   enabled: boolean;
+  cadence?: string;
   utcDay: string;
+  utcHour?: string;
+  hourLabel?: string;
   msToClose: number;
   nextCloseAt: string;
   stakeAmount: number;
@@ -220,19 +223,21 @@ export default function DayGamePanel() {
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h1 className="text-xl sm:text-2xl font-bold text-white">
-              Hit / Shit of the Day
+              Hit / Shit of the Hour
             </h1>
             <p className="text-xs text-zinc-500 mt-1">
-              Stake 1,000 ${SHIT_SYMBOL} on a real major. Best % = HIT pot · worst % =
-              SHIT pot. VRF picks one wallet. 25% treasury.
+              Stake 1,000 ${SHIT_SYMBOL} on a real major. Each UTC hour: best % =
+              HIT pot · worst % = SHIT pot. VRF picks one wallet. 25% treasury.
             </p>
           </div>
           <div className="text-right font-mono">
-            <div className="text-[10px] uppercase text-zinc-500">UTC close</div>
+            <div className="text-[10px] uppercase text-zinc-500">Hour closes</div>
             <div className="text-lg text-neon font-bold tabular-nums">
               {countdown}
             </div>
-            <div className="text-[10px] text-zinc-600">{status.utcDay}</div>
+            <div className="text-[10px] text-zinc-600">
+              {status.hourLabel || status.utcHour || status.utcDay}
+            </div>
           </div>
         </div>
 
@@ -264,8 +269,9 @@ export default function DayGamePanel() {
         </div>
 
         <p className="text-[11px] text-zinc-600">
-          Real majors only ({status.majorsCount ?? "—"}). 1 wallet = 1 VRF ticket on
-          the winning bag. Unlimited stakes still fill the pot.
+          Real majors · <strong className="text-zinc-400">hourly</strong> UTC
+          rounds ({status.majorsCount ?? "—"} bags). 1 wallet = 1 VRF ticket.
+          Unlimited stakes fill the pot.
         </p>
       </div>
 
@@ -382,8 +388,8 @@ export default function DayGamePanel() {
         </button>
 
         <div className="flex flex-wrap gap-3 text-[11px] text-zinc-600">
-          <Link href="/day/yesterday" className="text-neon-blue hover:underline">
-            Yesterday receipt
+          <Link href="/day/prev" className="text-neon-blue hover:underline">
+            Last hour receipt
           </Link>
           <span>·</span>
           <a

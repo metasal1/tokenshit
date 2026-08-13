@@ -1,8 +1,9 @@
 import {
+  formatHourLabel,
   getRound,
   listStakes,
-  utcDayString,
-  previousUtcDay,
+  previousUtcHour,
+  utcHourString,
 } from "@/lib/day-game";
 import { tursoExecute } from "@/lib/turso";
 
@@ -10,27 +11,36 @@ export const dynamic = "force-dynamic";
 
 type Ctx = { params: Promise<{ date: string }> };
 
+function resolveHourKey(raw: string): string {
+  if (raw === "today" || raw === "now") return utcHourString();
+  if (raw === "yesterday" || raw === "prev" || raw === "last") {
+    return previousUtcHour(utcHourString());
+  }
+  // hour key 2026-08-13T14 or URL-encoded
+  const decoded = decodeURIComponent(raw);
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}$/.test(decoded)) return decoded;
+  // legacy full day
+  if (/^\d{4}-\d{2}-\d{2}$/.test(decoded)) return decoded;
+  return "";
+}
+
 /**
- * GET /api/day/[date] — settlement receipt (yyyy-mm-dd)
+ * GET /api/day/[date] — hour receipt (YYYY-MM-DDTHH | prev | last)
  */
 export async function GET(_req: Request, ctx: Ctx) {
   try {
     const { date } = await ctx.params;
-    const day = /^\d{4}-\d{2}-\d{2}$/.test(date)
-      ? date
-      : date === "today"
-        ? utcDayString()
-        : date === "yesterday"
-          ? previousUtcDay(utcDayString())
-          : "";
+    const day = resolveHourKey(date);
     if (!day) {
-      return Response.json({ error: "use yyyy-mm-dd" }, { status: 400 });
+      return Response.json(
+        { error: "use YYYY-MM-DDTHH or prev" },
+        { status: 400 }
+      );
     }
 
     const round = await getRound(day);
     const stakes = await listStakes(day);
 
-    // bag meta from prices if any
     let hitMeta = null;
     let shitMeta = null;
     if (round?.hitAssetId) {
@@ -76,7 +86,10 @@ export async function GET(_req: Request, ctx: Ctx) {
     }
 
     return Response.json({
+      cadence: "hourly",
       utcDay: day,
+      utcHour: day,
+      hourLabel: formatHourLabel(day),
       round,
       hitMeta,
       shitMeta,

@@ -1,9 +1,9 @@
 import { type NextRequest } from "next/server";
 import {
-  previousUtcDay,
+  previousUtcHour,
   settleDay,
   snapshotPrices,
-  utcDayString,
+  utcHourString,
   DAY_GAME_ENABLED,
 } from "@/lib/day-game";
 import { sendTelegramMessage, escapeHtml } from "@/lib/telegram";
@@ -26,10 +26,8 @@ function authorize(request: NextRequest): boolean {
 
 /**
  * POST /api/cron/day-game
- * body/query: action=open|close|settle
- * - open: snapshot open prices for today
- * - close: snapshot close for yesterday (or ?day=)
- * - settle: settle yesterday (or ?day=)
+ * action=open|close|settle|hourly
+ * hourly (default for cadence): settle previous hour + open-snap current
  */
 export async function POST(request: NextRequest) {
   if (!authorize(request)) {
@@ -41,31 +39,31 @@ export async function POST(request: NextRequest) {
 
   try {
     const sp = request.nextUrl.searchParams;
-    let action = sp.get("action") || "settle";
-    let day = sp.get("day") || "";
+    let action = sp.get("action") || "hourly";
+    let day = sp.get("day") || sp.get("hour") || "";
     try {
       const body = await request.json();
       if (body?.action) action = String(body.action);
       if (body?.day) day = String(body.day);
+      if (body?.hour) day = String(body.hour);
     } catch {
       /* no body */
     }
 
-    const today = utcDayString();
+    const nowHour = utcHourString();
     if (!day) {
-      day = action === "open" ? today : previousUtcDay(today);
+      day = action === "open" ? nowHour : previousUtcHour(nowHour);
     }
 
     if (action === "open") {
       const n = await snapshotPrices(day, "open");
-      return Response.json({ ok: true, action: "open", day, assets: n });
+      return Response.json({ ok: true, action: "open", hour: day, assets: n });
     }
     if (action === "close") {
       const n = await snapshotPrices(day, "close");
-      return Response.json({ ok: true, action: "close", day, assets: n });
+      return Response.json({ ok: true, action: "close", hour: day, assets: n });
     }
     if (action === "settle") {
-      // ensure close snap
       await snapshotPrices(day, "close");
       const result = await settleDay(day);
       if (result.ok && result.result && !result.result.already) {
@@ -78,43 +76,44 @@ export async function POST(request: NextRequest) {
         try {
           await sendTelegramMessage(
             [
-              `<b>Hit/Shit of the Day</b> · ${escapeHtml(day)}`,
+              `<b>Hit/Shit of the Hour</b> · ${escapeHtml(day)}`,
               r.hitBag
-                ? `HIT bag: <code>${escapeHtml(r.hitBag.assetId)}</code> ${r.hitBag.pct.toFixed(2)}%`
+                ? `HIT: <code>${escapeHtml(r.hitBag.assetId)}</code> ${r.hitBag.pct.toFixed(2)}%`
                 : "HIT bag: —",
               r.hit?.winner
-                ? `HIT winner: <code>${escapeHtml(r.hit.winner)}</code> +${Number(r.hit.prize).toLocaleString()} (fee ${Number(r.hit.fee).toLocaleString()})`
-                : `HIT pot → treasury (fee ${Number(r.hit?.fee || 0).toLocaleString()})`,
+                ? `HIT winner: <code>${escapeHtml(r.hit.winner)}</code> +${Number(r.hit.prize).toLocaleString()}`
+                : `HIT → treasury`,
               r.shitBag
-                ? `SHIT bag: <code>${escapeHtml(r.shitBag.assetId)}</code> ${r.shitBag.pct.toFixed(2)}%`
+                ? `SHIT: <code>${escapeHtml(r.shitBag.assetId)}</code> ${r.shitBag.pct.toFixed(2)}%`
                 : "SHIT bag: —",
               r.shit?.winner
-                ? `SHIT winner: <code>${escapeHtml(r.shit.winner)}</code> +${Number(r.shit.prize).toLocaleString()} (fee ${Number(r.shit.fee).toLocaleString()})`
-                : `SHIT pot → treasury (fee ${Number(r.shit?.fee || 0).toLocaleString()})`,
+                ? `SHIT winner: <code>${escapeHtml(r.shit.winner)}</code> +${Number(r.shit.prize).toLocaleString()}`
+                : `SHIT → treasury`,
             ].join("\n")
           );
         } catch {
-          /* ignore tg */
+          /* ignore */
         }
       }
       return Response.json(result);
     }
 
-    // full daily: open today + settle yesterday
-    if (action === "daily") {
-      const openN = await snapshotPrices(today, "open");
-      const y = previousUtcDay(today);
-      await snapshotPrices(y, "close");
-      const settled = await settleDay(y);
+    // hourly tick: close+settle last hour, open current
+    if (action === "hourly" || action === "daily") {
+      const prev = previousUtcHour(nowHour);
+      await snapshotPrices(prev, "close");
+      const settled = await settleDay(prev);
+      const openN = await snapshotPrices(nowHour, "open");
       return Response.json({
         ok: true,
-        open: { day: today, assets: openN },
+        cadence: "hourly",
+        open: { hour: nowHour, assets: openN },
         settle: settled,
       });
     }
 
     return Response.json(
-      { error: "action must be open|close|settle|daily" },
+      { error: "action must be open|close|settle|hourly" },
       { status: 400 }
     );
   } catch (e) {

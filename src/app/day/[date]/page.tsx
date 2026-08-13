@@ -1,25 +1,34 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { previousUtcDay, utcDayString, getRound } from "@/lib/day-game";
+import {
+  formatHourLabel,
+  previousUtcHour,
+  utcHourString,
+  getRound,
+} from "@/lib/day-game";
 import { tursoExecute } from "@/lib/turso";
 
 export const dynamic = "force-dynamic";
 
 type Props = { params: Promise<{ date: string }> };
 
+function resolveKey(raw: string): string {
+  if (raw === "yesterday" || raw === "prev" || raw === "last") {
+    return previousUtcHour(utcHourString());
+  }
+  if (raw === "today" || raw === "now") return utcHourString();
+  return decodeURIComponent(raw);
+}
+
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { date } = await params;
-  return { title: `Day ${date} · Hit/Shit` };
+  const key = resolveKey(date);
+  return { title: `Hour ${key} · Hit/Shit` };
 }
 
 export default async function DayReceiptPage({ params }: Props) {
   const { date: raw } = await params;
-  const day =
-    raw === "yesterday"
-      ? previousUtcDay(utcDayString())
-      : raw === "today"
-        ? utcDayString()
-        : raw;
+  const day = resolveKey(raw);
 
   const round = await getRound(day);
   let hitMeta: { name: string; symbol: string } | null = null;
@@ -30,7 +39,10 @@ export default async function DayReceiptPage({ params }: Props) {
       [day, round.hitAssetId]
     );
     if (r.rows[0])
-      hitMeta = { name: String(r.rows[0][0] || ""), symbol: String(r.rows[0][1] || "") };
+      hitMeta = {
+        name: String(r.rows[0][0] || ""),
+        symbol: String(r.rows[0][1] || ""),
+      };
   }
   if (round?.shitAssetId) {
     const r = await tursoExecute(
@@ -38,13 +50,17 @@ export default async function DayReceiptPage({ params }: Props) {
       [day, round.shitAssetId]
     );
     if (r.rows[0])
-      shitMeta = { name: String(r.rows[0][0] || ""), symbol: String(r.rows[0][1] || "") };
+      shitMeta = {
+        name: String(r.rows[0][0] || ""),
+        symbol: String(r.rows[0][1] || ""),
+      };
   }
 
   return (
     <div className="mx-auto w-full max-w-lg px-3 sm:px-4 pt-6 pb-10 space-y-4">
       <div className="rounded-2xl border border-border bg-card p-5 space-y-3">
-        <h1 className="text-xl font-bold text-white">Day {day}</h1>
+        <h1 className="text-xl font-bold text-white">Hour {day}</h1>
+        <p className="text-xs text-zinc-500">{formatHourLabel(day)}</p>
         <p className="text-xs text-zinc-500">
           Status:{" "}
           <span className="text-zinc-300 font-mono">{round?.status || "—"}</span>
@@ -52,7 +68,7 @@ export default async function DayReceiptPage({ params }: Props) {
 
         <div className="grid grid-cols-1 gap-3">
           <div className="rounded-xl border border-green-900/50 bg-green-950/20 p-3 space-y-1">
-            <div className="text-[10px] uppercase text-green-500">HIT of the day</div>
+            <div className="text-[10px] uppercase text-green-500">HIT of the hour</div>
             <div className="text-white font-semibold">
               {hitMeta?.symbol || round?.hitAssetId || "—"}{" "}
               {round?.hitPct != null && (
@@ -64,7 +80,9 @@ export default async function DayReceiptPage({ params }: Props) {
             </div>
             <div className="text-xs text-zinc-500">{hitMeta?.name}</div>
             <div className="text-xs font-mono text-zinc-400 break-all">
-              Winner: {round?.hitWinner || (round?.status === "settled" ? "treasury" : "—")}
+              Winner:{" "}
+              {round?.hitWinner ||
+                (round?.status === "settled" ? "treasury" : "—")}
             </div>
             <div className="text-xs text-zinc-500">
               Prize {round?.hitPrize?.toLocaleString() ?? "—"} · fee{" "}
@@ -83,7 +101,7 @@ export default async function DayReceiptPage({ params }: Props) {
           </div>
 
           <div className="rounded-xl border border-red-900/50 bg-red-950/20 p-3 space-y-1">
-            <div className="text-[10px] uppercase text-red-500">SHIT of the day</div>
+            <div className="text-[10px] uppercase text-red-500">SHIT of the hour</div>
             <div className="text-white font-semibold">
               {shitMeta?.symbol || round?.shitAssetId || "—"}{" "}
               {round?.shitPct != null && (
@@ -95,7 +113,9 @@ export default async function DayReceiptPage({ params }: Props) {
             </div>
             <div className="text-xs text-zinc-500">{shitMeta?.name}</div>
             <div className="text-xs font-mono text-zinc-400 break-all">
-              Winner: {round?.shitWinner || (round?.status === "settled" ? "treasury" : "—")}
+              Winner:{" "}
+              {round?.shitWinner ||
+                (round?.status === "settled" ? "treasury" : "—")}
             </div>
             <div className="text-xs text-zinc-500">
               Prize {round?.shitPrize?.toLocaleString() ?? "—"} · fee{" "}
@@ -116,8 +136,12 @@ export default async function DayReceiptPage({ params }: Props) {
       </div>
 
       <p className="text-center text-[11px] text-zinc-600">
+        <Link href="/" className="text-neon-blue hover:underline">
+          ← Home
+        </Link>
+        {" · "}
         <Link href="/day" className="text-neon-blue hover:underline">
-          ← Today
+          Play this hour
         </Link>
       </p>
     </div>

@@ -1,5 +1,6 @@
 /**
- * Hit / Shit of the Day — stakes, snapshots, settlement.
+ * Hit / Shit of the Hour — stakes, snapshots, settlement.
+ * Round key = UTC hour `YYYY-MM-DDTHH` (stored in day_* tables as utc_day).
  */
 import { apiFetch } from "@/lib/api";
 import { tursoExecute } from "@/lib/turso";
@@ -21,29 +22,65 @@ export const DAY_STAKE_AMOUNT = 1_000;
 export const DAY_HOUSE_FEE_BPS = 2_500; // 25%
 export const DAY_GAME_ENABLED = process.env.DAY_GAME_ENABLED !== "0";
 
+/** Round length */
+export const ROUND_MS = 60 * 60 * 1000;
+
 export type DaySide = "hit" | "shit";
 
+/** Current UTC hour key: 2026-08-13T14 */
+export function utcHourString(d = new Date()): string {
+  const iso = d.toISOString(); // 2026-08-13T14:23:45.678Z
+  return iso.slice(0, 13); // YYYY-MM-DDTHH
+}
+
+/** @deprecated use utcHourString — kept for import aliases */
 export function utcDayString(d = new Date()): string {
-  return d.toISOString().slice(0, 10);
+  return utcHourString(d);
 }
 
+export function previousUtcHour(hourKey: string): string {
+  const t = Date.parse(hourKey + ":00:00.000Z") - ROUND_MS;
+  return utcHourString(new Date(t));
+}
+
+/** @deprecated */
 export function previousUtcDay(day: string): string {
-  const t = Date.parse(day + "T12:00:00.000Z") - 86400000;
-  return new Date(t).toISOString().slice(0, 10);
+  // If day-only key, treat as previous calendar day; if hour key, previous hour
+  if (/^\d{4}-\d{2}-\d{2}$/.test(day)) {
+    const t = Date.parse(day + "T12:00:00.000Z") - 86400000;
+    return new Date(t).toISOString().slice(0, 10);
+  }
+  return previousUtcHour(day);
 }
 
-export function nextUtcMidnightMs(from = Date.now()): number {
+export function nextUtcHourMs(from = Date.now()): number {
   const d = new Date(from);
-  const next = Date.UTC(
+  return Date.UTC(
     d.getUTCFullYear(),
     d.getUTCMonth(),
-    d.getUTCDate() + 1,
-    0,
+    d.getUTCDate(),
+    d.getUTCHours() + 1,
     0,
     0,
     0
   );
-  return next;
+}
+
+/** @deprecated */
+export function nextUtcMidnightMs(from = Date.now()): number {
+  return nextUtcHourMs(from);
+}
+
+export function formatHourLabel(hourKey: string): string {
+  try {
+    const t = Date.parse(
+      hourKey.includes("T") ? hourKey + ":00:00.000Z" : hourKey + "T00:00:00.000Z"
+    );
+    if (!Number.isFinite(t)) return hourKey;
+    return new Date(t).toISOString().replace(":00.000Z", "Z").slice(0, 16) + " UTC";
+  } catch {
+    return hourKey;
+  }
 }
 
 export async function ensureDayGameSchema() {
