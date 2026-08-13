@@ -417,7 +417,15 @@ body {
 
 /* Font utility classes */
 .font-monoton { font-family: var(--font-monoton), cursive; }
-.font-orbitron { font-family: var(--font-orbitron), sans-serif; }
+.font-orbitron { font-family: var(--font-orbitron), system-ui, sans-serif; }
+
+/* Secondary UI type — menus, nav labels, section chips */
+.font-nav,
+.nav-orbitron {
+  font-family: var(--font-orbitron), system-ui, sans-serif;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
 
 /* Flat neon beta ticker under header */
 .beta-banner-root {

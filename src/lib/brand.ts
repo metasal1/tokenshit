@@ -51,7 +51,10 @@ export const BRAND = {
 
   fonts: {
     brand: "Monoton",
+    /** Secondary — nav, menus, section labels, HUD chips */
     display: "Orbitron",
+    secondary: "Orbitron",
+    secondaryClass: "font-orbitron",
     sans: "Geist",
     mono: "Geist Mono",
     /** UI icons + confetti — never bare system emoji */
