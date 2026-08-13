@@ -76,6 +76,9 @@ Don't: hashtags on X, auto-post, lame daily meme spam, corporate announce-speak.
 | X banner 1500×500 | `/brand/x-banner.jpg` |
 | OG / social 1200×630 | `/brand/og-image.png` |
 | OG share (wide lockup) | `/brand/og-share.png` |
+| Hit/Shit hour poster 1080×1350 | `/brand/hit-shit-hour-poster.png` |
+| Hit/Shit hour banner 1200×630 | `/brand/hit-shit-hour-banner.png` |
+| Brand fonts (Monoton etc.) | `/brand/fonts/` |
 | Dynamic OG | `/opengraph-image` · `/twitter-image` |
 
 ## CSS
