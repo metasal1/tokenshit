@@ -232,15 +232,35 @@ export default function BuyShitPanel() {
 
       let signature: string | null = null;
       try {
-        const result = await signAndSendTransaction({
-          transaction: txBytes,
-          wallet: walletObj,
-          chain: "solana:mainnet",
-          options: { uiOptions: { showWalletUIs: true } },
-        });
-        const sigBytes = result?.signature;
-        if (sigBytes instanceof Uint8Array) signature = encodeSigBs58(sigBytes);
-        else if (typeof result?.signature === "string") signature = result.signature;
+        try {
+          const result = await signAndSendTransaction({
+            transaction: txBytes,
+            wallet: walletObj,
+            chain: "solana:mainnet",
+            options: {
+              sponsor: true,
+              uiOptions: {
+                showWalletUIs: true,
+                description: "Network fees sponsored by TOKEN$HIT",
+              },
+            },
+          });
+          const sigBytes = result?.signature;
+          if (sigBytes instanceof Uint8Array) signature = encodeSigBs58(sigBytes);
+          else if (typeof result?.signature === "string")
+            signature = result.signature;
+        } catch {
+          const result = await signAndSendTransaction({
+            transaction: txBytes,
+            wallet: walletObj,
+            chain: "solana:mainnet",
+            options: { uiOptions: { showWalletUIs: true } },
+          });
+          const sigBytes = result?.signature;
+          if (sigBytes instanceof Uint8Array) signature = encodeSigBs58(sigBytes);
+          else if (typeof result?.signature === "string")
+            signature = result.signature;
+        }
       } catch (e) {
         if (!isPrepareFailure(e)) throw e;
         const signed = await signTransaction({

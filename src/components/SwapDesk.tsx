@@ -443,20 +443,37 @@ export default function SwapDesk() {
     if (!walletObj) throw new Error("No wallet");
     const txBytes = b64ToBytes(raw);
 
-    // Pre-check: need SOL for fees on non-SOL sells too
-    if ((balances?.sol ?? 0) < 0.005) {
-      throw new Error(
-        "Need ~0.01 SOL in this wallet for network fees before swapping."
-      );
-    }
-
-    try {
-      const result = await signAndSendTransaction({
+    const trySignAndSend = (sponsor: boolean) =>
+      signAndSendTransaction({
         transaction: txBytes,
         wallet: walletObj,
         chain: "solana:mainnet",
-        options: { uiOptions: { showWalletUIs: true } },
+        options: {
+          sponsor,
+          uiOptions: {
+            showWalletUIs: true,
+            // hide scary empty fee when sponsored
+            description: sponsor
+              ? "Network fees sponsored by TOKEN$HIT"
+              : undefined,
+          },
+        },
       });
+
+    try {
+      // Prefer sponsored gas so users can swap $TOKENSHIT with 0 SOL
+      let result;
+      try {
+        result = await trySignAndSend(true);
+      } catch (sponsorErr) {
+        // Dashboard gas sponsorship not on / unsupported → retry user-pays
+        if ((balances?.sol ?? 0) < 0.005) {
+          throw new Error(
+            "Fee sponsorship unavailable and this wallet has almost no SOL. Tap Add SOL (~0.01) or try again later."
+          );
+        }
+        result = await trySignAndSend(false);
+      }
       let signature: string | null = null;
       const sigBytes = result?.signature;
       if (sigBytes instanceof Uint8Array) {
@@ -468,8 +485,13 @@ export default function SwapDesk() {
       return signature;
     } catch (e) {
       // Privy "prepare" often dies on Token-2022 Jupiter routes (-32602).
-      // Fallback: sign only, broadcast via our RPC.
+      // Fallback: sign only, broadcast via our RPC (user pays fee if any SOL).
       if (!isPrepareFailure(e)) throw e;
+      if ((balances?.sol ?? 0) < 0.003) {
+        throw new Error(
+          "Could not sponsor this route and wallet has no SOL for fees. Tap Add SOL, then retry."
+        );
+      }
       const signed = await signTransaction({
         transaction: txBytes,
         wallet: walletObj,
@@ -542,6 +564,9 @@ export default function SwapDesk() {
       </div>
 
       <div className="p-4 sm:p-5 space-y-4">
+        <p className="text-[11px] font-mono text-neon/90 border border-neon/25 bg-neon/5 rounded-lg px-3 py-2">
+          Network fees sponsored · no SOL needed to swap $TOKENSHIT (buy still needs SOL size)
+        </p>
         {/* Balances strip */}
         <div className="grid grid-cols-3 gap-2 text-[11px] font-mono">
           {(
@@ -783,7 +808,7 @@ export default function SwapDesk() {
 
         <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-zinc-600">
           <span>
-            Via Jupiter · legacy tx · no platform fee
+            Via Jupiter · network fees sponsored when available
           </span>
           <a
             href={jupUrl}
