@@ -6,6 +6,7 @@ import {
   ensureRound,
   fetchRealMajorsLive,
   formatHourLabel,
+  getLiveLeaders,
   getRound,
   listStakes,
   nextUtcHourMs,
@@ -20,16 +21,19 @@ import { SHIT_MINT, TREASURY_ADDRESS } from "@/lib/shit-token";
 export const dynamic = "force-dynamic";
 
 /**
- * GET /api/day — current hour round
+ * GET /api/day — current hour round + live hitting/shitting
  * POST /api/day — stake
  */
 export async function GET() {
   try {
     const hour = utcHourString();
     await ensureRound(hour);
-    const round = await getRound(hour);
-    const stakes = await listStakes(hour);
-    const majors = await fetchRealMajorsLive().catch(() => []);
+    const [round, stakes, majors, leaders] = await Promise.all([
+      getRound(hour),
+      listStakes(hour),
+      fetchRealMajorsLive().catch(() => []),
+      getLiveLeaders(hour).catch(() => null),
+    ]);
 
     const hitCount = stakes.filter((s) => s.side === "hit").length;
     const shitCount = stakes.filter((s) => s.side === "shit").length;
@@ -39,6 +43,18 @@ export async function GET() {
     const uniqueShit = new Set(
       stakes.filter((s) => s.side === "shit").map((s) => s.wallet)
     ).size;
+
+    // stake pressure on current leaders
+    const hitLeaderId = leaders?.hitting?.assetId;
+    const shitLeaderId = leaders?.shitting?.assetId;
+    const stakesOnHitting = hitLeaderId
+      ? stakes.filter((s) => s.side === "hit" && s.assetId === hitLeaderId)
+          .length
+      : 0;
+    const stakesOnShitting = shitLeaderId
+      ? stakes.filter((s) => s.side === "shit" && s.assetId === shitLeaderId)
+          .length
+      : 0;
 
     return Response.json({
       enabled: DAY_GAME_ENABLED,
@@ -59,6 +75,17 @@ export async function GET() {
         hitTickets: uniqueHit,
         shitTickets: uniqueShit,
       },
+      leaders: leaders
+        ? {
+            hitting: leaders.hitting,
+            shitting: leaders.shitting,
+            topHit: leaders.topHit,
+            topShit: leaders.topShit,
+            stakesOnHitting,
+            stakesOnShitting,
+            compared: leaders.compared,
+          }
+        : null,
       majors: majors.slice(0, 120).map((m) => ({
         assetId: m.assetId,
         name: m.name,
