@@ -303,6 +303,85 @@ export async function listStakes(utcDay: string, side?: DaySide) {
   }));
 }
 
+export type PastWinner = {
+  utcHour: string;
+  hourLabel: string;
+  settledAt: string | null;
+  assetId: string | null;
+  symbol: string;
+  name: string;
+  logo: string;
+  pct: number | null;
+  winner: string | null; // null = treasury
+  prize: number;
+  fee: number;
+  pot: number;
+  sig: string | null;
+};
+
+/** Past settled HIT or SHIT winners (newest first). */
+export async function listPastWinners(
+  side: DaySide,
+  limit = 50
+): Promise<PastWinner[]> {
+  await ensureDayGameSchema();
+  const lim = Math.min(100, Math.max(1, Math.floor(limit)));
+  const isHit = side === "hit";
+  const r = await tursoExecute(
+    isHit
+      ? `SELECT utc_day, settled_at, hit_asset_id, hit_pct, hit_winner, hit_prize, hit_fee, hit_pot, hit_sig
+         FROM day_rounds
+         WHERE status = 'settled' AND hit_asset_id IS NOT NULL
+         ORDER BY utc_day DESC
+         LIMIT ${lim}`
+      : `SELECT utc_day, settled_at, shit_asset_id, shit_pct, shit_winner, shit_prize, shit_fee, shit_pot, shit_sig
+         FROM day_rounds
+         WHERE status = 'settled' AND shit_asset_id IS NOT NULL
+         ORDER BY utc_day DESC
+         LIMIT ${lim}`,
+    []
+  );
+
+  const out: PastWinner[] = [];
+  for (const row of r.rows) {
+    const hour = String(row[0]);
+    const assetId = row[2] ? String(row[2]) : null;
+    let name = "";
+    let symbol = "";
+    let logo = "";
+    if (assetId) {
+      const m = await tursoExecute(
+        `SELECT name, symbol, logo FROM day_prices
+         WHERE utc_day = ? AND asset_id = ?
+         ORDER BY CASE phase WHEN 'close' THEN 0 ELSE 1 END
+         LIMIT 1`,
+        [hour, assetId]
+      );
+      if (m.rows[0]) {
+        name = String(m.rows[0][0] || "");
+        symbol = String(m.rows[0][1] || "");
+        logo = String(m.rows[0][2] || "");
+      }
+    }
+    out.push({
+      utcHour: hour,
+      hourLabel: formatHourLabel(hour),
+      settledAt: row[1] ? String(row[1]) : null,
+      assetId,
+      symbol: symbol || assetId || "—",
+      name,
+      logo,
+      pct: row[3] != null ? Number(row[3]) : null,
+      winner: row[4] ? String(row[4]) : null,
+      prize: Number(row[5] || 0),
+      fee: Number(row[6] || 0),
+      pot: Number(row[7] || 0),
+      sig: row[8] ? String(row[8]) : null,
+    });
+  }
+  return out;
+}
+
 /** Verify user sent DAY_STAKE_AMOUNT TOKENSHIT to treasury */
 export async function verifyStakeTransfer(opts: {
   signature: string;

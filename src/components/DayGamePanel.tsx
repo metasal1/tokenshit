@@ -531,6 +531,14 @@ export default function DayGamePanel() {
             Last hour receipt
           </Link>
           <span>·</span>
+          <Link href="/hitters" className="text-neon-blue hover:underline">
+            Hitters
+          </Link>
+          <span>·</span>
+          <Link href="/shitters" className="text-neon-blue hover:underline">
+            Shitters
+          </Link>
+          <span>·</span>
           <a
             href={`https://sol.new/portfolio/${TREASURY_ADDRESS}`}
             target="_blank"
