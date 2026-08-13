@@ -417,40 +417,41 @@ body {
 .font-monoton { font-family: var(--font-monoton), cursive; }
 .font-orbitron { font-family: var(--font-orbitron), sans-serif; }
 
-/* Diagonal scrolling beta banner */
+/* Diagonal scrolling beta banner — subtle */
 .beta-banner-root {
   position: fixed;
   inset: 0;
-  z-index: 80;
+  z-index: 40;
   overflow: hidden;
   pointer-events: none;
 }
 .beta-banner-strip {
   position: absolute;
-  /* diagonal ribbon across viewport */
-  top: 18%;
-  left: -20%;
-  width: 140%;
-  transform: rotate(-12deg);
+  top: 14%;
+  left: -25%;
+  width: 150%;
+  transform: rotate(-11deg);
   transform-origin: center center;
-  background: #39ff14;
-  color: #0a0a0f;
-  border-top: 2px solid #0a0a0f;
-  border-bottom: 2px solid #0a0a0f;
-  box-shadow: 0 0 24px rgba(57, 255, 20, 0.45);
+  background: rgba(18, 18, 26, 0.55);
+  color: rgba(228, 228, 231, 0.55);
+  border-top: 1px solid rgba(57, 255, 20, 0.12);
+  border-bottom: 1px solid rgba(57, 255, 20, 0.12);
+  box-shadow: none;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   overflow: hidden;
   white-space: nowrap;
   line-height: 1;
-  padding: 0.55rem 0;
+  padding: 0.28rem 0;
 }
 .beta-banner-track {
   display: inline-flex;
   width: max-content;
-  animation: beta-banner-scroll 28s linear infinite;
+  animation: beta-banner-scroll 42s linear infinite;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
+  font-size: 0.62rem;
+  font-weight: 500;
+  letter-spacing: 0.06em;
   text-transform: lowercase;
 }
 .beta-banner-unit a {
@@ -458,11 +459,11 @@ body {
 }
 @media (min-width: 640px) {
   .beta-banner-strip {
-    top: 22%;
-    padding: 0.65rem 0;
+    top: 16%;
+    padding: 0.32rem 0;
   }
   .beta-banner-track {
-    font-size: 0.85rem;
+    font-size: 0.68rem;
   }
 }
 @keyframes beta-banner-scroll {
@@ -472,5 +473,10 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .beta-banner-track {
     animation: none;
+  }
+}
+@media (max-width: 480px) {
+  .beta-banner-strip {
+    opacity: 0.75;
   }
 }
