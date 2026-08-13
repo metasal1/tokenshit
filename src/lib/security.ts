@@ -75,7 +75,7 @@ export function treasurySendsAllowed(): {
 }
 
 export function maxSinglePayoutWhole(): number {
-  // Must cover largest one-shot claim (GH fork 100k). Override via TREASURY_MAX_SINGLE.
-  const n = Number(process.env.TREASURY_MAX_SINGLE || 100_000);
-  return Number.isFinite(n) && n > 0 ? n : 100_000;
+  // Claims max 100k; day-game pots can be larger
+  const n = Number(process.env.TREASURY_MAX_SINGLE || 1_000_000);
+  return Number.isFinite(n) && n > 0 ? n : 1_000_000;
 }

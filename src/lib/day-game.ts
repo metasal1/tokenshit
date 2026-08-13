@@ -1,0 +1,685 @@
+/**
+ * Hit / Shit of the Day — stakes, snapshots, settlement.
+ */
+import { apiFetch } from "@/lib/api";
+import { tursoExecute } from "@/lib/turso";
+import {
+  filterRealMajors,
+  rowAssetId,
+  rowLogo,
+  rowName,
+  rowPrice,
+  rowSymbol,
+  rowVolume24h,
+  type TrustishRow,
+} from "@/lib/majors-filter";
+import { pickWinnerWallet } from "@/lib/day-vrf";
+import { TREASURY_ADDRESS } from "@/lib/shit-token";
+import { rpc } from "@/lib/treasury";
+
+export const DAY_STAKE_AMOUNT = 1_000;
+export const DAY_HOUSE_FEE_BPS = 2_500; // 25%
+export const DAY_GAME_ENABLED = process.env.DAY_GAME_ENABLED !== "0";
+
+export type DaySide = "hit" | "shit";
+
+export function utcDayString(d = new Date()): string {
+  return d.toISOString().slice(0, 10);
+}
+
+export function previousUtcDay(day: string): string {
+  const t = Date.parse(day + "T12:00:00.000Z") - 86400000;
+  return new Date(t).toISOString().slice(0, 10);
+}
+
+export function nextUtcMidnightMs(from = Date.now()): number {
+  const d = new Date(from);
+  const next = Date.UTC(
+    d.getUTCFullYear(),
+    d.getUTCMonth(),
+    d.getUTCDate() + 1,
+    0,
+    0,
+    0,
+    0
+  );
+  return next;
+}
+
+export async function ensureDayGameSchema() {
+  await tursoExecute(
+    `CREATE TABLE IF NOT EXISTS day_rounds (
+      utc_day TEXT PRIMARY KEY,
+      status TEXT NOT NULL DEFAULT 'open',
+      hit_pot REAL NOT NULL DEFAULT 0,
+      shit_pot REAL NOT NULL DEFAULT 0,
+      open_snap_at TEXT,
+      close_snap_at TEXT,
+      settled_at TEXT,
+      hit_asset_id TEXT,
+      shit_asset_id TEXT,
+      hit_pct REAL,
+      shit_pct REAL,
+      hit_winner TEXT,
+      shit_winner TEXT,
+      hit_prize REAL,
+      shit_prize REAL,
+      hit_fee REAL,
+      shit_fee REAL,
+      hit_sig TEXT,
+      shit_sig TEXT,
+      hit_fee_sig TEXT,
+      shit_fee_sig TEXT,
+      meta TEXT
+    )`,
+    []
+  );
+  await tursoExecute(
+    `CREATE TABLE IF NOT EXISTS day_stakes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      utc_day TEXT NOT NULL,
+      wallet TEXT NOT NULL,
+      asset_id TEXT NOT NULL,
+      side TEXT NOT NULL,
+      amount REAL NOT NULL,
+      signature TEXT NOT NULL UNIQUE,
+      twitter TEXT,
+      created_at TEXT DEFAULT (datetime('now'))
+    )`,
+    []
+  );
+  await tursoExecute(
+    `CREATE INDEX IF NOT EXISTS idx_day_stakes_day_side
+     ON day_stakes(utc_day, side)`,
+    []
+  );
+  await tursoExecute(
+    `CREATE INDEX IF NOT EXISTS idx_day_stakes_day_wallet
+     ON day_stakes(utc_day, wallet)`,
+    []
+  );
+  await tursoExecute(
+    `CREATE TABLE IF NOT EXISTS day_prices (
+      utc_day TEXT NOT NULL,
+      phase TEXT NOT NULL,
+      asset_id TEXT NOT NULL,
+      price REAL NOT NULL,
+      volume24h REAL NOT NULL DEFAULT 0,
+      name TEXT,
+      symbol TEXT,
+      logo TEXT,
+      snapped_at TEXT DEFAULT (datetime('now')),
+      PRIMARY KEY (utc_day, phase, asset_id)
+    )`,
+    []
+  );
+}
+
+export async function ensureRound(utcDay: string) {
+  await ensureDayGameSchema();
+  await tursoExecute(
+    `INSERT OR IGNORE INTO day_rounds (utc_day, status) VALUES (?, 'open')`,
+    [utcDay]
+  );
+}
+
+export type MajorSnap = {
+  assetId: string;
+  price: number;
+  volume24h: number;
+  name: string;
+  symbol: string;
+  logo: string;
+};
+
+export async function fetchRealMajorsLive(): Promise<MajorSnap[]> {
+  const data = await apiFetch(`/assets/curated?list=majors&groupBy=asset`);
+  const raw = (data?.assets || data?.results || []) as TrustishRow[];
+  const filtered = filterRealMajors(raw);
+  const out: MajorSnap[] = [];
+  for (const row of filtered) {
+    const assetId = rowAssetId(row);
+    const price = rowPrice(row);
+    if (!assetId || price == null) continue;
+    out.push({
+      assetId,
+      price,
+      volume24h: rowVolume24h(row),
+      name: rowName(row) || assetId,
+      symbol: rowSymbol(row) || "",
+      logo: rowLogo(row),
+    });
+  }
+  return out;
+}
+
+export async function snapshotPrices(
+  utcDay: string,
+  phase: "open" | "close"
+): Promise<number> {
+  await ensureRound(utcDay);
+  const majors = await fetchRealMajorsLive();
+  const now = new Date().toISOString();
+  for (const m of majors) {
+    await tursoExecute(
+      `INSERT INTO day_prices
+        (utc_day, phase, asset_id, price, volume24h, name, symbol, logo, snapped_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(utc_day, phase, asset_id) DO UPDATE SET
+         price = excluded.price,
+         volume24h = excluded.volume24h,
+         name = excluded.name,
+         symbol = excluded.symbol,
+         logo = excluded.logo,
+         snapped_at = excluded.snapped_at`,
+      [
+        utcDay,
+        phase,
+        m.assetId,
+        m.price,
+        m.volume24h,
+        m.name,
+        m.symbol,
+        m.logo,
+        now,
+      ]
+    );
+  }
+  const col = phase === "open" ? "open_snap_at" : "close_snap_at";
+  await tursoExecute(
+    `UPDATE day_rounds SET ${col} = ? WHERE utc_day = ?`,
+    [now, utcDay]
+  );
+  return majors.length;
+}
+
+export async function getRound(utcDay: string) {
+  await ensureRound(utcDay);
+  const r = await tursoExecute(
+    `SELECT utc_day, status, hit_pot, shit_pot, open_snap_at, close_snap_at,
+            settled_at, hit_asset_id, shit_asset_id, hit_pct, shit_pct,
+            hit_winner, shit_winner, hit_prize, shit_prize, hit_fee, shit_fee,
+            hit_sig, shit_sig, hit_fee_sig, shit_fee_sig, meta
+     FROM day_rounds WHERE utc_day = ?`,
+    [utcDay]
+  );
+  const row = r.rows[0];
+  if (!row) return null;
+  return {
+    utcDay: String(row[0]),
+    status: String(row[1]),
+    hitPot: Number(row[2] || 0),
+    shitPot: Number(row[3] || 0),
+    openSnapAt: row[4] ? String(row[4]) : null,
+    closeSnapAt: row[5] ? String(row[5]) : null,
+    settledAt: row[6] ? String(row[6]) : null,
+    hitAssetId: row[7] ? String(row[7]) : null,
+    shitAssetId: row[8] ? String(row[8]) : null,
+    hitPct: row[9] != null ? Number(row[9]) : null,
+    shitPct: row[10] != null ? Number(row[10]) : null,
+    hitWinner: row[11] ? String(row[11]) : null,
+    shitWinner: row[12] ? String(row[12]) : null,
+    hitPrize: row[13] != null ? Number(row[13]) : null,
+    shitPrize: row[14] != null ? Number(row[14]) : null,
+    hitFee: row[15] != null ? Number(row[15]) : null,
+    shitFee: row[16] != null ? Number(row[16]) : null,
+    hitSig: row[17] ? String(row[17]) : null,
+    shitSig: row[18] ? String(row[18]) : null,
+    hitFeeSig: row[19] ? String(row[19]) : null,
+    shitFeeSig: row[20] ? String(row[20]) : null,
+    meta: row[21] ? String(row[21]) : null,
+  };
+}
+
+export async function listStakes(utcDay: string, side?: DaySide) {
+  await ensureDayGameSchema();
+  if (side) {
+    const r = await tursoExecute(
+      `SELECT wallet, asset_id, side, amount, signature, twitter, created_at
+       FROM day_stakes WHERE utc_day = ? AND side = ? ORDER BY id ASC`,
+      [utcDay, side]
+    );
+    return r.rows.map((row) => ({
+      wallet: String(row[0]),
+      assetId: String(row[1]),
+      side: String(row[2]) as DaySide,
+      amount: Number(row[3]),
+      signature: String(row[4]),
+      twitter: row[5] ? String(row[5]) : null,
+      createdAt: String(row[6] || ""),
+    }));
+  }
+  const r = await tursoExecute(
+    `SELECT wallet, asset_id, side, amount, signature, twitter, created_at
+     FROM day_stakes WHERE utc_day = ? ORDER BY id ASC`,
+    [utcDay]
+  );
+  return r.rows.map((row) => ({
+    wallet: String(row[0]),
+    assetId: String(row[1]),
+    side: String(row[2]) as DaySide,
+    amount: Number(row[3]),
+    signature: String(row[4]),
+    twitter: row[5] ? String(row[5]) : null,
+    createdAt: String(row[6] || ""),
+  }));
+}
+
+/** Verify user sent DAY_STAKE_AMOUNT TOKENSHIT to treasury */
+export async function verifyStakeTransfer(opts: {
+  signature: string;
+  wallet: string;
+}): Promise<{ ok: true } | { ok: false; error: string }> {
+  const { SHIT_MINT, shitToRaw } = await import("@/lib/shit-token");
+  const need = shitToRaw(DAY_STAKE_AMOUNT).toString();
+  try {
+    const tx = await rpc<{
+      meta?: {
+        err?: unknown;
+        postTokenBalances?: Array<{
+          mint: string;
+          owner?: string;
+          uiTokenAmount?: { amount?: string };
+        }>;
+        preTokenBalances?: Array<{
+          mint: string;
+          owner?: string;
+          uiTokenAmount?: { amount?: string };
+        }>;
+      };
+      transaction?: {
+        message?: { accountKeys?: Array<string | { pubkey: string }> };
+      };
+    }>("getTransaction", [
+      opts.signature,
+      {
+        encoding: "jsonParsed",
+        commitment: "confirmed",
+        maxSupportedTransactionVersion: 0,
+      },
+    ]);
+    if (!tx) return { ok: false, error: "Transaction not found yet — retry" };
+    if (tx.meta?.err) return { ok: false, error: "Transaction failed on-chain" };
+
+    const pre = tx.meta?.preTokenBalances || [];
+    const post = tx.meta?.postTokenBalances || [];
+    const treasury = TREASURY_ADDRESS;
+
+    const preT =
+      pre.find((b) => b.mint === SHIT_MINT && b.owner === treasury)
+        ?.uiTokenAmount?.amount || "0";
+    const postT =
+      post.find((b) => b.mint === SHIT_MINT && b.owner === treasury)
+        ?.uiTokenAmount?.amount || "0";
+    const delta = BigInt(postT) - BigInt(preT);
+    if (delta < BigInt(need)) {
+      // also accept exact user debit
+      const preU =
+        pre.find((b) => b.mint === SHIT_MINT && b.owner === opts.wallet)
+          ?.uiTokenAmount?.amount || "0";
+      const postU =
+        post.find((b) => b.mint === SHIT_MINT && b.owner === opts.wallet)
+          ?.uiTokenAmount?.amount || "0";
+      const userDelta = BigInt(preU) - BigInt(postU);
+      if (userDelta < BigInt(need)) {
+        return {
+          ok: false,
+          error: `Need ${DAY_STAKE_AMOUNT} $TOKENSHIT to treasury (got treasury Δ ${delta.toString()})`,
+        };
+      }
+    }
+    return { ok: true };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : String(e),
+    };
+  }
+}
+
+export async function recordStake(opts: {
+  utcDay: string;
+  wallet: string;
+  assetId: string;
+  side: DaySide;
+  signature: string;
+  twitter?: string | null;
+}): Promise<{ ok: true; hitPot: number; shitPot: number } | { ok: false; error: string; status: number }> {
+  if (!DAY_GAME_ENABLED) {
+    return { ok: false, error: "Day game paused", status: 503 };
+  }
+  await ensureRound(opts.utcDay);
+  const round = await getRound(opts.utcDay);
+  if (!round || round.status !== "open") {
+    return { ok: false, error: "Round not open for stakes", status: 400 };
+  }
+
+  const ver = await verifyStakeTransfer({
+    signature: opts.signature,
+    wallet: opts.wallet,
+  });
+  if (!ver.ok) return { ok: false, error: ver.error, status: 400 };
+
+  try {
+    await tursoExecute(
+      `INSERT INTO day_stakes (utc_day, wallet, asset_id, side, amount, signature, twitter)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [
+        opts.utcDay,
+        opts.wallet,
+        opts.assetId,
+        opts.side,
+        DAY_STAKE_AMOUNT,
+        opts.signature,
+        opts.twitter || null,
+      ]
+    );
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    if (/unique|UNIQUE/i.test(msg)) {
+      return { ok: false, error: "Signature already used", status: 409 };
+    }
+    return { ok: false, error: msg, status: 500 };
+  }
+
+  const col = opts.side === "hit" ? "hit_pot" : "shit_pot";
+  await tursoExecute(
+    `UPDATE day_rounds SET ${col} = ${col} + ? WHERE utc_day = ?`,
+    [DAY_STAKE_AMOUNT, opts.utcDay]
+  );
+  const updated = await getRound(opts.utcDay);
+  return {
+    ok: true,
+    hitPot: updated?.hitPot || 0,
+    shitPot: updated?.shitPot || 0,
+  };
+}
+
+type PriceRow = {
+  assetId: string;
+  price: number;
+  volume24h: number;
+  name: string;
+  symbol: string;
+};
+
+async function loadPhase(
+  utcDay: string,
+  phase: "open" | "close"
+): Promise<Map<string, PriceRow>> {
+  const r = await tursoExecute(
+    `SELECT asset_id, price, volume24h, name, symbol FROM day_prices
+     WHERE utc_day = ? AND phase = ?`,
+    [utcDay, phase]
+  );
+  const m = new Map<string, PriceRow>();
+  for (const row of r.rows) {
+    m.set(String(row[0]), {
+      assetId: String(row[0]),
+      price: Number(row[1]),
+      volume24h: Number(row[2] || 0),
+      name: String(row[3] || ""),
+      symbol: String(row[4] || ""),
+    });
+  }
+  return m;
+}
+
+/** Tie-break: higher volume24h only (close snapshot volume). */
+function pickExtreme(
+  moves: Array<{ assetId: string; pct: number; volume24h: number }>,
+  mode: "max" | "min"
+): { assetId: string; pct: number } | null {
+  if (!moves.length) return null;
+  const sorted = [...moves].sort((a, b) => {
+    if (mode === "max") {
+      if (b.pct !== a.pct) return b.pct - a.pct;
+    } else {
+      if (a.pct !== b.pct) return a.pct - b.pct;
+    }
+    // volume only tie-break (higher volume wins)
+    return b.volume24h - a.volume24h;
+  });
+  const top = sorted[0]!;
+  return { assetId: top.assetId, pct: top.pct };
+}
+
+export async function settleDay(utcDay: string): Promise<{
+  ok: boolean;
+  error?: string;
+  result?: Record<string, unknown>;
+}> {
+  if (!DAY_GAME_ENABLED) return { ok: false, error: "Day game paused" };
+  await ensureRound(utcDay);
+  const round = await getRound(utcDay);
+  if (!round) return { ok: false, error: "no round" };
+  if (round.status === "settled") {
+    return { ok: true, result: { already: true, utcDay } };
+  }
+
+  // Ensure snapshots
+  let openM = await loadPhase(utcDay, "open");
+  if (openM.size === 0) {
+    await snapshotPrices(utcDay, "open");
+    openM = await loadPhase(utcDay, "open");
+  }
+  let closeM = await loadPhase(utcDay, "close");
+  if (closeM.size === 0) {
+    await snapshotPrices(utcDay, "close");
+    closeM = await loadPhase(utcDay, "close");
+  }
+
+  const moves: Array<{ assetId: string; pct: number; volume24h: number }> = [];
+  for (const [id, o] of openM) {
+    const c = closeM.get(id);
+    if (!c || o.price <= 0 || c.price <= 0) continue;
+    const pct = ((c.price - o.price) / o.price) * 100;
+    moves.push({
+      assetId: id,
+      pct,
+      volume24h: c.volume24h || o.volume24h || 0,
+    });
+  }
+
+  const hitBag = pickExtreme(moves, "max");
+  const shitBag = pickExtreme(moves, "min");
+
+  const hitStakes = await listStakes(utcDay, "hit");
+  const shitStakes = await listStakes(utcDay, "shit");
+
+  // 1 wallet = 1 ticket among those who staked correct side on winning bag
+  const hitTickets = hitBag
+    ? [
+        ...new Set(
+          hitStakes
+            .filter((s) => s.assetId === hitBag.assetId)
+            .map((s) => s.wallet)
+        ),
+      ]
+    : [];
+  const shitTickets = shitBag
+    ? [
+        ...new Set(
+          shitStakes
+            .filter((s) => s.assetId === shitBag.assetId)
+            .map((s) => s.wallet)
+        ),
+      ]
+    : [];
+
+  const hitPot = round.hitPot;
+  const shitPot = round.shitPot;
+
+  async function settleSide(opts: {
+    side: DaySide;
+    pot: number;
+    tickets: string[];
+    bag: { assetId: string; pct: number } | null;
+  }): Promise<{
+    winner: string | null;
+    prize: number;
+    fee: number;
+    prizeSig: string | null;
+    feeSig: string | null;
+    vrf: Record<string, unknown> | null;
+    toTreasury: boolean;
+  }> {
+    const fee = Math.floor((opts.pot * DAY_HOUSE_FEE_BPS) / 10_000);
+    let prize = Math.max(0, opts.pot - fee);
+    let winner: string | null = null;
+    let prizeSig: string | null = null;
+    let feeSig: string | null = null;
+    let vrf: Record<string, unknown> | null = null;
+    let toTreasury = false;
+
+    const { payFromTreasury } = await import("@/lib/treasury-ledger");
+
+    // Fee always to treasury accounting — funds already in treasury from stakes
+    // (no transfer needed for fee). Only winner payout leaves treasury.
+    if (opts.tickets.length === 0 || prize <= 0 || !opts.bag) {
+      toTreasury = true;
+      prize = 0;
+      // entire pot stays in treasury (fee + prize)
+      return {
+        winner: null,
+        prize: 0,
+        fee: opts.pot,
+        prizeSig: null,
+        feeSig: null,
+        vrf: null,
+        toTreasury: true,
+      };
+    }
+
+    try {
+      const draw = await pickWinnerWallet({
+        tickets: opts.tickets,
+        label: `day:${utcDay}:${opts.side}:${opts.bag.assetId}`,
+      });
+      winner = draw.winner;
+      vrf = {
+        provider: draw.provider,
+        seed: draw.seed,
+        verificationHash: draw.verificationHash,
+        winnerIndex: draw.winnerIndex,
+        entriesHash: draw.entriesHash,
+        slot: draw.slot,
+        blockhash: draw.blockhash,
+        proofnetworkId: draw.proofnetworkId,
+        ticketCount: draw.tickets.length,
+      };
+
+      if (prize > 0) {
+        const paid = await payFromTreasury({
+          kind: opts.side === "hit" ? "day_hit" : "day_shit",
+          recipient: winner,
+          amount: prize,
+          idempotencyKey: `day:${utcDay}:${opts.side}:prize`,
+          meta: {
+            utcDay,
+            side: opts.side,
+            bag: opts.bag.assetId,
+            pct: opts.bag.pct,
+          },
+        });
+        prizeSig = paid.signature;
+      }
+    } catch (e) {
+      // fail → pot to treasury
+      toTreasury = true;
+      vrf = {
+        error: e instanceof Error ? e.message : String(e),
+      };
+      prize = 0;
+      return {
+        winner: null,
+        prize: 0,
+        fee: opts.pot,
+        prizeSig: null,
+        feeSig,
+        vrf,
+        toTreasury: true,
+      };
+    }
+
+    return {
+      winner,
+      prize,
+      fee,
+      prizeSig,
+      feeSig,
+      vrf,
+      toTreasury,
+    };
+  }
+
+  const hitRes = await settleSide({
+    side: "hit",
+    pot: hitPot,
+    tickets: hitTickets,
+    bag: hitBag,
+  });
+  const shitRes = await settleSide({
+    side: "shit",
+    pot: shitPot,
+    tickets: shitTickets,
+    bag: shitBag,
+  });
+
+  const meta = JSON.stringify({
+    hitVrf: hitRes.vrf,
+    shitVrf: shitRes.vrf,
+    hitTickets: hitTickets.length,
+    shitTickets: shitTickets.length,
+    moveCount: moves.length,
+  });
+
+  await tursoExecute(
+    `UPDATE day_rounds SET
+      status = 'settled',
+      settled_at = datetime('now'),
+      hit_asset_id = ?,
+      shit_asset_id = ?,
+      hit_pct = ?,
+      shit_pct = ?,
+      hit_winner = ?,
+      shit_winner = ?,
+      hit_prize = ?,
+      shit_prize = ?,
+      hit_fee = ?,
+      shit_fee = ?,
+      hit_sig = ?,
+      shit_sig = ?,
+      meta = ?
+     WHERE utc_day = ?`,
+    [
+      hitBag?.assetId || null,
+      shitBag?.assetId || null,
+      hitBag?.pct ?? null,
+      shitBag?.pct ?? null,
+      hitRes.winner,
+      shitRes.winner,
+      hitRes.prize,
+      shitRes.prize,
+      hitRes.fee,
+      shitRes.fee,
+      hitRes.prizeSig,
+      shitRes.prizeSig,
+      meta,
+      utcDay,
+    ]
+  );
+
+  return {
+    ok: true,
+    result: {
+      utcDay,
+      hitBag,
+      shitBag,
+      hit: hitRes,
+      shit: shitRes,
+      hitTickets: hitTickets.length,
+      shitTickets: shitTickets.length,
+    },
+  };
+}
