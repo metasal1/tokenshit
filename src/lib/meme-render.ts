@@ -1,6 +1,6 @@
 /**
- * Canvas meme renderer for TOKENSHIT — Monoton + cream/gold glow captions.
- * Templates/blanks from https://memes.sal.fun/api
+ * Canvas meme renderer for TOKENSHIT — Monoton light/dark captions.
+ * Templates from https://memes.sal.fun/api
  */
 
 export type MemeBox = {
@@ -10,7 +10,8 @@ export type MemeBox = {
   y: number;
   w: number;
   h: number;
-  style?: "impact" | "plain" | "monoton";
+  /** light = cream+glow (default); dark/plain = dark fill */
+  style?: "impact" | "plain" | "monoton" | "light" | "dark";
   align?: "center" | "left" | "right";
   fontScale?: number;
 };
@@ -35,15 +36,17 @@ export const MEMES_API = "https://memes.sal.fun";
 const MONOTON_STACK =
   'Monoton, "Monoton Regular", cursive, system-ui, sans-serif';
 
-/** Brand caption colors (BRAND.md) */
 const CREAM = "#fff8e7";
 const GOLD = "#f0c040";
-const NEON = "#39ff14";
+const DARK = "#0a0a0f";
+
+export function isDarkStyle(style?: string): boolean {
+  return style === "plain" || style === "dark";
+}
 
 export async function ensureMonotonFont(): Promise<void> {
   if (typeof document === "undefined") return;
   try {
-    // Prefer site font if already loaded via next/font
     await document.fonts.load(`400 64px ${MONOTON_STACK}`);
     if (document.fonts.check(`400 64px Monoton`)) return;
   } catch {
@@ -59,7 +62,7 @@ export async function ensureMonotonFont(): Promise<void> {
     document.fonts.add(loaded);
     await document.fonts.load(`400 64px Monoton`);
   } catch {
-    /* fall back to system stack */
+    /* fall back */
   }
 }
 
@@ -99,7 +102,6 @@ export function fitFontSize(
   maxH: number,
   fontScale: number
 ): number {
-  // Monoton is wide — slightly smaller base than Impact
   let size = Math.min(maxH * 0.48, maxW * 0.16, 100) * fontScale;
   const min = 14;
   while (size > min) {
@@ -133,10 +135,16 @@ export function drawMonotonBox(
   const h = Math.max(8, box.h * imgH);
   const fontScale = box.fontScale ?? 1;
   const size = fitFontSize(ctx, t, w, h, fontScale);
+  const dark = isDarkStyle(box.style);
+
+  ctx.save();
+  // Ensure no accidental mirror transforms
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.font = `400 ${size}px ${MONOTON_STACK}`;
   ctx.textBaseline = "middle";
   const align = box.align || "center";
   ctx.textAlign = align;
+  ctx.direction = "ltr";
 
   const lines = wrapLines(ctx, t, w * 0.94);
   const lineH = size * 1.2;
@@ -154,135 +162,53 @@ export function drawMonotonBox(
       cy += lineH;
       continue;
     }
-    ctx.save();
     ctx.lineJoin = "round";
     ctx.miterLimit = 2;
 
-    // Outer gold glow (brand wordmarkGlow)
-    ctx.shadowColor = GOLD;
-    ctx.shadowBlur = Math.max(12, size * 0.45);
-    ctx.shadowOffsetX = 0;
-    ctx.shadowOffsetY = 0;
-    ctx.fillStyle = CREAM;
-    ctx.fillText(line, cx, cy, w * 0.96);
+    if (dark) {
+      ctx.shadowBlur = 0;
+      ctx.lineWidth = Math.max(1.5, size * 0.04);
+      ctx.strokeStyle = "rgba(255,255,255,0.25)";
+      ctx.fillStyle = DARK;
+      ctx.strokeText(line, cx, cy, w * 0.96);
+      ctx.fillText(line, cx, cy, w * 0.96);
+    } else {
+      ctx.shadowColor = GOLD;
+      ctx.shadowBlur = Math.max(12, size * 0.45);
+      ctx.fillStyle = CREAM;
+      ctx.fillText(line, cx, cy, w * 0.96);
 
-    // Second pass tighter neon-ish halo on $ vibe
-    ctx.shadowColor = "rgba(57, 255, 20, 0.35)";
-    ctx.shadowBlur = Math.max(6, size * 0.22);
-    ctx.fillStyle = CREAM;
-    ctx.fillText(line, cx, cy, w * 0.96);
+      ctx.shadowColor = "rgba(57, 255, 20, 0.35)";
+      ctx.shadowBlur = Math.max(6, size * 0.22);
+      ctx.fillText(line, cx, cy, w * 0.96);
 
-    // Crisp cream fill + subtle dark edge for legibility
-    ctx.shadowBlur = 0;
-    ctx.lineWidth = Math.max(2, size * 0.06);
-    ctx.strokeStyle = "rgba(0,0,0,0.55)";
-    ctx.strokeText(line, cx, cy, w * 0.96);
-    ctx.fillStyle = CREAM;
-    ctx.fillText(line, cx, cy, w * 0.96);
-
-    ctx.restore();
+      ctx.shadowBlur = 0;
+      ctx.lineWidth = Math.max(2, size * 0.06);
+      ctx.strokeStyle = "rgba(0,0,0,0.55)";
+      ctx.strokeText(line, cx, cy, w * 0.96);
+      ctx.fillStyle = CREAM;
+      ctx.fillText(line, cx, cy, w * 0.96);
+    }
     cy += lineH;
   }
+  ctx.restore();
 }
 
-const LOGO_MARK_SRC = "/brand/logo-mark.png";
-/** Cache logo between renders in the same session */
-let logoMarkPromise: Promise<HTMLImageElement> | null = null;
-
-function loadLogoMark(): Promise<HTMLImageElement> {
-  if (!logoMarkPromise) {
-    logoMarkPromise = loadImage(LOGO_MARK_SRC).catch((err) => {
-      logoMarkPromise = null;
-      throw err;
-    });
-  }
-  return logoMarkPromise;
-}
-
-/**
- * TOKENSHIT logo watermark (bottom-right) + site handle (bottom-left).
- * Always on when brand is enabled — logo is required on every meme.
- */
-async function drawWatermark(
-  ctx: CanvasRenderingContext2D,
-  w: number,
-  h: number
-) {
+function drawWatermark(ctx: CanvasRenderingContext2D, w: number, h: number) {
   ctx.save();
-
-  // Text brand strip — bottom left
   const corner = Math.max(11, Math.round(Math.min(w, h) * 0.022));
   ctx.font = `600 ${corner}px system-ui, -apple-system, sans-serif`;
   ctx.textAlign = "left";
   ctx.textBaseline = "bottom";
-  ctx.fillStyle = "rgba(255,255,255,0.28)";
-  ctx.strokeStyle = "rgba(0,0,0,0.28)";
-  ctx.lineWidth = 1.5;
-  ctx.strokeText("tokenshit.com/memes", 10, h - 8);
-  ctx.fillText("tokenshit.com/memes", 10, h - 8);
+  ctx.fillStyle = "rgba(255,255,255,0.22)";
+  ctx.strokeStyle = "rgba(0,0,0,0.18)";
+  ctx.lineWidth = 1;
+  ctx.strokeText("tokenshit.com/memes", 8, h - 6);
+  ctx.fillText("tokenshit.com/memes", 8, h - 6);
   ctx.font = `500 ${Math.max(9, corner - 2)}px system-ui, sans-serif`;
-  ctx.fillStyle = "rgba(57,255,20,0.4)";
-  ctx.fillText("@Tokenshit_", 10, h - 8 - corner - 2);
-
-  // Logo mark — bottom right (required)
-  try {
-    const logo = await loadLogoMark();
-    const target = Math.max(36, Math.round(Math.min(w, h) * 0.12));
-    const pad = Math.max(8, Math.round(Math.min(w, h) * 0.02));
-    const lw = target;
-    const lh = target * (logo.naturalHeight / Math.max(1, logo.naturalWidth));
-    const x = w - lw - pad;
-    const y = h - lh - pad;
-
-    // Soft plate so logo reads on busy memes
-    const platePad = Math.round(target * 0.12);
-    ctx.fillStyle = "rgba(0,0,0,0.38)";
-    const pr = Math.max(6, Math.round(target * 0.14));
-    roundRect(
-      ctx,
-      x - platePad,
-      y - platePad,
-      lw + platePad * 2,
-      lh + platePad * 2,
-      pr
-    );
-    ctx.fill();
-
-    ctx.globalAlpha = 0.92;
-    ctx.drawImage(logo, x, y, lw, lh);
-    ctx.globalAlpha = 1;
-  } catch {
-    // Fallback wordmark if logo fails to load
-    ctx.font = `700 ${Math.max(14, Math.round(Math.min(w, h) * 0.04))}px system-ui, sans-serif`;
-    ctx.textAlign = "right";
-    ctx.textBaseline = "bottom";
-    ctx.fillStyle = "rgba(57,255,20,0.85)";
-    ctx.strokeStyle = "rgba(0,0,0,0.5)";
-    ctx.lineWidth = 2;
-    const label = "TOKEN$HIT";
-    ctx.strokeText(label, w - 10, h - 10);
-    ctx.fillText(label, w - 10, h - 10);
-  }
-
+  ctx.fillStyle = "rgba(57,255,20,0.28)";
+  ctx.fillText("@Tokenshit_", 8, h - 6 - corner - 2);
   ctx.restore();
-}
-
-function roundRect(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  w: number,
-  h: number,
-  r: number
-) {
-  const rr = Math.min(r, w / 2, h / 2);
-  ctx.beginPath();
-  ctx.moveTo(x + rr, y);
-  ctx.arcTo(x + w, y, x + w, y + h, rr);
-  ctx.arcTo(x + w, y + h, x, y + h, rr);
-  ctx.arcTo(x, y + h, x, y, rr);
-  ctx.arcTo(x, y, x + w, y, rr);
-  ctx.closePath();
 }
 
 export function defaultBoxes(n: number): MemeBox[] {
@@ -296,7 +222,7 @@ export function defaultBoxes(n: number): MemeBox[] {
         y: 0.76,
         w: 0.92,
         h: 0.2,
-        style: "monoton",
+        style: "light",
         align: "center",
         fontScale: 1,
       },
@@ -311,7 +237,7 @@ export function defaultBoxes(n: number): MemeBox[] {
         y: 0.02,
         w: 0.92,
         h: 0.2,
-        style: "monoton",
+        style: "light",
         align: "center",
         fontScale: 1,
       },
@@ -322,7 +248,7 @@ export function defaultBoxes(n: number): MemeBox[] {
         y: 0.78,
         w: 0.92,
         h: 0.2,
-        style: "monoton",
+        style: "light",
         align: "center",
         fontScale: 1,
       },
@@ -338,7 +264,7 @@ export function defaultBoxes(n: number): MemeBox[] {
       y: 0.04 + i * (0.92 / n),
       w: 0.92,
       h: band * 0.85,
-      style: "monoton",
+      style: "light",
       align: "center",
       fontScale: 1,
     });
@@ -356,7 +282,6 @@ function loadImage(url: string): Promise<HTMLImageElement> {
   });
 }
 
-/** Prefer CORS proxy for non-sal.fun blanks */
 export function blankSrc(url: string): string {
   if (!url) return url;
   if (url.startsWith("data:") || url.startsWith("blob:")) return url;
@@ -379,7 +304,7 @@ export async function renderTokenshitMeme(
   blankUrl: string,
   boxes: MemeBox[],
   texts: string[],
-  _opts?: { brand?: boolean }
+  opts?: { brand?: boolean }
 ): Promise<string> {
   await ensureMonotonFont();
   const img = await loadImage(blankSrc(blankUrl));
@@ -388,11 +313,22 @@ export async function renderTokenshitMeme(
   canvas.height = img.naturalHeight || img.height;
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("canvas unsupported");
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
   boxes.forEach((box, i) => {
     drawMonotonBox(ctx, box, texts[i] || "", canvas.width, canvas.height);
   });
-  // TOKENSHIT logo watermark is mandatory on every meme export
-  await drawWatermark(ctx, canvas.width, canvas.height);
+  if (opts?.brand !== false) drawWatermark(ctx, canvas.width, canvas.height);
   return canvas.toDataURL("image/png");
+}
+
+export async function renderTokenshitMemeBlob(
+  blankUrl: string,
+  boxes: MemeBox[],
+  texts: string[],
+  opts?: { brand?: boolean }
+): Promise<Blob> {
+  const dataUrl = await renderTokenshitMeme(blankUrl, boxes, texts, opts);
+  const res = await fetch(dataUrl);
+  return res.blob();
 }
