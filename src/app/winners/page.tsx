@@ -2,28 +2,27 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import WinnersBoard from "@/components/WinnersBoard";
 import { EmojiIcon } from "@/components/EmojiIcon";
+import { HOUR_PRODUCT } from "@/lib/hour-product";
 
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Winners — Hitters & Shitters",
-  description:
-    "Past Hit and Shit of the Hour bags and wallet winners on TOKEN$HIT.",
+  title: `Winners — ${HOUR_PRODUCT.name}`,
+  description: `Past HIT and SHIT winners from ${HOUR_PRODUCT.name} on TOKEN$HIT.`,
+  alternates: { canonical: HOUR_PRODUCT.winnersPath },
 };
-
-function Fallback() {
-  return (
-    <div className="flex justify-center py-20">
-      <EmojiIcon size={32} className="animate-spin opacity-80" label="Loading">
-        💫
-      </EmojiIcon>
-    </div>
-  );
-}
 
 export default function WinnersPage() {
   return (
-    <Suspense fallback={<Fallback />}>
+    <Suspense
+      fallback={
+        <div className="flex justify-center py-20">
+          <EmojiIcon size={28} className="animate-spin">
+            💫
+          </EmojiIcon>
+        </div>
+      }
+    >
       <WinnersBoard initialSide="hit" />
     </Suspense>
   );

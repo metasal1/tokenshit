@@ -323,7 +323,7 @@ export default function HourCelebrate({
               Brag on X
             </a>
             <Link
-              href={`/day/${encodeURIComponent(payload.utcHour)}`}
+              href={`/hour/${encodeURIComponent(payload.utcHour)}`}
               className="w-full min-h-10 rounded-xl border border-border text-zinc-300 text-sm inline-flex items-center justify-center hover:bg-zinc-900"
               onClick={onClose}
             >

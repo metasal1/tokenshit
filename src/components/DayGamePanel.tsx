@@ -16,6 +16,7 @@ import {
 import Link from "next/link";
 import { EmojiIcon } from "@/components/EmojiIcon";
 import HourCelebrate, { useHourCelebrate } from "@/components/HourCelebrate";
+import { HOUR_PRODUCT } from "@/lib/hour-product";
 
 type Major = {
   assetId: string;
@@ -181,7 +182,12 @@ async function fetchTransferTx(wallet: string): Promise<string> {
   return data.transaction as string;
 }
 
-export default function DayGamePanel() {
+export default function DayGamePanel({
+  compactTitle = false,
+}: {
+  /** Hide big H1 when page already has THE HOUR brand */
+  compactTitle?: boolean;
+} = {}) {
   const { ready, authenticated, login, getAccessToken, user } = usePrivy();
   const { wallets } = useWallets();
   const { signAndSendTransaction } = useSignAndSendTransaction();
@@ -332,16 +338,29 @@ export default function DayGamePanel() {
       <div className="rounded-2xl border border-neon/35 bg-card p-4 sm:p-5 space-y-3">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h1 className="text-xl sm:text-2xl font-bold text-white">
-              Hit / Shit of the Hour
-            </h1>
+            {!compactTitle ? (
+              <>
+                <p className="text-[10px] font-orbitron uppercase tracking-[0.2em] text-neon mb-1">
+                  {HOUR_PRODUCT.name}
+                </p>
+                <h2 className="text-xl sm:text-2xl font-bold text-white font-orbitron tracking-wide">
+                  Call HIT or SHIT
+                </h2>
+              </>
+            ) : (
+              <h2 className="text-sm font-orbitron uppercase tracking-wider text-zinc-300">
+                Stake this hour
+              </h2>
+            )}
             <p className="text-xs text-zinc-500 mt-1">
-              Stake 1,000 ${SHIT_SYMBOL} on a real major. Each UTC hour: best % =
-              HIT pot · worst % = SHIT pot. VRF picks one wallet. 25% treasury.
+              Stake 1,000 ${SHIT_SYMBOL} on a real major. Best % → HIT pot · worst
+              % → SHIT pot. VRF picks one wallet. 25% house.
             </p>
           </div>
           <div className="text-right font-mono">
-            <div className="text-[10px] uppercase text-zinc-500">Hour closes</div>
+            <div className="text-[10px] uppercase text-zinc-500 font-orbitron tracking-wider">
+              Closes
+            </div>
             <div className="text-lg text-neon font-bold tabular-nums">
               {countdown}
             </div>
@@ -527,12 +546,25 @@ export default function DayGamePanel() {
         </button>
 
         <div className="flex flex-wrap gap-3 text-[11px] text-zinc-600">
-          <Link href="/day/prev" className="text-neon-blue hover:underline">
-            Last hour receipt
+          <Link
+            href={HOUR_PRODUCT.prevPath}
+            className="text-neon-blue hover:underline"
+          >
+            Last hour
           </Link>
           <span>·</span>
-          <Link href="/winners" className="text-neon-blue hover:underline">
+          <Link
+            href={HOUR_PRODUCT.winnersPath}
+            className="text-neon-blue hover:underline"
+          >
             Winners
+          </Link>
+          <span>·</span>
+          <Link
+            href={HOUR_PRODUCT.path}
+            className="text-zinc-500 hover:text-white"
+          >
+            {HOUR_PRODUCT.name}
           </Link>
           <span>·</span>
           <a
