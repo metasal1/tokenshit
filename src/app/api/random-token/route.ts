@@ -25,7 +25,13 @@ export async function GET(request: NextRequest) {
     });
 
     return Response.json(
-      { assetId: token?.assetId || null, list: token?.list },
+      {
+        assetId: token?.assetId || null,
+        list: token?.list,
+        name: token?.name || null,
+        symbol: token?.symbol || null,
+        logo: token?.logo || null,
+      },
       { headers: { "Cache-Control": "no-store" } }
     );
   } catch {

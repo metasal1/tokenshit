@@ -19,32 +19,51 @@ export interface CuratedAssetItem {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function mapCuratedRow(a: any): CuratedAssetItem {
   const asset = a.asset || a;
+  const pv = (asset.primaryVariant || a.primaryVariant || {}) as Record<
+    string,
+    unknown
+  >;
+  const market = (pv.market || {}) as Record<string, unknown>;
+  const name = String(
+    asset.name || a.name || pv.name || pv.symbol || ""
+  ).trim();
+  const symbol = String(
+    asset.symbol || a.symbol || pv.symbol || pv.name || ""
+  ).trim();
+  const logo = String(
+    asset.imageUrl ||
+      asset.logo ||
+      a.imageUrl ||
+      market.logoURI ||
+      a.logo ||
+      ""
+  ).trim();
   return {
     assetId: (asset.assetId || asset.id || a.assetId || a.id || "") as string,
-    name: (asset.name || a.name || "Unknown") as string,
-    symbol: (asset.symbol || a.symbol || "") as string,
-    logo:
-      (asset.imageUrl ||
-        asset.logo ||
-        a.imageUrl ||
-        a.primaryVariant?.market?.logoURI ||
-        a.logo ||
-        undefined) as string | undefined,
-    price: (asset.stats?.price ?? a.stats?.price ?? a.price ?? undefined) as
-      | number
-      | undefined,
+    name: name || symbol || "Unknown",
+    symbol: symbol || (name ? name.slice(0, 12) : ""),
+    logo: logo || undefined,
+    price: (asset.stats?.price ??
+      a.stats?.price ??
+      market.price ??
+      a.price ??
+      undefined) as number | undefined,
     priceChange24h: (asset.stats?.priceChange24hPercent ??
       a.stats?.priceChange24hPercent ??
       a.priceChange24h ??
       undefined) as number | undefined,
     marketCap: (asset.stats?.marketCap ??
       a.stats?.marketCap ??
+      market.marketCap ??
       a.marketCap ??
       undefined) as number | undefined,
     volume24h: (asset.stats?.volume24hUSD ??
       a.stats?.volume24hUSD ??
+      market.volume24hUSD ??
       a.volume24h ??
       undefined) as number | undefined,
+    mint: pv.mint ? String(pv.mint) : undefined,
+    kind: pv.kind ? String(pv.kind) : undefined,
   };
 }
 
