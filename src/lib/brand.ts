@@ -54,6 +54,12 @@ export const BRAND = {
     display: "Orbitron",
     sans: "Geist",
     mono: "Geist Mono",
+    /** UI icons + confetti — never bare system emoji */
+    emoji: "Noto Color Emoji",
+    emojiCss: ".emoji / .font-emoji / EmojiIcon",
+    emojiStack:
+      '"Noto Color Emoji", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol"',
+    emojiSource: "https://fonts.google.com/noto/specimen/Noto+Color+Emoji",
   },
 
   logo: {
@@ -79,6 +85,10 @@ export const BRAND = {
       xBanner: "/brand/x-banner.jpg",
       ogImage: "/brand/og-image.png",
       ogShare: "/brand/og-share.png",
+      hitShitHourPoster: "/brand/hit-shit-hour-poster.png",
+      hitShitHourPoster2x: "/brand/hit-shit-hour-poster@2x.png",
+      hitShitHourBanner: "/brand/hit-shit-hour-banner.png",
+      hitShitHourBanner2x: "/brand/hit-shit-hour-banner@2x.png",
     },
   },
 
