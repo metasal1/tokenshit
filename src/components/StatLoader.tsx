@@ -1,5 +1,7 @@
 "use client";
 
+import { EmojiIcon } from "@/components/EmojiIcon";
+
 /** Neon pulse spinner / skeleton for live stats */
 export function PulseDot({ className = "" }: { className?: string }) {
   return (
@@ -34,9 +36,9 @@ export function InlineLoader({
   );
 }
 
-/** Compact circular spinner */
+/** Compact loading spinner — Noto Color Emoji (never system default bare emoji). */
 export function SpinLoader({
-  size = 12,
+  size = 16,
   className = "",
   label = "Loading",
 }: {
@@ -50,29 +52,9 @@ export function SpinLoader({
       role="status"
       aria-label={label}
     >
-      <span
-        className="inline-block rounded-full border-2 border-zinc-600 border-t-neon animate-spin"
-        style={{ width: size, height: size }}
-      />
-      <span className="sr-only">{label}</span>
+      <EmojiIcon size={size} className="animate-spin opacity-90" label={label}>
+        💫
+      </EmojiIcon>
     </span>
-  );
-}
-
-/** Skeleton bar for balances */
-export function BalanceSkeleton({
-  className = "",
-  wide = false,
-}: {
-  className?: string;
-  wide?: boolean;
-}) {
-  return (
-    <span
-      className={`inline-block h-4 rounded bg-gradient-to-r from-zinc-800 via-zinc-700 to-zinc-800 animate-pulse ${
-        wide ? "w-24" : "w-14"
-      } ${className}`}
-      aria-hidden
-    />
   );
 }
