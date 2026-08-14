@@ -216,6 +216,80 @@ async function fromOfficialX(username: string): Promise<any> {
   };
 }
 
+async function fromTwitterApiIoUser(username: string): Promise<any> {
+  const key = twitterApiIoKey();
+  if (!key) return null;
+  const clean = username.replace(/^@/, "").trim();
+  try {
+    const res = await fetchTimeout(
+      `${TWITTERAPI_IO_BASE}/twitter/user/info?userName=${encodeURIComponent(clean)}`,
+      { headers: { "X-API-Key": key } },
+      10_000
+    );
+    if (!res.ok) {
+      const t = await res.text();
+      return {
+        ok: false,
+        followers: 0,
+        following: 0,
+        tweets: 0,
+        verified: false,
+        verifiedType: "none",
+        error: `twitterapi.io ${res.status}: ${t.slice(0, 100)}`,
+        source: "twitterapi.io",
+      };
+    }
+    const json = await res.json();
+    const d = json.data || json;
+    if (!d || json.status === "error") {
+      return {
+        ok: false,
+        followers: 0,
+        following: 0,
+        tweets: 0,
+        verified: false,
+        verifiedType: "none",
+        error: json.msg || "user not found",
+        source: "twitterapi.io",
+      };
+    }
+    const verifiedType = String(d.verifiedType || d.verified_type || "none");
+    const verified =
+      Boolean(d.isBlueVerified) ||
+      Boolean(d.isVerified) ||
+      Boolean(d.verified) ||
+      /blue|business|government/i.test(verifiedType);
+    return {
+      ok: true,
+      username: String(d.userName || d.username || clean),
+      id: d.id ? String(d.id) : undefined,
+      name: d.name ? String(d.name) : undefined,
+      followers: Number(d.followers ?? d.followersCount ?? 0),
+      following: Number(d.following ?? d.followingCount ?? 0),
+      tweets: Number(d.statusesCount ?? d.statuses_count ?? d.tweets ?? 0),
+      verified,
+      verifiedType: verified ? verifiedType || "blue" : "none",
+      profileImageUrl: d.profilePicture
+        ? String(d.profilePicture).replace("_normal", "_bigger")
+        : d.profile_image_url
+          ? String(d.profile_image_url).replace("_normal", "_bigger")
+          : undefined,
+      source: "twitterapi.io",
+    };
+  } catch (e) {
+    return {
+      ok: false,
+      followers: 0,
+      following: 0,
+      tweets: 0,
+      verified: false,
+      verifiedType: "none",
+      error: e instanceof Error ? e.message : "twitterapi.io user failed",
+      source: "twitterapi.io",
+    };
+  }
+}
+
 async function fromTweetApiUser(username: string): Promise<any> {
   const key = tweetApiKey();
   if (!key) return null;
@@ -327,6 +401,13 @@ export async function fetchXUserPublic(username: string): Promise<XUserPublic> {
     return v;
   }
 
+  const io = await fromTwitterApiIoUser(clean);
+  if (io?.ok) {
+    const v = withProfileFlags(io);
+    profileCache.set(clean.toLowerCase(), { at: Date.now(), val: v });
+    return v;
+  }
+
   const ta = await fromTweetApiUser(clean);
   if (ta?.ok) {
     const v = withProfileFlags(ta);
@@ -341,7 +422,7 @@ export async function fetchXUserPublic(username: string): Promise<XUserPublic> {
     return v;
   }
 
-  const fail = ta || official;
+  const fail = io || ta || official;
   if (fail) return withProfileFlags(fail);
   return withProfileFlags({
     ok: false,
@@ -350,7 +431,7 @@ export async function fetchXUserPublic(username: string): Promise<XUserPublic> {
     tweets: 0,
     verified: false,
     verifiedType: "none",
-    error: "Could not load X profile (X credits + TweetAPI + free fallbacks failed)",
+    error: "Could not load X profile (X credits + twitterapi.io + fallbacks failed)",
   });
 }
 
@@ -377,7 +458,7 @@ export async function checkXVerified(username: string): Promise<{
   };
 }
 
-/** Does sourceUser/** Does sourceUser follow @Tokenshit_? */
+/** Does sourceUser follow @Tokenshit_? */
 export async function checkXFollowsTokenshit(username: string): Promise<{
   ok: boolean;
   following: boolean;
@@ -387,7 +468,74 @@ export async function checkXFollowsTokenshit(username: string): Promise<{
   const user = username.replace(/^@/, "").trim();
   if (!user) return { ok: false, following: false, error: "no username" };
 
-  // Resolve source id
+  // 1) twitterapi.io relationship (cheap + works with new key)
+  const ioKey = twitterApiIoKey();
+  if (ioKey) {
+    try {
+      const url = new URL(
+        `${TWITTERAPI_IO_BASE}/twitter/user/check_follow_relationship`
+      );
+      url.searchParams.set("source_user_name", user);
+      url.searchParams.set("target_user_name", "Tokenshit_");
+      const res = await fetchTimeout(
+        url.toString(),
+        { headers: { "X-API-Key": ioKey } },
+        10_000
+      );
+      if (res.ok) {
+        const json = (await res.json()) as {
+          status?: string;
+          data?: { following?: boolean; followed_by?: boolean };
+          msg?: string;
+        };
+        if (json.status === "success" && json.data) {
+          return {
+            ok: true,
+            following: Boolean(json.data.following),
+            source: "twitterapi.io",
+          };
+        }
+      }
+    } catch {
+      /* fall through */
+    }
+
+    // 2) followings page scan (first page usually enough for recent follows)
+    try {
+      const url = `${TWITTERAPI_IO_BASE}/twitter/user/followings?userName=${encodeURIComponent(user)}`;
+      const res = await fetchTimeout(
+        url,
+        { headers: { "X-API-Key": ioKey } },
+        12_000
+      );
+      if (res.ok) {
+        const json = (await res.json()) as {
+          followings?: { id?: string; userName?: string; screen_name?: string }[];
+        };
+        const list = json.followings || [];
+        const following = list.some((u) => {
+          const h = normalizeXHandle(u.userName || u.screen_name || "");
+          return h === TOKENSHIT_USER || String(u.id || "") === TOKENSHIT_ID;
+        });
+        if (following) {
+          return { ok: true, following: true, source: "twitterapi.io-followings" };
+        }
+        // If we got a list and Tokenshit_ not in first page, still could be further —
+        // but check_follow_relationship is authoritative when it works.
+        if (list.length > 0) {
+          return {
+            ok: true,
+            following: false,
+            source: "twitterapi.io-followings",
+          };
+        }
+      }
+    } catch {
+      /* fall through */
+    }
+  }
+
+  // Resolve source id for legacy providers
   const profile = await fetchXUserPublic(user);
   if (!profile.ok || !profile.id) {
     return {
@@ -397,7 +545,7 @@ export async function checkXFollowsTokenshit(username: string): Promise<{
     };
   }
 
-  // TweetAPI friendship (best)
+  // TweetAPI friendship (legacy)
   const key = tweetApiKey();
   if (key) {
     try {
@@ -437,10 +585,7 @@ export async function checkXFollowsTokenshit(username: string): Promise<{
         headers: { Authorization: `Bearer ${bearer}` },
         cache: "no-store",
       });
-      if (!fRes.ok) {
-        if (page === 0) break;
-        break;
-      }
+      if (!fRes.ok) break;
       const fJson = await fRes.json();
       const list = (fJson.data || []) as { id: string; username?: string }[];
       const following = list.some(
@@ -458,7 +603,7 @@ export async function checkXFollowsTokenshit(username: string): Promise<{
     ok: false,
     following: false,
     error:
-      "Could not verify follow (X credits depleted). TweetAPI friendship also failed — check TWEETAPI_KEY.",
+      "Could not verify follow. Try again in a few seconds, or ensure you follow @Tokenshit_.",
   };
 }
 
