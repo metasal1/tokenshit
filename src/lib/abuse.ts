@@ -16,7 +16,10 @@
  */
 import { tursoExecute } from "@/lib/turso";
 import { fetchXUserPublic } from "@/lib/claims";
-import { getClientIp as getClientIpFromGuard } from "@/lib/api-guard";
+import {
+  getClientIp as getClientIpFromGuard,
+  isUnreliableIp,
+} from "@/lib/api-guard";
 import {
   ABUSE_MIN_FOLLOWERS_CLAIM,
   ABUSE_MIN_FOLLOWERS_REFERRAL,
@@ -27,8 +30,16 @@ import {
 export const MIN_X_FOLLOWERS_CLAIM = ABUSE_MIN_FOLLOWERS_CLAIM;
 export const MIN_X_FOLLOWERS_REFERRAL = ABUSE_MIN_FOLLOWERS_REFERRAL;
 export const SIGNUP_PER_IP_HOUR = Number(process.env.SIGNUP_PER_IP_HOUR || 8);
-/** Non-major claims per IP / 24h. Raised from 12 — CGNAT / shared mobile NATs. */
-export const CLAIM_PER_IP_DAY = Number(process.env.CLAIM_PER_IP_DAY || 24);
+/**
+ * Non-major claims (tweet/follow/email) per real client IP / 24h.
+ * Default 48 — mobile CGNAT shares one public IP across many users.
+ * Set CLAIM_PER_IP_DAY=0 to disable bulk IP gate (identity gates remain).
+ */
+export const CLAIM_PER_IP_DAY = (() => {
+  const n = Number(process.env.CLAIM_PER_IP_DAY ?? 48);
+  if (!Number.isFinite(n) || n < 0) return 48;
+  return Math.floor(n);
+})();
 
 const SOFT = process.env.ABUSE_SOFT_MODE === "1";
 
@@ -125,6 +136,7 @@ async function countAbuseRecent(
   ip: string,
   hours: number
 ): Promise<number> {
+  if (isUnreliableIp(ip)) return 0;
   await ensureAbuseSchema();
   const r = await tursoExecute(
     `SELECT COUNT(*) FROM abuse_events
@@ -132,10 +144,15 @@ async function countAbuseRecent(
        AND created_at >= datetime('now', ?)`,
     [kind, ip, `-${hours} hours`]
   );
-  return Number(r.rows[0]?.[0] || 0);
+  const raw = r.rows[0]?.[0];
+  const n = typeof raw === "number" ? raw : Number(raw ?? 0);
+  return Number.isFinite(n) ? n : 0;
 }
 
 export async function gateSignupIp(ip: string): Promise<GateResult> {
+  if (isUnreliableIp(ip)) {
+    return { ok: true, soft: "signup ip unknown — skip IP gate" };
+  }
   const n = await countAbuseRecent("signup", ip, 1);
   if (n >= SIGNUP_PER_IP_HOUR) {
     if (SOFT)
@@ -156,12 +173,16 @@ export function isMajorClaimKind(kind: string): boolean {
 
 /**
  * Bulk claim IP gate (tweet / follow / email / referrals).
- * Skips hard-block when IP is unknown (missing headers) — identity gates still apply.
- * Major kinds must use gateMajorClaimIp instead (see claim route).
+ * Skips when IP is unknown/loopback — identity (X+wallet) gates still apply.
+ * Major kinds use gateMajorClaimIp instead.
  */
 export async function gateClaimIp(ip: string): Promise<GateResult> {
-  if (!ip || ip === "unknown") {
+  if (isUnreliableIp(ip)) {
     return { ok: true, soft: "claim ip unknown — skip bulk IP gate" };
+  }
+  // 0 = disabled
+  if (CLAIM_PER_IP_DAY <= 0) {
+    return { ok: true, soft: "claim IP day gate disabled" };
   }
   const n = await countAbuseRecent("claim", ip, 24);
   if (n >= CLAIM_PER_IP_DAY) {
@@ -170,23 +191,28 @@ export async function gateClaimIp(ip: string): Promise<GateResult> {
     return {
       ok: false,
       status: 429,
-      error: "Too many claims from this network today. Come back tomorrow.",
+      error: `Too many claims from this network today (${CLAIM_PER_IP_DAY}/day). Try again tomorrow or another network.`,
       code: "ip_rate_claim",
     };
   }
   return { ok: true };
 }
 
-/** Major claims: verified / premium / GH fork — 1 per IP per day */
+/** Major claims: verified / premium / GH fork — N per real IP per day (default 1) */
 export async function gateMajorClaimIp(
   ip: string,
   kind: string
 ): Promise<GateResult> {
   if (!isMajorClaimKind(kind)) return { ok: true };
-  if (!ip || ip === "unknown") {
+  if (isUnreliableIp(ip)) {
     return { ok: true, soft: "major claim ip unknown — skip IP gate" };
   }
-  const limit = MAJOR_CLAIMS_PER_IP_DAY > 0 ? MAJOR_CLAIMS_PER_IP_DAY : 1;
+  // 0 = disable major IP gate
+  if (MAJOR_CLAIMS_PER_IP_DAY === 0) {
+    return { ok: true, soft: "major IP gate disabled" };
+  }
+  const limit =
+    MAJOR_CLAIMS_PER_IP_DAY > 0 ? MAJOR_CLAIMS_PER_IP_DAY : 1;
   const n = await countAbuseRecent("claim_major", ip, 24);
   if (n >= limit) {
     if (SOFT) return { ok: true, soft: `major claim soft ${n}/${limit}` };
@@ -194,7 +220,9 @@ export async function gateMajorClaimIp(
       ok: false,
       status: 429,
       error:
-        "One major claim (verified / premium / GitHub) per network per day. Try again tomorrow.",
+        limit === 1
+          ? "One major claim (verified / premium / GitHub) per network per day. Try again tomorrow."
+          : `${limit} major claims (verified / premium / GitHub) per network per day. Try again tomorrow.`,
       code: "ip_rate_major",
     };
   }

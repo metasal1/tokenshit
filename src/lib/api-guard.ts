@@ -1,31 +1,54 @@
 /**
- * Lightweight API guards for CF Workers.
+ * Lightweight API guards for CF Workers / OpenNext.
  */
 import { tursoExecute } from "@/lib/turso";
 
+/** Loopback / placeholder — never use for rate buckets (site-wide lock risk). */
+export function isUnreliableIp(ip: string | null | undefined): boolean {
+  if (!ip) return true;
+  const s = ip.trim().toLowerCase();
+  if (!s || s === "unknown") return true;
+  if (s === "127.0.0.1" || s === "::1" || s === "0.0.0.0" || s === "::")
+    return true;
+  if (s.startsWith("127.")) return true;
+  // IPv6 loopback forms
+  if (s === "0:0:0:0:0:0:0:1") return true;
+  return false;
+}
+
 /**
- * Best-effort real client IP behind CF / Vercel / generic proxies.
- * Prefer platform-injected single-client headers over raw XFF (first hop
- * can be a shared edge / CGNAT peer when mis-ordered).
+ * Best-effort real client IP behind CF / OpenNext / proxies.
+ * Prefer platform single-client headers. Never fall back to loopback as a
+ * "real" IP — return "unknown" so abuse gates skip (identity still required).
  */
 export function getClientIp(request: {
   headers: { get(name: string): string | null };
 }): string {
   const h = request.headers;
-  const direct =
-    h.get("cf-connecting-ip") ||
-    h.get("true-client-ip") ||
-    h.get("x-vercel-forwarded-for") ||
-    h.get("x-real-ip");
-  if (direct) {
-    const ip = direct.split(",")[0]?.trim();
-    if (ip) return ip;
+  const candidates = [
+    h.get("cf-connecting-ip"),
+    h.get("true-client-ip"),
+    h.get("x-vercel-forwarded-for"),
+    h.get("x-real-ip"),
+    // OpenNext / some proxies
+    h.get("x-client-ip"),
+    h.get("x-forwarded-for"),
+  ];
+
+  for (const raw of candidates) {
+    if (!raw) continue;
+    // XFF can be "client, proxy1, proxy2" — leftmost is original client
+    const parts = raw.split(",").map((p) => p.trim()).filter(Boolean);
+    for (const part of parts) {
+      // strip :port on IPv4
+      const ip = part.replace(/^\[([^\]]+)\](?::\d+)?$/, "$1").replace(
+        /^(\d+\.\d+\.\d+\.\d+):\d+$/,
+        "$1"
+      );
+      if (!isUnreliableIp(ip)) return ip;
+    }
   }
-  const xf = h.get("x-forwarded-for");
-  if (xf) {
-    const ip = xf.split(",")[0]?.trim();
-    if (ip) return ip;
-  }
+
   return "unknown";
 }
 
@@ -72,6 +95,7 @@ async function ensureRateTable() {
 /**
  * Simple DB rate limit. Returns 429 Response if over limit.
  * windowHours: lookback window.
+ * Unreliable IPs share no bucket (fail-open) — use identity gates for abuse.
  */
 export async function rateLimitIp(opts: {
   ip: string;
@@ -80,6 +104,9 @@ export async function rateLimitIp(opts: {
   windowHours?: number;
 }): Promise<Response | null> {
   const windowHours = opts.windowHours ?? 1;
+  if (opts.limit <= 0) return null;
+  if (isUnreliableIp(opts.ip)) return null;
+
   const ip = (opts.ip || "unknown").slice(0, 80);
   const bucket = opts.bucket.slice(0, 64);
   try {
@@ -102,11 +129,10 @@ export async function rateLimitIp(opts: {
         { status: 429 }
       );
     }
-    await tursoExecute(
-      `INSERT INTO api_rate (bucket, ip) VALUES (?, ?)`,
-      [bucket, ip]
-    );
-    // opportunistic prune
+    await tursoExecute(`INSERT INTO api_rate (bucket, ip) VALUES (?, ?)`, [
+      bucket,
+      ip,
+    ]);
     if (Math.random() < 0.02) {
       await tursoExecute(
         `DELETE FROM api_rate WHERE created_at < datetime('now', '-2 days')`,
@@ -119,7 +145,6 @@ export async function rateLimitIp(opts: {
   return null;
 }
 
-/** Valid Solana base58 pubkey shape */
 export function isSolanaAddress(s: string): boolean {
   return /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(s);
 }
