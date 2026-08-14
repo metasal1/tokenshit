@@ -5,10 +5,10 @@
 **URL:** https://tokenshit.com/play  
 
 ## One-liner
-Call **HIT** or **SHIT**. Stake the bag.
+Call **HIT** or **SHIT**. Play the bag.
 
 ## Rules
-- Stake **1,000 $TOKENSHIT** · real majors  
+- Play **1,000 $TOKENSHIT** · real majors  
 - Best % → **HIT pot** · worst % → **SHIT pot**  
 - **1 wallet = 1 VRF ticket**  
 - **25%** house · empty pot → treasury  

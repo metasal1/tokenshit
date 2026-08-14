@@ -96,7 +96,7 @@ export default function Home() {
             </div>
             <div className="p-2.5 sm:p-3 text-left">
               <p className="text-[11px] text-zinc-500 mb-2 px-0.5">
-                Stake 1k · HIT or SHIT · VRF pot · every UTC hour
+                Play 1k · HIT or SHIT · VRF pot · every UTC hour
               </p>
               <DayGamePanel compactTitle dense />
             </div>
@@ -117,7 +117,7 @@ export default function Home() {
                 </h2>
               </div>
               <span className="shrink-0 text-[9px] font-orbitron uppercase tracking-wider text-zinc-500 border border-border rounded-full px-2 py-0.5">
-                No stake
+                Free
               </span>
             </div>
             <div className="p-3 sm:p-4">

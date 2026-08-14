@@ -483,7 +483,7 @@ export async function recordStake(opts: {
   await ensureRound(opts.utcDay);
   const round = await getRound(opts.utcDay);
   if (!round || round.status !== "open") {
-    return { ok: false, error: "Round not open for stakes", status: 400 };
+    return { ok: false, error: "Round not open for play", status: 400 };
   }
 
   const ver = await verifyStakeTransfer({

@@ -161,7 +161,7 @@ export default function WinnersBoard({
 
       {rows && rows.length === 0 && (
         <div className="rounded-2xl border border-border bg-card p-8 text-center text-sm text-zinc-500">
-          No settled {hit ? "HIT" : "SHIT"} winners yet. Stake this hour.
+          No settled {hit ? "HIT" : "SHIT"} winners yet. Play this round.
         </div>
       )}
 
