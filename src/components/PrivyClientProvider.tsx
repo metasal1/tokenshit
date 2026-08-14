@@ -1,6 +1,7 @@
 "use client";
 
 import { PrivyProvider } from "@privy-io/react-auth";
+import { useEffect, useMemo, useState } from "react";
 import { getPrivyConfig } from "@/lib/privy-config";
 
 export default function PrivyClientProvider({
@@ -10,8 +11,18 @@ export default function PrivyClientProvider({
   children: React.ReactNode;
   appId: string;
 }) {
+  const [redirect, setRedirect] = useState(
+    "https://tokenshit.com/auth/oauth-return"
+  );
+  useEffect(() => {
+    setRedirect(`${window.location.origin}/auth/oauth-return`);
+  }, []);
+  const config = useMemo(
+    () => getPrivyConfig({ oauthRedirectUrl: redirect }),
+    [redirect]
+  );
   return (
-    <PrivyProvider appId={appId} config={getPrivyConfig()}>
+    <PrivyProvider appId={appId} config={config}>
       {children}
     </PrivyProvider>
   );
