@@ -173,8 +173,16 @@ export default function ClaimGlitchToast() {
     setProgress(100);
     writeSeen(Math.max(readSeen(), next.id));
     try {
-      if (next.self) sfx.ding();
-      else sfx.chime?.() || sfx.ding();
+      if (next.self) {
+        sfx.ding();
+      } else {
+        try {
+          // optional softer chime if present
+          (sfx as { chime?: () => void }).chime?.();
+        } catch {
+          sfx.ding();
+        }
+      }
     } catch {
       /* optional */
     }
