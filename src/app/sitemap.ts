@@ -18,6 +18,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 0.95,
     },
     {
+      url: `${SITE}/whales`,
+      lastModified: now,
+      changeFrequency: "hourly",
+      priority: 0.85,
+    },
+    {
       url: `${SITE}/winners`,
       lastModified: now,
       changeFrequency: "hourly",
