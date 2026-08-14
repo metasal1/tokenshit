@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { apiFetch } from "@/lib/api";
 import SearchBar from "@/components/SearchBar";
 import TokenCard from "@/components/TokenCard";
+import { pageMeta } from "@/lib/seo";
 
 interface Props {
   searchParams: Promise<{ q?: string }>;
@@ -9,9 +10,15 @@ interface Props {
 
 export async function generateMetadata({ searchParams }: Props): Promise<Metadata> {
   const { q } = await searchParams;
-  return {
-    title: q ? `"${q}" — TOKENSHIT Search` : "Search — TOKENSHIT",
-  };
+  const base = pageMeta({
+    title: q ? `Search “${q}”` : "Search",
+    description: q
+      ? `HIT or SHIT results for ${q} on TOKEN$HIT.`
+      : "Search any Solana token — vote HIT or SHIT.",
+    path: "/search",
+    og: "search",
+  });
+  return base;
 }
 
 export default async function SearchPage({ searchParams }: Props) {

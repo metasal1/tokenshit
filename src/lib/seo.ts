@@ -3,16 +3,50 @@ import { GA_MEASUREMENT_ID } from "@/lib/analytics";
 import { SHIT_MINT, SHIT_SYMBOL, TREASURY_ADDRESS, X_HANDLE } from "@/lib/shit-token";
 
 const SITE = "https://tokenshit.com";
-const OG = `${SITE}/brand/og-share.png?v=2`;
+/** Cache-bust when OG pack regenerates */
+const OG_V = "3";
 
-/** Shared OG card — static PNG only (no dual opengraph-image noise). */
-export const SITE_OG = {
-  url: OG,
-  width: 1200,
-  height: 630,
-  type: "image/png" as const,
-  alt: "TOKEN$HIT — Every token is shit until proven otherwise.",
-};
+export type OgKey =
+  | "default"
+  | "home"
+  | "claim"
+  | "claims"
+  | "memes"
+  | "play"
+  | "whales"
+  | "winners"
+  | "swap"
+  | "stats"
+  | "seeker"
+  | "brand"
+  | "referrals"
+  | "search"
+  | "terms"
+  | "privacy"
+  | "day"
+  | "hour";
+
+export function ogUrl(key: OgKey | string = "default"): string {
+  const k = key.replace(/^\//, "").replace(/\//g, "-") || "default";
+  return `${SITE}/brand/og/${k}.png?v=${OG_V}`;
+}
+
+export function ogImage(key: OgKey | string = "default", alt?: string) {
+  return {
+    url: ogUrl(key),
+    width: 1200,
+    height: 630,
+    type: "image/png" as const,
+    alt:
+      alt ||
+      "TOKEN$HIT — Every token is shit until proven otherwise.",
+  };
+}
+
+/** Shared default OG card */
+export const SITE_OG = ogImage("default");
+
+const OG = ogUrl("default");
 
 export const defaultMetadata: Metadata = {
   metadataBase: new URL(SITE),
@@ -77,26 +111,55 @@ export const defaultMetadata: Metadata = {
   },
 };
 
+/** Map path → og key */
+export function ogKeyForPath(path: string): OgKey {
+  const p = path.replace(/\/$/, "") || "/";
+  const map: Record<string, OgKey> = {
+    "/": "home",
+    "/claim": "claim",
+    "/claims": "claims",
+    "/memes": "memes",
+    "/play": "play",
+    "/day": "day",
+    "/hour": "hour",
+    "/whales": "whales",
+    "/winners": "winners",
+    "/swap": "swap",
+    "/stats": "stats",
+    "/seeker": "seeker",
+    "/brand": "brand",
+    "/referrals": "referrals",
+    "/search": "search",
+    "/terms": "terms",
+    "/privacy": "privacy",
+  };
+  return map[p] || "default";
+}
+
 export function pageMeta(opts: {
   title: string;
   description: string;
   path: string;
   noIndex?: boolean;
+  /** Override OG art key (defaults from path) */
+  og?: OgKey | string;
 }): Metadata {
   const url = opts.path === "/" ? SITE : `${SITE}${opts.path}`;
+  const key = opts.og || ogKeyForPath(opts.path);
+  const img = ogImage(key, `${opts.title} · TOKEN$HIT`);
   return {
     title: opts.title,
     description: opts.description,
-    alternates: { canonical: opts.path },
+    alternates: { canonical: opts.path === "/claims" ? "/claim" : opts.path },
     robots: opts.noIndex
       ? { index: false, follow: false }
       : { index: true, follow: true },
     openGraph: {
       title: `${opts.title} · TOKEN$HIT`,
       description: opts.description,
-      url,
+      url: opts.path === "/claims" ? `${SITE}/claim` : url,
       siteName: "TOKEN$HIT",
-      images: [SITE_OG],
+      images: [img],
       type: "website",
     },
     twitter: {
@@ -105,7 +168,7 @@ export function pageMeta(opts: {
       creator: "@Tokenshit_",
       title: `${opts.title} · TOKEN$HIT`,
       description: opts.description,
-      images: [OG],
+      images: [img.url],
     },
   };
 }
@@ -121,7 +184,7 @@ export function siteJsonLd() {
         url: SITE,
         name: "TOKEN$HIT",
         description:
-          "Every token is shit until proven otherwise. HIT/SHIT on Solana assets.",
+          "Every token is shit until proven otherwise. HIT/SHIT on Solana.",
         publisher: { "@id": `${SITE}/#org` },
         potentialAction: {
           "@type": "SearchAction",
@@ -134,35 +197,23 @@ export function siteJsonLd() {
         "@id": `${SITE}/#org`,
         name: "TOKEN$HIT",
         url: SITE,
-        logo: `${SITE}/icons/icon-512.png`,
-        sameAs: [
-          `https://x.com/${X_HANDLE}`,
-          "https://github.com/solana-foundation/tokens",
-        ],
-        description:
-          "HIT/SHIT court for Solana Foundation registry tokens. $TOKENSHIT.",
+        logo: `${SITE}/brand/logo-mark.png`,
+        sameAs: [`https://x.com/${X_HANDLE}`],
       },
       {
         "@type": "WebApplication",
         name: "TOKEN$HIT",
         url: SITE,
         applicationCategory: "FinanceApplication",
-        operatingSystem: "Web",
+        operatingSystem: "Web, Android, iOS",
         offers: {
           "@type": "Offer",
           price: "0",
           priceCurrency: "USD",
         },
       },
-      {
-        "@type": "FinancialProduct",
-        name: "$TOKENSHIT",
-        description: "TokenShit (TOKENSHIT) on Solana Token-2022",
-        url: `${SITE}/swap`,
-        identifier: SHIT_MINT,
-      },
     ],
   };
 }
 
-export { SITE, OG, SHIT_MINT, SHIT_SYMBOL, TREASURY_ADDRESS };
+export { SITE, SHIT_MINT, SHIT_SYMBOL, TREASURY_ADDRESS };
