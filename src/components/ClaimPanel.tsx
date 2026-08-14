@@ -324,6 +324,8 @@ export default function ClaimPanel() {
                 ? `https://unavatar.io/twitter/${encodeURIComponent(twitter)}`
                 : null,
               createdAt: new Date().toISOString(),
+              signature: data.signature || null,
+              self: true,
             },
           })
         );
