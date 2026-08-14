@@ -9,6 +9,7 @@ import InteractiveSwipeLottie, {
   SwipeEdgeGlow,
 } from "@/components/InteractiveSwipeLottie";
 import { memeStudioUrl } from "@/lib/meme-templates";
+import { HIT_CURSOR, SHIT_CURSOR } from "@/lib/cursors";
 import SkipNextButton from "@/components/SkipNextButton";
 import { EmojiIcon } from "@/components/EmojiIcon";
 
@@ -470,12 +471,13 @@ export default function VoteButtons({
                   : "border-neon/35 bg-zinc-950 hover:border-neon hover:bg-neon/10"
               }
               ${hasVoted && userVote !== "hit" ? "opacity-35" : ""}
-              ${!hasVoted && !voting ? "cursor-pointer active:scale-[0.97]" : "cursor-not-allowed"}
+              ${!hasVoted && !voting ? "active:scale-[0.97]" : "cursor-not-allowed"}
               ${pressing === "hit" && !hasVoted ? "scale-[0.96] brightness-110" : ""}
             `}
             style={{
               WebkitTapHighlightColor: "transparent",
               touchAction: "manipulation",
+              cursor: !hasVoted && !voting ? HIT_CURSOR : undefined,
             }}
             aria-label="Vote HIT"
           >
@@ -522,12 +524,13 @@ export default function VoteButtons({
                   : "border-red-500/35 bg-zinc-950 hover:border-red-400 hover:bg-red-500/10"
               }
               ${hasVoted && userVote !== "shit" ? "opacity-35" : ""}
-              ${!hasVoted && !voting ? "cursor-pointer active:scale-[0.97]" : "cursor-not-allowed"}
+              ${!hasVoted && !voting ? "active:scale-[0.97]" : "cursor-not-allowed"}
               ${pressing === "shit" && !hasVoted ? "scale-[0.96] brightness-110" : ""}
             `}
             style={{
               WebkitTapHighlightColor: "transparent",
               touchAction: "manipulation",
+              cursor: !hasVoted && !voting ? SHIT_CURSOR : undefined,
             }}
             aria-label="Vote SHIT"
           >

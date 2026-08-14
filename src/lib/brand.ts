@@ -115,6 +115,7 @@ export const BRAND = {
       "Don't paint TOKEN/HIT green or $ magenta",
       "No default/generic emojis in UI, emails, TG alerts, or X copy — always Noto via .emoji / EmojiIcon",
       "Spinner = loading only (EmojiIcon 💫 animate-spin); never casino wheels / bare system emoji",
+      "Cursors: brand neon pointer sitewide; HIT target / SHIT face on vote+play (see src/lib/cursors.ts + globals.css)",
     ],
   },
 
@@ -123,6 +124,8 @@ export const BRAND = {
     card: "rounded-xl border border-border bg-card",
     link: "text-neon-blue hover:underline",
     mono: "font-mono tabular-nums",
+    cursorHit: "cursor-hit",
+    cursorShit: "cursor-shit",
   },
 } as const;
 
