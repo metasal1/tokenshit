@@ -3,14 +3,16 @@ import { resolveAssetMeta } from "@/lib/resolveMeta";
 import Link from "next/link";
 import type { Metadata } from "next";
 import StatsCategoryGrid from "@/components/StatsCategoryGrid";
+import { pageMeta } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 60;
 
-export const metadata: Metadata = {
-  title: "Statistics · TOKENSHIT",
+export const metadata: Metadata = pageMeta({
+  title: "Statistics",
   description: "Votes, visitors, leaderboards — the numbers behind the shit.",
-};
+  path: "/stats",
+});
 
 type Meta = { name: string; symbol: string; logo?: string };
 

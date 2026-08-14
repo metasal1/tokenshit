@@ -2,14 +2,15 @@ import type { Metadata } from "next";
 import DayGamePanel from "@/components/DayGamePanel";
 import Link from "next/link";
 import { PLAY_PRODUCT } from "@/lib/hour-product";
+import { pageMeta } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
 
-export const metadata: Metadata = {
-  title: `${PLAY_PRODUCT.name} — TOKEN$HIT`,
+export const metadata: Metadata = pageMeta({
+  title: PLAY_PRODUCT.name,
   description: PLAY_PRODUCT.blurb,
-  alternates: { canonical: PLAY_PRODUCT.path },
-};
+  path: PLAY_PRODUCT.path,
+});
 
 /**
  * Canonical play page — $SHIT OF THE DAY
