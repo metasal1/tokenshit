@@ -153,7 +153,7 @@ function LeaderCard({
             </div>
             {!compact && (
               <div className="text-[10px] text-zinc-600">
-                {stakesOn ?? 0} stake{(stakesOn ?? 0) === 1 ? "" : "s"}
+                {stakesOn ?? 0} play{(stakesOn ?? 0) === 1 ? "" : "s"}
               </div>
             )}
           </div>
@@ -186,7 +186,7 @@ async function fetchTransferTx(wallet: string): Promise<string> {
   });
   const data = await res.json();
   if (!res.ok || !data.transaction) {
-    throw new Error(data.error || "Could not build stake transfer");
+    throw new Error(data.error || "Could not build play transfer");
   }
   return data.transaction as string;
 }
@@ -261,7 +261,7 @@ export default function DayGamePanel({
       .slice(0, 40);
   }, [status?.majors, q]);
 
-  async function stake() {
+  async function play() {
     setErr(null);
     setMsg(null);
     if (!authenticated) {
@@ -294,7 +294,7 @@ export default function DayGamePanel({
           sponsor: true,
           uiOptions: {
             showWalletUIs: true,
-            description: `Stake 1,000 $${SHIT_SYMBOL} · ${side.toUpperCase()} ${selected.symbol || selected.name}`,
+            description: `Play 1,000 $${SHIT_SYMBOL} · ${side.toUpperCase()} ${selected.symbol || selected.name}`,
           },
         },
       });
@@ -323,9 +323,9 @@ export default function DayGamePanel({
         }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Stake failed");
+      if (!res.ok) throw new Error(data.error || "Play failed");
       setMsg(
-        `Staked 1,000 $${SHIT_SYMBOL} ${side.toUpperCase()} on ${selected.symbol || selected.name}. HIT pot ${fmt(data.hitPot)} · SHIT pot ${fmt(data.shitPot)}`
+        `Played 1,000 $${SHIT_SYMBOL} ${side.toUpperCase()} on ${selected.symbol || selected.name}. HIT pot ${fmt(data.hitPot)} · SHIT pot ${fmt(data.shitPot)}`
       );
       load();
     } catch (e) {
@@ -345,7 +345,7 @@ export default function DayGamePanel({
     );
   }
 
-  const stakeLabel = busy ? (
+  const playLabel = busy ? (
     <>
       <EmojiIcon size={18} className="animate-spin" label="Loading">
         💫
@@ -353,10 +353,10 @@ export default function DayGamePanel({
       Confirm…
     </>
   ) : !authenticated ? (
-    "Login with X to stake"
+    "Login with X to play"
   ) : selected ? (
     <>
-      Stake 1k · {side.toUpperCase()} {selected.symbol || selected.name}
+      Play 1k · {side.toUpperCase()} {selected.symbol || selected.name}
     </>
   ) : (
     `Pick a bag · 1,000 $${SHIT_SYMBOL}`
@@ -471,7 +471,7 @@ export default function DayGamePanel({
             )}
           </div>
 
-          {/* RIGHT — stake controls */}
+          {/* RIGHT — play controls */}
           <div
             className={
               dense
@@ -574,11 +574,11 @@ export default function DayGamePanel({
               </p>
             )}
 
-            {/* Desktop stake — inline; mobile sticky below */}
+            {/* Desktop play — inline; mobile sticky below */}
             <button
               type="button"
               disabled={busy || !status.enabled}
-              onClick={() => void stake()}
+              onClick={() => void play()}
               style={
                 !busy && status.enabled
                   ? { cursor: sideCursor(side) }
@@ -588,7 +588,7 @@ export default function DayGamePanel({
                 dense ? "hidden lg:inline-flex" : "inline-flex"
               } w-full min-h-11 rounded-xl bg-neon text-black font-bold text-sm hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed items-center justify-center gap-2`}
             >
-              {stakeLabel}
+              {playLabel}
             </button>
 
             <div
@@ -621,13 +621,13 @@ export default function DayGamePanel({
         </div>
       </div>
 
-      {/* Mobile sticky stake CTA */}
+      {/* Mobile sticky play CTA */}
       {dense && (
         <div className="lg:hidden fixed bottom-0 inset-x-0 z-[200] border-t border-border bg-background/95 backdrop-blur-xl px-3 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
           <button
             type="button"
             disabled={busy || !status.enabled}
-            onClick={() => void stake()}
+            onClick={() => void play()}
             style={
               !busy && status.enabled
                 ? { cursor: sideCursor(side) }
@@ -635,7 +635,7 @@ export default function DayGamePanel({
             }
             className="w-full min-h-12 rounded-xl bg-neon text-black font-bold text-sm hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2"
           >
-            {stakeLabel}
+            {playLabel}
           </button>
         </div>
       )}

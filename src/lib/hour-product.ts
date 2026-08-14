@@ -10,7 +10,7 @@ export const PLAY_PRODUCT = {
   /** Short nav label */
   nav: "Play",
   /** One-liner */
-  tagline: "Call HIT or SHIT. Stake the bag.",
+  tagline: "Call HIT or SHIT. Play the bag.",
   /** Rules blurb */
   blurb:
     "1,000 $TOKENSHIT · real majors · best % takes HIT pot · worst % takes SHIT pot · VRF picks one wallet · 25% treasury",
