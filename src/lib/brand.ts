@@ -76,8 +76,6 @@ export const BRAND = {
       logoWide: "/brand/logo-wide.png",
       logoSquare: "/brand/logo-square.png",
       logoSquareTransparent: "/brand/logo-square-transparent.png",
-      logoMark: "/brand/logo-mark.png",
-      logoMarkDark: "/brand/logo-mark-dark.png",
       logoRoot: "/logo.png",
       iconSvg: "/brand/icon.svg",
       squareSolid: "/brand/square-solid.png",
