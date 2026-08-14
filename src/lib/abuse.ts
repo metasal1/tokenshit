@@ -4,17 +4,19 @@
  * Metasal claim rules:
  *   - X login compulsory
  *   - min 100 followers + real PFP
- *   - major claims (verified/premium/gh): 1 IP / day
+ *   - major claims (verified/premium/gh): 1 IP / day (own bucket)
+ *   - other claims (tweet/follow/email): shared IP day bucket
  *
  * Env knobs (optional):
  *   MIN_X_FOLLOWERS_CLAIM=100
  *   MIN_X_FOLLOWERS_REFERRAL=100
  *   MAJOR_CLAIMS_PER_IP_DAY=1
- *   CLAIM_PER_IP_DAY=12
+ *   CLAIM_PER_IP_DAY=24
  *   ABUSE_SOFT_MODE=1
  */
 import { tursoExecute } from "@/lib/turso";
 import { fetchXUserPublic } from "@/lib/claims";
+import { getClientIp as getClientIpFromGuard } from "@/lib/api-guard";
 import {
   ABUSE_MIN_FOLLOWERS_CLAIM,
   ABUSE_MIN_FOLLOWERS_REFERRAL,
@@ -25,7 +27,8 @@ import {
 export const MIN_X_FOLLOWERS_CLAIM = ABUSE_MIN_FOLLOWERS_CLAIM;
 export const MIN_X_FOLLOWERS_REFERRAL = ABUSE_MIN_FOLLOWERS_REFERRAL;
 export const SIGNUP_PER_IP_HOUR = Number(process.env.SIGNUP_PER_IP_HOUR || 8);
-export const CLAIM_PER_IP_DAY = Number(process.env.CLAIM_PER_IP_DAY || 12);
+/** Non-major claims per IP / 24h. Raised from 12 — CGNAT / shared mobile NATs. */
+export const CLAIM_PER_IP_DAY = Number(process.env.CLAIM_PER_IP_DAY || 24);
 
 const SOFT = process.env.ABUSE_SOFT_MODE === "1";
 
@@ -99,16 +102,11 @@ export async function recordAbuseEvent(
   );
 }
 
+/** Re-export unified IP helper (was XFF-first here — mis-bucketed CGNAT users). */
 export function getClientIp(req: {
   headers: { get(name: string): string | null };
 }): string {
-  const xf = req.headers.get("x-forwarded-for");
-  if (xf) return xf.split(",")[0]!.trim();
-  const real = req.headers.get("x-real-ip");
-  if (real) return real.trim();
-  const cf = req.headers.get("cf-connecting-ip");
-  if (cf) return cf.trim();
-  return "unknown";
+  return getClientIpFromGuard(req);
 }
 
 export function isDisposableEmail(email: string): boolean {
@@ -152,7 +150,19 @@ export async function gateSignupIp(ip: string): Promise<GateResult> {
   return { ok: true };
 }
 
+export function isMajorClaimKind(kind: string): boolean {
+  return kind === "x_verified" || kind === "x_premium" || kind === "gh_fork";
+}
+
+/**
+ * Bulk claim IP gate (tweet / follow / email / referrals).
+ * Skips hard-block when IP is unknown (missing headers) — identity gates still apply.
+ * Major kinds must use gateMajorClaimIp instead (see claim route).
+ */
 export async function gateClaimIp(ip: string): Promise<GateResult> {
+  if (!ip || ip === "unknown") {
+    return { ok: true, soft: "claim ip unknown — skip bulk IP gate" };
+  }
   const n = await countAbuseRecent("claim", ip, 24);
   if (n >= CLAIM_PER_IP_DAY) {
     if (SOFT)
@@ -172,9 +182,10 @@ export async function gateMajorClaimIp(
   ip: string,
   kind: string
 ): Promise<GateResult> {
-  const major =
-    kind === "x_verified" || kind === "x_premium" || kind === "gh_fork";
-  if (!major) return { ok: true };
+  if (!isMajorClaimKind(kind)) return { ok: true };
+  if (!ip || ip === "unknown") {
+    return { ok: true, soft: "major claim ip unknown — skip IP gate" };
+  }
   const limit = MAJOR_CLAIMS_PER_IP_DAY > 0 ? MAJOR_CLAIMS_PER_IP_DAY : 1;
   const n = await countAbuseRecent("claim_major", ip, 24);
   if (n >= limit) {

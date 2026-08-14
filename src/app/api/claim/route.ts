@@ -30,6 +30,7 @@ import {
   gateClaimIp,
   gateMajorClaimIp,
   gateXProfileForClaim,
+  isMajorClaimKind,
   recordAbuseEvent,
 } from "@/lib/abuse";
 
@@ -161,17 +162,6 @@ export async function POST(request: NextRequest) {
     }
 
     const ip = getClientIp(request);
-    const ipGate = await gateClaimIp(ip);
-    if (!ipGate.ok) {
-      await recordAbuseEvent("claim_blocked", ip, null, {
-        reason: ipGate.code,
-      });
-      return Response.json(
-        { error: ipGate.error, code: ipGate.code },
-        { status: ipGate.status }
-      );
-    }
-
     const body = await request.json();
     const kindRaw = String(body.kind || "");
     if (!isKind(kindRaw)) {
@@ -179,16 +169,32 @@ export async function POST(request: NextRequest) {
     }
     const kind = kindRaw;
 
-    const majorGate = await gateMajorClaimIp(ip, kind);
-    if (!majorGate.ok) {
-      await recordAbuseEvent("claim_blocked", ip, null, {
-        reason: majorGate.code,
-        kind,
-      });
-      return Response.json(
-        { error: majorGate.error, code: majorGate.code },
-        { status: majorGate.status }
-      );
+    // Major (premium/verified/gh): own 1/IP/day bucket only.
+    // Bulk gate was wrongly blocking X Premium when shared CGNAT/mobile
+    // networks already hit the tweet/follow daily cap.
+    if (isMajorClaimKind(kind)) {
+      const majorGate = await gateMajorClaimIp(ip, kind);
+      if (!majorGate.ok) {
+        await recordAbuseEvent("claim_blocked", ip, null, {
+          reason: majorGate.code,
+          kind,
+        });
+        return Response.json(
+          { error: majorGate.error, code: majorGate.code },
+          { status: majorGate.status }
+        );
+      }
+    } else {
+      const ipGate = await gateClaimIp(ip);
+      if (!ipGate.ok) {
+        await recordAbuseEvent("claim_blocked", ip, null, {
+          reason: ipGate.code,
+        });
+        return Response.json(
+          { error: ipGate.error, code: ipGate.code },
+          { status: ipGate.status }
+        );
+      }
     }
 
     let wallet = String(body.wallet || "").trim();
@@ -317,12 +323,18 @@ export async function POST(request: NextRequest) {
     let tweetId: string | undefined;
 
     if (kind === "x_verified" || kind === "x_premium") {
-      const x = await checkXVerified(twitter);
-      if (!x.ok)
-        return Response.json(
-          { error: x.error || "X check failed" },
-          { status: 502 }
-        );
+      // Reuse profileGate (same fetchXUserPublic / 5m cache) — avoid second
+      // cold X lookup which made premium/verified claims feel laggy.
+      const x = {
+        ok: true as const,
+        premium: !!profileGate.premium,
+        verified: !!profileGate.verified,
+        verifiedType: profileGate.premium
+          ? "premium"
+          : profileGate.verified
+            ? "verified"
+            : "none",
+      };
       if (kind === "x_premium") {
         if (!x.premium)
           return Response.json(
@@ -585,14 +597,16 @@ export async function POST(request: NextRequest) {
       [signature, kind, wallet]
     );
 
-    await recordAbuseEvent("claim", ip, twitter, {
-      kind,
-      amount,
-      followers: profileGate.followers,
-    });
-    if (kind === "x_verified" || kind === "x_premium" || kind === "gh_fork") {
-      await recordAbuseEvent("claim_major", ip, twitter, { kind, amount });
-    }
+    await recordAbuseEvent(
+      isMajorClaimKind(kind) ? "claim_major" : "claim",
+      ip,
+      twitter,
+      {
+        kind,
+        amount,
+        followers: profileGate.followers,
+      }
+    );
 
     // Don't block response on Telegram
     const { notifyClaimTelegram } = await import("@/lib/telegram");
