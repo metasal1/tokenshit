@@ -17,6 +17,7 @@ import {
   hasClaimed,
   isOnEmailList,
   recordClaim,
+  clearStalePendingClaims,
   tweetIdAlreadyClaimed,
   type ClaimKind,
 } from "@/lib/claims";
@@ -283,10 +284,10 @@ export async function POST(request: NextRequest) {
           { status: 503 }
         );
       }
-      if (balPeek && balPeek.sol < 0.001) {
+      if (balPeek && balPeek.sol < 0.002) {
         return Response.json(
           {
-            error: "Treasury needs SOL for fees",
+            error: "Treasury needs more SOL for fees/ATA rent",
             treasury: balPeek.address,
             sol: balPeek.sol,
           },
@@ -483,15 +484,32 @@ export async function POST(request: NextRequest) {
         { status: 503 }
       );
     }
-    if (bal.sol < 0.001) {
+    if (bal.sol < 0.002) {
       return Response.json(
         {
-          error: "Treasury needs SOL for fees",
+          error:
+            "Treasury needs more SOL for fees/ATA rent. Please top up treasury SOL and retry.",
           treasury: bal.address,
           sol: bal.sol,
         },
         { status: 503 }
       );
+    }
+
+    // Clear abandoned pending rows so retries aren't blocked
+    await clearStalePendingClaims({ kind, twitter, github, wallet });
+    // Also clear fresh pending for this identity (failed mid-flight last attempt)
+    {
+      const { tursoExecute } = await import("@/lib/turso");
+      await tursoExecute(
+        `DELETE FROM shit_claims
+         WHERE claim_kind = ? AND signature = 'pending'
+           AND (
+             (twitter IS NOT NULL AND lower(twitter) = lower(?))
+             OR wallet = ?
+           )`,
+        [kind, twitter || "", wallet]
+      ).catch(() => {});
     }
 
     try {

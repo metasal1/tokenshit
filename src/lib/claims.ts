@@ -110,7 +110,7 @@ function parseCreatedAt(raw: unknown): number | null {
   return Number.isFinite(t) ? t : null;
 }
 
-/** One-time claims (forever). */
+/** True only if a **successful on-chain** claim exists (real sig). */
 export async function hasClaimed(
   kind: ClaimKind,
   opts: {
@@ -129,12 +129,18 @@ export async function hasClaimed(
     kind === "x_verified" || kind === "x_premium"
       ? ["x_verified", "x_premium"]
       : [kind];
+
+  // Real Solana sigs are base58 ~64–88 chars — never pending/failed/empty
+  const okSig = `signature IS NOT NULL
+    AND length(signature) >= 40
+    AND signature NOT IN ('pending', 'failed', '')`;
+
   for (const k of kinds) {
     if (opts.twitter) {
       const r = await tursoExecute(
         `SELECT 1 FROM shit_claims
          WHERE claim_kind = ? AND lower(twitter) = lower(?)
-           AND signature != 'pending'
+           AND ${okSig}
          LIMIT 1`,
         [k, opts.twitter]
       );
@@ -144,7 +150,7 @@ export async function hasClaimed(
       const r = await tursoExecute(
         `SELECT 1 FROM shit_claims
          WHERE claim_kind = ? AND lower(github) = lower(?)
-           AND signature != 'pending'
+           AND ${okSig}
          LIMIT 1`,
         [k, opts.github]
       );
@@ -154,7 +160,7 @@ export async function hasClaimed(
       const r = await tursoExecute(
         `SELECT 1 FROM shit_claims
          WHERE claim_kind = ? AND wallet = ?
-           AND signature != 'pending'
+           AND ${okSig}
          LIMIT 1`,
         [k, opts.wallet]
       );
@@ -162,6 +168,39 @@ export async function hasClaimed(
     }
   }
   return false;
+}
+
+/** Drop abandoned pending claim rows so users can retry after send failures. */
+export async function clearStalePendingClaims(opts: {
+  kind: ClaimKind;
+  twitter?: string | null;
+  github?: string | null;
+  wallet?: string | null;
+}): Promise<void> {
+  await ensureClaimSchema();
+  // Anything still "pending" older than 10 minutes is dead
+  const filters: string[] = [
+    `claim_kind = ?`,
+    `signature = 'pending'`,
+    `created_at < datetime('now', '-10 minutes')`,
+  ];
+  const args: (string | null)[] = [opts.kind];
+  if (opts.twitter) {
+    filters.push(`lower(twitter) = lower(?)`);
+    args.push(opts.twitter);
+  } else if (opts.wallet) {
+    filters.push(`wallet = ?`);
+    args.push(opts.wallet);
+  } else if (opts.github) {
+    filters.push(`lower(github) = lower(?)`);
+    args.push(opts.github);
+  } else {
+    return;
+  }
+  await tursoExecute(
+    `DELETE FROM shit_claims WHERE ${filters.join(" AND ")}`,
+    args
+  ).catch(() => {});
 }
 
 export type TweetClaimCooldown = {
@@ -186,7 +225,9 @@ export async function getTweetClaimCooldown(opts: {
       `SELECT created_at FROM shit_claims
        WHERE claim_kind = 'x_tweet'
          AND lower(twitter) = lower(?)
-         AND signature != 'pending'
+         AND signature IS NOT NULL
+         AND length(signature) >= 40
+         AND signature NOT IN ('pending', 'failed', '')
        ORDER BY datetime(created_at) DESC LIMIT 1`,
       [opts.twitter]
     );
@@ -197,7 +238,9 @@ export async function getTweetClaimCooldown(opts: {
       `SELECT created_at FROM shit_claims
        WHERE claim_kind = 'x_tweet'
          AND wallet = ?
-         AND signature != 'pending'
+         AND signature IS NOT NULL
+         AND length(signature) >= 40
+         AND signature NOT IN ('pending', 'failed', '')
        ORDER BY datetime(created_at) DESC LIMIT 1`,
       [opts.wallet]
     );
