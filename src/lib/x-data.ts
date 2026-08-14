@@ -5,6 +5,8 @@
  */
 
 const TWEETAPI_BASE = "https://api.tweetapi.com/tw-v2";
+/** twitterapi.io — primary paid fallback (X-API-Key header) */
+const TWITTERAPI_IO_BASE = "https://api.twitterapi.io";
 const TOKENSHIT_ID = process.env.X_TOKENSHIT_USER_ID || "2037761105359986688";
 const TOKENSHIT_USER = "tokenshit_";
 
@@ -22,6 +24,15 @@ function tweetApiKey(): string {
     process.env.TWEETAPI_KEY ||
     process.env.TWEET_API_KEY ||
     process.env.TWEETAPI_API_KEY ||
+    ""
+  ).trim();
+}
+
+function twitterApiIoKey(): string {
+  return (
+    process.env.TWITTERAPI_IO_KEY ||
+    process.env.TWITTERAPI_IO ||
+    process.env.TWITTER_API_IO_KEY ||
     ""
   ).trim();
 }
@@ -72,9 +83,14 @@ export function parseTweetId(input: string): string | null {
   if (!s) return null;
   if (/^\d{5,25}$/.test(s)) return s;
   const m = s.match(
-    /(?:twitter\.com|x\.com)\/[^/]+\/status(?:es)?\/(\d{5,25})/i
+    /(?:twitter\.com|x\.com)\/(?:i\/web\/status|i\/status|[^/]+\/status(?:es)?)\/(\d{5,25})/i
   );
   return m?.[1] || null;
+}
+
+/** Modern X snowflakes are 18–19 digits; shorter ids are almost always a cut paste. */
+export function tweetIdLooksTruncated(id: string): boolean {
+  return /^\d+$/.test(id) && id.length > 0 && id.length < 18;
 }
 
 export type XUserPublic = {
@@ -464,8 +480,10 @@ function pickAuthorHandle(obj: Record<string, unknown>): string {
     obj.user_screen_name,
     obj.screen_name,
     obj.username,
+    obj.userName,
     obj.userScreenName,
     nested.username,
+    nested.userName,
     nested.screen_name,
     nested.user_screen_name,
     // last: display name (spaces → _)
@@ -479,6 +497,65 @@ function pickAuthorHandle(obj: Record<string, unknown>): string {
     if (n) return n;
   }
   return "";
+}
+
+async function tweetFromTwitterApiIo(tweetId: string): Promise<{
+  ok: boolean;
+  text?: string;
+  authorUsername?: string;
+  authorId?: string;
+  createdAt?: string;
+  error?: string;
+}> {
+  const key = twitterApiIoKey();
+  if (!key) return { ok: false, error: "no twitterapi.io key" };
+  try {
+    const res = await fetchTimeout(
+      `${TWITTERAPI_IO_BASE}/twitter/tweets?tweet_ids=${encodeURIComponent(tweetId)}`,
+      { headers: { "X-API-Key": key } },
+      10_000
+    );
+    if (!res.ok) {
+      const t = await res.text();
+      return {
+        ok: false,
+        error: `twitterapi.io ${res.status}: ${t.slice(0, 100)}`,
+      };
+    }
+    const json = (await res.json()) as {
+      tweets?: Record<string, unknown>[];
+      status?: string;
+      msg?: string;
+    };
+    const tw = (json.tweets || [])[0];
+    if (!tw) {
+      return {
+        ok: false,
+        error: tweetIdLooksTruncated(tweetId)
+          ? "Tweet not found — ID looks truncated. Paste the full status URL from X (Share → Copy link)."
+          : "Tweet not found on twitterapi.io",
+      };
+    }
+    const author = (tw.author || tw.user || {}) as Record<string, unknown>;
+    const handle =
+      pickAuthorHandle(tw) ||
+      pickAuthorHandle(author) ||
+      normalizeXHandle(
+        String(author.userName || author.username || "")
+      );
+    return {
+      ok: true,
+      text: String(tw.text || tw.fullText || ""),
+      authorUsername: handle || undefined,
+      authorId: author.id ? String(author.id) : undefined,
+      createdAt: String(tw.createdAt || tw.created_at || "") || undefined,
+    };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "twitterapi.io failed",
+    };
+  }
 }
 
 async function tweetFromTweetApi(tweetId: string): Promise<{
@@ -641,9 +718,21 @@ export async function checkXTweetByUrl(
       error: "Paste a full X/Twitter status link (or tweet id).",
     };
   }
+  if (tweetIdLooksTruncated(tweetId)) {
+    return {
+      ok: false,
+      found: false,
+      error:
+        "Tweet id looks cut off. On X: Share → Copy link, then paste the full URL (status id is usually 19 digits).",
+    };
+  }
 
+  // Prefer twitterapi.io (stable credits) → official → TweetAPI.com → vx
   let got =
-    (await tweetFromOfficial(tweetId).catch(() => null)) || null;
+    (await tweetFromTwitterApiIo(tweetId).catch(() => null)) || null;
+  if (!got?.ok) {
+    got = (await tweetFromOfficial(tweetId).catch(() => null)) || got;
+  }
   if (!got?.ok) {
     got = await tweetFromTweetApi(tweetId);
   }
