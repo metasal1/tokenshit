@@ -22,7 +22,7 @@ export const WHALE_LABELS: Record<string, string> = {
   [WHALE_POOL]: "Pool (PumpSwap)",
   [WHALE_POOL_METEORA]: "Pool (Meteora)",
   SHTy7yoA5uAZoevKT3BFcSeDeFaHEyqWc55uApd3MJB: "Treasury",
-  [WHALE_YOU]: "YOU (~15%)",
+  // private bag — no public "YOU" label on site
 };
 
 export function labelWallet(owner: string): string | null {
