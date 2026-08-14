@@ -14,6 +14,19 @@ export function isStandalonePwa(): boolean {
   }
 }
 
+export function isAndroidUa(): boolean {
+  if (typeof navigator === "undefined") return false;
+  return /Android|Seeker|SolanaMobile/i.test(navigator.userAgent || "");
+}
+
+/**
+ * Seeker PWA + Android Chrome standalone cannot complete X popups.
+ * Treat all Android / Seeker as needing the full-page login sheet.
+ */
+export function needsPwaOAuth(): boolean {
+  return isStandalonePwa() || isAndroidUa();
+}
+
 export function isIosDevice(): boolean {
   if (typeof navigator === "undefined") return false;
   const ua = navigator.userAgent || "";

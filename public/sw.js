@@ -1,5 +1,5 @@
-/* TOKENSHIT service worker v2 — shell cache + update + notifications */
-const CACHE = "tokenshit-v3";
+/* TOKENSHIT service worker v4 — Seed Vault MWA + Android X OAuth */
+const CACHE = "tokenshit-v4";
 const PRECACHE = [
   "/",
   "/play",

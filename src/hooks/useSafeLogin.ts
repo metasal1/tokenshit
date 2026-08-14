@@ -3,7 +3,7 @@
 import { useCallback, useState } from "react";
 import { usePrivy, useLoginWithOAuth } from "@privy-io/react-auth";
 import {
-  isStandalonePwa,
+  needsPwaOAuth,
   oauthReturnUrl,
   stashOAuthReturnPath,
 } from "@/lib/pwa-auth";
@@ -34,13 +34,13 @@ export function useSafeLogin() {
     setBusy(true);
     stashOAuthReturnPath();
     try {
-      // Ensure redirect lands back on our origin inside the PWA webview
+      // Full-page redirect — popups fail in Android PWA / Seeker / iOS Home Screen
       await initOAuth({ provider: "twitter" });
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       setError(
-        msg.includes("popup") || msg.includes("blocked")
-          ? "X login blocked in app mode. Use full-page login or Email."
+        msg.includes("popup") || msg.includes("blocked") || msg.includes("window")
+          ? "X login blocked in app mode. Use Seed Vault, Email, or open tokenshit.com in Chrome (not the X app)."
           : msg || "X login failed"
       );
       setBusy(false);
@@ -65,7 +65,7 @@ export function useSafeLogin() {
   const safeLogin = useCallback(() => {
     setError(null);
     if (!ready) return;
-    if (isStandalonePwa()) {
+    if (needsPwaOAuth()) {
       try {
         window.dispatchEvent(new CustomEvent("tokenshit:pwa-login"));
       } catch {
@@ -87,7 +87,7 @@ export function useSafeLogin() {
     loginWithTwitter,
     loginWithGithub,
     oauthState: state,
-    isPwa: typeof window !== "undefined" ? isStandalonePwa() : false,
+    isPwa: typeof window !== "undefined" ? needsPwaOAuth() : false,
     oauthReturnUrl: oauthReturnUrl(),
   };
 }
