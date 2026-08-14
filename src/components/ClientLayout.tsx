@@ -506,6 +506,27 @@ function Layout({ children }: { children: React.ReactNode }) {
           >
             Brand
           </Link>
+          <span className="text-zinc-700">·</span>
+          <Link
+            href="/seeker"
+            className="text-zinc-500 hover:text-zinc-300 transition-colors"
+          >
+            Seeker
+          </Link>
+          <span className="text-zinc-700">·</span>
+          <Link
+            href="/terms"
+            className="text-zinc-500 hover:text-zinc-300 transition-colors"
+          >
+            Terms
+          </Link>
+          <span className="text-zinc-700">·</span>
+          <Link
+            href="/privacy"
+            className="text-zinc-500 hover:text-zinc-300 transition-colors"
+          >
+            Privacy
+          </Link>
         </p>
       </footer>
     </CanvasShell>

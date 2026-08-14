@@ -24,6 +24,9 @@ Play $SHIT OF THE DAY, free arena votes, claims, swap, whales.
 - Referrals: https://tokenshit.com/referrals
 - Brand: https://tokenshit.com/brand
 - Search: https://tokenshit.com/search
+- Seeker: https://tokenshit.com/seeker
+- Terms: https://tokenshit.com/terms
+- Privacy: https://tokenshit.com/privacy
 
 ## Product
 
