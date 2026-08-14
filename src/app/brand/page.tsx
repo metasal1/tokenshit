@@ -117,7 +117,7 @@ export default function BrandPage() {
               ["Logo PNG", BRAND.logo.assets.logoPng],
               ["Transparent", BRAND.logo.assets.logoTransparent],
               ["Square", BRAND.logo.assets.logoSquare],
-              ["$ mark", BRAND.logo.assets.logoMark],
+              ["Square clear", BRAND.logo.assets.logoSquareTransparent],
             ] as const
           ).map(([label, src]) => (
             <a
@@ -354,7 +354,7 @@ export default function BrandPage() {
               ["Transparent", BRAND.logo.assets.logoTransparent],
               ["Wide", BRAND.logo.assets.logoWide],
               ["Square", BRAND.logo.assets.logoSquare],
-              ["$ mark", BRAND.logo.assets.logoMark],
+              ["Square clear", BRAND.logo.assets.logoSquareTransparent],
               ["X banner", BRAND.logo.assets.xBanner],
               ["Hour poster", BRAND.logo.assets.hitShitHourPoster],
               ["Hour poster @2x", BRAND.logo.assets.hitShitHourPoster2x],

@@ -82,8 +82,6 @@ Don't: hashtags on X, auto-post, lame daily meme spam, corporate announce-speak.
 | Logo wide 2400×600 | `/brand/logo-wide.png` |
 | Logo square 1024 | `/brand/logo-square.png` |
 | Logo square transparent | `/brand/logo-square-transparent.png` |
-| $ mark | `/brand/logo-mark.png` |
-| $ mark dark | `/brand/logo-mark-dark.png` |
 | Root alias | `/logo.png` |
 | Icon SVG | `/brand/icon.svg` |
 | X banner 1500×500 | `/brand/x-banner.jpg` |

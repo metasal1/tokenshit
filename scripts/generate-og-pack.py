@@ -212,7 +212,6 @@ def make(
     route_title: str | None,
     subtitle: str,
     url: str,
-    mark: Image.Image | None,
     icons: list[Image.Image],
     twemoji: list[Image.Image],
 ) -> None:
@@ -232,28 +231,34 @@ def make(
             break
         paste_rgba(base, pool[i % len(pool)], x, y, opacity=op, rotate=rot, size=size)
 
-    if mark is not None:
-        for x, y, s, r, o in [
-            (160, 50, 56, -25, 0.32),
-            (1040, 55, 52, 20, 0.3),
-            (55, 200, 48, 15, 0.26),
-            (1145, 200, 48, -18, 0.26),
-            (200, 580, 50, 12, 0.28),
-            (1000, 575, 54, -15, 0.28),
-            (80, 520, 36, 18, 0.24),
-            (1120, 520, 36, -14, 0.24),
-        ]:
-            paste_rgba(base, mark, x, y, opacity=o, rotate=r, size=s)
+    draw = ImageDraw.Draw(base)
+
+    # Neon Monoton $ stamps (no logo-mark asset — incorrect art removed)
+    dollar = load_font("Monoton-Regular.ttf", 64)
+    for x, y, s, r, o in [
+        (160, 50, 56, -25, 0.35),
+        (1040, 55, 52, 20, 0.32),
+        (55, 200, 48, 15, 0.28),
+        (1145, 200, 48, -18, 0.28),
+        (200, 580, 50, 12, 0.3),
+        (1000, 575, 54, -15, 0.3),
+        (80, 520, 36, 18, 0.25),
+        (1120, 520, 36, -14, 0.25),
+    ]:
+        # temp layer for rotated $
+        layer = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+        ld = ImageDraw.Draw(layer)
+        f = load_font("Monoton-Regular.ttf", s)
+        ld.text((x, y), "$", font=f, fill=(*NEON, int(255 * o)), anchor="mm")
+        layer = layer.rotate(r, center=(x, y), resample=Image.Resampling.BICUBIC)
+        base = Image.alpha_composite(base, layer)
 
     draw = ImageDraw.Draw(base)
     orbit_md = load_font("Orbitron-Bold.ttf", 30)
     orbit_sm = load_font("Orbitron-Bold.ttf", 24)
 
     if route_title:
-        # Small brand lockup top
         draw_brand_lockup(draw, load_font("Monoton-Regular.ttf", 64), 100)
-
-        # HUGE route title — dead center
         hero = fit_monoton(route_title, start=168, min_size=96, max_w=1100)
         hero_cy = 300
         for dx, dy in [(-5, 0), (5, 0), (0, -5), (0, 5), (-3, -3), (3, 3)]:
@@ -271,16 +276,13 @@ def make(
             fill=NEON,
             anchor="mm",
         )
-
         sub_cy = 430
         url_cy = 490
     else:
-        # Home / default — big brand lockup only
         draw_brand_lockup(draw, load_font("Monoton-Regular.ttf", 132), 275)
         sub_cy = 420
         url_cy = 485
 
-    # Subtitle
     sub_font = orbit_md
     if text_w(sub_font, subtitle) > 1020:
         sub_font = orbit_sm
@@ -308,11 +310,6 @@ def make(
 
 def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
-    mark = None
-    for p in [ROOT / "logo-mark.png", ROOT / "logo-mark-dark.png"]:
-        if p.exists():
-            mark = Image.open(p).convert("RGBA")
-            break
 
     icons = load_local_icons()
     twemoji: list[Image.Image] = []
@@ -324,7 +321,7 @@ def main() -> None:
     print(f"icons local={len(icons)} twemoji={len(twemoji)}")
 
     for key, title, sub, url in ROUTES:
-        make(key, title, sub, url, mark, icons, twemoji)
+        make(key, title, sub, url, icons, twemoji)
 
     shutil.copy(OUT / "default.png", ROOT / "og-share.png")
     shutil.copy(OUT / "default.png", ROOT / "og-image.png")

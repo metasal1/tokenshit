@@ -4,7 +4,7 @@ import { SHIT_MINT, SHIT_SYMBOL, TREASURY_ADDRESS, X_HANDLE } from "@/lib/shit-t
 
 const SITE = "https://tokenshit.com";
 /** Cache-bust when OG pack regenerates */
-const OG_V = "6";
+const OG_V = "7";
 
 export type OgKey =
   | "default"
@@ -93,7 +93,7 @@ export const defaultMetadata: Metadata = {
     icon: [
       { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
       { url: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
-      { url: "/brand/logo-mark-dark.png", type: "image/png" },
+      { url: "/brand/logo-square.png", type: "image/png" },
     ],
     apple: [
       { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
@@ -197,7 +197,7 @@ export function siteJsonLd() {
         "@id": `${SITE}/#org`,
         name: "TOKEN$HIT",
         url: SITE,
-        logo: `${SITE}/brand/logo-mark.png`,
+        logo: `${SITE}/brand/logo-square.png`,
         sameAs: [`https://x.com/${X_HANDLE}`],
       },
       {
