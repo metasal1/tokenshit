@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import DayGamePanel from "@/components/DayGamePanel";
+import OnrampButton from "@/components/OnrampButton";
 import Link from "next/link";
 import { PLAY_PRODUCT } from "@/lib/hour-product";
 import { pageMeta } from "@/lib/seo";
@@ -54,6 +55,10 @@ export default function PlayPage() {
           </Link>
         </nav>
       </header>
+
+      <div className="mb-3 max-w-md">
+        <OnrampButton variant="compact" amount="0.15" />
+      </div>
 
       <DayGamePanel compactTitle dense />
     </div>

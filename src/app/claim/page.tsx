@@ -4,6 +4,7 @@ import ShareRefButton from "@/components/ShareRefButton";
 import EmailCaptureCard from "@/components/EmailCaptureCard";
 import WalletAddressCard from "@/components/WalletAddressCard";
 import CopyableAddress from "@/components/CopyableAddress";
+import OnrampButton from "@/components/OnrampButton";
 import Link from "next/link";
 import type { Metadata } from "next";
 import {
@@ -65,6 +66,8 @@ export default function ClaimPage() {
             Buy / swap →
           </Link>
         </div>
+
+        <OnrampButton variant="full" amount="0.15" />
 
         <div className="-mx-3 px-3 sm:mx-0 sm:px-0 overflow-x-auto no-scrollbar">
           <ul className="flex sm:flex-wrap gap-2 min-w-max sm:min-w-0 pb-1">
