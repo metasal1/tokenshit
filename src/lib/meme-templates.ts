@@ -39,11 +39,15 @@ export function memeStudioUrl(opts: {
   const top = opts.hit ? "Reading charts all day" : `$${sym} bagholders`;
   const bottom = opts.hit ? `$${sym} = HIT` : `$${sym} = SHIT`;
   const t = opts.templateId || randomMemeTemplateId();
-  const u = new URL("https://memes.sal.fun/");
+  // Local studio — tokenshit.com/memes (not memes.sal.fun)
+  const base =
+    typeof window !== "undefined"
+      ? `${window.location.origin}/memes`
+      : "https://tokenshit.com/memes";
+  const u = new URL(base);
   u.searchParams.set("t", t);
   u.searchParams.set("top", top);
   u.searchParams.set("bottom", bottom);
-  // random query nudge so cache doesn't stick one template
   u.searchParams.set("r", String(Math.floor(Math.random() * 1e9)));
   return u.toString();
 }
