@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import SwapDesk from "@/components/SwapDesk";
+import OnrampButton from "@/components/OnrampButton";
 import WalletAddressCard from "@/components/WalletAddressCard";
 import CopyableAddress from "@/components/CopyableAddress";
 import {
@@ -36,6 +37,8 @@ export default function SwapPage() {
           </Link>
         </p>
       </header>
+
+      <OnrampButton variant="full" amount="0.2" />
 
       <WalletAddressCard />
 

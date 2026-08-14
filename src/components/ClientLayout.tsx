@@ -21,6 +21,7 @@ import BetaScrollBanner from '@/components/BetaScrollBanner';
 import ClaimGlitchToast from '@/components/ClaimGlitchToast';
 import SafeLoginButton from '@/components/SafeLoginButton';
 import PwaLoginSheetHost from '@/components/PwaLoginSheetHost';
+import { SolanaFundingBootstrap } from '@/components/OnrampButton';
 import { useSafeLogin } from '@/hooks/useSafeLogin';
 import { isStandalonePwa } from '@/lib/pwa-auth';
 import { TREASURY_ADDRESS, treasurySolscanUrl } from '@/lib/shit-token';
@@ -458,6 +459,7 @@ function Layout({ children }: { children: React.ReactNode }) {
     <CanvasShell>
       {nav}
       <BetaScrollBanner />
+      <SolanaFundingBootstrap />
       <ReferralTracker />
       <ClaimGlitchToast />
       <SignupGlitchToast />
