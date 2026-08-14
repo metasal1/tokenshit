@@ -1,0 +1,12 @@
+# gitignore for dapp-store secrets / build junk
+android.keystore
+.keystore-password
+*.jks
+app/
+build/
+.gradle/
+*.apk
+*.aab
+*.idsig
+node_modules/
+local.properties

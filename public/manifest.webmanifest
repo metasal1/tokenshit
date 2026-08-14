@@ -2,17 +2,25 @@
   "id": "tokenshit-pwa-v2",
   "name": "TOKEN$HIT",
   "short_name": "TOKEN$HIT",
-  "description": "Every token is shit until proven otherwise. Play · Vote · Whales.",
+  "description": "Every token is shit until proven otherwise. HIT/SHIT on Solana. Play \u00b7 Vote \u00b7 Seeker-ready.",
   "start_url": "/?source=pwa",
   "scope": "/",
   "display": "standalone",
-  "display_override": ["standalone", "browser"],
-  "orientation": "any",
+  "display_override": [
+    "standalone",
+    "browser"
+  ],
+  "orientation": "portrait-primary",
   "background_color": "#0a0a0f",
   "theme_color": "#0a0a0f",
   "lang": "en",
   "dir": "ltr",
-  "categories": ["finance", "entertainment", "games"],
+  "categories": [
+    "finance",
+    "entertainment",
+    "games"
+  ],
+  "prefer_related_applications": false,
   "icons": [
     {
       "src": "/icons/icon-192.png",
@@ -81,7 +89,6 @@
     }
   ],
   "related_applications": [],
-  "prefer_related_applications": false,
   "launch_handler": {
     "client_mode": "navigate-existing"
   }
