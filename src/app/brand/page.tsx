@@ -2,13 +2,14 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import AnimatedLogo from "@/components/AnimatedLogo";
 import { BRAND, BRAND_COLOR_SWATCHES } from "@/lib/brand";
+import { pageMeta } from "@/lib/seo";
 
-export const metadata: Metadata = {
-  title: "Brand — TOKENSHIT",
+export const metadata: Metadata = pageMeta({
+  title: "Brand",
   description:
-    "TOKENSHIT brand guide: cream wordmark, green $, colors, type, assets.",
-  alternates: { canonical: "/brand" },
-};
+    "TOKEN$HIT brand guide: cream wordmark, green $, colors, type, assets.",
+  path: "/brand",
+});
 
 export const dynamic = "force-static";
 export const revalidate = 3600;

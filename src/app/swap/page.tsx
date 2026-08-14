@@ -10,11 +10,13 @@ import {
   treasurySolscanUrl,
 } from "@/lib/shit-token";
 import { USDC_MINT } from "@/lib/buy-fee";
+import { pageMeta } from "@/lib/seo";
 
-export const metadata: Metadata = {
-  title: `Swap $${SHIT_SYMBOL} — TokenShit`,
+export const metadata: Metadata = pageMeta({
+  title: `Swap $${SHIT_SYMBOL}`,
   description: `Buy $${SHIT_SYMBOL} with SOL, or swap $${SHIT_SYMBOL} ↔ USDC. Amount presets, balances, Jupiter routes.`,
-};
+  path: "/swap",
+});
 
 export default function SwapPage() {
   return (

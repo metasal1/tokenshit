@@ -5,6 +5,7 @@ import EmailCaptureCard from "@/components/EmailCaptureCard";
 import WalletAddressCard from "@/components/WalletAddressCard";
 import CopyableAddress from "@/components/CopyableAddress";
 import Link from "next/link";
+import type { Metadata } from "next";
 import {
   CLAIM_GH_FORK,
   CLAIM_X_FOLLOW,
@@ -20,12 +21,13 @@ import {
   X_HANDLE,
   treasurySolscanUrl,
 } from "@/lib/shit-token";
-import type { Metadata } from "next";
+import { pageMeta } from "@/lib/seo";
 
-export const metadata: Metadata = {
-  title: `Claim $${SHIT_SYMBOL} — TokenShit`,
+export const metadata: Metadata = pageMeta({
+  title: `Claim $${SHIT_SYMBOL}`,
   description: `Tweet+tag @${X_HANDLE}, follow, claim verified/fork rewards. Global treasury +1M daily @ 00:00 UTC.`,
-};
+  path: "/claim",
+});
 
 export default function ClaimPage() {
   const rewards = [
