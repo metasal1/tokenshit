@@ -5,9 +5,13 @@ export const dynamic = "force-dynamic";
 
 const KIND_LABEL: Record<string, string> = {
   x_verified: "X verified",
+  x_premium: "X premium",
   gh_fork: "GH fork",
   x_tweet: "tweet tag",
   x_follow: "X follow",
+  email_list: "list join",
+  day_hit: "HIT pot",
+  day_shit: "SHIT pot",
 };
 
 /** GET /api/claim/recent — public glitch-toast feed (no wallets). */
