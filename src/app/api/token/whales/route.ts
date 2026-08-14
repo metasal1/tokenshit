@@ -11,7 +11,6 @@ import {
   WHALE_POOL,
   WHALE_POOL_METEORA,
   WHALE_TRADES_WORKER,
-  WHALE_YOU,
 } from "@/lib/whales";
 
 export const dynamic = "force-dynamic";
@@ -238,21 +237,22 @@ async function fetchWhalesFresh(limit: number): Promise<{
   const byOwner = new Map<string, { amount: number; tokenAccount: string; amountRaw: string }>();
   let page = 1;
   for (; page <= 5; page++) {
-    let result: {
+    type TokenAccountsResult = {
       token_accounts?: {
         address?: string;
         owner?: string;
         amount?: string | number;
       }[];
       total?: number;
-    } | null = null;
+    };
+    let result: TokenAccountsResult | null = null;
     try {
       result = (await rpc("getTokenAccounts", {
         mint: WHALE_MINT,
         limit: 1000,
         page,
         displayOptions: { showZeroBalance: false },
-      })) as typeof result;
+      })) as TokenAccountsResult;
     } catch {
       // fallback below if method unsupported
       result = null;
