@@ -1,5 +1,5 @@
 /* TOKENSHIT service worker v2 — shell cache + update + notifications */
-const CACHE = "tokenshit-v2";
+const CACHE = "tokenshit-v3";
 const PRECACHE = [
   "/",
   "/play",
@@ -68,6 +68,12 @@ self.addEventListener("fetch", (event) => {
         return hit || fetchPromise;
       })
     );
+    return;
+  }
+
+  // never cache oauth callback
+  if (url.pathname.startsWith("/auth/")) {
+    event.respondWith(fetch(req));
     return;
   }
 

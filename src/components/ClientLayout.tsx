@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { PrivyProvider, usePrivy } from '@privy-io/react-auth';
 import { useWallets } from '@privy-io/react-auth/solana';
 import Link from 'next/link';
@@ -19,6 +19,10 @@ import EmailSignupModal from '@/components/EmailSignupModal';
 import SignupGlitchToast from '@/components/SignupGlitchToast';
 import BetaScrollBanner from '@/components/BetaScrollBanner';
 import ClaimGlitchToast from '@/components/ClaimGlitchToast';
+import SafeLoginButton from '@/components/SafeLoginButton';
+import PwaLoginSheetHost from '@/components/PwaLoginSheetHost';
+import { useSafeLogin } from '@/hooks/useSafeLogin';
+import { isStandalonePwa } from '@/lib/pwa-auth';
 import { TREASURY_ADDRESS, treasurySolscanUrl } from '@/lib/shit-token';
 import { getPrivyConfig } from '@/lib/privy-config';
 import { pickSolanaAddress } from '@/lib/privy-identity';
@@ -279,10 +283,13 @@ function ReferralButton({ twitterUsername }: { twitterUsername?: string }) {
 }
 
 function LoginButton() {
-  const { ready, authenticated, user, login, logout, linkTwitter, linkGithub } = usePrivy();
+  const { ready, authenticated, user, logout, linkTwitter, linkGithub } = usePrivy();
   const { wallets } = useWallets();
+  const { loginWithTwitter } = useSafeLogin();
   const [showWallet, setShowWallet] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
+  const [pwa, setPwa] = useState(false);
+  useEffect(() => setPwa(isStandalonePwa()), []);
 
   if (!ready) return null;
 
@@ -309,7 +316,10 @@ function LoginButton() {
           <div className="absolute right-0 top-full mt-1 bg-zinc-900 border border-zinc-700 rounded-lg shadow-xl z-50 min-w-[160px]">
             {walletAddress && (
               <button
-                onClick={() => { setShowWallet(true); setShowMenu(false); }}
+                onClick={() => {
+                  setShowWallet(true);
+                  setShowMenu(false);
+                }}
                 className="w-full text-left text-xs px-4 py-2.5 text-zinc-300 hover:bg-zinc-800 hover:text-white transition-colors rounded-t-lg"
               >
                 Wallet
@@ -317,7 +327,12 @@ function LoginButton() {
             )}
             {!twitterHandle && (
               <button
-                onClick={() => { linkTwitter(); setShowMenu(false); }}
+                onClick={() => {
+                  setShowMenu(false);
+                  // PWA: full-page OAuth; browser: Privy link modal
+                  if (pwa) void loginWithTwitter();
+                  else linkTwitter();
+                }}
                 className="w-full text-left text-xs px-4 py-2.5 text-zinc-300 hover:bg-zinc-800 hover:text-white transition-colors"
               >
                 Link X
@@ -325,14 +340,20 @@ function LoginButton() {
             )}
             {!githubHandle && (
               <button
-                onClick={() => { linkGithub(); setShowMenu(false); }}
+                onClick={() => {
+                  linkGithub();
+                  setShowMenu(false);
+                }}
                 className="w-full text-left text-xs px-4 py-2.5 text-neon hover:bg-zinc-800 transition-colors font-semibold"
               >
                 + Link GitHub
               </button>
             )}
             <button
-              onClick={() => { logout(); setShowMenu(false); }}
+              onClick={() => {
+                logout();
+                setShowMenu(false);
+              }}
               className="w-full text-left text-xs px-4 py-2.5 text-zinc-300 hover:bg-zinc-800 hover:text-white transition-colors rounded-b-lg"
             >
               Log out
@@ -341,7 +362,11 @@ function LoginButton() {
         )}
 
         {showWallet && walletAddress && (
-          <WalletPanel address={walletAddress} twitterUsername={twitterHandle || undefined} onClose={() => setShowWallet(false)}>
+          <WalletPanel
+            address={walletAddress}
+            twitterUsername={twitterHandle || undefined}
+            onClose={() => setShowWallet(false)}
+          >
             <ReferralButton twitterUsername={twitterHandle || undefined} />
           </WalletPanel>
         )}
@@ -349,14 +374,7 @@ function LoginButton() {
     );
   }
 
-  return (
-    <button
-      onClick={() => login()}
-      className="text-xs px-3 py-1.5 rounded-md border border-zinc-700 text-zinc-300 hover:text-white hover:border-zinc-500 transition-colors"
-    >
-      Log in
-    </button>
-  );
+  return <SafeLoginButton variant="nav" label="Log in" />;
 }
 
 function Layout({ children }: { children: React.ReactNode }) {
@@ -496,11 +514,20 @@ function Layout({ children }: { children: React.ReactNode }) {
 
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
   const appId = process.env.NEXT_PUBLIC_PRIVY_APP_ID || '';
+  const [redirect, setRedirect] = useState('https://tokenshit.com/auth/oauth-return');
+  useEffect(() => {
+    setRedirect(`${window.location.origin}/auth/oauth-return`);
+  }, []);
+  const privyConfig = useMemo(
+    () => getPrivyConfig({ oauthRedirectUrl: redirect }),
+    [redirect]
+  );
 
   return (
-    <PrivyProvider appId={appId} config={getPrivyConfig()}>
+    <PrivyProvider appId={appId} config={privyConfig}>
       <PwaProvider>
         <Layout>{children}</Layout>
+        <PwaLoginSheetHost />
       </PwaProvider>
     </PrivyProvider>
   );

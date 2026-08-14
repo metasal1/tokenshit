@@ -7,6 +7,7 @@ import {
   useSignAndSendTransaction,
 } from "@privy-io/react-auth/solana";
 import { pickSolanaAddress } from "@/lib/privy-identity";
+import { useSafeLogin } from "@/hooks/useSafeLogin";
 import { SHIT_MINT, SHIT_SYMBOL, TREASURY_ADDRESS } from "@/lib/shit-token";
 import {
   b64ToBytes,
@@ -200,7 +201,8 @@ export default function DayGamePanel({
   /** Single-card denser layout (play page) */
   dense?: boolean;
 } = {}) {
-  const { ready, authenticated, login, getAccessToken, user } = usePrivy();
+  const { ready, authenticated, getAccessToken, user } = usePrivy();
+  const { safeLogin } = useSafeLogin();
   const { wallets } = useWallets();
   const { signAndSendTransaction } = useSignAndSendTransaction();
   const wallet = useMemo(
@@ -265,7 +267,7 @@ export default function DayGamePanel({
     setErr(null);
     setMsg(null);
     if (!authenticated) {
-      login();
+      safeLogin();
       return;
     }
     if (!wallet) {

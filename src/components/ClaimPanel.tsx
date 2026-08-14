@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { usePrivy } from "@privy-io/react-auth";
 import { useWallets } from "@privy-io/react-auth/solana";
+import { useSafeLogin } from "@/hooks/useSafeLogin";
+import { isStandalonePwa } from "@/lib/pwa-auth";
 import {
   CLAIM_EMAIL_LIST,
   CLAIM_GH_FORK,
@@ -139,8 +141,9 @@ function RewardRow({
 }
 
 export default function ClaimPanel() {
-  const { ready, authenticated, user, login, getAccessToken, linkTwitter, linkGithub } =
+  const { ready, authenticated, user, getAccessToken, linkTwitter, linkGithub } =
     usePrivy();
+  const { safeLogin, loginWithTwitter } = useSafeLogin();
   const { wallets } = useWallets();
   const [busy, setBusy] = useState<ClaimKind | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
@@ -214,7 +217,7 @@ export default function ClaimPanel() {
     setClaimPhase(null);
     setClaimElapsed(0);
     if (!authenticated) {
-      login();
+      safeLogin();
       return;
     }
     if (!wallet) {
@@ -382,7 +385,7 @@ export default function ClaimPanel() {
         {!authenticated ? (
           <button
             type="button"
-            onClick={() => login()}
+            onClick={() => safeLogin()}
             className="min-h-9 px-3 rounded-md bg-neon text-black font-semibold active:scale-[0.98]"
           >
             Login / Sign up
@@ -396,7 +399,7 @@ export default function ClaimPanel() {
             ) : (
               <button
                 type="button"
-                onClick={() => linkTwitter()}
+                onClick={() => { if (isStandalonePwa()) void loginWithTwitter(); else linkTwitter(); }}
                 className="min-h-9 px-3 rounded-md border border-sky-700 text-sky-400 font-medium"
               >
                 Link X
@@ -775,7 +778,7 @@ export default function ClaimPanel() {
                     <span className="text-[10px] text-zinc-600">…</span>
                   ) : null}
                   {!authenticated ? (
-                    <button type="button" onClick={() => login()} className={BTN_LIGHT}>
+                    <button type="button" onClick={() => safeLogin()} className={BTN_LIGHT}>
                       Login with X
                     </button>
                   ) : !github ? (

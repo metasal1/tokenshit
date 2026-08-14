@@ -12,11 +12,15 @@ export const SOLANA_WS_RPC =
 
 /**
  * Privy config for TOKENSHIT — Solana only (no EVM).
- * - appearance.walletChainType: solana-only hides ETH wallets
- * - ethereum embedded createOnLogin: off
- * - solana.rpcs required for fund/buy
+ * PWA: allowOAuthInEmbeddedBrowsers + customOAuthRedirectUrl (set client-side).
  */
-export function getPrivyConfig() {
+export function getPrivyConfig(opts?: { oauthRedirectUrl?: string }) {
+  const redirect =
+    opts?.oauthRedirectUrl ||
+    (typeof window !== "undefined"
+      ? `${window.location.origin}/auth/oauth-return`
+      : "https://tokenshit.com/auth/oauth-return");
+
   return {
     loginMethods: ["email", "twitter", "github"] as (
       | "email"
@@ -42,7 +46,6 @@ export function getPrivyConfig() {
     externalWallets: {
       solana: {
         connectors: toSolanaWalletConnectors({
-          // Phantom / Solflare etc. only — no WalletConnect EVM
           shouldAutoConnect: false,
         }),
       },
@@ -60,5 +63,15 @@ export function getPrivyConfig() {
         },
       },
     },
+    /**
+     * PWA / iOS standalone: OAuth must full-page redirect, not popup.
+     * Redirect URL must be allowlisted in Privy Dashboard → Login methods / allowed origins.
+     */
+    customOAuthRedirectUrl: redirect,
+    /**
+     * iOS home-screen WKWebView is an embedded browser — without this,
+     * some OAuth providers refuse the flow.
+     */
+    allowOAuthInEmbeddedBrowsers: true,
   };
 }
