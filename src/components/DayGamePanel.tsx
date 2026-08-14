@@ -79,6 +79,43 @@ function fmtPct(n: number) {
   return `${s}%`;
 }
 
+function TokenMark({
+  logo,
+  symbol,
+  size = 28,
+}: {
+  logo?: string | null;
+  symbol?: string;
+  size?: number;
+}) {
+  const [broken, setBroken] = useState(false);
+  const letter = (symbol || "?").replace(/^\$/, "").slice(0, 1).toUpperCase();
+  const dim = `${size}px`;
+  if (logo && !broken) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={logo}
+        alt=""
+        width={size}
+        height={size}
+        className="rounded-full bg-zinc-900 object-cover shrink-0 ring-1 ring-white/10"
+        style={{ width: dim, height: dim }}
+        onError={() => setBroken(true)}
+      />
+    );
+  }
+  return (
+    <div
+      className="rounded-full bg-zinc-900 ring-1 ring-white/10 flex items-center justify-center shrink-0 font-orbitron font-bold text-neon"
+      style={{ width: dim, height: dim, fontSize: Math.max(11, size * 0.38) }}
+      aria-hidden
+    >
+      {letter}
+    </div>
+  );
+}
+
 function LeaderCard({
   kind,
   leader,
@@ -107,60 +144,47 @@ function LeaderCard({
           price: leader.price,
         });
       }}
-      className={`rounded-xl border text-left transition-colors w-full ${
+      className={`rounded-xl border text-left transition-all w-full ${
         hit ? "cursor-hit" : "cursor-shit"
-      } ${
-        compact ? "p-2" : "p-3"
-      } ${
+      } ${compact ? "p-2.5" : "p-3"} ${
         hit
-          ? "border-green-800/50 bg-green-950/30 hover:bg-green-950/50"
-          : "border-red-800/50 bg-red-950/30 hover:bg-red-950/50"
-      } disabled:opacity-60 disabled:cursor-not-allowed`}
+          ? "border-green-500/25 bg-gradient-to-br from-green-950/50 to-zinc-950/80 hover:border-green-400/50"
+          : "border-red-500/25 bg-gradient-to-br from-red-950/50 to-zinc-950/80 hover:border-red-400/50"
+      } disabled:opacity-50 disabled:cursor-not-allowed`}
     >
       <div
-        className={`text-[9px] uppercase flex items-center gap-1 ${
-          compact ? "mb-0.5" : "mb-1.5"
-        } ${hit ? "text-green-500/90" : "text-red-500/90"}`}
+        className={`font-orbitron uppercase tracking-[0.14em] flex items-center gap-1 ${
+          compact ? "text-[9px] mb-1.5" : "text-[10px] mb-2"
+        } ${hit ? "text-green-400/90" : "text-red-400/90"}`}
       >
         <EmojiIcon size={12}>{hit ? "🎯" : "💀"}</EmojiIcon>
         {hit ? "Hitting" : "Shitting"}
       </div>
       {leader ? (
-        <div className="flex items-center gap-2">
-          {leader.logo ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={leader.logo}
-              alt=""
-              className={`${compact ? "h-7 w-7" : "h-9 w-9"} rounded-full bg-zinc-800 shrink-0`}
-            />
-          ) : (
-            <div
-              className={`${compact ? "h-7 w-7" : "h-9 w-9"} rounded-full bg-zinc-800 shrink-0`}
-            />
-          )}
+        <div className="flex items-center gap-2.5">
+          <TokenMark logo={leader.logo} symbol={leader.symbol} size={compact ? 32 : 36} />
           <div className="min-w-0 flex-1">
-            <div className="text-sm font-bold text-white truncate">
+            <div className="text-sm font-bold text-white truncate tracking-wide">
               {leader.symbol || leader.name}
             </div>
-          </div>
-          <div className="text-right shrink-0">
-            <div
-              className={`text-sm font-mono font-bold ${
-                hit ? "text-green-400" : "text-red-400"
-              }`}
-            >
-              {fmtPct(leader.pct)}
-            </div>
             {!compact && (
-              <div className="text-[10px] text-zinc-600">
+              <div className="text-[10px] text-zinc-600 font-mono">
                 {stakesOn ?? 0} play{(stakesOn ?? 0) === 1 ? "" : "s"}
               </div>
             )}
           </div>
+          <div
+            className={`text-sm font-mono font-bold tabular-nums shrink-0 ${
+              hit ? "text-green-400" : "text-red-400"
+            }`}
+          >
+            {fmtPct(leader.pct)}
+          </div>
         </div>
       ) : (
-        <div className="text-[11px] text-zinc-600 py-1">Waiting…</div>
+        <div className="text-[11px] text-zinc-600 py-1.5 font-orbitron tracking-wide">
+          Waiting…
+        </div>
       )}
     </button>
   );
@@ -425,25 +449,25 @@ export default function DayGamePanel({
             }
           >
             <div className="grid grid-cols-2 gap-2">
-              <div className="rounded-xl border border-green-800/50 bg-green-950/30 px-2.5 py-2">
-                <div className="text-[9px] uppercase text-green-500/80 flex items-center gap-1">
+              <div className="rounded-xl border border-green-500/25 bg-gradient-to-br from-green-950/40 to-zinc-950/80 px-3 py-2.5">
+                <div className="text-[9px] font-orbitron uppercase tracking-[0.14em] text-green-400/85 flex items-center gap-1">
                   <EmojiIcon size={12}>🎯</EmojiIcon> HIT pot
                 </div>
-                <div className="text-lg font-bold text-green-400 font-mono leading-tight">
+                <div className="text-xl font-bold text-green-400 font-mono leading-tight mt-0.5 tabular-nums">
                   {fmt(status.round?.hitPot || 0)}
                 </div>
-                <div className="text-[9px] text-zinc-500">
+                <div className="text-[10px] text-zinc-500 font-mono mt-0.5">
                   {status.stats.hitTickets || 0} wallets
                 </div>
               </div>
-              <div className="rounded-xl border border-red-800/50 bg-red-950/30 px-2.5 py-2">
-                <div className="text-[9px] uppercase text-red-500/80 flex items-center gap-1">
+              <div className="rounded-xl border border-red-500/25 bg-gradient-to-br from-red-950/40 to-zinc-950/80 px-3 py-2.5">
+                <div className="text-[9px] font-orbitron uppercase tracking-[0.14em] text-red-400/85 flex items-center gap-1">
                   <EmojiIcon size={12}>💀</EmojiIcon> SHIT pot
                 </div>
-                <div className="text-lg font-bold text-red-400 font-mono leading-tight">
+                <div className="text-xl font-bold text-red-400 font-mono leading-tight mt-0.5 tabular-nums">
                   {fmt(status.round?.shitPot || 0)}
                 </div>
-                <div className="text-[9px] text-zinc-500">
+                <div className="text-[10px] text-zinc-500 font-mono mt-0.5">
                   {status.stats.shitTickets || 0} wallets
                 </div>
               </div>
@@ -512,11 +536,11 @@ export default function DayGamePanel({
               value={q}
               onChange={(e) => setQ(e.target.value)}
               placeholder="Filter majors…"
-              className="w-full rounded-xl border border-border bg-zinc-950 px-3 py-2 text-sm"
+              className="w-full rounded-xl border border-zinc-800 bg-zinc-950/90 px-3 py-2.5 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-neon/40 focus:ring-1 focus:ring-neon/20"
             />
 
             <div
-              className={`overflow-y-auto overscroll-contain rounded-xl border border-border divide-y divide-border ${
+              className={`overflow-y-auto overscroll-contain rounded-xl border border-zinc-800/90 bg-zinc-950/40 divide-y divide-zinc-900/80 ${
                 side === "hit" ? "cursor-hit" : "cursor-shit"
               } ${
                 dense
@@ -531,35 +555,40 @@ export default function DayGamePanel({
                     key={m.assetId}
                     type="button"
                     onClick={() => setSelected(m)}
-                    className={`w-full flex items-center gap-2.5 px-2.5 py-2 text-left hover:bg-zinc-900 ${
+                    className={`w-full flex items-center gap-3 px-3 py-2.5 text-left transition-colors hover:bg-zinc-900/80 ${
                       side === "hit" ? "cursor-hit" : "cursor-shit"
                     } ${
-                      on ? "bg-zinc-900 ring-1 ring-inset ring-neon/40" : ""
+                      on
+                        ? side === "hit"
+                          ? "bg-green-950/40 ring-1 ring-inset ring-green-500/35"
+                          : "bg-red-950/40 ring-1 ring-inset ring-red-500/35"
+                        : ""
                     }`}
                   >
-                    {m.logo ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={m.logo}
-                        alt=""
-                        className="h-7 w-7 rounded-full bg-zinc-800"
-                      />
-                    ) : (
-                      <div className="h-7 w-7 rounded-full bg-zinc-800" />
-                    )}
+                    <TokenMark logo={m.logo} symbol={m.symbol} size={30} />
                     <div className="min-w-0 flex-1">
                       <div className="text-sm font-semibold text-white truncate">
                         {m.symbol || m.name}
                       </div>
+                      {m.name && m.symbol && m.name !== m.symbol && (
+                        <div className="text-[10px] text-zinc-600 truncate">
+                          {m.name}
+                        </div>
+                      )}
                     </div>
-                    <div className="text-[11px] font-mono text-zinc-400">
-                      ${m.price < 1 ? m.price.toPrecision(3) : m.price.toFixed(2)}
+                    <div className="text-[11px] font-mono text-zinc-400 tabular-nums">
+                      $
+                      {m.price < 1
+                        ? m.price.toPrecision(3)
+                        : m.price.toLocaleString(undefined, {
+                            maximumFractionDigits: 2,
+                          })}
                     </div>
                   </button>
                 );
               })}
               {!filtered.length && (
-                <div className="px-3 py-4 text-center text-sm text-zinc-600">
+                <div className="px-3 py-6 text-center text-sm text-zinc-600 font-orbitron tracking-wide">
                   No majors match
                 </div>
               )}

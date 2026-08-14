@@ -199,48 +199,42 @@ export async function POST(request: NextRequest) {
       throw e;
     }
 
-    const verifiedLine =
-      xVerified == null
-        ? xLookupErr
-          ? `verified: ? <i>(${escapeHtml(xLookupErr.slice(0, 80))})</i>`
-          : null
-        : xVerified
-          ? `verified: <b>yes</b>${
-              xVerifiedType && xVerifiedType !== "none"
-                ? ` (${escapeHtml(xVerifiedType)})`
-                : ""
-            }`
-          : `verified: no`;
-
-    const followersLine =
-      xFollowers != null
-        ? `followers: <b>${escapeHtml(fmtFollowers(xFollowers))}</b> (${escapeHtml(qualityLabel(xFollowers))})`
-        : twitterHandle
-          ? `followers: ?`
-          : null;
-
     const thin =
       xFollowers != null && xFollowers < MIN_X_FOLLOWERS_CLAIM
-        ? `thin account (&lt;${MIN_X_FOLLOWERS_CLAIM} flw) — claims gated`
+        ? true
         : null;
 
+    const shortWallet = walletAddress
+      ? `${walletAddress.slice(0, 4)}…${walletAddress.slice(-4)}`
+      : null;
+
     const tgLines = [
-      "<b>New TOKENSHIT signup</b>",
-      `email: ${escapeHtml(email)}`,
+      "🆕 <b>Signup</b>",
       twitterHandle
-        ? `x: <a href="https://x.com/${escapeHtml(twitterHandle)}">@${escapeHtml(twitterHandle)}</a>`
-        : null,
-      followersLine,
-      thin,
-      verifiedLine,
+        ? `𝕏 <a href="https://x.com/${escapeHtml(twitterHandle)}">@${escapeHtml(twitterHandle)}</a>${
+            xFollowers != null
+              ? ` · <b>${escapeHtml(fmtFollowers(xFollowers))}</b> flw · ${escapeHtml(qualityLabel(xFollowers))}`
+              : ""
+          }`
+        : "𝕏 —",
+      xVerified
+        ? `✓ verified${
+            xVerifiedType && xVerifiedType !== "none"
+              ? ` (${escapeHtml(xVerifiedType)})`
+              : ""
+          }`
+        : twitterHandle
+          ? "○ not verified"
+          : null,
+      thin ? "⚠️ claims gated (&lt;100 flw)" : null,
+      `✉ ${escapeHtml(email)}`,
       referrerTwitter
-        ? `ref: <a href="https://x.com/${escapeHtml(referrerTwitter)}">@${escapeHtml(referrerTwitter)}</a>`
+        ? `↗ ref <a href="https://x.com/${escapeHtml(referrerTwitter)}">@${escapeHtml(referrerTwitter)}</a>`
         : null,
-      walletAddress
-        ? `wallet: <a href="https://solscan.io/account/${escapeHtml(walletAddress)}"><code>${escapeHtml(walletAddress)}</code></a>`
-        : `wallet: <i>none (no Solana linked)</i>`,
-      `ip: <code>${escapeHtml(ip)}</code>`,
-      `source: ${escapeHtml(source)}`,
+      shortWallet
+        ? `◎ <a href="https://solscan.io/account/${escapeHtml(walletAddress!)}"><code>${escapeHtml(shortWallet)}</code></a>`
+        : "◎ <i>no Solana wallet</i>",
+      `· ${escapeHtml(source)}`,
     ].filter(Boolean) as string[];
 
     const [listRes, tgRes] = await Promise.allSettled([
