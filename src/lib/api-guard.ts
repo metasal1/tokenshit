@@ -3,11 +3,30 @@
  */
 import { tursoExecute } from "@/lib/turso";
 
-export function getClientIp(request: Request): string {
+/**
+ * Best-effort real client IP behind CF / Vercel / generic proxies.
+ * Prefer platform-injected single-client headers over raw XFF (first hop
+ * can be a shared edge / CGNAT peer when mis-ordered).
+ */
+export function getClientIp(request: {
+  headers: { get(name: string): string | null };
+}): string {
   const h = request.headers;
-  const xf = h.get("cf-connecting-ip") || h.get("x-forwarded-for") || "";
-  const first = xf.split(",")[0]?.trim();
-  return first || h.get("x-real-ip") || "unknown";
+  const direct =
+    h.get("cf-connecting-ip") ||
+    h.get("true-client-ip") ||
+    h.get("x-vercel-forwarded-for") ||
+    h.get("x-real-ip");
+  if (direct) {
+    const ip = direct.split(",")[0]?.trim();
+    if (ip) return ip;
+  }
+  const xf = h.get("x-forwarded-for");
+  if (xf) {
+    const ip = xf.split(",")[0]?.trim();
+    if (ip) return ip;
+  }
+  return "unknown";
 }
 
 /** Cron / internal secret (fail closed). */
