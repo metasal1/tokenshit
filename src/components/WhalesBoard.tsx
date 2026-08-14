@@ -42,7 +42,6 @@ type Board = {
   }[];
   updatedAt?: string;
   source?: string;
-  tradesFeed?: string;
   error?: string;
 };
 
@@ -54,7 +53,7 @@ export default function WhalesBoard() {
   const load = useCallback((refresh = false) => {
     setLoading(true);
     setErr(null);
-    const q = refresh ? "?refresh=1&limit=20" : "?limit=20";
+    const q = refresh ? "?refresh=1&limit=50" : "?limit=50";
     fetch(`/api/token/whales${q}`, { cache: "no-store" })
       .then(async (r) => {
         const j = await r.json();
@@ -86,8 +85,7 @@ export default function WhalesBoard() {
             <span className="neon-dollar">$</span>
           </h1>
           <p className="text-xs sm:text-sm text-zinc-500 mt-1.5 max-w-lg">
-            Top ${SHIT_SYMBOL} holders · how long they&apos;ve held · moves vs last
-            snapshot.
+            Top 50 ${SHIT_SYMBOL} holders · hold time · moves vs last snapshot.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -99,16 +97,6 @@ export default function WhalesBoard() {
           >
             {loading ? "…" : "Refresh"}
           </button>
-          {data?.tradesFeed && (
-            <a
-              href={data.tradesFeed}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="min-h-10 inline-flex items-center rounded-full border border-sky-500/30 bg-sky-500/10 px-4 text-xs font-orbitron uppercase tracking-wider text-sky-300 hover:bg-sky-500/20"
-            >
-              Live TG
-            </a>
-          )}
         </div>
       </header>
 
@@ -244,9 +232,7 @@ export default function WhalesBoard() {
                   <tr
                     key={h.owner}
                     className={`hover:bg-zinc-900/50 ${
-                      h.isYou
-                        ? "bg-neon/5"
-                        : h.isTreasury
+                      h.isTreasury
                           ? "bg-sky-500/5"
                           : h.isPool
                             ? "bg-zinc-900/40"
@@ -266,11 +252,6 @@ export default function WhalesBoard() {
                         >
                           {h.label || shortAddr(h.owner, 5)}
                         </a>
-                        {h.isYou && (
-                          <span className="text-[9px] font-orbitron uppercase tracking-wider text-black bg-neon rounded px-1.5 py-0.5">
-                            you
-                          </span>
-                        )}
                         {h.isTreasury && (
                           <span className="text-[9px] font-orbitron uppercase tracking-wider text-sky-200 bg-sky-500/20 rounded px-1.5 py-0.5">
                             treasury

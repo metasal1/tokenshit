@@ -43,14 +43,25 @@ type HolderRow = {
   firstAcquiredTs: number | null;
 };
 
-async function rpc(method: string, params: unknown[]): Promise<unknown> {
+async function rpc(
+  method: string,
+  params: unknown
+): Promise<unknown> {
   const res = await fetch(HELIUS, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      id: 1,
+      method,
+      params: Array.isArray(params) ? params : params,
+    }),
     cache: "no-store",
   });
-  const json = (await res.json()) as { result?: unknown; error?: { message?: string } };
+  const json = (await res.json()) as {
+    result?: unknown;
+    error?: { message?: string };
+  };
   if (json.error) throw new Error(json.error.message || "RPC error");
   return json.result;
 }
@@ -210,95 +221,128 @@ async function fetchWhalesFresh(limit: number): Promise<{
   }[];
   updatedAt: string;
 }> {
-  const largest = (await rpc("getTokenLargestAccounts", [WHALE_MINT])) as {
-    value?: {
-      address: string;
-      amount: string;
-      uiAmount: number | null;
-      uiAmountString?: string;
-      decimals: number;
-    }[];
-  };
-  const accounts = (largest?.value || []).slice(0, Math.min(30, Math.max(5, limit)));
-  if (!accounts.length) {
-    return {
-      holders: [],
-      supply: 0,
-      movements: [],
-      updatedAt: new Date().toISOString(),
-    };
-  }
+  const want = Math.min(50, Math.max(5, limit));
 
+  // Supply
   const supplyRes = (await rpc("getTokenSupply", [WHALE_MINT])) as {
     value?: { uiAmount?: number | null; amount?: string; decimals?: number };
   };
+  const decimals = supplyRes?.value?.decimals ?? SHIT_DECIMALS;
   const supply =
-    supplyRes?.value?.uiAmount != null && Number.isFinite(supplyRes.value.uiAmount)
+    supplyRes?.value?.uiAmount != null &&
+    Number.isFinite(supplyRes.value.uiAmount)
       ? Number(supplyRes.value.uiAmount)
-      : Number(supplyRes?.value?.amount || 0) / 10 ** (supplyRes?.value?.decimals ?? SHIT_DECIMALS);
+      : Number(supplyRes?.value?.amount || 0) / 10 ** decimals;
 
-  const multi = (await rpc("getMultipleAccounts", [
-    accounts.map((a) => a.address),
-    { encoding: "jsonParsed", commitment: "confirmed" },
-  ])) as {
-    value?: Array<{
-      data?: {
-        parsed?: {
-          info?: {
-            owner?: string;
-            tokenAmount?: { uiAmount?: number; amount?: string };
+  // Helius getTokenAccounts — full holder set (not capped at 20 like largest)
+  const byOwner = new Map<string, { amount: number; tokenAccount: string; amountRaw: string }>();
+  let page = 1;
+  for (; page <= 5; page++) {
+    let result: {
+      token_accounts?: {
+        address?: string;
+        owner?: string;
+        amount?: string | number;
+      }[];
+      total?: number;
+    } | null = null;
+    try {
+      result = (await rpc("getTokenAccounts", {
+        mint: WHALE_MINT,
+        limit: 1000,
+        page,
+        displayOptions: { showZeroBalance: false },
+      })) as typeof result;
+    } catch {
+      // fallback below if method unsupported
+      result = null;
+      break;
+    }
+    const accounts = result?.token_accounts || [];
+    if (!accounts.length) break;
+    for (const ta of accounts) {
+      const owner = ta.owner || "";
+      if (!owner) continue;
+      let raw = 0;
+      try {
+        raw = Number(ta.amount || 0);
+      } catch {
+        raw = 0;
+      }
+      if (!Number.isFinite(raw) || raw <= 0) continue;
+      const ui = raw / 10 ** decimals;
+      const cur = byOwner.get(owner);
+      if (!cur) {
+        byOwner.set(owner, {
+          amount: ui,
+          tokenAccount: ta.address || owner,
+          amountRaw: String(raw),
+        });
+      } else {
+        cur.amount += ui;
+      }
+    }
+    if (accounts.length < 1000) break;
+  }
+
+  // Fallback: getTokenLargestAccounts (max ~20) if DAS empty
+  if (!byOwner.size) {
+    const largest = (await rpc("getTokenLargestAccounts", [WHALE_MINT])) as {
+      value?: {
+        address: string;
+        amount: string;
+        uiAmount: number | null;
+        uiAmountString?: string;
+      }[];
+    };
+    const accounts = largest?.value || [];
+    const multi = (await rpc("getMultipleAccounts", [
+      accounts.map((a) => a.address),
+      { encoding: "jsonParsed", commitment: "confirmed" },
+    ])) as {
+      value?: Array<{
+        data?: {
+          parsed?: {
+            info?: {
+              owner?: string;
+              tokenAmount?: { uiAmount?: number; amount?: string };
+            };
           };
         };
-      };
-    } | null>;
-  };
+      } | null>;
+    };
+    accounts.forEach((acc, i) => {
+      const info = multi?.value?.[i]?.data?.parsed?.info;
+      const owner = info?.owner || "";
+      if (!owner) return;
+      const ui =
+        info?.tokenAmount?.uiAmount != null
+          ? Number(info.tokenAmount.uiAmount)
+          : acc.uiAmount != null
+            ? Number(acc.uiAmount)
+            : Number(acc.uiAmountString || 0);
+      byOwner.set(owner, {
+        amount: Number.isFinite(ui) ? ui : 0,
+        tokenAccount: acc.address,
+        amountRaw: info?.tokenAmount?.amount || acc.amount || "0",
+      });
+    });
+  }
+
+  const merged = [...byOwner.entries()]
+    .map(([owner, v]) => ({ owner, ...v }))
+    .filter((h) => h.amount > 0)
+    .sort((a, b) => b.amount - a.amount)
+    .slice(0, want);
 
   const prev = await loadPrevAmounts();
-  const rawHolders: {
-    owner: string;
-    tokenAccount: string;
-    amount: number;
-    amountRaw: string;
-  }[] = [];
 
-  accounts.forEach((acc, i) => {
-    const info = multi?.value?.[i]?.data?.parsed?.info;
-    const owner = info?.owner || "";
-    if (!owner) return;
-    const ui =
-      info?.tokenAmount?.uiAmount != null
-        ? Number(info.tokenAmount.uiAmount)
-        : acc.uiAmount != null
-          ? Number(acc.uiAmount)
-          : Number(acc.uiAmountString || 0);
-    const amountRaw = info?.tokenAmount?.amount || acc.amount || "0";
-    rawHolders.push({
-      owner,
-      tokenAccount: acc.address,
-      amount: Number.isFinite(ui) ? ui : 0,
-      amountRaw: String(amountRaw),
-    });
-  });
-
-  // merge same owner (multiple ATAs rare)
-  const byOwner = new Map<string, (typeof rawHolders)[0]>();
-  for (const h of rawHolders) {
-    const cur = byOwner.get(h.owner);
-    if (!cur) byOwner.set(h.owner, { ...h });
-    else {
-      cur.amount += h.amount;
-      // keep largest token account id
-    }
-  }
-  const merged = [...byOwner.values()].sort((a, b) => b.amount - a.amount);
-
-  // hold enrichment for top non-pool wallets (cap concurrency)
   const enrichTargets = merged
     .filter((h) => {
       const lab = labelWallet(h.owner);
       return !lab?.toLowerCase().includes("pool");
     })
-    .slice(0, 12);
+    .slice(0, 15);
 
   const holdMap = new Map<
     string,
@@ -324,9 +368,12 @@ async function fetchWhalesFresh(limit: number): Promise<{
       amountRaw: h.amountRaw,
       pctSupply: pct,
       label,
-      isYou: h.owner === WHALE_YOU,
+      isYou: false,
       isTreasury: h.owner === TREASURY_ADDRESS,
-      isPool: h.owner === WHALE_POOL || h.owner === WHALE_POOL_METEORA || Boolean(label?.toLowerCase().includes("pool")),
+      isPool:
+        h.owner === WHALE_POOL ||
+        h.owner === WHALE_POOL_METEORA ||
+        Boolean(label?.toLowerCase().includes("pool")),
       delta,
       holdSecAvg: hold?.holdSecAvg ?? null,
       holdLabel: hold?.holdLabel ?? null,
@@ -346,9 +393,9 @@ async function fetchWhalesFresh(limit: number): Promise<{
     }))
     .sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta));
 
-  await saveAmounts(merged.map((h) => ({ owner: h.owner, amount: h.amount }))).catch(
-    () => {}
-  );
+  await saveAmounts(
+    merged.map((h) => ({ owner: h.owner, amount: h.amount }))
+  ).catch(() => {});
 
   return {
     holders,
@@ -366,7 +413,7 @@ export async function GET(request: Request) {
   try {
     const url = new URL(request.url);
     const force = url.searchParams.get("refresh") === "1";
-    const limit = Math.min(30, Math.max(5, Number(url.searchParams.get("limit") || 20)));
+    const limit = Math.min(50, Math.max(5, Number(url.searchParams.get("limit") || 50)));
 
     if (!force) {
       const cached = await readJsonCache();
@@ -392,10 +439,9 @@ export async function GET(request: Request) {
       holders: data.holders,
       movements: data.movements,
       updatedAt: data.updatedAt,
-      you: WHALE_YOU,
+      you: null,
       treasury: TREASURY_ADDRESS,
       pool: WHALE_POOL,
-      tradesFeed: "https://t.me/c/3972612689/12098",
     };
     await writeJsonCache(payload).catch(() => {});
     return Response.json(
