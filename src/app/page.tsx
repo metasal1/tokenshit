@@ -11,6 +11,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { PLAY_PRODUCT } from "@/lib/hour-product";
 import { EmojiIcon } from "@/components/EmojiIcon";
+import { pageMeta } from "@/lib/seo";
 
 /**
  * Home: PLAY ($SHIT OF THE DAY) + VOTE (free arena) — mobile & desktop.
@@ -18,33 +19,15 @@ import { EmojiIcon } from "@/components/EmojiIcon";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
+  ...pageMeta({
+    title: "TOKEN$HIT — Every token is shit until proven otherwise",
+    description:
+      "Play $SHIT OF THE DAY, vote HIT or SHIT on Solana assets, claim rewards, swap $TOKENSHIT, watch whales.",
+    path: "/",
+    og: "home",
+  }),
   title: {
     absolute: "TOKEN$HIT — Every token is shit until proven otherwise",
-  },
-  description:
-    "Play $SHIT OF THE DAY, vote HIT or SHIT on Solana assets, claim rewards, swap $TOKENSHIT, watch whales.",
-  alternates: { canonical: "/" },
-  openGraph: {
-    title: "TOKEN$HIT — Every token is shit until proven otherwise",
-    description:
-      "Play $SHIT OF THE DAY. Vote HIT or SHIT on real Solana assets. Claim, swap, whales.",
-    url: "https://tokenshit.com",
-    images: [
-      {
-        url: "https://tokenshit.com/brand/og-share.png?v=2",
-        width: 1200,
-        height: 630,
-        type: "image/png",
-        alt: "TOKEN$HIT — Every token is shit until proven otherwise.",
-      },
-    ],
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: "TOKEN$HIT — Every token is shit until proven otherwise",
-    description:
-      "Play $SHIT OF THE DAY. Vote HIT or SHIT on real Solana assets.",
-    images: ["https://tokenshit.com/brand/og-share.png?v=2"],
   },
 };
 
