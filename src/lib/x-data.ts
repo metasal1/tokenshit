@@ -446,6 +446,41 @@ export async function checkXFollowsTokenshit(username: string): Promise<{
   };
 }
 
+function normalizeXHandle(raw: string | undefined | null): string {
+  if (!raw) return "";
+  return String(raw)
+    .replace(/^@/, "")
+    .trim()
+    .toLowerCase()
+    // Display names like "Seeker Tracker" → seeker_tracker
+    .replace(/\s+/g, "_")
+    .replace(/[^a-z0-9_]/g, "");
+}
+
+/** Prefer @handle fields over display name (vx/TweetAPI often put name first). */
+function pickAuthorHandle(obj: Record<string, unknown>): string {
+  const nested = (obj.author || obj.user || {}) as Record<string, unknown>;
+  const candidates = [
+    obj.user_screen_name,
+    obj.screen_name,
+    obj.username,
+    obj.userScreenName,
+    nested.username,
+    nested.screen_name,
+    nested.user_screen_name,
+    // last: display name (spaces → _)
+    obj.user_name,
+    obj.name,
+    nested.name,
+    nested.user_name,
+  ];
+  for (const c of candidates) {
+    const n = normalizeXHandle(c == null ? "" : String(c));
+    if (n) return n;
+  }
+  return "";
+}
+
 async function tweetFromTweetApi(tweetId: string): Promise<{
   ok: boolean;
   text?: string;
@@ -468,17 +503,24 @@ async function tweetFromTweetApi(tweetId: string): Promise<{
     return { ok: false, error: `TweetAPI ${res.status}: ${t.slice(0, 120)}` };
   }
   const json = await res.json();
-  const tw = json.data?.tweet || json.data || json.tweet || json;
-  const author = tw.author || {};
+  const tw = (json.data?.tweet || json.data || json.tweet || json) as Record<
+    string,
+    unknown
+  >;
+  const author = (tw.author || {}) as Record<string, unknown>;
   const createdAt = String(
     tw.createdAt || tw.created_at || tw.date || tw.timestamp || ""
   );
+  const handle =
+    pickAuthorHandle(tw) ||
+    pickAuthorHandle(author) ||
+    normalizeXHandle(
+      author.username != null ? String(author.username) : ""
+    );
   return {
     ok: true,
     text: String(tw.text || tw.fullText || ""),
-    authorUsername: author.username
-      ? String(author.username).toLowerCase()
-      : undefined,
+    authorUsername: handle || undefined,
     authorId: author.id ? String(author.id) : undefined,
     createdAt: createdAt || undefined,
   };
@@ -507,11 +549,10 @@ async function tweetFromVx(
         cache: "no-store",
       });
       if (!res.ok) continue;
-      const d = await res.json();
+      const d = (await res.json()) as Record<string, unknown>;
       const text = String(d.text || d.full_text || "");
-      const authorUsername = String(
-        d.user_name || d.user_screen_name || d.username || ""
-      ).toLowerCase();
+      // NEVER prefer user_name (display) over user_screen_name
+      const authorUsername = pickAuthorHandle(d);
       const createdAt = String(
         d.date || d.created_at || d.createdAt || d.time || ""
       );
@@ -565,7 +606,7 @@ async function tweetFromOfficial(tweetId: string): Promise<{
   return {
     ok: true,
     text,
-    authorUsername: (author?.username || "").toLowerCase() || undefined,
+    authorUsername: normalizeXHandle(author?.username) || undefined,
     authorId,
     createdAt,
   };
@@ -590,7 +631,7 @@ export async function checkXTweetByUrl(
   createdAt?: string;
   error?: string;
 }> {
-  const user = username.replace(/^@/, "").trim().toLowerCase();
+  const user = normalizeXHandle(username);
   const tweetId = parseTweetId(tweetUrlOrId);
   if (!user) return { ok: false, found: false, error: "no username" };
   if (!tweetId) {
@@ -617,12 +658,12 @@ export async function checkXTweetByUrl(
     };
   }
 
-  const authorUser = (got.authorUsername || "").toLowerCase();
+  const authorUser = normalizeXHandle(got.authorUsername);
   if (authorUser && authorUser !== user) {
     return {
       ok: false,
       found: false,
-      error: `That tweet is from @${got.authorUsername}, not @${user}.`,
+      error: `That tweet is from @${authorUser}, not @${user}.`,
     };
   }
   const text = got.text || "";
