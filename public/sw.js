@@ -1,13 +1,19 @@
-/* TOKENSHIT service worker — cache shell + notification click */
-const CACHE = "tokenshit-v1";
+/* TOKENSHIT service worker v2 — shell cache + update + notifications */
+const CACHE = "tokenshit-v2";
 const PRECACHE = [
   "/",
+  "/play",
+  "/whales",
   "/claim",
+  "/swap",
+  "/memes",
   "/test",
   "/brand",
   "/manifest.webmanifest",
   "/icons/icon-192.png",
   "/icons/icon-512.png",
+  "/icons/maskable-512.png",
+  "/splash/splash-boot.png",
 ];
 
 self.addEventListener("install", (event) => {
@@ -36,15 +42,16 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return;
 
-  // Network-first for pages/API; cache-first for icons/static
   const isStatic =
     url.pathname.startsWith("/icons/") ||
     url.pathname.startsWith("/brand/") ||
+    url.pathname.startsWith("/splash/") ||
     url.pathname.startsWith("/_next/static/") ||
     url.pathname.endsWith(".png") ||
     url.pathname.endsWith(".jpg") ||
     url.pathname.endsWith(".svg") ||
-    url.pathname.endsWith(".webmanifest");
+    url.pathname.endsWith(".webmanifest") ||
+    url.pathname.endsWith(".woff2");
 
   if (isStatic) {
     event.respondWith(
@@ -64,7 +71,6 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // HTML / app routes — network first, fall back to cache
   if (req.headers.get("accept")?.includes("text/html")) {
     event.respondWith(
       fetch(req)
@@ -75,7 +81,9 @@ self.addEventListener("fetch", (event) => {
           }
           return res;
         })
-        .catch(() => caches.match(req).then((h) => h || caches.match("/")))
+        .catch(() =>
+          caches.match(req).then((h) => h || caches.match("/"))
+        )
     );
   }
 });
@@ -85,22 +93,24 @@ self.addEventListener("notificationclick", (event) => {
   const raw = event.notification.data || {};
   const target = typeof raw.url === "string" ? raw.url : "/";
   event.waitUntil(
-    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((list) => {
-      for (const client of list) {
-        if ("focus" in client) {
-          client.navigate(target);
-          return client.focus();
+    self.clients
+      .matchAll({ type: "window", includeUncontrolled: true })
+      .then((list) => {
+        for (const client of list) {
+          if ("focus" in client) {
+            client.navigate(target);
+            return client.focus();
+          }
         }
-      }
-      if (self.clients.openWindow) return self.clients.openWindow(target);
-    })
+        if (self.clients.openWindow) return self.clients.openWindow(target);
+      })
   );
 });
 
 self.addEventListener("message", (event) => {
   const data = event.data || {};
   if (data.type === "SHOW_NOTIFICATION") {
-    const title = data.title || "TOKENSHIT";
+    const title = data.title || "TOKEN$HIT";
     const options = {
       body: data.body || "",
       icon: "/icons/icon-192.png",

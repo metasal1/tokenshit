@@ -10,13 +10,13 @@ import {
   isDropReminderArmed,
   showLocalNotification,
 } from "@/lib/notifications";
+import PwaBootSplash from "@/components/PwaBootSplash";
 
-type BannerKind = "install" | "ios-install" | "notify" | null;
+type BannerKind = "install" | "ios-install" | "notify" | "update" | null;
 
 function isStandalone(): boolean {
   if (typeof window === "undefined") return false;
   const mq = window.matchMedia("(display-mode: standalone)").matches;
-  // iOS Safari
   const ios = Boolean(
     (navigator as Navigator & { standalone?: boolean }).standalone
   );
@@ -26,7 +26,8 @@ function isStandalone(): boolean {
 function isIosSafari(): boolean {
   if (typeof navigator === "undefined") return false;
   const ua = navigator.userAgent || "";
-  const iOS = /iPad|iPhone|iPod/.test(ua) || 
+  const iOS =
+    /iPad|iPhone|iPod/.test(ua) ||
     (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
   const webkit = /WebKit/.test(ua);
   const notCriOS = !/CriOS|FxiOS|EdgiOS/.test(ua);
@@ -34,8 +35,7 @@ function isIosSafari(): boolean {
 }
 
 /**
- * Registers SW, resumes drop reminder, install + notify prompts.
- * iOS gets Add-to-Home-Screen instructions (no beforeinstallprompt).
+ * SW + boot splash + install / notify / update prompts.
  */
 export default function PwaProvider({
   children,
@@ -46,18 +46,45 @@ export default function PwaProvider({
   const [deferred, setDeferred] = useState<BeforeInstallPromptEvent | null>(
     null
   );
+  const [waitingWorker, setWaitingWorker] = useState<ServiceWorker | null>(
+    null
+  );
 
   useEffect(() => {
-    void ensureSw();
+    void ensureSw().then(() => {
+      if (!("serviceWorker" in navigator)) return;
+      navigator.serviceWorker.getRegistration().then((reg) => {
+        if (!reg) return;
+        if (reg.waiting) {
+          setWaitingWorker(reg.waiting);
+          setBanner("update");
+        }
+        reg.addEventListener("updatefound", () => {
+          const nw = reg.installing;
+          if (!nw) return;
+          nw.addEventListener("statechange", () => {
+            if (nw.state === "installed" && navigator.serviceWorker.controller) {
+              setWaitingWorker(nw);
+              setBanner("update");
+            }
+          });
+        });
+      });
+      let refreshing = false;
+      navigator.serviceWorker.addEventListener("controllerchange", () => {
+        if (refreshing) return;
+        refreshing = true;
+        window.location.reload();
+      });
+    });
     resumeDropReminderIfArmed();
 
     if (isStandalone()) {
-      // Already installed — soft notify only
       try {
-        const seen = localStorage.getItem("tokenshit_notify_prompt_v1");
+        const seen = localStorage.getItem("tokenshit_notify_prompt_v2");
         const perm = getNotificationPermission();
         if (!seen && perm === "default") {
-          const t = window.setTimeout(() => setBanner("notify"), 10_000);
+          const t = window.setTimeout(() => setBanner("notify"), 12_000);
           return () => clearTimeout(t);
         }
       } catch {
@@ -70,7 +97,7 @@ export default function PwaProvider({
       e.preventDefault();
       setDeferred(e as BeforeInstallPromptEvent);
       try {
-        if (!localStorage.getItem("tokenshit_install_dismiss_v1")) {
+        if (!localStorage.getItem("tokenshit_install_dismiss_v2")) {
           setBanner("install");
         }
       } catch {
@@ -79,24 +106,19 @@ export default function PwaProvider({
     };
     window.addEventListener("beforeinstallprompt", onBip);
 
-    // Install prompt path (Chrome/Android BIP or iOS instructions)
     try {
-      if (!localStorage.getItem("tokenshit_install_dismiss_v1")) {
+      if (!localStorage.getItem("tokenshit_install_dismiss_v2")) {
         const t = window.setTimeout(() => {
           setBanner((b) => {
-            if (b === "install") return b;
+            if (b === "install" || b === "update") return b;
             if (isIosSafari()) return "ios-install";
-            // Android may fire BIP later — wait a bit more if no deferred yet
             return b;
           });
         }, 4_000);
-        // If no BIP after 6s on non-iOS, still show a soft install tip
         const t2 = window.setTimeout(() => {
           setBanner((b) => {
             if (b) return b;
             if (isIosSafari()) return "ios-install";
-            if (deferred) return "install";
-            // generic install tip for other browsers
             return "install";
           });
         }, 6_500);
@@ -111,17 +133,16 @@ export default function PwaProvider({
     }
 
     return () => window.removeEventListener("beforeinstallprompt", onBip);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function enableNotify() {
     const p = await requestNotificationPermission();
-    localStorage.setItem("tokenshit_notify_prompt_v1", "1");
+    localStorage.setItem("tokenshit_notify_prompt_v2", "1");
     setBanner(null);
     if (p === "granted") {
       await showLocalNotification({
-        title: "TOKENSHIT",
-        body: "You're on the list. Arm drop reminder anytime on /test or Claim.",
+        title: "TOKEN$HIT",
+        body: "Notifications on. Arm drop reminder anytime on /test or Claim.",
         url: "/claim",
       });
       if (!isDropReminderArmed()) {
@@ -141,15 +162,20 @@ export default function PwaProvider({
       setDeferred(null);
     }
     setBanner(null);
-    localStorage.setItem("tokenshit_install_dismiss_v1", "1");
+    localStorage.setItem("tokenshit_install_dismiss_v2", "1");
+  }
+
+  function applyUpdate() {
+    waitingWorker?.postMessage({ type: "SKIP_WAITING" });
+    setBanner(null);
   }
 
   function dismiss() {
     if (banner === "notify") {
-      localStorage.setItem("tokenshit_notify_prompt_v1", "1");
+      localStorage.setItem("tokenshit_notify_prompt_v2", "1");
     }
     if (banner === "install" || banner === "ios-install") {
-      localStorage.setItem("tokenshit_install_dismiss_v1", "1");
+      localStorage.setItem("tokenshit_install_dismiss_v2", "1");
     }
     setBanner(null);
   }
@@ -159,19 +185,24 @@ export default function PwaProvider({
       ? "Get pinged when the treasury reloads?"
       : banner === "ios-install"
         ? "Add TOKEN$HIT to your Home Screen"
-        : "Install TOKEN$HIT as an app";
+        : banner === "update"
+          ? "Update available"
+          : "Install TOKEN$HIT as an app";
 
   const body =
     banner === "notify"
       ? null
       : banner === "ios-install"
-        ? "Tap Share → Add to Home Screen. Full screen, ticker safe, faster votes."
-        : deferred
-          ? "One tap — home screen icon, full screen, no browser chrome."
-          : "Use your browser menu → Install app / Add to Home Screen.";
+        ? "Tap Share → Add to Home Screen. Full screen, boot splash, faster loads."
+        : banner === "update"
+          ? "A new TOKEN$HIT build is ready. Reload to get the latest."
+          : deferred
+            ? "One tap — home screen icon, full screen, loading splash."
+            : "Use your browser menu → Install app / Add to Home Screen.";
 
   return (
     <>
+      <PwaBootSplash />
       {children}
       {banner && (
         <div
@@ -203,6 +234,14 @@ export default function PwaProvider({
                 className="flex-1 min-h-11 rounded-lg bg-neon text-black text-sm font-bold"
               >
                 Enable
+              </button>
+            ) : banner === "update" ? (
+              <button
+                type="button"
+                onClick={applyUpdate}
+                className="flex-1 min-h-11 rounded-lg bg-neon text-black text-sm font-bold"
+              >
+                Reload
               </button>
             ) : banner === "ios-install" ? (
               <button
@@ -240,7 +279,9 @@ export default function PwaProvider({
           <p className="text-[10px] text-zinc-600 font-mono">
             {banner === "notify"
               ? "/test · notifications"
-              : "PWA · home screen"}
+              : banner === "update"
+                ? "PWA · tokenshit-v2"
+                : "PWA · home screen"}
           </p>
         </div>
       )}

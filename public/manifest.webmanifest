@@ -1,15 +1,18 @@
 {
-  "name": "TOKENSHIT",
-  "short_name": "TOKENSHIT",
-  "description": "Every token is shit until proven otherwise. HIT or SHIT.",
+  "id": "tokenshit-pwa-v2",
+  "name": "TOKEN$HIT",
+  "short_name": "TOKEN$HIT",
+  "description": "Every token is shit until proven otherwise. Play · Vote · Whales.",
   "start_url": "/?source=pwa",
   "scope": "/",
   "display": "standalone",
+  "display_override": ["standalone", "browser"],
   "orientation": "any",
   "background_color": "#0a0a0f",
-  "theme_color": "#39ff14",
+  "theme_color": "#0a0a0f",
   "lang": "en",
-  "categories": ["finance", "entertainment"],
+  "dir": "ltr",
+  "categories": ["finance", "entertainment", "games"],
   "icons": [
     {
       "src": "/icons/icon-192.png",
@@ -34,28 +37,52 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
+    },
+    {
+      "src": "/icons/logo-mark-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/splash/splash-android-portrait.png",
+      "sizes": "1080x1920",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "TOKEN$HIT boot"
     }
   ],
   "shortcuts": [
     {
+      "name": "Play",
+      "short_name": "Play",
+      "url": "/play?source=pwa",
+      "description": "$SHIT OF THE DAY"
+    },
+    {
       "name": "Vote",
       "short_name": "Vote",
-      "url": "/?vote=1",
-      "description": "Rate a random bag"
+      "url": "/?vote=1&source=pwa",
+      "description": "Free arena vote"
+    },
+    {
+      "name": "Whales",
+      "short_name": "Whales",
+      "url": "/whales?source=pwa",
+      "description": "Top holders"
     },
     {
       "name": "Claim",
       "short_name": "Claim",
-      "url": "/claim",
-      "description": "Buy & claim $TOKENSHIT"
-    },
-    {
-      "name": "Audio test",
-      "short_name": "SFX",
-      "url": "/test",
-      "description": "Test vote sounds"
+      "url": "/claim?source=pwa",
+      "description": "Claim rewards"
     }
   ],
   "related_applications": [],
-  "prefer_related_applications": false
+  "prefer_related_applications": false,
+  "launch_handler": {
+    "client_mode": "navigate-existing"
+  }
 }
