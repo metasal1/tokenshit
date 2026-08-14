@@ -100,7 +100,90 @@ export function loadTreasuryKeypair(): import("@solana/web3.js").Keypair {
   return Keypair.fromSecretKey(Uint8Array.from(arr));
 }
 
-/** Transfer whole $TOKENSHIT from treasury → recipient (Token-2022) */
+function sleep(ms: number) {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+/**
+ * Confirm a signature until finalized/confirmed, or block height exceeds.
+ * Returns status without throwing on "not found yet".
+ */
+async function waitForSig(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  conn: any,
+  signature: string,
+  lastValidBlockHeight: number,
+  timeoutMs = 45_000
+): Promise<"confirmed" | "expired" | "timeout" | "failed"> {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    try {
+      const st = await conn.getSignatureStatuses([signature], {
+        searchTransactionHistory: true,
+      });
+      const v = st?.value?.[0];
+      if (v?.err) return "failed";
+      if (
+        v?.confirmationStatus === "confirmed" ||
+        v?.confirmationStatus === "finalized"
+      ) {
+        return "confirmed";
+      }
+    } catch {
+      /* rpc blip */
+    }
+    try {
+      const h = await conn.getBlockHeight("confirmed");
+      if (typeof h === "number" && h > lastValidBlockHeight) {
+        // one last status check — sometimes lands after height tick
+        const st = await conn.getSignatureStatuses([signature], {
+          searchTransactionHistory: true,
+        });
+        const v = st?.value?.[0];
+        if (
+          v &&
+          !v.err &&
+          (v.confirmationStatus === "confirmed" ||
+            v.confirmationStatus === "finalized")
+        ) {
+          return "confirmed";
+        }
+        return "expired";
+      }
+    } catch {
+      /* */
+    }
+    await sleep(900);
+  }
+  // timeout — check once more
+  try {
+    const st = await conn.getSignatureStatuses([signature], {
+      searchTransactionHistory: true,
+    });
+    const v = st?.value?.[0];
+    if (v?.err) return "failed";
+    if (
+      v?.confirmationStatus === "confirmed" ||
+      v?.confirmationStatus === "finalized"
+    ) {
+      return "confirmed";
+    }
+  } catch {
+    /* */
+  }
+  return "timeout";
+}
+
+/**
+ * Transfer whole $TOKENSHIT from treasury → recipient (Token-2022).
+ *
+ * Durable path for CF Workers:
+ * - fresh blockhash each attempt
+ * - sendRawTransaction (skipPreflight) so we don't burn the whole blockhash
+ *   window inside preflight
+ * - poll confirm vs lastValidBlockHeight
+ * - retry with NEW blockhash on expiry (never double-finalize same sig)
+ */
 export async function sendShitFromTreasury(
   recipient: string,
   amountWhole: number
@@ -125,12 +208,9 @@ export async function sendShitFromTreasury(
     );
   }
 
-  const {
-    Connection,
-    PublicKey,
-    Transaction,
-    sendAndConfirmTransaction,
-  } = await import("@solana/web3.js");
+  const { Connection, PublicKey, Transaction } = await import(
+    "@solana/web3.js"
+  );
   const {
     getAssociatedTokenAddress,
     createAssociatedTokenAccountIdempotentInstruction,
@@ -143,14 +223,14 @@ export async function sendShitFromTreasury(
   const payer = loadTreasuryKeypair();
   const conn = new Connection(RPC, {
     commitment: "confirmed",
-    confirmTransactionInitialTimeout: 25_000,
+    confirmTransactionInitialTimeout: 60_000,
+    disableRetryOnRateLimit: false,
   });
   const mint = new PublicKey(SHIT_MINT);
   const toOwner = new PublicKey(recipient);
   const raw = shitToRaw(amountWhole);
   const decimals = 6;
 
-  // Token-2022 ATAs
   const fromAta = await getAssociatedTokenAddress(
     mint,
     payer.publicKey,
@@ -174,7 +254,6 @@ export async function sendShitFromTreasury(
   ).catch(() => null);
 
   if (!fromAcc || fromAcc.amount < raw) {
-    // Also surface RPC-listed balance for debugging
     const bal = await getTreasuryBalances().catch(() => null);
     throw new Error(
       `Treasury insufficient $TOKENSHIT (need ${amountWhole}, have ${
@@ -204,12 +283,95 @@ export async function sendShitFromTreasury(
     ),
   ];
 
-  const tx = new Transaction().add(...ix);
-  const signature = await sendAndConfirmTransaction(conn, tx, [payer], {
-    commitment: "confirmed",
-    maxRetries: 4,
-    skipPreflight: false,
-  });
+  const MAX_ATTEMPTS = 4;
+  let lastErr: Error | null = null;
+  const triedSigs: string[] = [];
 
-  return { signature, amount: amountWhole };
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    try {
+      const latest = await conn.getLatestBlockhash("confirmed");
+      const tx = new Transaction().add(...ix);
+      tx.feePayer = payer.publicKey;
+      tx.recentBlockhash = latest.blockhash;
+      tx.sign(payer);
+
+      const rawTx = tx.serialize();
+      const signature = await conn.sendRawTransaction(rawTx, {
+        skipPreflight: true,
+        maxRetries: 3,
+        preflightCommitment: "confirmed",
+      });
+      triedSigs.push(signature);
+
+      const status = await waitForSig(
+        conn,
+        signature,
+        latest.lastValidBlockHeight,
+        48_000
+      );
+
+      if (status === "confirmed") {
+        return { signature, amount: amountWhole };
+      }
+
+      if (status === "failed") {
+        // On-chain program error — don't burn more attempts with same issue
+        throw new Error(`Treasury send failed on-chain (${signature})`);
+      }
+
+      // expired or timeout — check if ANY prior sig landed before retrying
+      for (const sig of triedSigs) {
+        try {
+          const st = await conn.getSignatureStatuses([sig], {
+            searchTransactionHistory: true,
+          });
+          const v = st?.value?.[0];
+          if (
+            v &&
+            !v.err &&
+            (v.confirmationStatus === "confirmed" ||
+              v.confirmationStatus === "finalized")
+          ) {
+            return { signature: sig, amount: amountWhole };
+          }
+        } catch {
+          /* */
+        }
+      }
+
+      lastErr = new Error(
+        `Signature ${signature} ${status === "expired" ? "expired: block height exceeded" : "confirm timeout"} (attempt ${attempt}/${MAX_ATTEMPTS})`
+      );
+      // brief backoff then fresh blockhash
+      await sleep(400 * attempt);
+    } catch (e) {
+      lastErr = e instanceof Error ? e : new Error(String(e));
+      // if we already have a confirmed sig in the bag, return it
+      for (const sig of triedSigs) {
+        try {
+          const st = await conn.getSignatureStatuses([sig], {
+            searchTransactionHistory: true,
+          });
+          const v = st?.value?.[0];
+          if (
+            v &&
+            !v.err &&
+            (v.confirmationStatus === "confirmed" ||
+              v.confirmationStatus === "finalized")
+          ) {
+            return { signature: sig, amount: amountWhole };
+          }
+        } catch {
+          /* */
+        }
+      }
+      if (/insufficient|0x1|blockhash not found/i.test(lastErr.message)) {
+        // hard fail
+        break;
+      }
+      await sleep(500 * attempt);
+    }
+  }
+
+  throw lastErr || new Error("Treasury send failed after retries");
 }
