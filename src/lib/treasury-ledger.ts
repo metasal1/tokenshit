@@ -29,6 +29,8 @@ const WALLET_LIFE_CAP = Number(process.env.TREASURY_WALLET_LIFE_CAP || 150_000);
 const IDENTITY_LIFE_CAP = Number(
   process.env.TREASURY_IDENTITY_LIFE_CAP || 150_000
 );
+/** Pending rows older than this are abandoned and may retry */
+const STALE_PENDING_MS = 15 * 60 * 1000;
 
 export async function ensurePayoutLedger() {
   await tursoExecute(
@@ -65,10 +67,21 @@ function utcDayStart(): string {
   return d.toISOString().slice(0, 10) + "T00:00:00";
 }
 
-async function sumPaid(where: string, args: (string | number | null)[]): Promise<number> {
+function parseRowTime(raw: unknown): number | null {
+  if (raw == null) return null;
+  const s = String(raw);
+  const t = Date.parse(s.includes("T") ? s : s.replace(" ", "T") + "Z");
+  return Number.isFinite(t) ? t : null;
+}
+
+/** Only finalized sends count toward caps — not failed, not stale pending. */
+async function sumPaid(
+  where: string,
+  args: (string | number | null)[]
+): Promise<number> {
   const r = await tursoExecute(
     `SELECT COALESCE(SUM(amount), 0) FROM treasury_payouts
-     WHERE status IN ('sent','pending') AND ${where}`,
+     WHERE status = 'sent' AND ${where}`,
     args
   );
   return Number(r.rows[0]?.[0] || 0);
@@ -81,6 +94,8 @@ export type ReserveResult =
 /**
  * Reserve a payout slot (pending row). Call BEFORE chain send.
  * Rejects if caps exceeded, blacklisted, or kill-switch.
+ *
+ * Critical: failed / stale pending must be retryable (same idempotency key).
  */
 export async function reservePayout(opts: {
   kind: PayoutKind;
@@ -143,15 +158,19 @@ export async function reservePayout(opts: {
 
   const dayStart = utcDayStart();
 
-  // Idempotent replay
+  // Idempotent replay / retry
   const existing = await tursoExecute(
-    `SELECT id, status, signature FROM treasury_payouts
+    `SELECT id, status, signature, created_at FROM treasury_payouts
      WHERE idempotency_key = ? LIMIT 1`,
     [opts.idempotencyKey]
   );
   if (existing.rows.length) {
+    const payoutId = Number(existing.rows[0][0]);
     const status = String(existing.rows[0][1] || "");
-    if (status === "sent") {
+    const sig = existing.rows[0][2] != null ? String(existing.rows[0][2]) : "";
+    const createdAt = existing.rows[0][3];
+
+    if (status === "sent" && sig && sig.length > 20) {
       return {
         ok: false,
         error: "Already paid",
@@ -159,11 +178,56 @@ export async function reservePayout(opts: {
         status: 409,
       };
     }
+
     if (status === "pending") {
-      // allow resume of same pending id
+      const t = parseRowTime(createdAt);
+      const age = t != null ? Date.now() - t : 0;
+      if (age < STALE_PENDING_MS) {
+        // Fresh in-flight — resume send on same row
+        return {
+          ok: true,
+          payoutId,
+          idempotencyKey: opts.idempotencyKey,
+        };
+      }
+      // Stale pending (crashed mid-send) — free the slot for retry
+      await tursoExecute(
+        `UPDATE treasury_payouts
+         SET status = 'failed',
+             meta = COALESCE(meta,'') || ?,
+             finalized_at = datetime('now')
+         WHERE id = ? AND status = 'pending'`,
+        [`|stale_pending:${Math.round(age / 1000)}s`, payoutId]
+      ).catch(() => {});
+      // fall through to re-open below
+    }
+
+    // failed (or just-staled pending) → re-open for a real retry
+    if (status === "failed" || status === "pending") {
+      await tursoExecute(
+        `UPDATE treasury_payouts
+         SET status = 'pending',
+             signature = NULL,
+             amount = ?,
+             recipient = ?,
+             twitter = ?,
+             github = ?,
+             meta = ?,
+             created_at = datetime('now'),
+             finalized_at = NULL
+         WHERE id = ?`,
+        [
+          amount,
+          recipient,
+          opts.twitter?.toLowerCase().replace(/^@/, "") || null,
+          opts.github?.toLowerCase().replace(/^@/, "") || null,
+          opts.meta ? JSON.stringify(opts.meta) : null,
+          payoutId,
+        ]
+      );
       return {
         ok: true,
-        payoutId: Number(existing.rows[0][0]),
+        payoutId,
         idempotencyKey: opts.idempotencyKey,
       };
     }
@@ -246,6 +310,30 @@ export async function reservePayout(opts: {
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     if (/UNIQUE|unique/i.test(msg)) {
+      // Race: re-read and handle
+      const again = await tursoExecute(
+        `SELECT id, status, signature FROM treasury_payouts
+         WHERE idempotency_key = ? LIMIT 1`,
+        [opts.idempotencyKey]
+      );
+      if (again.rows.length) {
+        const st = String(again.rows[0][1] || "");
+        const sig =
+          again.rows[0][2] != null ? String(again.rows[0][2]) : "";
+        if (st === "sent" && sig.length > 20) {
+          return {
+            ok: false,
+            error: "Already paid",
+            code: "already_paid",
+            status: 409,
+          };
+        }
+        return {
+          ok: true,
+          payoutId: Number(again.rows[0][0]),
+          idempotencyKey: opts.idempotencyKey,
+        };
+      }
       return {
         ok: false,
         error: "Already paid or in flight",
