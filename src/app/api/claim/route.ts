@@ -371,7 +371,8 @@ export async function POST(request: NextRequest) {
         return Response.json(
           {
             error:
-              "No fork of solana-foundation/tokens found on this GitHub account",
+              "No fork of solana-foundation/tokens found on this GitHub account. Fork https://github.com/solana-foundation/tokens then retry.",
+            detail: g,
           },
           { status: 403 }
         );
@@ -535,12 +536,22 @@ export async function POST(request: NextRequest) {
       });
       signature = paid.signature;
     } catch (e) {
+      const err = e as Error & { code?: string; status?: number };
+      // Paid on-chain (or healed) — do NOT wipe the claim row
+      if (err.code === "already_paid") {
+        return Response.json(
+          {
+            error: "Already paid for this claim",
+            code: "already_paid",
+          },
+          { status: 409 }
+        );
+      }
       const { tursoExecute } = await import("@/lib/turso");
       await tursoExecute(
         `DELETE FROM shit_claims WHERE claim_kind = ? AND wallet = ? AND signature = 'pending'`,
         [kind, wallet]
       ).catch(() => {});
-      const err = e as Error & { code?: string; status?: number };
       if (err.status && err.code) {
         return Response.json(
           { error: err.message, code: err.code },

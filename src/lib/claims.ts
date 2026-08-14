@@ -342,66 +342,219 @@ export {
 
 export async function checkGhFork(
   githubUsername: string
-): Promise<{ ok: boolean; forked: boolean; repo?: string; error?: string }> {
+): Promise<{
+  ok: boolean;
+  forked: boolean;
+  repo?: string;
+  error?: string;
+  checked?: string[];
+}> {
   const user = githubUsername.replace(/^@/, "").trim();
   if (!user) return { ok: false, forked: false, error: "no github" };
 
-  const headers: HeadersInit = {
+  const { GH_FORK_UPSTREAM } = await import("@/lib/shit-token");
+  const upstream = (GH_FORK_UPSTREAM || "solana-foundation/tokens").toLowerCase();
+
+  const headers: Record<string, string> = {
     Accept: "application/vnd.github+json",
     "User-Agent": "TokenShit-Claim/1.0",
+    "X-GitHub-Api-Version": "2022-11-28",
   };
   const token = (process.env.GITHUB_TOKEN || "").trim();
-  if (token) {
-    headers.Authorization = `Bearer ${token}`;
-  }
+  if (token) headers.Authorization = `Bearer ${token}`;
 
-  async function getJson(url: string) {
-    let res = await fetch(url, { headers });
-    if (res.status === 401 && token) {
-      const h2 = { ...headers } as Record<string, string>;
-      delete h2.Authorization;
-      res = await fetch(url, { headers: h2 });
-    }
-    return res;
-  }
+  const checked: string[] = [];
 
-  const direct = await getJson(
-    `https://api.github.com/repos/${encodeURIComponent(user)}/tokens`
-  );
-  if (direct.status === 200) {
-    const repo = await direct.json();
-    const parent = repo.parent?.full_name || repo.source?.full_name || "";
-    if (repo.fork && parent === "solana-foundation/tokens") {
-      return { ok: true, forked: true, repo: repo.full_name };
-    }
-  }
-
-  const list = await getJson(
-    `https://api.github.com/users/${encodeURIComponent(user)}/repos?type=owner&per_page=100&sort=updated`
-  );
-  if (!list.ok) {
-    return {
-      ok: false,
-      forked: false,
-      error: `GitHub ${list.status}`,
+  async function getJson(
+    url: string
+  ): Promise<{ status: number; ok: boolean; json: unknown; rate?: string }> {
+    const tryOnce = async (h: Record<string, string>) => {
+      const res = await fetch(url, { headers: h, cache: "no-store" });
+      let json: unknown = null;
+      try {
+        json = await res.json();
+      } catch {
+        json = null;
+      }
+      return {
+        status: res.status,
+        ok: res.ok,
+        json,
+        rate: res.headers.get("x-ratelimit-remaining") || undefined,
+      };
     };
+
+    let r = await tryOnce(headers);
+    // Bad / expired GITHUB_TOKEN → retry anonymous (public repos)
+    if (
+      (r.status === 401 || r.status === 403) &&
+      token &&
+      headers.Authorization
+    ) {
+      const msg = String(
+        (r.json as { message?: string } | null)?.message || ""
+      ).toLowerCase();
+      if (
+        r.status === 401 ||
+        msg.includes("bad credentials") ||
+        msg.includes("requires authentication")
+      ) {
+        const h2 = { ...headers };
+        delete h2.Authorization;
+        r = await tryOnce(h2);
+      }
+    }
+    return r;
   }
-  const repos = (await list.json()) as {
-    name: string;
-    fork: boolean;
-    full_name: string;
-  }[];
-  for (const r of repos || []) {
-    if (!r.fork) continue;
-    const detail = await getJson(
-      `https://api.github.com/repos/${encodeURIComponent(r.full_name)}`
-    );
-    if (!detail.ok) continue;
-    const d = await detail.json();
-    const parent = d.parent?.full_name || d.source?.full_name || "";
-    if (parent === "solana-foundation/tokens") {
-      return { ok: true, forked: true, repo: d.full_name };
+
+  function repoUrl(owner: string, name: string) {
+    return `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(name)}`;
+  }
+
+  function isUpstreamFork(repo: {
+    fork?: boolean;
+    full_name?: string;
+    parent?: { full_name?: string } | null;
+    source?: { full_name?: string } | null;
+  }): boolean {
+    if (!repo?.fork) return false;
+    const parent = (repo.parent?.full_name || "").toLowerCase();
+    const source = (repo.source?.full_name || "").toLowerCase();
+    return parent === upstream || source === upstream;
+  }
+
+  // 1) Fast path — common fork names under the user
+  const candidates = ["tokens", "solana-tokens", "solana_tokens", "Tokens"];
+  for (const name of candidates) {
+    const url = repoUrl(user, name);
+    checked.push(`${user}/${name}`);
+    const r = await getJson(url);
+    if (r.status === 404) continue;
+    if (r.status === 403 || r.status === 429) {
+      return {
+        ok: false,
+        forked: false,
+        error: `GitHub rate limited (${r.status}). Try again shortly.`,
+        checked,
+      };
+    }
+    if (r.ok && r.json && typeof r.json === "object") {
+      const repo = r.json as {
+        fork?: boolean;
+        full_name?: string;
+        parent?: { full_name?: string };
+        source?: { full_name?: string };
+      };
+      if (isUpstreamFork(repo)) {
+        return {
+          ok: true,
+          forked: true,
+          repo: repo.full_name || `${user}/${name}`,
+          checked,
+        };
+      }
     }
   }
-  return { ok: true, forked: false };
+
+  // 2) List user's forks (paginated) — do NOT encodeURIComponent full_name
+  for (let page = 1; page <= 3; page++) {
+    const listUrl =
+      `https://api.github.com/users/${encodeURIComponent(user)}/repos` +
+      `?type=forks&sort=updated&per_page=100&page=${page}`;
+    const list = await getJson(listUrl);
+    if (list.status === 404) {
+      return { ok: false, forked: false, error: "GitHub user not found", checked };
+    }
+    if (!list.ok) {
+      if (list.status === 403 || list.status === 429) {
+        return {
+          ok: false,
+          forked: false,
+          error: `GitHub rate limited (${list.status})`,
+          checked,
+        };
+      }
+      return {
+        ok: false,
+        forked: false,
+        error: `GitHub ${list.status}`,
+        checked,
+      };
+    }
+    const repos = (Array.isArray(list.json) ? list.json : []) as {
+      name: string;
+      fork: boolean;
+      full_name: string;
+    }[];
+    if (!repos.length) break;
+
+    for (const r of repos) {
+      if (!r.fork || !r.full_name) continue;
+      // Prefer names that look like the registry
+      const n = (r.name || "").toLowerCase();
+      const priority =
+        n === "tokens" || n.includes("solana") || n.includes("token");
+      if (!priority && repos.length > 30) {
+        // still check all, but tokens-ish first via sort below
+      }
+      checked.push(r.full_name);
+      const [owner, name] = r.full_name.split("/");
+      if (!owner || !name) continue;
+      const detail = await getJson(repoUrl(owner, name));
+      if (!detail.ok || !detail.json || typeof detail.json !== "object") continue;
+      const d = detail.json as {
+        fork?: boolean;
+        full_name?: string;
+        parent?: { full_name?: string };
+        source?: { full_name?: string };
+      };
+      if (isUpstreamFork(d)) {
+        return {
+          ok: true,
+          forked: true,
+          repo: d.full_name || r.full_name,
+          checked,
+        };
+      }
+    }
+    if (repos.length < 100) break;
+  }
+
+  // 3) Search API backup (finds renamed forks)
+  const q = encodeURIComponent(`user:${user} fork:true ${upstream}`);
+  const search = await getJson(
+    `https://api.github.com/search/repositories?q=${q}&per_page=10`
+  );
+  if (search.ok && search.json && typeof search.json === "object") {
+    const items =
+      (
+        search.json as {
+          items?: { full_name?: string; fork?: boolean; name?: string }[];
+        }
+      ).items || [];
+    for (const it of items) {
+      if (!it.full_name) continue;
+      checked.push(`search:${it.full_name}`);
+      const [owner, name] = it.full_name.split("/");
+      if (!owner || !name) continue;
+      const detail = await getJson(repoUrl(owner, name));
+      if (!detail.ok || !detail.json || typeof detail.json !== "object") continue;
+      const d = detail.json as {
+        fork?: boolean;
+        full_name?: string;
+        parent?: { full_name?: string };
+        source?: { full_name?: string };
+      };
+      if (isUpstreamFork(d)) {
+        return {
+          ok: true,
+          forked: true,
+          repo: d.full_name || it.full_name,
+          checked,
+        };
+      }
+    }
+  }
+
+  return { ok: true, forked: false, checked };
 }
