@@ -18,7 +18,6 @@ import Link from "next/link";
 import { EmojiIcon } from "@/components/EmojiIcon";
 import HourCelebrate, { useHourCelebrate } from "@/components/HourCelebrate";
 import { HOUR_PRODUCT } from "@/lib/hour-product";
-import { HIT_CURSOR, SHIT_CURSOR, sideCursor } from "@/lib/cursors";
 
 type Major = {
   assetId: string;
