@@ -3,6 +3,7 @@
 import { PrivyProvider } from "@privy-io/react-auth";
 import { useEffect, useMemo, useState } from "react";
 import { getPrivyConfig } from "@/lib/privy-config";
+import { registerSeedVaultMwa } from "@/lib/mwa";
 
 export default function PrivyClientProvider({
   children,
@@ -16,6 +17,7 @@ export default function PrivyClientProvider({
   );
   useEffect(() => {
     setRedirect(`${window.location.origin}/auth/oauth-return`);
+    registerSeedVaultMwa();
   }, []);
   const config = useMemo(
     () => getPrivyConfig({ oauthRedirectUrl: redirect }),
