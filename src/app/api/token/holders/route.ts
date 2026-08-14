@@ -32,7 +32,7 @@ async function readCache(): Promise<{
   try {
     await ensureCache();
     const r = await tursoExecute(
-      `SELECT value_num, updated_at FROM app_stats WHERE key = 'shit_holders' LIMIT 1`,
+      `SELECT value_num, updated_at FROM app_stats WHERE key = 'shit_holders_v2' LIMIT 1`,
       []
     );
     if (!r.rows.length) return null;
@@ -51,23 +51,30 @@ async function readCache(): Promise<{
   }
 }
 
-async function writeCache(holders: number) {
+async function writeCache(holders: number, meta?: { accounts?: number; zero?: number }) {
   await ensureCache();
   await tursoExecute(
-    `INSERT INTO app_stats (key, value_num, updated_at)
-     VALUES ('shit_holders', ?, datetime('now'))
+    `INSERT INTO app_stats (key, value_num, value_text, updated_at)
+     VALUES ('shit_holders_v2', ?, ?, datetime('now'))
      ON CONFLICT(key) DO UPDATE SET
        value_num = excluded.value_num,
+       value_text = excluded.value_text,
        updated_at = datetime('now')`,
-    [holders]
+    [holders, meta ? JSON.stringify(meta) : null]
   );
 }
 
 /**
- * Count Token-2022 token accounts for TOKENSHIT mint.
- * Uses dataSlice length 0 so we only get pubkeys (cheaper).
+ * Count Token-2022 token accounts for TOKENSHIT with **amount > 0**.
+ * Empty ATAs are common after claims/closes — do NOT count as holders.
+ *
+ * Token account layout: amount u64 LE @ offset 64.
  */
-async function fetchHolderCountFresh(): Promise<number> {
+async function fetchHolderCountFresh(): Promise<{
+  holders: number;
+  accounts: number;
+  zero: number;
+}> {
   const res = await fetch(HELIUS, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -79,7 +86,8 @@ async function fetchHolderCountFresh(): Promise<number> {
         TOKEN_2022,
         {
           encoding: "base64",
-          dataSlice: { offset: 0, length: 0 },
+          // amount only (8 bytes @ 64)
+          dataSlice: { offset: 64, length: 8 },
           filters: [{ memcmp: { offset: 0, bytes: SHIT_MINT } }],
         },
       ],
@@ -94,18 +102,48 @@ async function fetchHolderCountFresh(): Promise<number> {
   if (!Array.isArray(list)) {
     throw new Error("unexpected RPC shape");
   }
-  return list.length;
+
+  let holders = 0;
+  let zero = 0;
+  for (const row of list) {
+    const data = row?.account?.data;
+    const b64 = Array.isArray(data) ? data[0] : data;
+    if (typeof b64 !== "string" || b64.length < 8) {
+      zero++;
+      continue;
+    }
+    // base64 decode first 8 bytes → u64 LE amount
+    const bin =
+      typeof atob === "function"
+        ? Uint8Array.from(atob(b64), (c) => c.charCodeAt(0))
+        : Buffer.from(b64, "base64");
+    if (bin.length < 8) {
+      zero++;
+      continue;
+    }
+    // little-endian u64 (amount won't exceed 2^53 for our supply)
+    const amt =
+      bin[0] +
+      bin[1] * 256 +
+      bin[2] * 65536 +
+      bin[3] * 16777216 +
+      bin[4] * 4294967296 +
+      bin[5] * 1099511627776;
+    if (amt > 0) holders++;
+    else zero++;
+  }
+
+  return { holders, accounts: list.length, zero };
 }
 
 /**
  * GET /api/token/holders
- * Public ticker metric — $TOKENSHIT holder accounts (cached 10m).
+ * Public ticker metric — $TOKENSHIT **non-zero** holder accounts (cached 10m).
  */
 export async function GET(request: Request) {
   try {
     const url = new URL(request.url);
     const force = url.searchParams.get("refresh") === "1";
-    // refresh only with cron secret (expensive)
     if (force) {
       const { requireCronSecret } = await import("@/lib/api-guard");
       const denied = requireCronSecret(request);
@@ -138,11 +176,13 @@ export async function GET(request: Request) {
     }
 
     try {
-      const holders = await fetchHolderCountFresh();
-      await writeCache(holders).catch(() => {});
+      const { holders, accounts, zero } = await fetchHolderCountFresh();
+      await writeCache(holders, { accounts, zero }).catch(() => {});
       return Response.json(
         {
           holders,
+          accounts,
+          zeroBalance: zero,
           mint: SHIT_MINT,
           symbol: SHIT_SYMBOL,
           source: "rpc",
