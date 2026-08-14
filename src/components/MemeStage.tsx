@@ -194,15 +194,14 @@ export default function MemeStage({
               onPointerDown={(e) => startDrag(e, i, "move")}
               className={`absolute touch-none ${
                 active
-                  ? "z-20 ring-2 ring-neon"
-                  : "z-10 ring-1 ring-white/25 hover:ring-neon/50"
+                  ? "z-20 ring-2 ring-neon cursor-grabbing"
+                  : "z-10 ring-1 ring-white/25 hover:ring-neon/50 cursor-grab"
               }`}
               style={{
                 left: `${box.x * 100}%`,
                 top: `${box.y * 100}%`,
                 width: `${box.w * 100}%`,
                 height: `${box.h * 100}%`,
-                cursor: "move",
               }}
             >
               <div
