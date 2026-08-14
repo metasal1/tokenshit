@@ -82,7 +82,10 @@ export const metadata: Metadata = {
       { url: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
       { url: "/brand/logo-mark-dark.png", type: "image/png" },
     ],
-    apple: [{ url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" }],
+    apple: [
+      { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
   },
 };
 
@@ -135,6 +138,38 @@ export default function RootLayout({
         />
         <meta name="theme-color" content="#0a0a0f" />
         <meta name="apple-mobile-web-app-title" content="TOKEN$HIT" />
+        {/* iOS splash / startup images */}
+        <link
+          rel="apple-touch-startup-image"
+          href="/splash/splash-iphone-14-pro.png"
+          media="(device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3)"
+        />
+        <link
+          rel="apple-touch-startup-image"
+          href="/splash/splash-iphone-15-pro-max.png"
+          media="(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3)"
+        />
+        <link
+          rel="apple-touch-startup-image"
+          href="/splash/splash-iphone-14.png"
+          media="(device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3)"
+        />
+        <link
+          rel="apple-touch-startup-image"
+          href="/splash/splash-iphone-x.png"
+          media="(device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3)"
+        />
+        <link
+          rel="apple-touch-startup-image"
+          href="/splash/splash-iphone-8.png"
+          media="(device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2)"
+        />
+        <link
+          rel="apple-touch-startup-image"
+          href="/splash/splash-ipad-pro.png"
+          media="(device-width: 1024px) and (device-height: 1366px) and (-webkit-device-pixel-ratio: 2)"
+        />
+        <link rel="apple-touch-startup-image" href="/splash/splash-boot.png" />
         <Script
           src="https://www.googletagmanager.com/gtag/js?id=G-XTVEWC915F"
           strategy="afterInteractive"
