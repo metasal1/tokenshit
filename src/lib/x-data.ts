@@ -88,9 +88,9 @@ export function parseTweetId(input: string): string | null {
   return m?.[1] || null;
 }
 
-/** Modern X snowflakes are 18–19 digits; shorter ids are almost always a cut paste. */
+/** Modern X snowflakes are usually 19 digits; shorter ids are often a cut paste. */
 export function tweetIdLooksTruncated(id: string): boolean {
-  return /^\d+$/.test(id) && id.length > 0 && id.length < 18;
+  return /^\d+$/.test(id) && id.length > 0 && id.length < 19;
 }
 
 export type XUserPublic = {
