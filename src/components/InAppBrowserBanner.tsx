@@ -1,100 +1,76 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { EmojiIcon } from "@/components/EmojiIcon";
+import { useCallback, useEffect, useState } from "react";
 import { isStandalonePwa } from "@/lib/pwa-auth";
 
-const DISMISS_KEY = "tokenshit_webview_nudge_v1";
+const DISMISS_KEY = "tokenshit_webview_nudge_v2";
+const DISMISS_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
-type Kind = "webview" | "insecure" | null;
-
-/** In-app browsers that break wallets / OAuth / secure APIs */
-export function detectInAppBrowser(): {
-  kind: Kind;
-  app: string | null;
-} {
-  if (typeof window === "undefined") return { kind: null, app: null };
-
-  // Real Safari / Chrome / installed PWA — fine
-  if (isStandalonePwa()) return { kind: null, app: null };
-
-  const insecure =
-    window.isSecureContext === false ||
-    (window.location.protocol !== "https:" &&
-      window.location.hostname !== "localhost" &&
-      window.location.hostname !== "127.0.0.1");
+/**
+ * Strict in-app browser detect — known broken hosts only.
+ * No generic WebView / loose iOS heuristics (those false-positive Safari & Chrome).
+ */
+export function detectInAppBrowser(): { app: string } | null {
+  if (typeof window === "undefined") return null;
+  if (isStandalonePwa()) return null;
 
   const ua = navigator.userAgent || "";
-  const patterns: [RegExp, string][] = [
+
+  // Known mini-browsers that break Privy / wallets / OAuth
+  const hits: [RegExp, string][] = [
     [/Telegram/i, "Telegram"],
-    [/\bFBAN|\bFBAV|FB_IAB/i, "Facebook"],
+    [/\bFBAN|\bFBAV|FB_IAB|FBIOS/i, "Facebook"],
     [/Instagram/i, "Instagram"],
     [/\bLine\//i, "LINE"],
     [/MicroMessenger/i, "WeChat"],
-    [/Snapchat|Snapchat/i, "Snapchat"],
-    [/TikTok|musical_ly|Bytedance/i, "TikTok"],
+    [/Snapchat/i, "Snapchat"],
+    [/TikTok|musical_ly|BytedanceWebview/i, "TikTok"],
     [/LinkedInApp/i, "LinkedIn"],
-    [/Discord/i, "Discord"],
-    // X / Twitter in-app
-    [/Twitter|X\/|X-Client/i, "X"],
-    // Generic Android WebView
-    [/; wv\)|WebView/i, "this app"],
+    // X/Twitter *in-app* only — not bare "X/" (false positives)
+    [/Twitter for iPhone|Twitter for Android|TwitterAndroid/i, "X"],
   ];
 
-  let app: string | null = null;
-  for (const [re, name] of patterns) {
-    if (re.test(ua)) {
-      app = name;
-      break;
-    }
+  for (const [re, name] of hits) {
+    if (re.test(ua)) return { app: name };
   }
 
-  // iOS WKWebView without Safari markers
-  const isIos =
-    /iPad|iPhone|iPod/.test(ua) ||
-    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
-  const isSafari = /Safari/i.test(ua) && !/CriOS|FxiOS|EdgiOS|OPiOS/i.test(ua);
-  if (!app && isIos && !isSafari && !/Chrome|Firefox|Edge/i.test(ua)) {
-    app = "this app";
+  // Android WebView marker (Chrome custom tabs / real Chrome do not have "; wv)")
+  if (/; wv\)/i.test(ua) && /Android/i.test(ua)) {
+    return { app: "this app" };
   }
 
-  if (insecure) return { kind: "insecure", app };
-  if (app) return { kind: "webview", app };
-  return { kind: null, app: null };
+  return null;
+}
+
+function wasDismissed(): boolean {
+  try {
+    const raw = localStorage.getItem(DISMISS_KEY);
+    if (!raw) return false;
+    const t = Number(raw);
+    if (!Number.isFinite(t)) return false;
+    return Date.now() - t < DISMISS_MS;
+  } catch {
+    return false;
+  }
 }
 
 /**
- * Friendly nudge: open full Safari/Chrome — no "HTTPS" jargon.
+ * Compact “open in browser” chip — only real in-app browsers, dismiss 7d.
  */
 export default function InAppBrowserBanner() {
-  const [show, setShow] = useState(false);
-  const [meta, setMeta] = useState<{ kind: Kind; app: string | null }>({
-    kind: null,
-    app: null,
-  });
+  const [app, setApp] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
-    try {
-      if (sessionStorage.getItem(DISMISS_KEY) === "1") return;
-    } catch {
-      /* */
-    }
+    if (wasDismissed()) return;
     const d = detectInAppBrowser();
-    setMeta(d);
-    if (d.kind) setShow(true);
+    if (d) setApp(d.app);
   }, []);
 
-  const href = useMemo(() => {
-    if (typeof window === "undefined") return "https://tokenshit.com";
-    return window.location.href;
-  }, [show]);
-
   const copy = useCallback(async () => {
+    const href = window.location.href;
     try {
       await navigator.clipboard.writeText(href);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 2000);
     } catch {
       try {
         const ta = document.createElement("textarea");
@@ -103,103 +79,54 @@ export default function InAppBrowserBanner() {
         ta.select();
         document.execCommand("copy");
         document.body.removeChild(ta);
-        setCopied(true);
-        window.setTimeout(() => setCopied(false), 2000);
       } catch {
         /* */
       }
     }
-  }, [href]);
-
-  const openExternal = useCallback(() => {
-    const url = href;
-    // Android Chrome intent — opens real browser when possible
-    if (/Android/i.test(navigator.userAgent || "")) {
-      try {
-        const u = new URL(url);
-        const intent = `intent://${u.host}${u.pathname}${u.search}${u.hash}#Intent;scheme=https;package=com.android.chrome;end`;
-        window.location.href = intent;
-        return;
-      } catch {
-        /* fall through */
-      }
-    }
-    // iOS / others: new tab often still stays in webview — copy is primary
-    try {
-      window.open(url, "_blank", "noopener,noreferrer");
-    } catch {
-      /* */
-    }
-  }, [href]);
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1800);
+  }, []);
 
   const dismiss = () => {
     try {
-      sessionStorage.setItem(DISMISS_KEY, "1");
+      localStorage.setItem(DISMISS_KEY, String(Date.now()));
     } catch {
       /* */
     }
-    setShow(false);
+    setApp(null);
   };
 
-  if (!show || !meta.kind) return null;
+  if (!app) return null;
 
-  const where =
-    meta.app && meta.app !== "this app" ? meta.app : "this mini browser";
-
-  const headline =
-    meta.kind === "insecure"
-      ? "This window is too locked-down"
-      : `Open TOKEN$HIT outside ${where}`;
-
-  const body =
-    meta.kind === "insecure"
-      ? "Login, wallets, and play need a real Safari or Chrome tab — not this mini preview."
-      : `Login, wallets & play break inside ${where}. Open the full browser (Safari or Chrome) for the real app.`;
+  const label = app === "this app" ? "this app" : app;
 
   return (
     <div
-      className="sticky top-[env(safe-area-inset-top,0px)] z-[80] border-b border-amber-400/40 bg-amber-950/95 backdrop-blur-md px-3 py-3 shadow-[0_8px_30px_rgba(0,0,0,0.45)]"
+      className="sticky top-[env(safe-area-inset-top,0px)] z-[80] border-b border-white/10 bg-[#0c0c12]/95 backdrop-blur-md"
       role="status"
-      aria-live="polite"
     >
-      <div className="mx-auto max-w-lg flex gap-3 items-start">
-        <EmojiIcon size={22} label="Heads up">
-          🌐
-        </EmojiIcon>
-        <div className="min-w-0 flex-1 space-y-2">
-          <p className="text-sm font-bold text-amber-100 leading-snug font-orbitron tracking-wide uppercase">
-            {headline}
-          </p>
-          <p className="text-xs text-amber-100/80 leading-relaxed">{body}</p>
-          <ol className="text-[11px] text-amber-50/70 space-y-0.5 list-decimal list-inside font-mono">
-            <li>Tap ··· or Share</li>
-            <li>Open in Safari / Chrome</li>
-            <li>Or copy the link and paste it there</li>
-          </ol>
-          <div className="flex flex-wrap gap-2 pt-0.5">
-            <button
-              type="button"
-              onClick={() => void copy()}
-              className="min-h-10 px-3 rounded-lg bg-neon text-black text-xs font-bold"
-            >
-              {copied ? "Copied ✓" : "Copy link"}
-            </button>
-            <button
-              type="button"
-              onClick={openExternal}
-              className="min-h-10 px-3 rounded-lg border border-amber-400/50 text-amber-50 text-xs font-semibold"
-            >
-              Try open browser
-            </button>
-            <button
-              type="button"
-              onClick={dismiss}
-              className="min-h-10 px-2 text-xs text-amber-200/60 hover:text-amber-100"
-            >
-              Later
-            </button>
-          </div>
-        </div>
+      <div className="mx-auto flex max-w-3xl items-center gap-2 px-3 py-2">
+        <p className="min-w-0 flex-1 text-[12px] leading-snug text-zinc-300">
+          <span className="font-semibold text-cream">Better in Safari/Chrome.</span>{" "}
+          <span className="text-zinc-500">
+            Login & wallets break in {label}.
+          </span>
+        </p>
+        <button
+          type="button"
+          onClick={() => void copy()}
+          className="shrink-0 rounded-md bg-neon px-2.5 py-1.5 text-[11px] font-bold text-black"
+        >
+          {copied ? "Copied" : "Copy link"}
+        </button>
+        <button
+          type="button"
+          onClick={dismiss}
+          className="shrink-0 rounded-md px-1.5 py-1 text-[14px] leading-none text-zinc-500 hover:text-zinc-200"
+          aria-label="Dismiss"
+        >
+          ×
+        </button>
       </div>
     </div>
   );
