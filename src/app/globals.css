@@ -625,3 +625,10 @@ textarea,
   width: 0;
   height: 0;
 }
+
+
+/* Play pot +delta float */
+@keyframes potfloat {
+  0% { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(-18px); }
+}

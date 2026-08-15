@@ -192,6 +192,32 @@ export const sfx = {
       releaseMs: 240,
     });
   },
+  /** Cash-in / pot grew */
+  potUp() {
+    blip({ freq: 523.25, durationMs: 90, type: "triangle", gain: 0.14 });
+    blip({
+      freq: 659.25,
+      durationMs: 100,
+      type: "triangle",
+      gain: 0.16,
+      delayMs: 55,
+    });
+    blip({
+      freq: 783.99,
+      durationMs: 140,
+      type: "triangle",
+      gain: 0.18,
+      delayMs: 110,
+    });
+    blip({
+      freq: 1046.5,
+      durationMs: 220,
+      type: "sine",
+      gain: 0.12,
+      delayMs: 170,
+      releaseMs: 160,
+    });
+  },
   tap() {
     blip({
       freq: 240,

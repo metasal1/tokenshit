@@ -18,6 +18,7 @@ import Link from "next/link";
 import { EmojiIcon } from "@/components/EmojiIcon";
 import HourCelebrate, { useHourCelebrate } from "@/components/HourCelebrate";
 import { HOUR_PRODUCT } from "@/lib/hour-product";
+import { sfx } from "@/lib/sfx";
 
 type Major = {
   assetId: string;
@@ -164,6 +165,11 @@ export default function DayGamePanel({
   const [msg, setMsg] = useState<string | null>(null);
   const [tick, setTick] = useState(0);
   const [mounted, setMounted] = useState(false);
+  const [hitFlash, setHitFlash] = useState(false);
+  const [shitFlash, setShitFlash] = useState(false);
+  const [hitDelta, setHitDelta] = useState(0);
+  const [shitDelta, setShitDelta] = useState(0);
+  const prevPots = useRef<{ hit: number; shit: number } | null>(null);
 
   const celebrate = useHourCelebrate({
     nextCloseAt: status?.nextCloseAt,
@@ -195,6 +201,47 @@ export default function DayGamePanel({
     return fmtCountdown(ms);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status?.nextCloseAt, tick, mounted]);
+
+  // Pot up → sound + flash (other players / self)
+  useEffect(() => {
+    if (!status?.round) return;
+    const hit = status.round.hitPot || 0;
+    const shit = status.round.shitPot || 0;
+    const prev = prevPots.current;
+    if (prev) {
+      const dHit = hit - prev.hit;
+      const dShit = shit - prev.shit;
+      if (dHit > 0) {
+        setHitDelta(dHit);
+        setHitFlash(true);
+        sfx.potUp();
+      }
+      if (dShit > 0) {
+        setShitDelta(dShit);
+        setShitFlash(true);
+        sfx.potUp();
+      }
+    }
+    prevPots.current = { hit, shit };
+  }, [status?.round?.hitPot, status?.round?.shitPot]);
+
+  useEffect(() => {
+    if (!hitFlash) return;
+    const t = window.setTimeout(() => {
+      setHitFlash(false);
+      setHitDelta(0);
+    }, 900);
+    return () => clearTimeout(t);
+  }, [hitFlash]);
+
+  useEffect(() => {
+    if (!shitFlash) return;
+    const t = window.setTimeout(() => {
+      setShitFlash(false);
+      setShitDelta(0);
+    }, 900);
+    return () => clearTimeout(t);
+  }, [shitFlash]);
 
   const filtered = useMemo(() => {
     const list = status?.majors || [];
@@ -237,18 +284,37 @@ export default function DayGamePanel({
         (wallets as any[])?.[0];
       if (!walletObj) throw new Error("No wallet object");
 
-      const result = await signAndSendTransaction({
-        transaction: txBytes,
-        wallet: walletObj,
-        chain: "solana:mainnet",
-        options: {
-          sponsor: true,
-          uiOptions: {
-            showWalletUIs: true,
-            description: `Play 1,000 $${SHIT_SYMBOL} · ${side.toUpperCase()} ${pick.symbol || pick.name}`,
+      const desc = `Play 1,000 $${SHIT_SYMBOL} · ${side.toUpperCase()} ${pick.symbol || pick.name}`;
+      // Auto-sign when sponsored (no wallet modal). Fall back to UI if Privy requires it.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let result: any;
+      try {
+        result = await signAndSendTransaction({
+          transaction: txBytes,
+          wallet: walletObj,
+          chain: "solana:mainnet",
+          options: {
+            sponsor: true,
+            uiOptions: {
+              showWalletUIs: false,
+              description: desc,
+            },
           },
-        },
-      });
+        });
+      } catch {
+        result = await signAndSendTransaction({
+          transaction: txBytes,
+          wallet: walletObj,
+          chain: "solana:mainnet",
+          options: {
+            sponsor: true,
+            uiOptions: {
+              showWalletUIs: true,
+              description: desc,
+            },
+          },
+        });
+      }
       let signature: string | null = null;
       if (result?.signature instanceof Uint8Array) {
         signature = encodeSigBs58(result.signature);
@@ -280,6 +346,24 @@ export default function DayGamePanel({
           side === "hit" ? data.hitPot : data.shitPot
         )}`
       );
+      sfx.potUp();
+      if (side === "hit") {
+        setHitFlash(true);
+        setHitDelta(1000);
+        const h = (prevPots.current?.hit ?? 0) + 1000;
+        prevPots.current = {
+          hit: h,
+          shit: prevPots.current?.shit ?? 0,
+        };
+      } else {
+        setShitFlash(true);
+        setShitDelta(1000);
+        const s = (prevPots.current?.shit ?? 0) + 1000;
+        prevPots.current = {
+          hit: prevPots.current?.hit ?? 0,
+          shit: s,
+        };
+      }
       load();
     } catch (e) {
       setErr(friendlySolanaSendError(e));
@@ -361,22 +445,48 @@ export default function DayGamePanel({
         </div>
 
         <div className="flex items-center gap-2 rounded-xl border border-zinc-800 bg-zinc-950/60 px-3 py-2.5">
-          <div className="flex-1 min-w-0">
+          <div
+            className={`flex-1 min-w-0 relative rounded-lg px-1 py-0.5 transition-colors duration-300 ${
+              hitFlash ? "bg-green-500/20 ring-1 ring-green-400/60" : ""
+            }`}
+          >
             <div className="text-[10px] font-orbitron uppercase tracking-wider text-green-400/90 flex items-center gap-1">
               <EmojiIcon size={12}>🎯</EmojiIcon> Hit pot
             </div>
-            <div className="text-lg font-mono font-bold text-green-400 tabular-nums">
+            <div
+              className={`text-lg font-mono font-bold text-green-400 tabular-nums transition-transform duration-300 ${
+                hitFlash ? "scale-110 drop-shadow-[0_0_12px_rgba(34,197,94,0.8)]" : ""
+              }`}
+            >
               {fmt(hitPot)}
             </div>
+            {hitFlash && hitDelta > 0 && (
+              <span className="pointer-events-none absolute -top-1 right-0 text-xs font-bold font-mono text-green-300 animate-[potfloat_0.9s_ease-out_forwards]">
+                +{fmt(hitDelta)}
+              </span>
+            )}
           </div>
-          <div className="w-px h-10 bg-zinc-800" />
-          <div className="flex-1 min-w-0 text-right">
+          <div className="w-px h-10 bg-zinc-800 shrink-0" />
+          <div
+            className={`flex-1 min-w-0 relative rounded-lg px-1 py-0.5 text-right transition-colors duration-300 ${
+              shitFlash ? "bg-red-500/20 ring-1 ring-red-400/60" : ""
+            }`}
+          >
             <div className="text-[10px] font-orbitron uppercase tracking-wider text-red-400/90 flex items-center justify-end gap-1">
               Shit pot <EmojiIcon size={12}>💀</EmojiIcon>
             </div>
-            <div className="text-lg font-mono font-bold text-red-400 tabular-nums">
+            <div
+              className={`text-lg font-mono font-bold text-red-400 tabular-nums transition-transform duration-300 ${
+                shitFlash ? "scale-110 drop-shadow-[0_0_12px_rgba(239,68,68,0.75)]" : ""
+              }`}
+            >
               {fmt(shitPot)}
             </div>
+            {shitFlash && shitDelta > 0 && (
+              <span className="pointer-events-none absolute -top-1 left-0 text-xs font-bold font-mono text-red-300 animate-[potfloat_0.9s_ease-out_forwards]">
+                +{fmt(shitDelta)}
+              </span>
+            )}
           </div>
         </div>
 
