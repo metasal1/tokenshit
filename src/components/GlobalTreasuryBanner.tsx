@@ -30,7 +30,8 @@ type GlobalPayload = {
 };
 
 function useUtcCountdown(targetMs: number | null, serverSkewMs: number) {
-  const [now, setNow] = useState(() => Date.now() + serverSkewMs);
+  // null until client mount — Date.now() in useState caused React #418 (SSR ≠ client)
+  const [now, setNow] = useState<number | null>(null);
 
   useEffect(() => {
     setNow(Date.now() + serverSkewMs);
@@ -38,8 +39,11 @@ function useUtcCountdown(targetMs: number | null, serverSkewMs: number) {
     return () => clearInterval(t);
   }, [serverSkewMs, targetMs]);
 
-  const ms = targetMs != null ? Math.max(0, targetMs - now) : 0;
-  return formatCountdown(ms);
+  if (now == null || targetMs == null) {
+    return { h: "--", m: "--", s: "--", totalMs: 0 };
+  }
+  const ms = Math.max(0, targetMs - now);
+  return { ...formatCountdown(ms), totalMs: ms };
 }
 
 function Digit({ label, value }: { label: string; value: string }) {
@@ -59,7 +63,7 @@ function fmtBal(n: number | null | undefined) {
   if (n == null || !Number.isFinite(n)) return "—";
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(2)}M`;
   if (n >= 10_000) return `${(n / 1_000).toFixed(1)}K`;
-  return n.toLocaleString(undefined, { maximumFractionDigits: 0 });
+  return n.toLocaleString("en-US", { maximumFractionDigits: 0 });
 }
 
 export default function GlobalTreasuryBanner({
@@ -103,15 +107,25 @@ export default function GlobalTreasuryBanner({
 
   const targetMs = useMemo(() => {
     if (data?.global?.nextDropAtMs) return data.global.nextDropAtMs;
-    // client fallback: next UTC midnight
-    const n = new Date();
-    const d = new Date(n.getTime());
-    d.setUTCHours(0, 0, 0, 0);
-    if (d.getTime() <= n.getTime()) d.setUTCDate(d.getUTCDate() + 1);
-    return d.getTime();
+    // Don't compute UTC midnight during SSR/hydration — Date differs server vs client
+    return null;
   }, [data]);
 
-  const cd = useUtcCountdown(targetMs, skew);
+  // Client-only fallback once mounted if API slow
+  const [fallbackTarget, setFallbackTarget] = useState<number | null>(null);
+  useEffect(() => {
+    if (targetMs != null) {
+      setFallbackTarget(null);
+      return;
+    }
+    const n = Date.now();
+    const d = new Date(n);
+    d.setUTCHours(0, 0, 0, 0);
+    if (d.getTime() <= n) d.setUTCDate(d.getUTCDate() + 1);
+    setFallbackTarget(d.getTime());
+  }, [targetMs]);
+
+  const cd = useUtcCountdown(targetMs ?? fallbackTarget, skew);
   const dropAmt =
     data?.global?.dropAmount ?? GLOBAL_TREASURY_DAILY_DROP;
   const droppedToday = Boolean(data?.global?.droppedToday);
