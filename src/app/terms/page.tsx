@@ -33,7 +33,7 @@ export default function TermsPage() {
         <p>
           TOKEN$HIT (&quot;we&quot;, &quot;the App&quot;) is an entertainment product on Solana.
           Features may include HIT/SHIT voting on registry assets,{" "}
-          <strong className="text-zinc-100">$SHIT OF THE DAY</strong> play
+          <strong className="text-zinc-100">$HIT OF THE DAY</strong> play
           rounds, claims, swaps, memes, and related tools. The App is provided
           as-is for fun and community engagement — not as financial advice.
         </p>

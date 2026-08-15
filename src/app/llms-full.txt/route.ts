@@ -6,13 +6,13 @@ export const dynamic = "force-static";
 const BODY = `# TOKEN$HIT — full reference
 
 ## One-liner
-Every token is shit until proven otherwise. Vote HIT or SHIT on Solana Foundation registry assets. Play hourly $SHIT OF THE DAY pots. Claim, swap, refer.
+Every token is shit until proven otherwise. Vote HIT or SHIT on Solana Foundation registry assets. Play hourly $HIT OF THE DAY pots. Claim, swap, refer.
 
 ## Primary surfaces
 | Path | Role |
 |------|------|
 | / | Home — Play + free Vote |
-| /play | $SHIT OF THE DAY (canonical game) |
+| /play | $HIT OF THE DAY (canonical game) |
 | /whales | Top holders, hold time, movements |
 | /swap | Buy/swap $TOKENSHIT (Jupiter) |
 | /claim | Rewards (tweet, follow, GH fork, list, verified) |
@@ -31,7 +31,7 @@ Every token is shit until proven otherwise. Vote HIT or SHIT on Solana Foundatio
 - Treasury: SHTy7yoA5uAZoevKT3BFcSeDeFaHEyqWc55uApd3MJB
 - Portfolio UI: https://sol.new/portfolio/SHTy7yoA5uAZoevKT3BFcSeDeFaHEyqWc55uApd3MJB
 
-## Game rules ($SHIT OF THE DAY)
+## Game rules ($HIT OF THE DAY)
 - Path: /play (never call it “stake” in UI — always Play)
 - Stake size: 1,000 $TOKENSHIT per play
 - Sides: HIT (best %) · SHIT (worst %)

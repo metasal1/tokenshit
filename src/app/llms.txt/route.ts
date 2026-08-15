@@ -9,12 +9,12 @@ const BODY = `# TOKEN$HIT
 > Every token is shit until proven otherwise.
 
 HIT / SHIT verdicts on real Solana assets (Tokens.xyz / Solana Foundation registry).
-Play $SHIT OF THE DAY, free arena votes, claims, swap, whales.
+Play $HIT OF THE DAY, free arena votes, claims, swap, whales.
 
 ## Site
 
 - Home: https://tokenshit.com/
-- Play ($SHIT OF THE DAY): https://tokenshit.com/play
+- Play ($HIT OF THE DAY): https://tokenshit.com/play
 - Whales (holders): https://tokenshit.com/whales
 - Swap: https://tokenshit.com/swap
 - Claim: https://tokenshit.com/claim
