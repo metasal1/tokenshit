@@ -239,7 +239,7 @@ export async function sendShitFromTreasury(
   });
 }
 
-/** Play pot → winner (or house fee → SHTy treasury). No claim-budget gates. */
+/** Play pot → winner (or house fee → SHTy). Fee payer may be treasury if pot SOL thin. */
 export async function sendShitFromPlayPot(
   recipient: string,
   amountWhole: number
@@ -250,6 +250,10 @@ export async function sendShitFromPlayPot(
     recipient,
     amountWhole,
     applyTreasuryGates: false,
+    // pot often has tokens but 0 SOL — SHTy pays gas when needed
+    allowTreasuryFeePayer: true,
+    maxConfirmMs: 14_000,
+    maxAttempts: 2,
   });
 }
 
@@ -259,6 +263,9 @@ async function sendShitFromPayer(opts: {
   recipient: string;
   amountWhole: number;
   applyTreasuryGates: boolean;
+  allowTreasuryFeePayer?: boolean;
+  maxConfirmMs?: number;
+  maxAttempts?: number;
 }): Promise<{ signature: string; amount: number }> {
   const { isBlacklistedWallet, treasurySendsAllowed, maxSinglePayoutWhole } =
     await import("@/lib/security");
@@ -285,9 +292,8 @@ async function sendShitFromPayer(opts: {
     }
   }
 
-  const { Connection, PublicKey, Transaction } = await import(
-    "@solana/web3.js"
-  );
+  const { Connection, PublicKey, Transaction, SystemProgram, LAMPORTS_PER_SOL } =
+    await import("@solana/web3.js");
   const {
     getAssociatedTokenAddress,
     createAssociatedTokenAccountIdempotentInstruction,
@@ -297,10 +303,10 @@ async function sendShitFromPayer(opts: {
   } = await import("@solana/spl-token");
 
   const TOKEN_2022_PROGRAM_ID = new PublicKey(TOKEN_2022_PROGRAM_ID_STR);
-  const payer = opts.loadPayer();
+  const tokenAuthority = opts.loadPayer();
   const conn = new Connection(RPC, {
     commitment: "confirmed",
-    confirmTransactionInitialTimeout: 60_000,
+    confirmTransactionInitialTimeout: 20_000,
     disableRetryOnRateLimit: false,
   });
   const mint = new PublicKey(SHIT_MINT);
@@ -308,9 +314,33 @@ async function sendShitFromPayer(opts: {
   const raw = shitToRaw(amountWhole);
   const decimals = 6;
 
+  let feePayer = tokenAuthority;
+  if (opts.allowTreasuryFeePayer) {
+    const potLamports = await conn.getBalance(tokenAuthority.publicKey);
+    if (potLamports < 5_000_000) {
+      // < 0.005 SOL — use claims treasury for gas (must still hold some SOL)
+      try {
+        const treasuryKp = loadTreasuryKeypair();
+        const tLamports = await conn.getBalance(treasuryKp.publicKey);
+        if (tLamports >= 3_000_000) {
+          feePayer = treasuryKp;
+        } else {
+          throw new Error(
+            `Play pot needs SOL for fees (pot=${(potLamports / 1e9).toFixed(4)} treasury=${(tLamports / 1e9).toFixed(4)}). Top up potRvs… with ~0.2 SOL`
+          );
+        }
+      } catch (e) {
+        if (e instanceof Error && e.message.includes("top up")) throw e;
+        throw new Error(
+          `Play pot has no SOL for fees (${(potLamports / 1e9).toFixed(4)} SOL). Send ~0.2 SOL to pot wallet.`
+        );
+      }
+    }
+  }
+
   const fromAta = await getAssociatedTokenAddress(
     mint,
-    payer.publicKey,
+    tokenAuthority.publicKey,
     false,
     TOKEN_2022_PROGRAM_ID,
     ASSOCIATED_TOKEN_PROGRAM_ID
@@ -340,7 +370,7 @@ async function sendShitFromPayer(opts: {
 
   const ix = [
     createAssociatedTokenAccountIdempotentInstruction(
-      payer.publicKey,
+      feePayer.publicKey,
       toAta,
       toOwner,
       mint,
@@ -351,7 +381,7 @@ async function sendShitFromPayer(opts: {
       fromAta,
       mint,
       toAta,
-      payer.publicKey,
+      tokenAuthority.publicKey,
       raw,
       decimals,
       [],
@@ -359,7 +389,8 @@ async function sendShitFromPayer(opts: {
     ),
   ];
 
-  const MAX_ATTEMPTS = 4;
+  const MAX_ATTEMPTS = opts.maxAttempts ?? 4;
+  const confirmMs = opts.maxConfirmMs ?? 45_000;
   let lastErr: Error | null = null;
   const triedSigs: string[] = [];
 
@@ -367,14 +398,19 @@ async function sendShitFromPayer(opts: {
     try {
       const latest = await conn.getLatestBlockhash("confirmed");
       const tx = new Transaction().add(...ix);
-      tx.feePayer = payer.publicKey;
+      tx.feePayer = feePayer.publicKey;
       tx.recentBlockhash = latest.blockhash;
-      tx.sign(payer);
+      // token authority always signs; fee payer signs if different
+      if (feePayer.publicKey.equals(tokenAuthority.publicKey)) {
+        tx.sign(tokenAuthority);
+      } else {
+        tx.sign(feePayer, tokenAuthority);
+      }
 
       const rawTx = tx.serialize();
       const signature = await conn.sendRawTransaction(rawTx, {
         skipPreflight: true,
-        maxRetries: 3,
+        maxRetries: 2,
         preflightCommitment: "confirmed",
       });
       triedSigs.push(signature);
@@ -383,7 +419,7 @@ async function sendShitFromPayer(opts: {
         conn,
         signature,
         latest.lastValidBlockHeight,
-        48_000
+        confirmMs
       );
 
       if (status === "confirmed") {
@@ -394,6 +430,7 @@ async function sendShitFromPayer(opts: {
         throw new Error(`${opts.label} send failed on-chain (${signature})`);
       }
 
+      // timeout/expired — if sig eventually lands, return it; else retry or accept unconfirmed
       for (const sig of triedSigs) {
         try {
           const st = await conn.getSignatureStatuses([sig], {
@@ -404,7 +441,8 @@ async function sendShitFromPayer(opts: {
             v &&
             !v.err &&
             (v.confirmationStatus === "confirmed" ||
-              v.confirmationStatus === "finalized")
+              v.confirmationStatus === "finalized" ||
+              v.confirmationStatus === "processed")
           ) {
             return { signature: sig, amount: amountWhole };
           }
@@ -413,10 +451,15 @@ async function sendShitFromPayer(opts: {
         }
       }
 
+      // On last attempt, return signature anyway if broadcast (worker time budget)
+      if (attempt === MAX_ATTEMPTS && triedSigs.length) {
+        return { signature: triedSigs[triedSigs.length - 1]!, amount: amountWhole };
+      }
+
       lastErr = new Error(
-        `Signature ${signature} ${status === "expired" ? "expired: block height exceeded" : "confirm timeout"} (attempt ${attempt}/${MAX_ATTEMPTS})`
+        `Signature ${signature} ${status === "expired" ? "expired" : "confirm timeout"} (attempt ${attempt}/${MAX_ATTEMPTS})`
       );
-      await sleep(400 * attempt);
+      await sleep(300 * attempt);
     } catch (e) {
       lastErr = e instanceof Error ? e : new Error(String(e));
       for (const sig of triedSigs) {
@@ -425,22 +468,17 @@ async function sendShitFromPayer(opts: {
             searchTransactionHistory: true,
           });
           const v = st?.value?.[0];
-          if (
-            v &&
-            !v.err &&
-            (v.confirmationStatus === "confirmed" ||
-              v.confirmationStatus === "finalized")
-          ) {
+          if (v && !v.err && v.confirmationStatus) {
             return { signature: sig, amount: amountWhole };
           }
         } catch {
           /* */
         }
       }
-      if (/insufficient|0x1|blockhash not found/i.test(lastErr.message)) {
+      if (/insufficient|0x1|no SOL|top up/i.test(lastErr.message)) {
         break;
       }
-      await sleep(500 * attempt);
+      await sleep(400 * attempt);
     }
   }
 

@@ -54,12 +54,16 @@ async function pipelineFetch(
 
 function mapArgs(args: (string | number | null)[]) {
   return args.map((a) => {
-    if (a === null) return { type: "null" as const, value: undefined };
+    if (a === null) return { type: "null" as const, value: null };
     if (typeof a === "number") {
+      if (!Number.isFinite(a)) {
+        return { type: "null" as const, value: null };
+      }
+      // Turso HTTP: integer values as decimal strings; floats as JSON numbers
       if (Number.isInteger(a)) {
         return { type: "integer" as const, value: String(a) };
       }
-      return { type: "float" as const, value: String(a) };
+      return { type: "float" as const, value: a };
     }
     return { type: "text" as const, value: String(a) };
   });
