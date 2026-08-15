@@ -168,34 +168,39 @@ function WinnerBlock({
       </div>
       {showWallet && (
         <div
-          className="pt-2 border-t border-white/10 space-y-1"
+          className="pt-2 border-t border-white/10 space-y-1.5"
           style={{ animation: "hourpop 0.45s ease-out 0.15s both" }}
         >
-          <div className="text-[10px] uppercase text-zinc-500">Wallet winner</div>
-          <div className="font-mono text-sm text-neon break-all">
-            {data.winner ? data.winner : "→ Treasury"}
+          <div className="text-[10px] uppercase tracking-wider text-zinc-500 font-orbitron">
+            Prize distribution
           </div>
-          <div className="text-xs text-zinc-400">
-            Prize{" "}
-            <span className="text-white font-mono">
+          <div className="font-mono text-sm text-neon break-all">
+            {data.winner ? data.winner : "→ house / empty pot"}
+          </div>
+          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-xs">
+            <span className="text-zinc-400">Winner</span>
+            <span className="text-white font-mono font-bold">
               {fmtAmt(data.prize)} ${SHIT_SYMBOL}
             </span>
             {data.fee != null && data.fee > 0 && (
-              <span className="text-zinc-600">
-                {" "}
-                · fee {fmtAmt(data.fee)}
-              </span>
+              <>
+                <span className="text-zinc-600">·</span>
+                <span className="text-zinc-500">house</span>
+                <span className="text-zinc-300 font-mono">{fmtAmt(data.fee)}</span>
+              </>
             )}
           </div>
-          {data.sig && (
+          {data.sig ? (
             <a
               href={`https://solscan.io/tx/${data.sig}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-[11px] text-neon-blue hover:underline"
+              className="inline-flex items-center gap-1 text-[11px] text-neon-blue hover:underline font-mono"
             >
-              payout tx {data.sig.slice(0, 12)}…
+              on-chain payout {data.sig.slice(0, 10)}… →
             </a>
+          ) : (
+            <p className="text-[11px] text-zinc-600">No winner payout this side</p>
           )}
           {data.vrf && (
             <VrfProofLinks vrf={data.vrf} className="pt-1" />
@@ -216,6 +221,7 @@ type Phase =
 
 /**
  * End-of-hour celebration: staged reveal of HIT + SHIT bags and wallet winners.
+ * Mounted sitewide so every visitor witnesses finalize + prize distribution.
  */
 export default function HourCelebrate({
   payload,
@@ -288,9 +294,12 @@ export default function HourCelebrate({
             <EmojiIcon size={28}>🎯</EmojiIcon>
             <EmojiIcon size={28}>💀</EmojiIcon>
           </div>
-          <h2 className="text-xl font-bold text-white">Hour settled</h2>
+          <h2 className="text-xl font-bold text-white">Public finalize</h2>
           <p className="text-xs text-zinc-500 font-mono">
             {payload.hourLabel || payload.utcHour}
+          </p>
+          <p className="text-[11px] text-zinc-500">
+            Bags → VRF winner → on-chain prize · everyone watches
           </p>
         </div>
 
@@ -299,7 +308,7 @@ export default function HourCelebrate({
             <EmojiIcon size={40} className="animate-spin" label="Revealing">
               💫
             </EmojiIcon>
-            <p className="text-sm text-zinc-400">Picking winners…</p>
+            <p className="text-sm text-zinc-400">Finalizing · distributing prizes…</p>
           </div>
         )}
 
@@ -446,14 +455,14 @@ export function useHourCelebrate(opts: {
         const p = settleToPayload(data);
         if (!p || cancelled) return;
         if (wasHourCelebrated(p.utcHour)) return;
-        // Only auto-show if settled recently (within ~12 min of hour end)
+        // Only auto-show if settled recently (within ~50 min of hour end — full next hour window)
         const endMs = Date.parse(
           p.utcHour.includes("T")
             ? p.utcHour + ":00:00.000Z"
             : p.utcHour + "T00:00:00.000Z"
         );
         const hourEnd = endMs + 60 * 60 * 1000;
-        if (Date.now() - hourEnd > 12 * 60 * 1000) {
+        if (Date.now() - hourEnd > 50 * 60 * 1000) {
           markHourCelebrated(p.utcHour);
           return;
         }

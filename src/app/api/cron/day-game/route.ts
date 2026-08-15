@@ -103,6 +103,36 @@ export async function POST(request: NextRequest) {
       const prev = previousUtcHour(nowHour);
       await snapshotPrices(prev, "close");
       const settled = await settleDay(prev);
+      // Public witness: TG alert every fresh finalize (hourly path)
+      if (settled.ok && settled.result && !(settled.result as { already?: boolean }).already) {
+        const r = settled.result as {
+          hitBag?: { assetId: string; pct: number };
+          shitBag?: { assetId: string; pct: number };
+          hit?: { winner: string | null; prize: number; fee: number; prizeSig?: string | null };
+          shit?: { winner: string | null; prize: number; fee: number; prizeSig?: string | null };
+        };
+        try {
+          const lines = [
+            `🎬 <b>PUBLIC FINALIZE</b> · ${escapeHtml(prev)}`,
+            r.hitBag
+              ? `🎯 HIT bag <code>${escapeHtml(r.hitBag.assetId)}</code> ${r.hitBag.pct.toFixed(2)}%`
+              : "🎯 HIT bag: —",
+            r.hit?.winner
+              ? `💰 HIT prize <b>+${Number(r.hit.prize).toLocaleString()}</b> → <code>${escapeHtml(r.hit.winner)}</code>${r.hit.prizeSig ? `\n<a href="https://solscan.io/tx/${escapeHtml(r.hit.prizeSig)}">payout tx</a>` : ""}`
+              : "HIT → empty / house",
+            r.shitBag
+              ? `💀 SHIT bag <code>${escapeHtml(r.shitBag.assetId)}</code> ${r.shitBag.pct.toFixed(2)}%`
+              : "💀 SHIT bag: —",
+            r.shit?.winner
+              ? `💰 SHIT prize <b>+${Number(r.shit.prize).toLocaleString()}</b> → <code>${escapeHtml(r.shit.winner)}</code>${r.shit.prizeSig ? `\n<a href="https://solscan.io/tx/${escapeHtml(r.shit.prizeSig)}">payout tx</a>` : ""}`
+              : "SHIT → empty / house",
+            `👀 <a href="https://tokenshit.com/play">Watch live</a> · <a href="https://tokenshit.com/winners">Winners</a>`,
+          ];
+          await sendTelegramMessage(lines.join("\n"));
+        } catch {
+          /* ignore */
+        }
+      }
       const openN = await snapshotPrices(nowHour, "open");
       return Response.json({
         ok: true,
