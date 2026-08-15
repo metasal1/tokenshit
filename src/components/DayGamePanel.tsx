@@ -16,7 +16,6 @@ import {
 } from "@/lib/solana-send";
 import Link from "next/link";
 import { EmojiIcon } from "@/components/EmojiIcon";
-import HourCelebrate, { useHourCelebrate } from "@/components/HourCelebrate";
 import { HOUR_PRODUCT } from "@/lib/hour-product";
 import { sfx } from "@/lib/sfx";
 
@@ -198,11 +197,6 @@ export default function DayGamePanel({
   const [shitDelta, setShitDelta] = useState(0);
   const prevPots = useRef<{ hit: number; shit: number } | null>(null);
 
-  const celebrate = useHourCelebrate({
-    nextCloseAt: status?.nextCloseAt,
-    currentHour: status?.utcHour || status?.utcDay,
-    enabled: true,
-  });
 
   const load = useCallback(() => {
     fetch("/api/day", { cache: "no-store" })
@@ -696,20 +690,6 @@ export default function DayGamePanel({
         </div>
       </section>
 
-      {celebrate.waiting && !celebrate.payload && (
-        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[250] rounded-full border border-neon/40 bg-black/90 px-4 py-2 flex items-center gap-2 shadow-lg">
-          <EmojiIcon size={18} className="animate-spin" label="Settling">
-            💫
-          </EmojiIcon>
-          <span className="text-xs text-zinc-200 font-medium">
-            Round closed — settling…
-          </span>
-        </div>
-      )}
-
-      {celebrate.payload && (
-        <HourCelebrate payload={celebrate.payload} onClose={celebrate.dismiss} />
-      )}
     </div>
   );
 }

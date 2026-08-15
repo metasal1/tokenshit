@@ -19,6 +19,7 @@ import EmailSignupModal from '@/components/EmailSignupModal';
 import SignupGlitchToast from '@/components/SignupGlitchToast';
 import BetaScrollBanner from '@/components/BetaScrollBanner';
 import ClaimGlitchToast from '@/components/ClaimGlitchToast';
+import SettlementWitness from '@/components/SettlementWitness';
 import SafeLoginButton from '@/components/SafeLoginButton';
 import PwaLoginSheetHost from '@/components/PwaLoginSheetHost';
 import { SolanaFundingBootstrap } from '@/components/OnrampButton';
@@ -460,6 +461,7 @@ function Layout({ children }: { children: React.ReactNode }) {
       {nav}
       <BetaScrollBanner />
       <SolanaFundingBootstrap />
+      <SettlementWitness />
       <ReferralTracker />
       <ClaimGlitchToast />
       <SignupGlitchToast />
