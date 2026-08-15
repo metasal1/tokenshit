@@ -21,6 +21,11 @@ function pickBestBare(names: string[]): string | null {
     .filter((n) => n && !n.includes("."));
   if (!clean.length) return null;
 
+  // Stable personal handles when present on multi-domain bags
+  for (const prefer of ["metasal", "tokenshit", "toly", "ansem"]) {
+    if (clean.includes(prefer)) return prefer;
+  }
+
   const junk =
     /portafolio|portfolio|wallet|invisible|invizible|check-my|lordmerch|getamongst|downunder|stockexchange|playbook/;
 
