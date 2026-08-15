@@ -13,10 +13,18 @@ export const X_HANDLE = "Tokenshit_";
 export const X_URL = `https://x.com/${X_HANDLE}`;
 export const X_USER_ID = "2037761105359986688";
 
-/** Public treasury = SHT vanity */
+/** Public treasury = SHT vanity (claims, daily drop, house) */
 export const TREASURY_ADDRESS =
   process.env.NEXT_PUBLIC_TREASURY_ADDRESS ||
   "SHTy7yoA5uAZoevKT3BFcSeDeFaHEyqWc55uApd3MJB";
+
+/**
+ * Play pot / escrow — stakes in, prizes out.
+ * Separate from claims treasury so social drops don't empty game pots.
+ */
+export const PLAY_POT_ADDRESS =
+  process.env.NEXT_PUBLIC_PLAY_POT_ADDRESS ||
+  "potRvsxc3dju4nQA28vMLuTvppyUiiphjkkTz92gF1r";
 
 /** One-time claim amounts (Metasal rules) */
 export const CLAIM_X_VERIFIED = 10_000;

@@ -1,5 +1,9 @@
 import { DAY_STAKE_AMOUNT } from "@/lib/day-game";
-import { SHIT_MINT, TREASURY_ADDRESS, shitToRaw } from "@/lib/shit-token";
+import {
+  SHIT_MINT,
+  PLAY_POT_ADDRESS,
+  shitToRaw,
+} from "@/lib/shit-token";
 import { isSolanaAddress } from "@/lib/api-guard";
 import { rpc } from "@/lib/treasury";
 
@@ -35,8 +39,7 @@ async function shitBalanceUi(owner: string): Promise<number> {
 }
 
 /**
- * POST { wallet } → { transaction: base64 } unsigned transfer 1000 SHIT → treasury
- * Rejects early if wallet has &lt; 1000 $TOKENSHIT.
+ * POST { wallet } → unsigned transfer 1000 SHIT → play pot escrow
  */
 export async function POST(request: Request) {
   try {
@@ -68,7 +71,7 @@ export async function POST(request: Request) {
     } = await import("@solana/spl-token");
 
     const owner = new PublicKey(wallet);
-    const treasury = new PublicKey(TREASURY_ADDRESS);
+    const pot = new PublicKey(PLAY_POT_ADDRESS);
     const mint = new PublicKey(SHIT_MINT);
     const amount = shitToRaw(DAY_STAKE_AMOUNT);
     const decimals = 6;
@@ -81,7 +84,7 @@ export async function POST(request: Request) {
     );
     const toAta = await getAssociatedTokenAddress(
       mint,
-      treasury,
+      pot,
       true,
       TOKEN_2022_PROGRAM_ID
     );
@@ -98,7 +101,7 @@ export async function POST(request: Request) {
       createAssociatedTokenAccountIdempotentInstruction(
         owner,
         toAta,
-        treasury,
+        pot,
         mint,
         TOKEN_2022_PROGRAM_ID
       )
@@ -127,7 +130,7 @@ export async function POST(request: Request) {
       amount: DAY_STAKE_AMOUNT,
       balance,
       mint: SHIT_MINT,
-      treasury: TREASURY_ADDRESS,
+      pot: PLAY_POT_ADDRESS,
       blockhash: latest.value.blockhash,
     });
   } catch (e) {
