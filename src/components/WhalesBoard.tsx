@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { EmojiIcon } from "@/components/EmojiIcon";
 import {
+  displayWalletLabel,
   fmtHold,
   fmtTokenAmount,
   shortAddr,
@@ -19,6 +20,8 @@ type Holder = {
   amount: number;
   pctSupply: number;
   label: string | null;
+  domain?: string | null;
+  domainKind?: "sns" | "ans" | null;
   isYou: boolean;
   isTreasury: boolean;
   isPool: boolean;
@@ -36,6 +39,7 @@ type Board = {
   movements?: {
     owner: string;
     label: string | null;
+    domain?: string | null;
     delta: number;
     amount: number;
     pctSupply: number;
@@ -157,6 +161,12 @@ export default function WhalesBoard() {
           <ul className="divide-y divide-border">
             {movements.slice(0, 12).map((m) => {
               const up = m.delta > 0;
+              const title = displayWalletLabel({
+                owner: m.owner,
+                label: m.label,
+                domain: m.domain,
+              });
+              const portfolioHref = solnewPortfolio(m.domain || m.owner);
               return (
                 <li
                   key={m.owner}
@@ -171,17 +181,33 @@ export default function WhalesBoard() {
                     {fmtTokenAmount(m.delta)}
                   </span>
                   <div className="min-w-0 flex-1">
-                    <div className="font-medium text-white truncate">
-                      {m.label || shortAddr(m.owner, 6)}
-                    </div>
                     <a
-                      href={solnewPortfolio(m.owner)}
+                      href={portfolioHref}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-[11px] font-mono text-zinc-500 hover:text-neon-blue"
+                      className="font-medium text-white hover:text-neon truncate block"
+                      title={m.owner}
                     >
-                      {shortAddr(m.owner, 6)}
+                      {title}
                     </a>
+                    <div className="flex flex-wrap gap-x-2 gap-y-0.5 mt-0.5">
+                      <a
+                        href={portfolioHref}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[11px] font-mono text-neon-blue/80 hover:text-neon-blue"
+                      >
+                        sol.new
+                      </a>
+                      <a
+                        href={solscanAccount(m.owner)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[11px] font-mono text-zinc-500 hover:text-neon-blue"
+                      >
+                        {shortAddr(m.owner, 4)}
+                      </a>
+                    </div>
                   </div>
                   <span className="text-[11px] font-mono text-zinc-500 tabular-nums">
                     {m.pctSupply.toFixed(2)}%
@@ -228,7 +254,14 @@ export default function WhalesBoard() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/80">
-                {holders.map((h) => (
+                {holders.map((h) => {
+                  const title = displayWalletLabel({
+                    owner: h.owner,
+                    label: h.label,
+                    domain: h.domain,
+                  });
+                  const portfolioHref = solnewPortfolio(h.domain || h.owner);
+                  return (
                   <tr
                     key={h.owner}
                     className={`hover:bg-zinc-900/50 ${
@@ -245,13 +278,24 @@ export default function WhalesBoard() {
                     <td className="px-3 py-2.5 min-w-0">
                       <div className="flex flex-wrap items-center gap-1.5">
                         <a
-                          href={solnewPortfolio(h.owner)}
+                          href={portfolioHref}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="font-medium text-white hover:text-neon truncate max-w-[11rem] sm:max-w-none"
+                          className="font-medium text-white hover:text-neon truncate max-w-[14rem] sm:max-w-none"
+                          title={h.owner}
                         >
-                          {h.label || shortAddr(h.owner, 5)}
+                          {title}
                         </a>
+                        {h.domainKind === "sns" && (
+                          <span className="text-[9px] font-orbitron uppercase tracking-wider text-violet-200 bg-violet-500/20 rounded px-1.5 py-0.5">
+                            .sol
+                          </span>
+                        )}
+                        {h.domainKind === "ans" && (
+                          <span className="text-[9px] font-orbitron uppercase tracking-wider text-amber-200 bg-amber-500/20 rounded px-1.5 py-0.5">
+                            ans
+                          </span>
+                        )}
                         {h.isTreasury && (
                           <span className="text-[9px] font-orbitron uppercase tracking-wider text-sky-200 bg-sky-500/20 rounded px-1.5 py-0.5">
                             treasury
@@ -263,7 +307,15 @@ export default function WhalesBoard() {
                           </span>
                         )}
                       </div>
-                      <div className="flex gap-2 mt-0.5">
+                      <div className="flex flex-wrap gap-x-2 gap-y-0.5 mt-0.5">
+                        <a
+                          href={portfolioHref}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[10px] font-mono text-neon-blue/80 hover:text-neon-blue"
+                        >
+                          sol.new
+                        </a>
                         <a
                           href={solscanAccount(h.owner)}
                           target="_blank"
@@ -312,7 +364,8 @@ export default function WhalesBoard() {
                       )}
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
