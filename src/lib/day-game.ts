@@ -2,18 +2,7 @@
  * Hit / Shit of the Hour — stakes, snapshots, settlement.
  * Round key = UTC hour `YYYY-MM-DDTHH` (stored in day_* tables as utc_day).
  */
-import { apiFetch } from "@/lib/api";
 import { tursoExecute } from "@/lib/turso";
-import {
-  filterRealMajors,
-  rowAssetId,
-  rowLogo,
-  rowName,
-  rowPrice,
-  rowSymbol,
-  rowVolume24h,
-  type TrustishRow,
-} from "@/lib/majors-filter";
 import { pickWinnerWallet } from "@/lib/day-vrf";
 import { TREASURY_ADDRESS, PLAY_POT_ADDRESS } from "@/lib/shit-token";
 import { rpc } from "@/lib/treasury";
@@ -167,27 +156,25 @@ export type MajorSnap = {
   name: string;
   symbol: string;
   logo: string;
+  source?: string;
 };
 
+/**
+ * Live majors with multi-source USD prices.
+ * Universe/metadata: Tokens.xyz. Price truth: Jupiter → CoinGecko → Tokens.xyz fallback.
+ */
 export async function fetchRealMajorsLive(): Promise<MajorSnap[]> {
-  const data = await apiFetch(`/assets/curated?list=majors&groupBy=asset`);
-  const raw = (data?.assets || data?.results || []) as TrustishRow[];
-  const filtered = filterRealMajors(raw);
-  const out: MajorSnap[] = [];
-  for (const row of filtered) {
-    const assetId = rowAssetId(row);
-    const price = rowPrice(row);
-    if (!assetId || price == null) continue;
-    out.push({
-      assetId,
-      price,
-      volume24h: rowVolume24h(row),
-      name: rowName(row) || assetId,
-      symbol: rowSymbol(row) || "",
-      logo: rowLogo(row),
-    });
-  }
-  return out;
+  const { priceMajorsLive } = await import("@/lib/live-prices");
+  const priced = await priceMajorsLive();
+  return priced.map((m) => ({
+    assetId: m.assetId,
+    price: m.price,
+    volume24h: m.volume24h,
+    name: m.name,
+    symbol: m.symbol,
+    logo: m.logo,
+    source: m.source,
+  }));
 }
 
 export async function snapshotPrices(
@@ -658,8 +645,43 @@ export async function getLiveLeaders(utcHour: string): Promise<{
     openM = await loadPhase(utcHour, "open");
   }
 
-  const live = await fetchRealMajorsLive();
+  let live = await fetchRealMajorsLive();
   const liveById = new Map(live.map((m) => [m.assetId, m]));
+
+  // If open was frozen on stale Tokens.xyz prices (every move ≈ 0) but
+  // multi-source live has real divergence, re-baseline open once this hour.
+  if (openM.size > 0 && live.length > 0) {
+    let compared = 0;
+    let nearZero = 0;
+    let bigDiv = 0;
+    for (const [id, o] of openM) {
+      const L = liveById.get(id);
+      if (!L || o.price <= 0 || L.price <= 0) continue;
+      compared++;
+      const abs = Math.abs((L.price - o.price) / o.price) * 100;
+      if (abs < 0.03) nearZero++;
+      if (abs >= 0.08) bigDiv++;
+    }
+    // Stale open vs fresh Jupiter/CG: most tiles flat but several clearly moved
+    if (compared >= 5 && nearZero / compared >= 0.8 && bigDiv >= 3) {
+      const fresh = live.filter((m) => m.source && m.source !== "tokens.xyz");
+      if (fresh.length >= Math.min(5, Math.ceil(live.length * 0.35))) {
+        await tursoExecute(
+          `DELETE FROM day_prices WHERE utc_day = ? AND phase = 'open'`,
+          [utcHour]
+        );
+        await tursoExecute(
+          `UPDATE day_rounds SET open_snap_at = NULL WHERE utc_day = ?`,
+          [utcHour]
+        );
+        await snapshotPrices(utcHour, "open");
+        openM = await loadPhase(utcHour, "open");
+        live = await fetchRealMajorsLive();
+        liveById.clear();
+        for (const m of live) liveById.set(m.assetId, m);
+      }
+    }
+  }
 
   type Move = LiveLeader;
   const moves: Move[] = [];
