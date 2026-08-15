@@ -67,7 +67,7 @@ export default function ClaimPage() {
           </Link>
         </div>
 
-        <OnrampButton variant="full" amount="0.15" />
+        <OnrampButton variant="full" amount="0.3" />
 
         <div className="-mx-3 px-3 sm:mx-0 sm:px-0 overflow-x-auto no-scrollbar">
           <ul className="flex sm:flex-wrap gap-2 min-w-max sm:min-w-0 pb-1">

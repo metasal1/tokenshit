@@ -44,6 +44,17 @@ type Props = {
 const WSOL = "So11111111111111111111111111111111111111112";
 /** Leave this much SOL for rent / future fees after swap (lamports) */
 const DUST_LAMPORTS = 12_000_000; // 0.012 SOL
+/**
+ * MoonPay enforces a minimum SOL receive size (often ~0.25–0.3).
+ * Opening below that shows “Minimum order is X SOL” — always pad up.
+ */
+const MOONPAY_MIN_SOL = 0.3;
+
+function normalizeOnrampSol(raw?: string): string {
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n < MOONPAY_MIN_SOL) return String(MOONPAY_MIN_SOL);
+  return String(Math.round(n * 1000) / 1000);
+}
 
 function sleep(ms: number) {
   return new Promise((r) => setTimeout(r, ms));
@@ -54,12 +65,13 @@ function sleep(ms: number) {
  * MoonPay has no TOKENSHIT listing; this is the real “buy the token with card” path.
  */
 export default function OnrampButton({
-  amount = "0.2",
+  amount = "0.3",
   variant = "compact",
   className = "",
   label,
   autoSwap = true,
 }: Props) {
+  const solAmount = useMemo(() => normalizeOnrampSol(amount), [amount]);
   const { ready, authenticated, user } = usePrivy();
   const { safeLogin } = useSafeLogin();
   const { fundWallet } = useFundWallet();
@@ -255,7 +267,7 @@ export default function OnrampButton({
         address,
         options: {
           chain: "solana:mainnet",
-          amount: amount || "0.2",
+          amount: solAmount,
           asset: "native-currency",
           defaultFundingMethod: "card",
           card: {
@@ -263,7 +275,7 @@ export default function OnrampButton({
           },
           uiConfig: {
             receiveFundsTitle: `Buy $${SHIT_SYMBOL}`,
-            receiveFundsSubtitle: `Card → SOL → auto-swap to $${SHIT_SYMBOL}`,
+            receiveFundsSubtitle: `Card → SOL (min ~${MOONPAY_MIN_SOL}) → auto-swap to $${SHIT_SYMBOL}`,
           },
         },
       });

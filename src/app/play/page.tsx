@@ -57,7 +57,7 @@ export default function PlayPage() {
       </header>
 
       <div className="mb-3 max-w-md">
-        <OnrampButton variant="compact" amount="0.15" />
+        <OnrampButton variant="compact" amount="0.3" />
       </div>
 
       <DayGamePanel compactTitle dense />

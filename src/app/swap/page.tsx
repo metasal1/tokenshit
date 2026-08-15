@@ -38,7 +38,7 @@ export default function SwapPage() {
         </p>
       </header>
 
-      <OnrampButton variant="full" amount="0.2" />
+      <OnrampButton variant="full" amount="0.3" />
 
       <WalletAddressCard />
 
