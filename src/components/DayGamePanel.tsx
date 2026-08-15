@@ -20,6 +20,9 @@ import HourCelebrate, { useHourCelebrate } from "@/components/HourCelebrate";
 import { HOUR_PRODUCT } from "@/lib/hour-product";
 import { sfx } from "@/lib/sfx";
 
+/** Keep in sync with DAY_STAKE_AMOUNT in day-game (server). */
+const PLAY_STAKE = 1_000;
+
 type Major = {
   assetId: string;
   name: string;
@@ -136,6 +139,21 @@ async function fetchTransferTx(wallet: string): Promise<string> {
     throw new Error(data.error || "Could not build play transfer");
   }
   return data.transaction as string;
+}
+
+async function fetchShitBalance(wallet: string): Promise<number | null> {
+  try {
+    const r = await fetch(
+      `/api/wallet/balances?address=${encodeURIComponent(wallet)}`,
+      { cache: "no-store" }
+    );
+    if (!r.ok) return null;
+    const d = await r.json();
+    const n = Number(d.shit ?? d.tokenshit ?? d.balance);
+    return Number.isFinite(n) ? n : null;
+  } catch {
+    return null;
+  }
 }
 
 export default function DayGamePanel({
@@ -276,6 +294,13 @@ export default function DayGamePanel({
     if (bag) setSelected(bag);
     setBusy(true);
     try {
+      // Fast client check before wallet popup / auto-sign
+      const have = await fetchShitBalance(wallet);
+      if (have != null && have < PLAY_STAKE) {
+        throw new Error(
+          `Need ${PLAY_STAKE.toLocaleString()} $${SHIT_SYMBOL} to play (you have ${have.toLocaleString(undefined, { maximumFractionDigits: 2 })}). Claim or buy first.`
+        );
+      }
       const rawTx = await fetchTransferTx(wallet);
       const txBytes = b64ToBytes(rawTx);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
