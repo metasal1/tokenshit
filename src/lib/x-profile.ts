@@ -20,7 +20,7 @@ export type XProfileMetrics = {
   liveError?: string;
 };
 
-const CACHE_TTL_MS = 10 * 60 * 1000;
+const CACHE_TTL_MS = 45 * 60 * 1000;
 const g = globalThis as unknown as {
   __xProfileCache?: { at: number; data: XProfileMetrics };
 };

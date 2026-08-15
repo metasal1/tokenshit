@@ -104,7 +104,7 @@ export default function HeaderTicker() {
         });
     };
     const loadX = () => {
-      fetch("/api/x/profile?refresh=1", { cache: "no-store" })
+      fetch("/api/x/profile", { cache: "no-store" })
         .then((r) => r.json())
         .then((d) => {
           if (alive && typeof d.followers === "number" && d.followers > 0) {
@@ -142,7 +142,7 @@ export default function HeaderTicker() {
     const c = setInterval(loadUsers, 45_000);
     const d = setInterval(loadHolders, 120_000);
     const e = setInterval(loadTokens, 300_000);
-    const f = setInterval(loadX, 120_000);
+    const f = setInterval(loadX, 15 * 60_000);
 
     const onSignup = () => {
       setUsers((n) => (typeof n === "number" ? n + 1 : n));
