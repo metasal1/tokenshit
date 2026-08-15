@@ -18,6 +18,7 @@ import ShitBalanceBadge from '@/components/ShitBalanceBadge';
 import EmailSignupModal from '@/components/EmailSignupModal';
 import SignupGlitchToast from '@/components/SignupGlitchToast';
 import BetaScrollBanner from '@/components/BetaScrollBanner';
+import InAppBrowserBanner from '@/components/InAppBrowserBanner';
 import ClaimGlitchToast from '@/components/ClaimGlitchToast';
 import SettlementWitness from '@/components/SettlementWitness';
 import SafeLoginButton from '@/components/SafeLoginButton';
@@ -459,6 +460,7 @@ function Layout({ children }: { children: React.ReactNode }) {
   return (
     <CanvasShell>
       {nav}
+      <InAppBrowserBanner />
       <BetaScrollBanner />
       <SolanaFundingBootstrap />
       <SettlementWitness />
