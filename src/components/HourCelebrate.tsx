@@ -521,6 +521,15 @@ export function useHourCelebrate(opts: {
         if (tries >= 30) {
           setWaiting(false);
           clearInterval(poll);
+          try {
+            window.dispatchEvent(
+              new CustomEvent("tokenshit:settle-timeout", {
+                detail: { hour: closingHour },
+              })
+            );
+          } catch {
+            /* */
+          }
         }
       }, 4000);
     }, startWait);

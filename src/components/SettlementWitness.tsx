@@ -39,10 +39,21 @@ export default function SettlementWitness() {
     currentHour,
     enabled: true,
   });
+  const [timeoutHour, setTimeoutHour] = useState<string | null>(null);
+
+  useEffect(() => {
+    const onT = (e: Event) => {
+      const h = (e as CustomEvent).detail?.hour;
+      if (h) setTimeoutHour(String(h));
+    };
+    window.addEventListener("tokenshit:settle-timeout", onT);
+    return () => window.removeEventListener("tokenshit:settle-timeout", onT);
+  }, []);
 
   // Fanfare when settle overlay opens
   useEffect(() => {
     if (!payload) return;
+    setTimeoutHour(null);
     try {
       sfx.potUp();
       window.setTimeout(() => sfx.hit(), 400);
@@ -73,6 +84,38 @@ export default function SettlementWitness() {
             <p className="text-[11px] text-zinc-400 leading-snug">
               Everyone is watching · bags + prize distribution on-chain
             </p>
+          </div>
+        </div>
+      )}
+      {timeoutHour && !payload && !waiting && (
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[250] max-w-[min(92vw,28rem)] rounded-2xl border border-amber-500/40 bg-black/95 px-4 py-3 shadow-xl space-y-2">
+          <p className="text-sm font-bold text-amber-200">
+            Finalize delayed
+          </p>
+          <p className="text-[11px] text-zinc-400 leading-snug">
+            Hour {timeoutHour} is taking longer than usual. Check winners or
+            refresh — prizes may still land.
+          </p>
+          <div className="flex gap-2">
+            <a
+              href="/winners"
+              className="text-xs text-neon-blue hover:underline"
+            >
+              Winners
+            </a>
+            <a
+              href={`/play/${encodeURIComponent(timeoutHour)}`}
+              className="text-xs text-neon-blue hover:underline"
+            >
+              Receipt
+            </a>
+            <button
+              type="button"
+              className="text-xs text-zinc-500 ml-auto"
+              onClick={() => setTimeoutHour(null)}
+            >
+              Dismiss
+            </button>
           </div>
         </div>
       )}

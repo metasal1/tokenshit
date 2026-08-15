@@ -751,26 +751,18 @@ export async function settleDay(utcDay: string): Promise<{
     const { TREASURY_ADDRESS: house } = await import("@/lib/shit-token");
 
     // Stakes sit in play pot. Prize from pot → winner; house fee pot → SHTy treasury.
+    // IMPORTANT: never sweep "DB pot" amount if on-chain is lower / prizes unpaid.
     if (opts.tickets.length === 0 || prize <= 0 || !opts.bag) {
       toTreasury = true;
       prize = 0;
-      // empty round: move pot remainder to claims treasury if any
-      if (opts.pot > 0) {
-        try {
-          feeSig = (
-            await sendShitFromPlayPot(house, opts.pot)
-          ).signature;
-        } catch {
-          /* pot may already be empty */
-        }
-      }
+      // empty side: leave tokens for the other side's prize — do NOT sweep full DB pot
       return {
         winner: null,
         prize: 0,
-        fee: opts.pot,
+        fee: 0,
         prizeSig: null,
-        feeSig,
-        vrf: null,
+        feeSig: null,
+        vrf: { empty: true, reason: "no tickets or bag" },
         toTreasury: true,
       };
     }
@@ -800,25 +792,28 @@ export async function settleDay(utcDay: string): Promise<{
       if (fee > 0) {
         try {
           feeSig = (await sendShitFromPlayPot(house, fee)).signature;
-        } catch {
-          /* house fee best-effort — prize already paid */
+        } catch (fe) {
+          vrf = {
+            ...(vrf || {}),
+            feeError: fe instanceof Error ? fe.message : String(fe),
+          };
         }
       }
     } catch (e) {
-      // fail → leave funds in pot / try sweep to treasury
-      toTreasury = true;
+      // fail → do NOT destroy pot; leave for manual retry
+      toTreasury = false;
       vrf = {
         error: e instanceof Error ? e.message : String(e),
       };
-      prize = 0;
+      // keep winner if draw succeeded before pay fail
       return {
-        winner: null,
-        prize: 0,
-        fee: opts.pot,
+        winner,
+        prize: winner ? prize : 0,
+        fee,
         prizeSig: null,
         feeSig,
         vrf,
-        toTreasury: true,
+        toTreasury: false,
       };
     }
 
