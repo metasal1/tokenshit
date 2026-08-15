@@ -168,6 +168,7 @@ export default function DayGamePanel({
   const [err, setErr] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
   const [tick, setTick] = useState(0);
+  const [mounted, setMounted] = useState(false);
 
   const celebrate = useHourCelebrate({
     nextCloseAt: status?.nextCloseAt,
@@ -183,6 +184,7 @@ export default function DayGamePanel({
   }, []);
 
   useEffect(() => {
+    setMounted(true);
     load();
     const a = setInterval(load, 20_000);
     const b = setInterval(() => setTick((t) => t + 1), 1000);
@@ -193,11 +195,11 @@ export default function DayGamePanel({
   }, [load]);
 
   const countdown = useMemo(() => {
-    if (!status?.nextCloseAt) return "—";
+    if (!mounted || !status?.nextCloseAt) return "—:—:—";
     const ms = Date.parse(status.nextCloseAt) - Date.now();
     return fmtCountdown(ms);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status?.nextCloseAt, tick]);
+  }, [status?.nextCloseAt, tick, mounted]);
 
   const filtered = useMemo(() => {
     const list = status?.majors || [];
