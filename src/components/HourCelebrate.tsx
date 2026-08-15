@@ -283,7 +283,7 @@ export default function HourCelebrate({
       `🎯 HIT ${sym(hit.symbol)} ${fmtPct(hit.pct)} → ${who(hit.winner, hit.prize)}${prizeBit(hit.winner, hit.prize)}`,
       `💀 SHIT ${sym(shit.symbol)} ${fmtPct(shit.pct)} → ${who(shit.winner, shit.prize)}${prizeBit(shit.winner, shit.prize)}`,
       ``,
-      `Play the next hour → https://tokenshit.com/wallets`,
+      `Wallets + payouts → https://tokenshit.com/wallets`,
     ];
     return lines.join("\n");
   }, [payload]);

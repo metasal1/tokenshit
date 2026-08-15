@@ -24,6 +24,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     row("/memes", 0.8, "daily"),
     row("/stats", 0.75, "daily"),
     row("/winners", 0.7, "hourly"),
+    row("/wallets", 0.72, "hourly"),
     row("/referrals", 0.7, "weekly"),
     row("/seeker", 0.75, "weekly"),
     row("/terms", 0.5, "monthly"),
