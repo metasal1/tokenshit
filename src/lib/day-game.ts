@@ -195,39 +195,81 @@ export async function snapshotPrices(
   phase: "open" | "close"
 ): Promise<number> {
   await ensureRound(utcDay);
+
+  // OPEN must freeze once: re-running hourly must NOT overwrite hour baseline
+  // (that made every live % read as 0 forever).
+  if (phase === "open") {
+    const existing = await tursoExecute(
+      `SELECT COUNT(*) FROM day_prices WHERE utc_day = ? AND phase = 'open'`,
+      [utcDay]
+    );
+    const n = Number(existing.rows[0]?.[0] || 0);
+    if (n > 0) {
+      return n;
+    }
+  }
+
   const majors = await fetchRealMajorsLive();
   const now = new Date().toISOString();
   for (const m of majors) {
-    await tursoExecute(
-      `INSERT INTO day_prices
-        (utc_day, phase, asset_id, price, volume24h, name, symbol, logo, snapped_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-       ON CONFLICT(utc_day, phase, asset_id) DO UPDATE SET
-         price = excluded.price,
-         volume24h = excluded.volume24h,
-         name = excluded.name,
-         symbol = excluded.symbol,
-         logo = excluded.logo,
-         snapped_at = excluded.snapped_at`,
-      [
-        utcDay,
-        phase,
-        m.assetId,
-        // Turso bindings: pass decimals as strings
-        String(m.price),
-        String(m.volume24h),
-        m.name,
-        m.symbol,
-        m.logo,
-        now,
-      ]
-    );
+    if (phase === "open") {
+      // Insert-only for open — never clobber baseline
+      await tursoExecute(
+        `INSERT INTO day_prices
+          (utc_day, phase, asset_id, price, volume24h, name, symbol, logo, snapped_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(utc_day, phase, asset_id) DO NOTHING`,
+        [
+          utcDay,
+          phase,
+          m.assetId,
+          Number(m.price),
+          Number(m.volume24h) || 0,
+          m.name,
+          m.symbol,
+          m.logo,
+          now,
+        ]
+      );
+    } else {
+      await tursoExecute(
+        `INSERT INTO day_prices
+          (utc_day, phase, asset_id, price, volume24h, name, symbol, logo, snapped_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(utc_day, phase, asset_id) DO UPDATE SET
+           price = excluded.price,
+           volume24h = excluded.volume24h,
+           name = excluded.name,
+           symbol = excluded.symbol,
+           logo = excluded.logo,
+           snapped_at = excluded.snapped_at`,
+        [
+          utcDay,
+          phase,
+          m.assetId,
+          Number(m.price),
+          Number(m.volume24h) || 0,
+          m.name,
+          m.symbol,
+          m.logo,
+          now,
+        ]
+      );
+    }
   }
   const col = phase === "open" ? "open_snap_at" : "close_snap_at";
-  await tursoExecute(
-    `UPDATE day_rounds SET ${col} = ? WHERE utc_day = ?`,
-    [now, utcDay]
-  );
+  if (phase === "open") {
+    // Only set open_snap_at if still null
+    await tursoExecute(
+      `UPDATE day_rounds SET open_snap_at = COALESCE(open_snap_at, ?) WHERE utc_day = ?`,
+      [now, utcDay]
+    );
+  } else {
+    await tursoExecute(
+      `UPDATE day_rounds SET ${col} = ? WHERE utc_day = ?`,
+      [now, utcDay]
+    );
+  }
   return majors.length;
 }
 
