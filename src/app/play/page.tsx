@@ -14,7 +14,7 @@ export const metadata: Metadata = pageMeta({
 });
 
 /**
- * Canonical play page — $SHIT OF THE DAY
+ * Canonical play page — $HIT OF THE DAY
  * Dense layout: fits desktop + mobile with minimal page scroll.
  */
 export default function PlayPage() {

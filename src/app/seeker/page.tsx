@@ -6,7 +6,7 @@ import { EmojiIcon } from "@/components/EmojiIcon";
 export const metadata: Metadata = pageMeta({
   title: "Seeker",
   description:
-    "TOKEN$HIT on Solana Seeker — install, play $SHIT OF THE DAY, vote, claim.",
+    "TOKEN$HIT on Solana Seeker — install, play $HIT OF THE DAY, vote, claim.",
   path: "/seeker",
 });
 
@@ -36,7 +36,7 @@ const STEPS = [
   {
     n: "5",
     t: "Play",
-    d: "$SHIT OF THE DAY on /play — 1k $TOKENSHIT · HIT or SHIT · hourly UTC.",
+    d: "$HIT OF THE DAY on /play — 1k $TOKENSHIT · HIT or SHIT · hourly UTC.",
   },
 ];
 
@@ -61,7 +61,7 @@ export default function SeekerPage() {
 
       <div className="grid gap-2 sm:grid-cols-3">
         {[
-          { href: "/play", label: "Play", sub: "$SHIT OF THE DAY" },
+          { href: "/play", label: "Play", sub: "$HIT OF THE DAY" },
           { href: "/claim", label: "Claim", sub: "Rewards" },
           { href: "/swap", label: "Swap", sub: "Buy $TOKENSHIT" },
         ].map((x) => (

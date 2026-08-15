@@ -55,7 +55,7 @@ export const defaultMetadata: Metadata = {
     template: "%s · TOKEN$HIT",
   },
   description:
-    "Every token is shit until proven otherwise. Play $SHIT OF THE DAY, vote HIT or SHIT on Solana assets, claim rewards, swap $TOKENSHIT.",
+    "Every token is shit until proven otherwise. Play $HIT OF THE DAY, vote HIT or SHIT on Solana assets, claim rewards, swap $TOKENSHIT.",
   applicationName: "TOKEN$HIT",
   authors: [{ name: "TOKEN$HIT", url: SITE }],
   creator: "@Tokenshit_",
@@ -77,7 +77,7 @@ export const defaultMetadata: Metadata = {
     siteName: "TOKEN$HIT",
     title: "TOKEN$HIT — Every token is shit until proven otherwise",
     description:
-      "Play $SHIT OF THE DAY. Vote HIT or SHIT on real Solana assets. Claim, swap, whales.",
+      "Play $HIT OF THE DAY. Vote HIT or SHIT on real Solana assets. Claim, swap, whales.",
     images: [SITE_OG],
   },
   twitter: {
@@ -86,7 +86,7 @@ export const defaultMetadata: Metadata = {
     creator: "@Tokenshit_",
     title: "TOKEN$HIT — Every token is shit until proven otherwise",
     description:
-      "Play $SHIT OF THE DAY. Vote HIT or SHIT on real Solana assets.",
+      "Play $HIT OF THE DAY. Vote HIT or SHIT on real Solana assets.",
     images: [OG],
   },
   icons: {

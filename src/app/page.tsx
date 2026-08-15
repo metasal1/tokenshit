@@ -24,7 +24,7 @@ export const metadata: Metadata = {
   ...pageMeta({
     title: "TOKEN$HIT — Every token is shit until proven otherwise",
     description:
-      "Play $SHIT OF THE DAY, vote HIT or SHIT on Solana assets, claim rewards, swap $TOKENSHIT.",
+      "Play $HIT OF THE DAY, vote HIT or SHIT on Solana assets, claim rewards, swap $TOKENSHIT.",
     path: "/",
     og: "home",
   }),
