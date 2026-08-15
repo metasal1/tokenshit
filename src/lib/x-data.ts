@@ -1,14 +1,23 @@
 /**
  * X/Twitter public data for claims.
- * Order: official X API → TweetAPI → free fxtwitter/vxtwitter.
+ * Cost order: memory → Turso → free fxtwitter → twitterapi.io → TweetAPI → official X (last).
  * Never dump raw API JSON to UI.
  */
+import { tursoExecute } from "@/lib/turso";
 
 const TWEETAPI_BASE = "https://api.tweetapi.com/tw-v2";
-/** twitterapi.io — primary paid fallback (X-API-Key header) */
+/** twitterapi.io — primary paid source (X-API-Key header) */
 const TWITTERAPI_IO_BASE = "https://api.twitterapi.io";
 const TOKENSHIT_ID = process.env.X_TOKENSHIT_USER_ID || "2037761105359986688";
 const TOKENSHIT_USER = "tokenshit_";
+
+/** Skip burning official X credits when recently 402/depleted */
+let officialXCooldownUntil = 0;
+
+const PROFILE_CACHE_MS = 30 * 60 * 1000; // in-memory per isolate
+const TURSO_OK_TTL_MS = 6 * 60 * 60 * 1000; // durable success
+const TURSO_FAIL_TTL_MS = 20 * 60 * 1000; // durable soft-fail
+const OFFICIAL_COOLDOWN_MS = 2 * 60 * 60 * 1000;
 
 function xBearer(): string {
   return (
@@ -163,6 +172,18 @@ function withProfileFlags(u: {
 }
 
 async function fromOfficialX(username: string): Promise<any> {
+  if (Date.now() < officialXCooldownUntil) {
+    return {
+      ok: false,
+      followers: 0,
+      following: 0,
+      tweets: 0,
+      verified: false,
+      verifiedType: "none",
+      error: "official X on cooldown (credits/rate)",
+      source: "x-official",
+    };
+  }
   const bearer = xBearer();
   if (!bearer) return null;
   const clean = username.replace(/^@/, "").trim();
@@ -179,6 +200,7 @@ async function fromOfficialX(username: string): Promise<any> {
     const t = await res.text();
     // 402 etc — signal caller to try backup
     if (res.status === 402 || res.status === 429 || res.status === 401) {
+      officialXCooldownUntil = Date.now() + OFFICIAL_COOLDOWN_MS;
       return { ok: false, followers: 0, following: 0, tweets: 0, verified: false, verifiedType: "none", error: formatXApiError(res.status, t), source: "x-official" };
     }
     return {
@@ -373,7 +395,68 @@ async function fromFxTwitter(username: string): Promise<any> {
 }
 
 const profileCache = new Map<string, { at: number; val: XUserPublic }>();
-const PROFILE_CACHE_MS = 5 * 60 * 1000;
+
+let userLookupSchemaReady = false;
+async function ensureUserLookupSchema() {
+  if (userLookupSchemaReady) return;
+  try {
+    await tursoExecute(
+      `CREATE TABLE IF NOT EXISTS x_user_lookup_cache (
+        username TEXT PRIMARY KEY,
+        payload TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      )`,
+      []
+    );
+    userLookupSchemaReady = true;
+  } catch {
+    /* turso optional at edge cold start */
+  }
+}
+
+async function readTursoUser(username: string): Promise<XUserPublic | null> {
+  try {
+    await ensureUserLookupSchema();
+    const r = await tursoExecute(
+      `SELECT payload, updated_at FROM x_user_lookup_cache WHERE username = ? LIMIT 1`,
+      [username.toLowerCase()]
+    );
+    if (!r.rows.length) return null;
+    const payload = String(r.rows[0][0] || "");
+    const updatedAt = String(r.rows[0][1] || "");
+    const at = Date.parse(updatedAt.includes("T") ? updatedAt : updatedAt.replace(" ", "T") + "Z");
+    if (!Number.isFinite(at)) return null;
+    const val = JSON.parse(payload) as XUserPublic;
+    const ttl = val.ok ? TURSO_OK_TTL_MS : TURSO_FAIL_TTL_MS;
+    if (Date.now() - at > ttl) return null;
+    return { ...val, source: val.source ? `${val.source}+cache` : "cache" };
+  } catch {
+    return null;
+  }
+}
+
+async function writeTursoUser(username: string, val: XUserPublic) {
+  try {
+    await ensureUserLookupSchema();
+    await tursoExecute(
+      `INSERT INTO x_user_lookup_cache (username, payload, updated_at)
+       VALUES (?, ?, ?)
+       ON CONFLICT(username) DO UPDATE SET
+         payload = excluded.payload,
+         updated_at = excluded.updated_at`,
+      [username.toLowerCase(), JSON.stringify(val), new Date().toISOString()]
+    );
+  } catch {
+    /* ignore */
+  }
+}
+
+function remember(username: string, val: XUserPublic): XUserPublic {
+  const key = username.toLowerCase();
+  profileCache.set(key, { at: Date.now(), val });
+  void writeTursoUser(key, val);
+  return val;
+}
 
 export async function fetchXUserPublic(username: string): Promise<XUserPublic> {
   const clean = username.replace(/^@/, "").trim();
@@ -389,41 +472,53 @@ export async function fetchXUserPublic(username: string): Promise<XUserPublic> {
     });
   }
 
-  const hit = profileCache.get(clean.toLowerCase());
+  const key = clean.toLowerCase();
+  const hit = profileCache.get(key);
   if (hit && Date.now() - hit.at < PROFILE_CACHE_MS) {
     return hit.val;
   }
 
-  const official = await fromOfficialX(clean);
-  if (official?.ok) {
-    const v = withProfileFlags(official);
-    profileCache.set(clean.toLowerCase(), { at: Date.now(), val: v });
-    return v;
+  const cached = await readTursoUser(key);
+  if (cached) {
+    profileCache.set(key, { at: Date.now(), val: cached });
+    return cached;
   }
 
+  // 1) Free first — covers most ≥100 follower gates
+  const fx = await fromFxTwitter(clean);
+  if (fx?.ok && Number(fx.followers) > 0) {
+    return remember(key, withProfileFlags(fx));
+  }
+
+  // 2) twitterapi.io (paid, reliable)
   const io = await fromTwitterApiIoUser(clean);
   if (io?.ok) {
-    const v = withProfileFlags(io);
-    profileCache.set(clean.toLowerCase(), { at: Date.now(), val: v });
-    return v;
+    return remember(key, withProfileFlags(io));
   }
 
+  // 3) TweetAPI.com
   const ta = await fromTweetApiUser(clean);
   if (ta?.ok) {
-    const v = withProfileFlags(ta);
-    profileCache.set(clean.toLowerCase(), { at: Date.now(), val: v });
-    return v;
+    return remember(key, withProfileFlags(ta));
   }
 
-  const fx = await fromFxTwitter(clean);
+  // 4) Official X last (credits often depleted) — cooldown after 402/429
+  const official = await fromOfficialX(clean);
+  if (official?.ok) {
+    return remember(key, withProfileFlags(official));
+  }
+
+  // Prefer free zero-follower success over hard fail when user exists
   if (fx?.ok) {
-    const v = withProfileFlags(fx);
-    profileCache.set(clean.toLowerCase(), { at: Date.now(), val: v });
-    return v;
+    return remember(key, withProfileFlags(fx));
   }
 
-  const fail = io || ta || official;
-  if (fail) return withProfileFlags(fail);
+  const fail = io || ta || official || fx;
+  if (fail) {
+    const v = withProfileFlags(fail);
+    // cache failures briefly to stop claim spam hammering APIs
+    return remember(key, v);
+  }
   return withProfileFlags({
     ok: false,
     followers: 0,
@@ -431,7 +526,7 @@ export async function fetchXUserPublic(username: string): Promise<XUserPublic> {
     tweets: 0,
     verified: false,
     verifiedType: "none",
-    error: "Could not load X profile (X credits + twitterapi.io + fallbacks failed)",
+    error: "Could not load X profile (cache + free + paid sources failed)",
   });
 }
 
@@ -459,6 +554,12 @@ export async function checkXVerified(username: string): Promise<{
 }
 
 /** Does sourceUser follow @Tokenshit_? */
+const followCache = new Map<
+  string,
+  { at: number; val: { ok: boolean; following: boolean; error?: string; source?: string } }
+>();
+const FOLLOW_CACHE_MS = 30 * 60 * 1000;
+
 export async function checkXFollowsTokenshit(username: string): Promise<{
   ok: boolean;
   following: boolean;
@@ -467,6 +568,22 @@ export async function checkXFollowsTokenshit(username: string): Promise<{
 }> {
   const user = username.replace(/^@/, "").trim();
   if (!user) return { ok: false, following: false, error: "no username" };
+
+  const fk = user.toLowerCase();
+  const fc = followCache.get(fk);
+  if (fc && Date.now() - fc.at < FOLLOW_CACHE_MS) {
+    return { ...fc.val, source: (fc.val.source || "cache") + "+mem" };
+  }
+
+  const rememberFollow = (val: {
+    ok: boolean;
+    following: boolean;
+    error?: string;
+    source?: string;
+  }) => {
+    followCache.set(fk, { at: Date.now(), val });
+    return val;
+  };
 
   // 1) twitterapi.io relationship (cheap + works with new key)
   const ioKey = twitterApiIoKey();
@@ -489,11 +606,11 @@ export async function checkXFollowsTokenshit(username: string): Promise<{
           msg?: string;
         };
         if (json.status === "success" && json.data) {
-          return {
+          return rememberFollow({
             ok: true,
             following: Boolean(json.data.following),
             source: "twitterapi.io",
-          };
+          });
         }
       }
     } catch {
@@ -518,16 +635,20 @@ export async function checkXFollowsTokenshit(username: string): Promise<{
           return h === TOKENSHIT_USER || String(u.id || "") === TOKENSHIT_ID;
         });
         if (following) {
-          return { ok: true, following: true, source: "twitterapi.io-followings" };
+          return rememberFollow({
+            ok: true,
+            following: true,
+            source: "twitterapi.io-followings",
+          });
         }
         // If we got a list and Tokenshit_ not in first page, still could be further —
         // but check_follow_relationship is authoritative when it works.
         if (list.length > 0) {
-          return {
+          return rememberFollow({
             ok: true,
             following: false,
             source: "twitterapi.io-followings",
-          };
+          });
         }
       }
     } catch {
@@ -538,11 +659,11 @@ export async function checkXFollowsTokenshit(username: string): Promise<{
   // Resolve source id for legacy providers
   const profile = await fetchXUserPublic(user);
   if (!profile.ok || !profile.id) {
-    return {
+    return rememberFollow({
       ok: false,
       following: false,
       error: profile.error || "user not found",
-    };
+    });
   }
 
   // TweetAPI friendship (legacy)
@@ -559,22 +680,23 @@ export async function checkXFollowsTokenshit(username: string): Promise<{
       if (res.ok) {
         const json = await res.json();
         const d = json.data || json;
-        return {
+        return rememberFollow({
           ok: true,
           following: Boolean(d.following),
           source: "tweetapi",
-        };
+        });
       }
     } catch {
       /* fall through */
     }
   }
 
-  // Official following pages (expensive / often 402)
+  // Official following pages are expensive (up to 3k follows) — skip if cooldown
   const bearer = xBearer();
-  if (bearer) {
+  if (bearer && Date.now() >= officialXCooldownUntil) {
     let next: string | null = null;
-    for (let page = 0; page < 3; page++) {
+    for (let page = 0; page < 1; page++) {
+      // single page max — was 3 pages and burned credits
       const url = new URL(
         `https://api.x.com/2/users/${profile.id}/following`
       );
@@ -585,7 +707,12 @@ export async function checkXFollowsTokenshit(username: string): Promise<{
         headers: { Authorization: `Bearer ${bearer}` },
         cache: "no-store",
       });
-      if (!fRes.ok) break;
+      if (!fRes.ok) {
+        if (fRes.status === 402 || fRes.status === 429 || fRes.status === 401) {
+          officialXCooldownUntil = Date.now() + OFFICIAL_COOLDOWN_MS;
+        }
+        break;
+      }
       const fJson = await fRes.json();
       const list = (fJson.data || []) as { id: string; username?: string }[];
       const following = list.some(
@@ -593,18 +720,18 @@ export async function checkXFollowsTokenshit(username: string): Promise<{
           u.id === TOKENSHIT_ID ||
           (u.username || "").toLowerCase() === TOKENSHIT_USER
       );
-      if (following) return { ok: true, following: true, source: "x-official" };
-      next = (fJson.meta?.next_token as string) || null;
-      if (!next) break;
+      if (following)
+        return rememberFollow({ ok: true, following: true, source: "x-official" });
+      break;
     }
   }
 
-  return {
+  return rememberFollow({
     ok: false,
     following: false,
     error:
       "Could not verify follow. Try again in a few seconds, or ensure you follow @Tokenshit_.",
-  };
+  });
 }
 
 function normalizeXHandle(raw: string | undefined | null): string {

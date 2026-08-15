@@ -33,7 +33,7 @@ export default function XFollowersBadge({
 
   useEffect(() => {
     let alive = true;
-    fetch("/api/x/profile?refresh=1")
+    fetch("/api/x/profile")
       .then((r) => r.json())
       .then((d) => {
         if (!alive || d.error) return;
