@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePrivy } from "@privy-io/react-auth";
 import {
   useWallets,
@@ -73,11 +73,6 @@ type DayStatus = {
   majors: Major[];
   majorsCount: number;
 };
-
-function fmtPct(n: number) {
-  const s = n >= 0 ? `+${n.toFixed(2)}` : n.toFixed(2);
-  return `${s}%`;
-}
 
 function TokenMark({
   logo,
@@ -204,18 +199,19 @@ export default function DayGamePanel({
   const filtered = useMemo(() => {
     const list = status?.majors || [];
     const s = q.trim().toLowerCase();
-    if (!s) return list.slice(0, 50);
-    return list
-      .filter(
-        (m) =>
-          m.symbol.toLowerCase().includes(s) ||
-          m.name.toLowerCase().includes(s) ||
-          m.assetId.toLowerCase().includes(s)
-      )
-      .slice(0, 50);
+    if (!s) return list; // show ALL icons
+    return list.filter(
+      (m) =>
+        m.symbol.toLowerCase().includes(s) ||
+        m.name.toLowerCase().includes(s) ||
+        m.assetId.toLowerCase().includes(s)
+    );
   }, [status?.majors, q]);
 
-  async function play() {
+  const lastTap = useRef<{ id: string; t: number } | null>(null);
+
+  async function play(bag?: Major | null) {
+    const pick = bag ?? selected;
     setErr(null);
     setMsg(null);
     if (!authenticated) {
@@ -226,10 +222,11 @@ export default function DayGamePanel({
       setErr("Need a Solana wallet linked to X");
       return;
     }
-    if (!selected) {
-      setErr("Pick a bag first");
+    if (!pick) {
+      setErr("Tap a bag (double-tap to play!)");
       return;
     }
+    if (bag) setSelected(bag);
     setBusy(true);
     try {
       const rawTx = await fetchTransferTx(wallet);
@@ -248,7 +245,7 @@ export default function DayGamePanel({
           sponsor: true,
           uiOptions: {
             showWalletUIs: true,
-            description: `Play 1,000 $${SHIT_SYMBOL} · ${side.toUpperCase()} ${selected.symbol || selected.name}`,
+            description: `Play 1,000 $${SHIT_SYMBOL} · ${side.toUpperCase()} ${pick.symbol || pick.name}`,
           },
         },
       });
@@ -270,7 +267,7 @@ export default function DayGamePanel({
         },
         body: JSON.stringify({
           wallet,
-          assetId: selected.assetId,
+          assetId: pick.assetId,
           side,
           signature,
           accessToken: token,
@@ -279,7 +276,7 @@ export default function DayGamePanel({
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Play failed");
       setMsg(
-        `In · ${side.toUpperCase()} ${selected.symbol || selected.name} · pot ${fmt(
+        `In · ${side.toUpperCase()} ${pick.symbol || pick.name} · pot ${fmt(
           side === "hit" ? data.hitPot : data.shitPot
         )}`
       );
@@ -289,6 +286,20 @@ export default function DayGamePanel({
     } finally {
       setBusy(false);
     }
+  }
+
+  /** Single tap = select. Double tap / double-click = select + play. */
+  function onBagTap(m: Major) {
+    const now = Date.now();
+    const prev = lastTap.current;
+    setSelected(m);
+    setErr(null);
+    if (prev && prev.id === m.assetId && now - prev.t < 380) {
+      lastTap.current = null;
+      void play(m);
+      return;
+    }
+    lastTap.current = { id: m.assetId, t: now };
   }
 
   if (!ready || !status) {
@@ -303,15 +314,13 @@ export default function DayGamePanel({
 
   const hitPot = status.round?.hitPot || 0;
   const shitPot = status.round?.shitPot || 0;
-  const hitting = status.leaders?.hitting;
-  const shitting = status.leaders?.shitting;
 
   const cta = busy
     ? "Confirming…"
     : !authenticated
       ? "Login to play"
       : !selected
-        ? "1 · Pick a bag below"
+        ? "Double-tap a bag ↓"
         : `Play 1,000 · ${side.toUpperCase()} ${selected.symbol || selected.name}`;
 
   return (
@@ -321,7 +330,6 @@ export default function DayGamePanel({
           dense ? "p-3.5 sm:p-4" : "p-4 sm:p-5"
         } space-y-4`}
       >
-        {/* Header */}
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             {!compactTitle ? (
@@ -339,7 +347,7 @@ export default function DayGamePanel({
               </h2>
             )}
             <p className="text-[11px] text-zinc-500 mt-1">
-              Pick HIT or SHIT on a major · winner takes pot · hourly UTC
+              HIT or SHIT · double-tap a bag to play · hourly UTC
             </p>
           </div>
           <div className="text-right shrink-0">
@@ -352,7 +360,6 @@ export default function DayGamePanel({
           </div>
         </div>
 
-        {/* Pots — one simple row */}
         <div className="flex items-center gap-2 rounded-xl border border-zinc-800 bg-zinc-950/60 px-3 py-2.5">
           <div className="flex-1 min-w-0">
             <div className="text-[10px] font-orbitron uppercase tracking-wider text-green-400/90 flex items-center gap-1">
@@ -373,130 +380,78 @@ export default function DayGamePanel({
           </div>
         </div>
 
-        {/* Live leaders — one tap line, not 4 cards */}
-        {(hitting || shitting) && (
-          <div className="flex flex-wrap gap-2">
-            {hitting && (
-              <button
-                type="button"
-                onClick={() => {
-                  setSide("hit");
-                  setSelected({
-                    assetId: hitting.assetId,
-                    name: hitting.name,
-                    symbol: hitting.symbol,
-                    logo: hitting.logo,
-                    price: hitting.price,
-                  });
-                  setErr(null);
-                }}
-                className="cursor-hit inline-flex items-center gap-2 rounded-full border border-green-500/35 bg-green-950/30 pl-1.5 pr-3 py-1 text-xs text-green-200 hover:border-green-400/60 transition"
-              >
-                <TokenMark logo={hitting.logo} symbol={hitting.symbol} size={22} />
-                <span className="font-semibold">{hitting.symbol || hitting.name}</span>
-                <span className="text-green-400 font-mono">{fmtPct(hitting.pct)}</span>
-                <span className="text-green-600 text-[10px] font-orbitron">HIT</span>
-              </button>
-            )}
-            {shitting && (
-              <button
-                type="button"
-                onClick={() => {
-                  setSide("shit");
-                  setSelected({
-                    assetId: shitting.assetId,
-                    name: shitting.name,
-                    symbol: shitting.symbol,
-                    logo: shitting.logo,
-                    price: shitting.price,
-                  });
-                  setErr(null);
-                }}
-                className="cursor-shit inline-flex items-center gap-2 rounded-full border border-red-500/35 bg-red-950/30 pl-1.5 pr-3 py-1 text-xs text-red-200 hover:border-red-400/60 transition"
-              >
-                <TokenMark logo={shitting.logo} symbol={shitting.symbol} size={22} />
-                <span className="font-semibold">{shitting.symbol || shitting.name}</span>
-                <span className="text-red-400 font-mono">{fmtPct(shitting.pct)}</span>
-                <span className="text-red-600 text-[10px] font-orbitron">SHIT</span>
-              </button>
-            )}
-          </div>
-        )}
-
-        {/* Step 1 — side */}
-        <div>
-          <p className="text-[10px] font-orbitron uppercase tracking-[0.16em] text-zinc-500 mb-2">
-            1 · Side
-          </p>
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              type="button"
-              onClick={() => setSide("hit")}
-              className={`cursor-hit min-h-12 rounded-xl font-bold text-sm border-2 inline-flex items-center justify-center gap-2 font-orbitron tracking-wide transition ${
-                side === "hit"
-                  ? "border-green-500 bg-green-900/45 text-green-200 shadow-[0_0_20px_rgba(34,197,94,0.15)]"
-                  : "border-zinc-800 text-zinc-500 hover:border-zinc-600"
-              }`}
-            >
-              <EmojiIcon size={18}>🎯</EmojiIcon>
-              HIT
-            </button>
-            <button
-              type="button"
-              onClick={() => setSide("shit")}
-              className={`cursor-shit min-h-12 rounded-xl font-bold text-sm border-2 inline-flex items-center justify-center gap-2 font-orbitron tracking-wide transition ${
-                side === "shit"
-                  ? "border-red-500 bg-red-900/45 text-red-200 shadow-[0_0_20px_rgba(239,68,68,0.12)]"
-                  : "border-zinc-800 text-zinc-500 hover:border-zinc-600"
-              }`}
-            >
-              <EmojiIcon size={18}>💀</EmojiIcon>
-              SHIT
-            </button>
-          </div>
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={() => setSide("hit")}
+            className={`cursor-hit min-h-14 rounded-2xl font-bold text-base border-2 inline-flex flex-col items-center justify-center gap-0.5 font-orbitron tracking-wide transition active:scale-[0.97] ${
+              side === "hit"
+                ? "border-green-400 bg-green-900/50 text-green-100 shadow-[0_0_28px_rgba(34,197,94,0.25)] scale-[1.02]"
+                : "border-zinc-800 text-zinc-500 hover:border-zinc-600"
+            }`}
+          >
+            <EmojiIcon size={22}>🎯</EmojiIcon>
+            HIT
+          </button>
+          <button
+            type="button"
+            onClick={() => setSide("shit")}
+            className={`cursor-shit min-h-14 rounded-2xl font-bold text-base border-2 inline-flex flex-col items-center justify-center gap-0.5 font-orbitron tracking-wide transition active:scale-[0.97] ${
+              side === "shit"
+                ? "border-red-400 bg-red-900/50 text-red-100 shadow-[0_0_28px_rgba(239,68,68,0.22)] scale-[1.02]"
+                : "border-zinc-800 text-zinc-500 hover:border-zinc-600"
+            }`}
+          >
+            <EmojiIcon size={22}>💀</EmojiIcon>
+            SHIT
+          </button>
         </div>
 
-        {/* Step 2 — bag */}
         <div>
-          <p className="text-[10px] font-orbitron uppercase tracking-[0.16em] text-zinc-500 mb-2">
-            2 · Bag
-          </p>
+          <div className="flex items-center justify-between gap-2 mb-2">
+            <p className="text-[10px] font-orbitron uppercase tracking-[0.16em] text-zinc-500">
+              Bags · tap once · double-tap play
+            </p>
+            <span className="text-[10px] font-mono text-zinc-600">
+              {filtered.length}
+              {status.majorsCount ? `/${status.majorsCount}` : ""}
+            </span>
+          </div>
+
           {selected && (
             <div
               className={`mb-2 flex items-center gap-2.5 rounded-xl border px-3 py-2 ${
                 side === "hit"
-                  ? "border-green-500/40 bg-green-950/30"
-                  : "border-red-500/40 bg-red-950/30"
+                  ? "border-green-400/50 bg-green-950/40"
+                  : "border-red-400/50 bg-red-950/40"
               }`}
             >
-              <TokenMark logo={selected.logo} symbol={selected.symbol} size={32} />
+              <TokenMark logo={selected.logo} symbol={selected.symbol} size={36} />
               <div className="min-w-0 flex-1">
                 <div className="text-sm font-bold text-white truncate">
                   {selected.symbol || selected.name}
                 </div>
                 <div className="text-[10px] text-zinc-500 font-orbitron uppercase tracking-wider">
-                  Selected · {side}
+                  {side} · double-tap again or hit Play
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={() => setSelected(null)}
-                className="text-[11px] text-zinc-500 hover:text-white px-2 py-1"
-              >
-                Clear
-              </button>
+              <EmojiIcon size={18}>{side === "hit" ? "🎯" : "💀"}</EmojiIcon>
             </div>
           )}
+
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Search majors…"
-            className="w-full rounded-xl border border-zinc-800 bg-zinc-950 px-3 py-2.5 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-neon/40 mb-2"
+            placeholder="Filter bags…"
+            className="w-full rounded-xl border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-neon/40 mb-2"
           />
+
           <div
-            className={`overflow-y-auto overscroll-contain rounded-xl border border-zinc-800 bg-zinc-950/50 divide-y divide-zinc-900/80 ${
-              dense ? "max-h-[240px] sm:max-h-[280px]" : "max-h-56"
-            } ${side === "hit" ? "cursor-hit" : "cursor-shit"}`}
+            className={`grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-2 max-h-[min(52vh,420px)] overflow-y-auto overscroll-contain ${
+              side === "hit" ? "cursor-hit" : "cursor-shit"
+            }`}
+            role="listbox"
+            aria-label="Pick a bag"
           >
             {filtered.map((m) => {
               const on = selected?.assetId === m.assetId;
@@ -504,28 +459,34 @@ export default function DayGamePanel({
                 <button
                   key={m.assetId}
                   type="button"
-                  onClick={() => {
+                  role="option"
+                  aria-selected={on}
+                  title={`${m.symbol || m.name} — double-tap to play ${side.toUpperCase()}`}
+                  disabled={busy}
+                  onClick={() => onBagTap(m)}
+                  onDoubleClick={(e) => {
+                    e.preventDefault();
                     setSelected(m);
-                    setErr(null);
+                    void play(m);
                   }}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 text-left transition-colors hover:bg-zinc-900/90 ${
+                  className={`relative flex flex-col items-center justify-center gap-1 rounded-2xl border p-2 min-h-[76px] sm:min-h-[84px] transition-all active:scale-90 disabled:opacity-50 ${
                     on
                       ? side === "hit"
-                        ? "bg-green-950/50"
-                        : "bg-red-950/50"
-                      : ""
+                        ? "border-green-400 bg-green-950/55 shadow-[0_0_18px_rgba(34,197,94,0.35)] scale-105 z-[1]"
+                        : "border-red-400 bg-red-950/55 shadow-[0_0_18px_rgba(239,68,68,0.3)] scale-105 z-[1]"
+                      : "border-zinc-800/90 bg-zinc-950/70 hover:border-zinc-500 hover:bg-zinc-900 hover:scale-[1.04]"
                   }`}
                 >
-                  <TokenMark logo={m.logo} symbol={m.symbol} size={28} />
-                  <div className="min-w-0 flex-1">
-                    <div className="text-sm font-semibold text-white truncate">
-                      {m.symbol || m.name}
-                    </div>
-                  </div>
+                  <TokenMark logo={m.logo} symbol={m.symbol} size={40} />
+                  <span className="text-[10px] sm:text-[11px] font-semibold text-zinc-200 truncate w-full text-center leading-tight">
+                    {m.symbol || m.name}
+                  </span>
                   {on && (
                     <span
-                      className={`text-[10px] font-orbitron uppercase ${
-                        side === "hit" ? "text-green-400" : "text-red-400"
+                      className={`absolute -top-1 -right-1 text-[10px] leading-none rounded-full px-1 py-0.5 font-bold ${
+                        side === "hit"
+                          ? "bg-green-500 text-black"
+                          : "bg-red-500 text-white"
                       }`}
                     >
                       ✓
@@ -535,8 +496,8 @@ export default function DayGamePanel({
               );
             })}
             {!filtered.length && (
-              <div className="px-3 py-8 text-center text-sm text-zinc-600">
-                No match
+              <div className="col-span-full py-10 text-center text-sm text-zinc-600">
+                No match — clear filter
               </div>
             )}
           </div>
@@ -553,34 +514,28 @@ export default function DayGamePanel({
           </p>
         )}
 
-        {/* Step 3 — play */}
-        <div>
-          <p className="text-[10px] font-orbitron uppercase tracking-[0.16em] text-zinc-500 mb-2">
-            3 · Confirm
-          </p>
-          <button
-            type="button"
-            disabled={busy || !status.enabled}
-            onClick={() => void play()}
-            className={`w-full min-h-12 rounded-xl bg-neon text-black font-bold text-sm sm:text-base hover:brightness-110 disabled:opacity-45 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2 ${
-              !busy && status.enabled
-                ? side === "hit"
-                  ? "cursor-hit"
-                  : "cursor-shit"
-                : ""
-            }`}
-          >
-            {busy && (
-              <EmojiIcon size={18} className="animate-spin" label="Loading">
-                💫
-              </EmojiIcon>
-            )}
-            {cta}
-          </button>
-        </div>
+        <button
+          type="button"
+          disabled={busy || !status.enabled}
+          onClick={() => void play()}
+          className={`w-full min-h-14 rounded-2xl bg-neon text-black font-bold text-base hover:brightness-110 disabled:opacity-45 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2 font-orbitron tracking-wide uppercase active:scale-[0.98] transition ${
+            !busy && status.enabled
+              ? "shadow-[0_0_24px_rgba(57,255,20,0.25)] " +
+                (side === "hit" ? "cursor-hit" : "cursor-shit")
+              : ""
+          }`}
+        >
+          {busy && (
+            <EmojiIcon size={18} className="animate-spin" label="Loading">
+              💫
+            </EmojiIcon>
+          )}
+          {cta}
+        </button>
 
         <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-zinc-600">
           <span>1 ticket / wallet / side / hour</span>
+          <span className="text-zinc-500">double-tap bag = play</span>
           <Link href={HOUR_PRODUCT.winnersPath} className="text-neon-blue hover:underline">
             Winners
           </Link>
