@@ -224,19 +224,22 @@ export default function WinnersBoard({
               </div>
             )}
             {(w.vrf || w.vrfLink) && (
-              <div className="mt-2 pt-2 border-t border-white/5">
+              <div
+                className="mt-2 pt-2 border-t border-white/5"
+                onClick={(e) => e.preventDefault()}
+              >
                 {w.vrf ? (
-                  <VrfProofLinks vrf={w.vrf} compact />
+                  <VrfProofLinks vrf={w.vrf} />
                 ) : w.vrfLink ? (
                   <a
                     href={w.vrfLink.url}
                     target="_blank"
                     rel="noopener noreferrer"
                     onClick={(e) => e.stopPropagation()}
-                    className="text-[11px] font-mono text-neon-blue hover:underline"
+                    className="inline-flex items-center gap-1.5 text-xs font-mono text-neon-blue hover:underline"
                   >
-                    VRF on-chain
-                    {w.vrfLink.detail ? ` · ${w.vrfLink.detail}` : ""}
+                    🎲 VRF proof
+                    {w.vrfLink.detail ? ` · ${w.vrfLink.detail}` : ""} →
                   </a>
                 ) : null}
               </div>

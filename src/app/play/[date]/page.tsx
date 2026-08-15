@@ -32,19 +32,43 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 function VrfSection({ vrf, label }: { vrf: VrfRecord | null; label: string }) {
-  if (!vrf || vrf.error) return null;
+  if (!vrf) {
+    return (
+      <div className="pt-2 border-t border-white/10">
+        <p className="text-[11px] text-zinc-600">No VRF for this side (empty / no draw)</p>
+      </div>
+    );
+  }
+  if (vrf.error) {
+    return (
+      <div className="pt-2 border-t border-white/10">
+        <p className="text-[11px] text-amber-500/90">VRF / payout note: {vrf.error}</p>
+      </div>
+    );
+  }
   const links = vrfExplorerLinks(vrf);
-  if (!links.length && !vrf.blockhash) return null;
+  const primary = links[0];
   return (
-    <div className="pt-2 border-t border-white/10 space-y-1">
+    <div className="pt-2 border-t border-white/10 space-y-2">
       <div className="text-[10px] uppercase text-zinc-500 font-orbitron tracking-wider">
-        {label} VRF
+        {label} VRF proof
         {vrf.provider ? (
           <span className="normal-case text-zinc-600"> · {vrf.provider}</span>
         ) : null}
       </div>
+      {primary && (
+        <a
+          href={primary.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center justify-center gap-2 min-h-10 w-full rounded-xl border border-neon-blue/40 bg-neon-blue/10 text-neon-blue text-sm font-mono font-semibold hover:bg-neon-blue/20"
+        >
+          🎲 Open VRF · {primary.label}
+          {primary.detail ? ` ${primary.detail}` : ""}
+        </a>
+      )}
       <div className="flex flex-wrap gap-x-3 gap-y-1">
-        {links.map((l) => (
+        {links.slice(1).map((l) => (
           <a
             key={l.label}
             href={l.url}
@@ -65,6 +89,17 @@ function VrfSection({ vrf, label }: { vrf: VrfRecord | null; label: string }) {
       {vrf.verificationHash && (
         <div className="text-[10px] font-mono text-zinc-600 break-all">
           verify {vrf.verificationHash}
+        </div>
+      )}
+      {vrf.entriesHash && (
+        <div className="text-[10px] font-mono text-zinc-600 break-all">
+          entries {vrf.entriesHash}
+        </div>
+      )}
+      {vrf.ticketCount != null && (
+        <div className="text-[10px] text-zinc-500">
+          tickets {vrf.ticketCount}
+          {vrf.winnerIndex != null ? ` · index ${vrf.winnerIndex}` : ""}
         </div>
       )}
     </div>
