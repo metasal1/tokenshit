@@ -5,8 +5,38 @@ import { rpc } from "@/lib/treasury";
 
 export const dynamic = "force-dynamic";
 
+async function shitBalanceUi(owner: string): Promise<number> {
+  const res = await rpc<{
+    value: Array<{
+      account?: {
+        data?: {
+          parsed?: {
+            info?: {
+              tokenAmount?: { amount?: string; decimals?: number };
+            };
+          };
+        };
+      };
+    }>;
+  }>("getTokenAccountsByOwner", [
+    owner,
+    { mint: SHIT_MINT },
+    { encoding: "jsonParsed", commitment: "confirmed" },
+  ]);
+  let raw = 0;
+  let decimals = 6;
+  for (const a of res?.value || []) {
+    const ta = a?.account?.data?.parsed?.info?.tokenAmount;
+    if (!ta) continue;
+    raw += Number(ta.amount || 0);
+    if (typeof ta.decimals === "number") decimals = ta.decimals;
+  }
+  return raw / 10 ** decimals;
+}
+
 /**
  * POST { wallet } → { transaction: base64 } unsigned transfer 1000 SHIT → treasury
+ * Rejects early if wallet has &lt; 1000 $TOKENSHIT.
  */
 export async function POST(request: Request) {
   try {
@@ -14,6 +44,19 @@ export async function POST(request: Request) {
     const wallet = String(body.wallet || "").trim();
     if (!isSolanaAddress(wallet)) {
       return Response.json({ error: "invalid wallet" }, { status: 400 });
+    }
+
+    const balance = await shitBalanceUi(wallet);
+    if (!(balance >= DAY_STAKE_AMOUNT)) {
+      return Response.json(
+        {
+          error: `Need ${DAY_STAKE_AMOUNT.toLocaleString()} $TOKENSHIT to play (you have ${balance.toLocaleString(undefined, { maximumFractionDigits: 2 })})`,
+          code: "insufficient_shit",
+          need: DAY_STAKE_AMOUNT,
+          have: balance,
+        },
+        { status: 400 }
+      );
     }
 
     const { PublicKey, Transaction } = await import("@solana/web3.js");
@@ -82,6 +125,7 @@ export async function POST(request: Request) {
     return Response.json({
       transaction: b64,
       amount: DAY_STAKE_AMOUNT,
+      balance,
       mint: SHIT_MINT,
       treasury: TREASURY_ADDRESS,
       blockhash: latest.value.blockhash,
