@@ -12,14 +12,15 @@ import {
   WHALE_POOL_METEORA,
   WHALE_TRADES_WORKER,
 } from "@/lib/whales";
+import { reverseWalletNames } from "@/lib/name-reverse";
 
 export const dynamic = "force-dynamic";
 
 const HELIUS =
-  process.env.HELIUS_RPC_URL ||
   process.env.SOLANA_RPC_URL ||
+  process.env.HELIUS_RPC_URL ||
   process.env.NEXT_PUBLIC_SOLANA_RPC_URL ||
-  "https://viviyan-bkj12u-fast-mainnet.helius-rpc.com";
+  "https://rpc.aex402.com/";
 
 const CACHE_TTL_MS = 3 * 60 * 1000; // 3 min
 
@@ -31,6 +32,9 @@ type HolderRow = {
   amountRaw: string;
   pctSupply: number;
   label: string | null;
+  /** SNS / ADNS full name e.g. metasal.sol */
+  domain: string | null;
+  domainKind: "sns" | "ans" | null;
   isYou: boolean;
   isTreasury: boolean;
   isPool: boolean;
@@ -354,8 +358,25 @@ async function fetchWhalesFresh(limit: number): Promise<{
     })
   );
 
+  // SNS / ADNS reverse for non-pool wallets (top board)
+  const nameTargets = merged
+    .filter((h) => {
+      const lab = labelWallet(h.owner);
+      if (lab?.toLowerCase().includes("pool")) return false;
+      if (h.owner === TREASURY_ADDRESS) return false;
+      return true;
+    })
+    .map((h) => h.owner);
+  const nameMap = await reverseWalletNames(nameTargets, {
+    concurrency: 8,
+    timeoutMs: 4000,
+  }).catch(() => new Map());
+
   const holders: HolderRow[] = merged.map((h, idx) => {
-    const label = labelWallet(h.owner);
+    const infra = labelWallet(h.owner);
+    const name = nameMap.get(h.owner) || null;
+    // Display label: Pool/Treasury first, else domain name
+    const label = infra || (name ? name.domain : null);
     const pct = supply > 0 ? (h.amount / supply) * 100 : 0;
     const prevAmt = prev.has(h.owner) ? prev.get(h.owner)! : null;
     const delta = prevAmt == null ? null : h.amount - prevAmt;
@@ -368,12 +389,14 @@ async function fetchWhalesFresh(limit: number): Promise<{
       amountRaw: h.amountRaw,
       pctSupply: pct,
       label,
+      domain: name?.domain ?? null,
+      domainKind: name?.kind ?? null,
       isYou: false,
       isTreasury: h.owner === TREASURY_ADDRESS,
       isPool:
         h.owner === WHALE_POOL ||
         h.owner === WHALE_POOL_METEORA ||
-        Boolean(label?.toLowerCase().includes("pool")),
+        Boolean(infra?.toLowerCase().includes("pool")),
       delta,
       holdSecAvg: hold?.holdSecAvg ?? null,
       holdLabel: hold?.holdLabel ?? null,
@@ -387,6 +410,7 @@ async function fetchWhalesFresh(limit: number): Promise<{
     .map((h) => ({
       owner: h.owner,
       label: h.label,
+      domain: h.domain,
       delta: h.delta!,
       amount: h.amount,
       pctSupply: h.pctSupply,

@@ -10,7 +10,7 @@ export const WHALE_POOL =
 export const WHALE_POOL_METEORA =
   "DzTPVjJcvHYesXcgQWkyjmCpxyfpdAESACiVUfKQK4xm" as const;
 
-/** Metasal ~15% bag */
+/** Metasal ~15% bag — never label as YOU on public UI */
 export const WHALE_YOU =
   "GaxVqiQyJKQDRu6H4pfy9V6Xq19pHGr6HQKDQDv911Y4" as const;
 
@@ -59,6 +59,20 @@ export function solscanAccount(addr: string): string {
   return `https://solscan.io/account/${addr}`;
 }
 
-export function solnewPortfolio(addr: string): string {
-  return `https://sol.new/portfolio/${addr}`;
+/** Portfolio on sol.new — prefers SNS/ADNS name when present. */
+export function solnewPortfolio(addrOrDomain: string): string {
+  const s = (addrOrDomain || "").trim();
+  if (!s) return "https://sol.new/portfolio";
+  return `https://sol.new/portfolio/${encodeURIComponent(s)}`;
+}
+
+/** Display label: infra label > domain > short address */
+export function displayWalletLabel(opts: {
+  owner: string;
+  label?: string | null;
+  domain?: string | null;
+}): string {
+  if (opts.label) return opts.label;
+  if (opts.domain) return opts.domain;
+  return shortAddr(opts.owner, 5);
 }
