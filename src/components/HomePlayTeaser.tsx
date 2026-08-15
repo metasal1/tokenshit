@@ -13,7 +13,7 @@ type DayLite = {
 };
 
 function fmt(n: number) {
-  return n.toLocaleString(undefined, { maximumFractionDigits: 0 });
+  return n.toLocaleString("en-US", { maximumFractionDigits: 0 });
 }
 
 function fmtCd(ms: number) {
