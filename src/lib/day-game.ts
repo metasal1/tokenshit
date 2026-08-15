@@ -15,7 +15,7 @@ import {
   type TrustishRow,
 } from "@/lib/majors-filter";
 import { pickWinnerWallet } from "@/lib/day-vrf";
-import { TREASURY_ADDRESS } from "@/lib/shit-token";
+import { TREASURY_ADDRESS, PLAY_POT_ADDRESS } from "@/lib/shit-token";
 import { rpc } from "@/lib/treasury";
 
 export const DAY_STAKE_AMOUNT = 1_000;
@@ -397,7 +397,7 @@ export async function listPastWinners(
   return out;
 }
 
-/** Verify user sent DAY_STAKE_AMOUNT TOKENSHIT to treasury */
+/** Verify user sent DAY_STAKE_AMOUNT TOKENSHIT to play pot (escrow) */
 export async function verifyStakeTransfer(opts: {
   signature: string;
   wallet: string;
@@ -435,17 +435,24 @@ export async function verifyStakeTransfer(opts: {
 
     const pre = tx.meta?.preTokenBalances || [];
     const post = tx.meta?.postTokenBalances || [];
-    const treasury = TREASURY_ADDRESS;
+    // Accept play pot (current) or legacy treasury deposit during migration
+    const sinks = [PLAY_POT_ADDRESS, TREASURY_ADDRESS];
 
-    const preT =
-      pre.find((b) => b.mint === SHIT_MINT && b.owner === treasury)
-        ?.uiTokenAmount?.amount || "0";
-    const postT =
-      post.find((b) => b.mint === SHIT_MINT && b.owner === treasury)
-        ?.uiTokenAmount?.amount || "0";
-    const delta = BigInt(postT) - BigInt(preT);
-    if (delta < BigInt(need)) {
-      // also accept exact user debit
+    let potOk = false;
+    for (const sink of sinks) {
+      const preT =
+        pre.find((b) => b.mint === SHIT_MINT && b.owner === sink)
+          ?.uiTokenAmount?.amount || "0";
+      const postT =
+        post.find((b) => b.mint === SHIT_MINT && b.owner === sink)
+          ?.uiTokenAmount?.amount || "0";
+      const delta = BigInt(postT) - BigInt(preT);
+      if (delta >= BigInt(need)) {
+        potOk = true;
+        break;
+      }
+    }
+    if (!potOk) {
       const preU =
         pre.find((b) => b.mint === SHIT_MINT && b.owner === opts.wallet)
           ?.uiTokenAmount?.amount || "0";
@@ -456,7 +463,7 @@ export async function verifyStakeTransfer(opts: {
       if (userDelta < BigInt(need)) {
         return {
           ok: false,
-          error: `Need ${DAY_STAKE_AMOUNT} $TOKENSHIT to treasury (got treasury Δ ${delta.toString()})`,
+          error: `Need ${DAY_STAKE_AMOUNT} $TOKENSHIT to play pot`,
         };
       }
     }
@@ -737,20 +744,29 @@ export async function settleDay(utcDay: string): Promise<{
     let vrf: Record<string, unknown> | null = null;
     let toTreasury = false;
 
-    const { payFromTreasury } = await import("@/lib/treasury-ledger");
+    const { sendShitFromPlayPot } = await import("@/lib/treasury");
+    const { TREASURY_ADDRESS: house } = await import("@/lib/shit-token");
 
-    // Fee always to treasury accounting — funds already in treasury from stakes
-    // (no transfer needed for fee). Only winner payout leaves treasury.
+    // Stakes sit in play pot. Prize from pot → winner; house fee pot → SHTy treasury.
     if (opts.tickets.length === 0 || prize <= 0 || !opts.bag) {
       toTreasury = true;
       prize = 0;
-      // entire pot stays in treasury (fee + prize)
+      // empty round: move pot remainder to claims treasury if any
+      if (opts.pot > 0) {
+        try {
+          feeSig = (
+            await sendShitFromPlayPot(house, opts.pot)
+          ).signature;
+        } catch {
+          /* pot may already be empty */
+        }
+      }
       return {
         winner: null,
         prize: 0,
         fee: opts.pot,
         prizeSig: null,
-        feeSig: null,
+        feeSig,
         vrf: null,
         toTreasury: true,
       };
@@ -775,22 +791,18 @@ export async function settleDay(utcDay: string): Promise<{
       };
 
       if (prize > 0) {
-        const paid = await payFromTreasury({
-          kind: opts.side === "hit" ? "day_hit" : "day_shit",
-          recipient: winner,
-          amount: prize,
-          idempotencyKey: `day:${utcDay}:${opts.side}:prize`,
-          meta: {
-            utcDay,
-            side: opts.side,
-            bag: opts.bag.assetId,
-            pct: opts.bag.pct,
-          },
-        });
+        const paid = await sendShitFromPlayPot(winner, prize);
         prizeSig = paid.signature;
       }
+      if (fee > 0) {
+        try {
+          feeSig = (await sendShitFromPlayPot(house, fee)).signature;
+        } catch {
+          /* house fee best-effort — prize already paid */
+        }
+      }
     } catch (e) {
-      // fail → pot to treasury
+      // fail → leave funds in pot / try sweep to treasury
       toTreasury = true;
       vrf = {
         error: e instanceof Error ? e.message : String(e),

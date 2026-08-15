@@ -89,13 +89,24 @@ export async function getTreasuryBalances(): Promise<{
 
 /** Load treasury keypair from TREASURY_SECRET_JSON env (JSON byte array) */
 export function loadTreasuryKeypair(): import("@solana/web3.js").Keypair {
+  return loadKeypairFromEnv("TREASURY_SECRET_JSON");
+}
+
+/** Play pot escrow keypair — PLAY_POT_SECRET_JSON */
+export function loadPlayPotKeypair(): import("@solana/web3.js").Keypair {
+  return loadKeypairFromEnv("PLAY_POT_SECRET_JSON");
+}
+
+function loadKeypairFromEnv(
+  envName: string
+): import("@solana/web3.js").Keypair {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { Keypair } = require("@solana/web3.js") as typeof import("@solana/web3.js");
-  const raw = process.env.TREASURY_SECRET_JSON;
-  if (!raw) throw new Error("TREASURY_SECRET_JSON not configured");
+  const raw = process.env[envName];
+  if (!raw) throw new Error(`${envName} not configured`);
   const arr = JSON.parse(raw) as number[];
   if (!Array.isArray(arr) || arr.length !== 64) {
-    throw new Error("TREASURY_SECRET_JSON must be 64-byte JSON array");
+    throw new Error(`${envName} must be 64-byte JSON array`);
   }
   return Keypair.fromSecretKey(Uint8Array.from(arr));
 }
@@ -188,24 +199,59 @@ export async function sendShitFromTreasury(
   recipient: string,
   amountWhole: number
 ): Promise<{ signature: string; amount: number }> {
+  return sendShitFromPayer({
+    label: "Treasury",
+    loadPayer: loadTreasuryKeypair,
+    recipient,
+    amountWhole,
+    applyTreasuryGates: true,
+  });
+}
+
+/** Play pot → winner (or house fee → SHTy treasury). No claim-budget gates. */
+export async function sendShitFromPlayPot(
+  recipient: string,
+  amountWhole: number
+): Promise<{ signature: string; amount: number }> {
+  return sendShitFromPayer({
+    label: "Play pot",
+    loadPayer: loadPlayPotKeypair,
+    recipient,
+    amountWhole,
+    applyTreasuryGates: false,
+  });
+}
+
+async function sendShitFromPayer(opts: {
+  label: string;
+  loadPayer: () => import("@solana/web3.js").Keypair;
+  recipient: string;
+  amountWhole: number;
+  applyTreasuryGates: boolean;
+}): Promise<{ signature: string; amount: number }> {
   const { isBlacklistedWallet, treasurySendsAllowed, maxSinglePayoutWhole } =
     await import("@/lib/security");
 
-  const gate = treasurySendsAllowed();
-  if (!gate.ok) {
-    throw new Error(`Treasury sends paused (${gate.reason})`);
+  if (opts.applyTreasuryGates) {
+    const gate = treasurySendsAllowed();
+    if (!gate.ok) {
+      throw new Error(`Treasury sends paused (${gate.reason})`);
+    }
   }
-  if (isBlacklistedWallet(recipient)) {
+  if (isBlacklistedWallet(opts.recipient)) {
     throw new Error("Recipient wallet blocked");
   }
-  const cap = maxSinglePayoutWhole();
+  const amountWhole = opts.amountWhole;
   if (!Number.isFinite(amountWhole) || amountWhole <= 0) {
     throw new Error("Invalid amount");
   }
-  if (amountWhole > cap) {
-    throw new Error(
-      `Amount ${amountWhole} exceeds max single payout ${cap} (set TREASURY_MAX_SINGLE to raise)`
-    );
+  if (opts.applyTreasuryGates) {
+    const cap = maxSinglePayoutWhole();
+    if (amountWhole > cap) {
+      throw new Error(
+        `Amount ${amountWhole} exceeds max single payout ${cap} (set TREASURY_MAX_SINGLE to raise)`
+      );
+    }
   }
 
   const { Connection, PublicKey, Transaction } = await import(
@@ -220,14 +266,14 @@ export async function sendShitFromTreasury(
   } = await import("@solana/spl-token");
 
   const TOKEN_2022_PROGRAM_ID = new PublicKey(TOKEN_2022_PROGRAM_ID_STR);
-  const payer = loadTreasuryKeypair();
+  const payer = opts.loadPayer();
   const conn = new Connection(RPC, {
     commitment: "confirmed",
     confirmTransactionInitialTimeout: 60_000,
     disableRetryOnRateLimit: false,
   });
   const mint = new PublicKey(SHIT_MINT);
-  const toOwner = new PublicKey(recipient);
+  const toOwner = new PublicKey(opts.recipient);
   const raw = shitToRaw(amountWhole);
   const decimals = 6;
 
@@ -241,7 +287,7 @@ export async function sendShitFromTreasury(
   const toAta = await getAssociatedTokenAddress(
     mint,
     toOwner,
-    false,
+    true,
     TOKEN_2022_PROGRAM_ID,
     ASSOCIATED_TOKEN_PROGRAM_ID
   );
@@ -254,11 +300,10 @@ export async function sendShitFromTreasury(
   ).catch(() => null);
 
   if (!fromAcc || fromAcc.amount < raw) {
-    const bal = await getTreasuryBalances().catch(() => null);
     throw new Error(
-      `Treasury insufficient $TOKENSHIT (need ${amountWhole}, have ${
+      `${opts.label} insufficient $TOKENSHIT (need ${amountWhole}, have ${
         fromAcc ? rawToShit(fromAcc.amount) : 0
-      }; rpcUi=${bal?.shit ?? "?"}, ata=${fromAta.toBase58()})`
+      }; ata=${fromAta.toBase58()})`
     );
   }
 
@@ -315,11 +360,9 @@ export async function sendShitFromTreasury(
       }
 
       if (status === "failed") {
-        // On-chain program error — don't burn more attempts with same issue
-        throw new Error(`Treasury send failed on-chain (${signature})`);
+        throw new Error(`${opts.label} send failed on-chain (${signature})`);
       }
 
-      // expired or timeout — check if ANY prior sig landed before retrying
       for (const sig of triedSigs) {
         try {
           const st = await conn.getSignatureStatuses([sig], {
@@ -342,11 +385,9 @@ export async function sendShitFromTreasury(
       lastErr = new Error(
         `Signature ${signature} ${status === "expired" ? "expired: block height exceeded" : "confirm timeout"} (attempt ${attempt}/${MAX_ATTEMPTS})`
       );
-      // brief backoff then fresh blockhash
       await sleep(400 * attempt);
     } catch (e) {
       lastErr = e instanceof Error ? e : new Error(String(e));
-      // if we already have a confirmed sig in the bag, return it
       for (const sig of triedSigs) {
         try {
           const st = await conn.getSignatureStatuses([sig], {
@@ -366,12 +407,11 @@ export async function sendShitFromTreasury(
         }
       }
       if (/insufficient|0x1|blockhash not found/i.test(lastErr.message)) {
-        // hard fail
         break;
       }
       await sleep(500 * attempt);
     }
   }
 
-  throw lastErr || new Error("Treasury send failed after retries");
+  throw lastErr || new Error(`${opts.label} send failed after retries`);
 }

@@ -16,7 +16,7 @@ import {
 } from "@/lib/day-game";
 import { requirePrivy } from "@/lib/privy-server";
 import { isSolanaAddress, getClientIp, rateLimitIp } from "@/lib/api-guard";
-import { SHIT_MINT, TREASURY_ADDRESS } from "@/lib/shit-token";
+import { SHIT_MINT, TREASURY_ADDRESS, PLAY_POT_ADDRESS } from "@/lib/shit-token";
 
 export const dynamic = "force-dynamic";
 
@@ -67,6 +67,7 @@ export async function GET() {
       stakeAmount: DAY_STAKE_AMOUNT,
       houseFeeBps: DAY_HOUSE_FEE_BPS,
       treasury: TREASURY_ADDRESS,
+      pot: PLAY_POT_ADDRESS,
       mint: SHIT_MINT,
       round,
       stats: {
