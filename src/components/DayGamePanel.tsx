@@ -384,9 +384,9 @@ export default function DayGamePanel({
           <button
             type="button"
             onClick={() => setSide("hit")}
-            className={`cursor-hit min-h-14 rounded-2xl font-bold text-base border-2 inline-flex flex-col items-center justify-center gap-0.5 font-orbitron tracking-wide transition active:scale-[0.97] ${
+            className={`cursor-hit min-h-14 rounded-2xl font-bold text-base border-2 inline-flex flex-col items-center justify-center gap-0.5 font-orbitron tracking-wide transition-colors active:brightness-110 ${
               side === "hit"
-                ? "border-green-400 bg-green-900/50 text-green-100 shadow-[0_0_28px_rgba(34,197,94,0.25)] scale-[1.02]"
+                ? "border-green-400 bg-green-900/50 text-green-100 shadow-[0_0_28px_rgba(34,197,94,0.25)]"
                 : "border-zinc-800 text-zinc-500 hover:border-zinc-600"
             }`}
           >
@@ -396,9 +396,9 @@ export default function DayGamePanel({
           <button
             type="button"
             onClick={() => setSide("shit")}
-            className={`cursor-shit min-h-14 rounded-2xl font-bold text-base border-2 inline-flex flex-col items-center justify-center gap-0.5 font-orbitron tracking-wide transition active:scale-[0.97] ${
+            className={`cursor-shit min-h-14 rounded-2xl font-bold text-base border-2 inline-flex flex-col items-center justify-center gap-0.5 font-orbitron tracking-wide transition-colors active:brightness-110 ${
               side === "shit"
-                ? "border-red-400 bg-red-900/50 text-red-100 shadow-[0_0_28px_rgba(239,68,68,0.22)] scale-[1.02]"
+                ? "border-red-400 bg-red-900/50 text-red-100 shadow-[0_0_28px_rgba(239,68,68,0.22)]"
                 : "border-zinc-800 text-zinc-500 hover:border-zinc-600"
             }`}
           >
@@ -412,32 +412,12 @@ export default function DayGamePanel({
             <p className="text-[10px] font-orbitron uppercase tracking-[0.16em] text-zinc-500">
               Bags · tap once · double-tap play
             </p>
-            <span className="text-[10px] font-mono text-zinc-600">
-              {filtered.length}
-              {status.majorsCount ? `/${status.majorsCount}` : ""}
+            <span className="text-[10px] font-mono text-zinc-600 truncate max-w-[55%] text-right">
+              {selected
+                ? `${side.toUpperCase()} · ${selected.symbol || selected.name}`
+                : `${filtered.length}${status.majorsCount ? `/${status.majorsCount}` : ""}`}
             </span>
           </div>
-
-          {selected && (
-            <div
-              className={`mb-2 flex items-center gap-2.5 rounded-xl border px-3 py-2 ${
-                side === "hit"
-                  ? "border-green-400/50 bg-green-950/40"
-                  : "border-red-400/50 bg-red-950/40"
-              }`}
-            >
-              <TokenMark logo={selected.logo} symbol={selected.symbol} size={36} />
-              <div className="min-w-0 flex-1">
-                <div className="text-sm font-bold text-white truncate">
-                  {selected.symbol || selected.name}
-                </div>
-                <div className="text-[10px] text-zinc-500 font-orbitron uppercase tracking-wider">
-                  {side} · double-tap again or hit Play
-                </div>
-              </div>
-              <EmojiIcon size={18}>{side === "hit" ? "🎯" : "💀"}</EmojiIcon>
-            </div>
-          )}
 
           <input
             value={q}
@@ -469,12 +449,12 @@ export default function DayGamePanel({
                     setSelected(m);
                     void play(m);
                   }}
-                  className={`relative flex flex-col items-center justify-center gap-1 rounded-2xl border p-2 min-h-[76px] sm:min-h-[84px] transition-all active:scale-90 disabled:opacity-50 ${
+                  className={`relative flex flex-col items-center justify-center gap-1 rounded-2xl border p-2 min-h-[76px] sm:min-h-[84px] transition-colors active:brightness-110 disabled:opacity-50 ${
                     on
                       ? side === "hit"
-                        ? "border-green-400 bg-green-950/55 shadow-[0_0_18px_rgba(34,197,94,0.35)] scale-105 z-[1]"
-                        : "border-red-400 bg-red-950/55 shadow-[0_0_18px_rgba(239,68,68,0.3)] scale-105 z-[1]"
-                      : "border-zinc-800/90 bg-zinc-950/70 hover:border-zinc-500 hover:bg-zinc-900 hover:scale-[1.04]"
+                        ? "border-green-400 bg-green-950/55 ring-2 ring-green-400/50 shadow-[0_0_16px_rgba(34,197,94,0.3)]"
+                        : "border-red-400 bg-red-950/55 ring-2 ring-red-400/50 shadow-[0_0_16px_rgba(239,68,68,0.28)]"
+                      : "border-zinc-800/90 bg-zinc-950/70 hover:border-zinc-500 hover:bg-zinc-900"
                   }`}
                 >
                   <TokenMark logo={m.logo} symbol={m.symbol} size={40} />
