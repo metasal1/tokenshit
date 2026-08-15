@@ -87,13 +87,23 @@ export async function GET() {
             compared: leaders.compared,
           }
         : null,
-      majors: majors.slice(0, 120).map((m) => ({
-        assetId: m.assetId,
-        name: m.name,
-        symbol: m.symbol,
-        logo: m.logo,
-        price: m.price,
-      })),
+      majors: (() => {
+        const pctMap = new Map(
+          (leaders?.moves || []).map((x) => [x.assetId, x] as const)
+        );
+        return majors.slice(0, 120).map((m) => {
+          const move = pctMap.get(m.assetId);
+          return {
+            assetId: m.assetId,
+            name: m.name,
+            symbol: m.symbol,
+            logo: m.logo,
+            price: m.price,
+            pct: move?.pct ?? null,
+            openPrice: move?.openPrice ?? null,
+          };
+        });
+      })(),
       majorsCount: majors.length,
     });
   } catch (e) {

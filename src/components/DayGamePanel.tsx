@@ -23,12 +23,21 @@ import { sfx } from "@/lib/sfx";
 /** Keep in sync with DAY_STAKE_AMOUNT in day-game (server). */
 const PLAY_STAKE = 1_000;
 
+function fmtPct(n: number | null | undefined): string {
+  if (n == null || !Number.isFinite(n)) return "—";
+  const s = n >= 0 ? `+${n.toFixed(1)}` : n.toFixed(1);
+  return `${s}%`;
+}
+
 type Major = {
   assetId: string;
   name: string;
   symbol: string;
   logo: string;
   price: number;
+  /** Live % vs hour open (null if no snap yet) */
+  pct?: number | null;
+  openPrice?: number | null;
 };
 
 type Leader = {
@@ -264,14 +273,27 @@ export default function DayGamePanel({
   const filtered = useMemo(() => {
     const list = status?.majors || [];
     const s = q.trim().toLowerCase();
-    if (!s) return list; // show ALL icons
-    return list.filter(
-      (m) =>
-        m.symbol.toLowerCase().includes(s) ||
-        m.name.toLowerCase().includes(s) ||
-        m.assetId.toLowerCase().includes(s)
-    );
-  }, [status?.majors, q]);
+    let out = !s
+      ? [...list]
+      : list.filter(
+          (m) =>
+            m.symbol.toLowerCase().includes(s) ||
+            m.name.toLowerCase().includes(s) ||
+            m.assetId.toLowerCase().includes(s)
+        );
+    // Rank by hour % for the selected side (HIT = best first, SHIT = worst first)
+    out.sort((a, b) => {
+      const ap = a.pct;
+      const bp = b.pct;
+      const aN = ap == null || !Number.isFinite(ap);
+      const bN = bp == null || !Number.isFinite(bp);
+      if (aN && bN) return 0;
+      if (aN) return 1;
+      if (bN) return -1;
+      return side === "hit" ? (bp as number) - (ap as number) : (ap as number) - (bp as number);
+    });
+    return out;
+  }, [status?.majors, q, side]);
 
   const lastTap = useRef<{ id: string; t: number } | null>(null);
 
@@ -570,13 +592,16 @@ export default function DayGamePanel({
           >
             {filtered.map((m) => {
               const on = selected?.assetId === m.assetId;
+              const pct = m.pct;
+              const pctKnown = pct != null && Number.isFinite(pct);
+              const pctUp = pctKnown && (pct as number) >= 0;
               return (
                 <button
                   key={m.assetId}
                   type="button"
                   role="option"
                   aria-selected={on}
-                  title={`${m.symbol || m.name} — double-tap to play ${side.toUpperCase()}`}
+                  title={`${m.symbol || m.name} ${fmtPct(pct)} this hour — double-tap to ${side.toUpperCase()}`}
                   disabled={busy}
                   onClick={() => onBagTap(m)}
                   onDoubleClick={(e) => {
@@ -584,7 +609,7 @@ export default function DayGamePanel({
                     setSelected(m);
                     void play(m);
                   }}
-                  className={`relative flex flex-col items-center justify-center gap-1 rounded-2xl border p-2 min-h-[76px] sm:min-h-[84px] transition-colors active:brightness-110 disabled:opacity-50 ${
+                  className={`relative flex flex-col items-center justify-center gap-0.5 rounded-2xl border p-2 min-h-[84px] sm:min-h-[92px] transition-colors active:brightness-110 disabled:opacity-50 ${
                     on
                       ? side === "hit"
                         ? "border-green-400 bg-green-950/55 ring-2 ring-green-400/50 shadow-[0_0_16px_rgba(34,197,94,0.3)]"
@@ -592,9 +617,20 @@ export default function DayGamePanel({
                       : "border-zinc-800/90 bg-zinc-950/70 hover:border-zinc-500 hover:bg-zinc-900"
                   }`}
                 >
-                  <TokenMark logo={m.logo} symbol={m.symbol} size={40} />
+                  <TokenMark logo={m.logo} symbol={m.symbol} size={36} />
                   <span className="text-[10px] sm:text-[11px] font-semibold text-zinc-200 truncate w-full text-center leading-tight">
                     {m.symbol || m.name}
+                  </span>
+                  <span
+                    className={`text-[10px] sm:text-[11px] font-mono font-bold tabular-nums leading-none ${
+                      !pctKnown
+                        ? "text-zinc-600"
+                        : pctUp
+                          ? "text-green-400"
+                          : "text-red-400"
+                    }`}
+                  >
+                    {fmtPct(pct)}
                   </span>
                   {on && (
                     <span

@@ -603,6 +603,8 @@ export async function getLiveLeaders(utcHour: string): Promise<{
   shitting: LiveLeader | null;
   topHit: LiveLeader[];
   topShit: LiveLeader[];
+  /** All compared majors with live hour % */
+  moves: LiveLeader[];
   openCount: number;
   liveCount: number;
   compared: number;
@@ -650,6 +652,7 @@ export async function getLiveLeaders(utcHour: string): Promise<{
     shitting: byShit[0] || null,
     topHit: byHit.slice(0, 5),
     topShit: byShit.slice(0, 5),
+    moves,
     openCount: openM.size,
     liveCount: live.length,
     compared: moves.length,
