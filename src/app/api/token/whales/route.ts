@@ -352,13 +352,8 @@ async function fetchWhalesFresh(limit: number): Promise<{
     string,
     Awaited<ReturnType<typeof enrichHolding>>
   >();
-  await Promise.all(
-    enrichTargets.map(async (h) => {
-      holdMap.set(h.owner, await enrichHolding(h.owner, h.amount));
-    })
-  );
 
-  // SNS / ADNS reverse for non-pool wallets (top board)
+  // SNS / ADNS reverse for non-pool wallets (cap for latency)
   const nameTargets = merged
     .filter((h) => {
       const lab = labelWallet(h.owner);
@@ -366,11 +361,20 @@ async function fetchWhalesFresh(limit: number): Promise<{
       if (h.owner === TREASURY_ADDRESS) return false;
       return true;
     })
-    .map((h) => h.owner);
-  const nameMap = await reverseWalletNames(nameTargets, {
-    concurrency: 8,
-    timeoutMs: 4000,
-  }).catch(() => new Map());
+    .map((h) => h.owner)
+    .slice(0, 30);
+
+  const [nameMap] = await Promise.all([
+    reverseWalletNames(nameTargets, {
+      concurrency: 10,
+      timeoutMs: 2500,
+    }).catch(() => new Map()),
+    Promise.all(
+      enrichTargets.map(async (h) => {
+        holdMap.set(h.owner, await enrichHolding(h.owner, h.amount));
+      })
+    ),
+  ]);
 
   const holders: HolderRow[] = merged.map((h, idx) => {
     const infra = labelWallet(h.owner);
