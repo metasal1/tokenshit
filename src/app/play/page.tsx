@@ -25,7 +25,7 @@ export default function PlayPage() {
         <div className="min-w-0">
           <h1 className="text-xl sm:text-2xl font-monoton leading-none">
             <span className="neon-dollar">$</span>
-            <span className="neon-text">SHIT</span>
+            <span className="neon-text">HIT</span>
             <span className="ml-2 align-middle text-[10px] sm:text-xs font-orbitron tracking-[0.18em] text-zinc-500 uppercase">
               of the day
             </span>

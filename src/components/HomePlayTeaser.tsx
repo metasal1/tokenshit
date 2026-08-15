@@ -70,7 +70,7 @@ export default function HomePlayTeaser() {
             </p>
             <h2 className="mt-1 text-2xl sm:text-3xl font-monoton leading-none">
               <span className="neon-dollar">$</span>
-              <span className="neon-text">SHIT</span>
+              <span className="neon-text">HIT</span>
             </h2>
             <p className="mt-1 text-[11px] sm:text-xs font-orbitron uppercase tracking-[0.16em] text-zinc-500">
               of the day
