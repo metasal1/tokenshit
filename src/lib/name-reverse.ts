@@ -20,7 +20,21 @@ function pickBestBare(names: string[]): string | null {
     .map((n) => String(n || "").trim().toLowerCase())
     .filter((n) => n && !n.includes("."));
   if (!clean.length) return null;
+
+  const junk =
+    /portafolio|portfolio|wallet|invisible|invizible|check-my|lordmerch|getamongst|downunder|stockexchange|playbook/;
+
   clean.sort((a, b) => {
+    const ja = junk.test(a) ? 1 : 0;
+    const jb = junk.test(b) ? 1 : 0;
+    if (ja !== jb) return ja - jb;
+    const ha = a.includes("-") ? 1 : 0;
+    const hb = b.includes("-") ? 1 : 0;
+    if (ha !== hb) return ha - hb;
+    // Prefer 4–12 char handles slightly
+    const sa = a.length >= 4 && a.length <= 12 ? 0 : 1;
+    const sb = b.length >= 4 && b.length <= 12 ? 0 : 1;
+    if (sa !== sb) return sa - sb;
     if (a.length !== b.length) return a.length - b.length;
     return a.localeCompare(b);
   });
