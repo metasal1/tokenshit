@@ -5,6 +5,7 @@ import Link from "next/link";
 import { EmojiIcon } from "@/components/EmojiIcon";
 import { SHIT_SYMBOL } from "@/lib/shit-token";
 import type { VrfRecord } from "@/lib/day-vrf-links";
+import { vrfPrimaryLink } from "@/lib/day-vrf-links";
 import VrfProofLinks from "@/components/VrfProofLinks";
 
 export type HourSettlePayload = {
@@ -274,17 +275,35 @@ export default function HourCelebrate({
       if (!w || prize == null || prize <= 0) return "";
       return ` · ${fmtAmt(prize)} $TOKENSHIT`;
     };
+    const vrfLine = (label: string, vrf?: VrfRecord | null) => {
+      const link = vrfPrimaryLink(vrf);
+      if (!link) return null;
+      const detail = link.detail ? ` (${link.detail})` : "";
+      return `${label} VRF${detail}: ${link.url}`;
+    };
     const hit = payload.hit;
     const shit = payload.shit;
-    // One line per side — no bare $ line-breaks (X cashtag-safe spacing)
     const lines = [
       `$SHIT OF THE DAY just settled on @Tokenshit_`,
       ``,
       `🎯 HIT ${sym(hit.symbol)} ${fmtPct(hit.pct)} → ${who(hit.winner, hit.prize)}${prizeBit(hit.winner, hit.prize)}`,
       `💀 SHIT ${sym(shit.symbol)} ${fmtPct(shit.pct)} → ${who(shit.winner, shit.prize)}${prizeBit(shit.winner, shit.prize)}`,
-      ``,
-      `Winners + payouts → https://tokenshit.com/winners`,
     ];
+    const hv = vrfLine("🎯 HIT", hit.vrf);
+    const sv = vrfLine("💀 SHIT", shit.vrf);
+    if (hv || sv) {
+      lines.push(``);
+      if (hv) lines.push(hv);
+      if (sv) lines.push(sv);
+    }
+    lines.push(``);
+    lines.push(`Winners + payouts → https://tokenshit.com/winners`);
+    // Receipt has full VRF proofs
+    if (payload.utcHour) {
+      lines.push(
+        `Receipt → https://tokenshit.com/play/${encodeURIComponent(payload.utcHour)}`
+      );
+    }
     return lines.join("\n");
   }, [payload]);
 
