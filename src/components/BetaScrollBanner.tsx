@@ -33,11 +33,12 @@ export default function BetaScrollBanner() {
       className="beta-banner-root"
       role="status"
       aria-label={MSG}
+      suppressHydrationWarning
     >
       <div className="beta-banner-strip">
         <div className="beta-banner-track">
           {Array.from({ length: 8 }).map((_, i) => (
-            <span key={i} className="contents">
+            <span key={i} className="inline-flex shrink-0">
               {unit}
             </span>
           ))}

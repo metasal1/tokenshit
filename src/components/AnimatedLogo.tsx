@@ -5,9 +5,11 @@ export default function AnimatedLogo({ size = "hero" }: { size?: "hero" | "nav" 
     : "text-2xl";
 
   return (
-    <span className={`${sizeClass} whitespace-nowrap font-monoton`}>
+    <span className={`${sizeClass} whitespace-nowrap font-monoton`} suppressHydrationWarning>
       <span className="neon-text">TOKEN</span>
-      <span className="neon-dollar">$</span>
+      <span className="neon-dollar" suppressHydrationWarning>
+        $
+      </span>
       <span className="neon-text">HIT</span>
     </span>
   );
