@@ -262,9 +262,30 @@ export default function HourCelebrate({
   const showShitW = phase === "shit_wallet" || phase === "done";
 
   const tweetText = useMemo(() => {
-    const h = payload.hit.symbol || "HIT";
-    const s = payload.shit.symbol || "SHIT";
-    return `Hour settled on @Tokenshit_\n🎯 HIT: $${h} ${fmtPct(payload.hit.pct)} → ${shortAddr(payload.hit.winner)}\n💀 SHIT: $${s} ${fmtPct(payload.shit.pct)} → ${shortAddr(payload.shit.winner)}\nhttps://tokenshit.com`;
+    const sym = (raw: string) => {
+      const t = (raw || "").replace(/^\$/, "").trim() || "?";
+      return `$${t}`;
+    };
+    const who = (w: string | null, prize: number | null) => {
+      if (w) return shortAddr(w);
+      return prize && prize > 0 ? "house" : "empty";
+    };
+    const prizeBit = (w: string | null, prize: number | null) => {
+      if (!w || prize == null || prize <= 0) return "";
+      return ` · ${fmtAmt(prize)} $TOKENSHIT`;
+    };
+    const hit = payload.hit;
+    const shit = payload.shit;
+    // One line per side — no bare $ line-breaks (X cashtag-safe spacing)
+    const lines = [
+      `$SHIT OF THE DAY just settled on @Tokenshit_`,
+      ``,
+      `🎯 HIT ${sym(hit.symbol)} ${fmtPct(hit.pct)} → ${who(hit.winner, hit.prize)}${prizeBit(hit.winner, hit.prize)}`,
+      `💀 SHIT ${sym(shit.symbol)} ${fmtPct(shit.pct)} → ${who(shit.winner, shit.prize)}${prizeBit(shit.winner, shit.prize)}`,
+      ``,
+      `Play the next hour → https://tokenshit.com/play`,
+    ];
+    return lines.join("\n");
   }, [payload]);
 
   return (
