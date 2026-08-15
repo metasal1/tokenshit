@@ -2,6 +2,7 @@
 
 /**
  * Root error boundary — must include html/body (replaces root layout).
+ * Auto-clears SW/cache once per session on white-screen crashes.
  */
 export default function GlobalError({
   error,
@@ -10,6 +11,44 @@ export default function GlobalError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  const clearAndReload = () => {
+    try {
+      if ("serviceWorker" in navigator) {
+        navigator.serviceWorker.getRegistrations().then((regs) => {
+          regs.forEach((r) => r.unregister());
+        });
+      }
+      if ("caches" in window) {
+        caches.keys().then((keys) =>
+          Promise.all(keys.map((k) => caches.delete(k)))
+        );
+      }
+      sessionStorage.setItem("tokenshit_hard_reload", "1");
+    } catch {
+      /* */
+    }
+    try {
+      reset();
+    } catch {
+      /* */
+    }
+    location.href = "/?nocache=" + Date.now();
+  };
+
+  // One automatic recovery attempt for hydration / chunk white-screens
+  if (typeof window !== "undefined") {
+    try {
+      const tried = sessionStorage.getItem("tokenshit_auto_recover_v1");
+      if (!tried) {
+        sessionStorage.setItem("tokenshit_auto_recover_v1", "1");
+        // delay so React paints this shell first
+        window.setTimeout(clearAndReload, 80);
+      }
+    } catch {
+      /* */
+    }
+  }
+
   return (
     <html lang="en">
       <body
@@ -26,32 +65,25 @@ export default function GlobalError({
         }}
       >
         <div>
-          <div style={{ fontSize: 28, letterSpacing: "0.04em", marginBottom: 12 }}>
+          <div
+            style={{ fontSize: 28, letterSpacing: "0.04em", marginBottom: 12 }}
+          >
             TOKEN<span style={{ color: "#39ff14" }}>$</span>HIT
           </div>
-          <p style={{ color: "#a1a1aa", fontSize: 14, maxWidth: 320, margin: "0 auto 20px" }}>
-            App hit a client error. Clear cache and reload.
+          <p
+            style={{
+              color: "#a1a1aa",
+              fontSize: 14,
+              maxWidth: 320,
+              margin: "0 auto 20px",
+            }}
+          >
+            App hit a client error (often a stuck install cache). Tap to clear
+            and reload.
           </p>
           <button
             type="button"
-            onClick={() => {
-              try {
-                if ("serviceWorker" in navigator) {
-                  navigator.serviceWorker.getRegistrations().then((regs) => {
-                    regs.forEach((r) => r.unregister());
-                  });
-                }
-                if ("caches" in window) {
-                  caches.keys().then((keys) =>
-                    Promise.all(keys.map((k) => caches.delete(k)))
-                  );
-                }
-              } catch {
-                /* */
-              }
-              reset();
-              location.href = "/?nocache=" + Date.now();
-            }}
+            onClick={clearAndReload}
             style={{
               padding: "12px 20px",
               borderRadius: 12,

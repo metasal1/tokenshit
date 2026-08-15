@@ -1,5 +1,5 @@
-/* TOKENSHIT service worker v5 — never serve stale HTML/JS pair */
-const CACHE = "tokenshit-v5";
+/* TOKENSHIT service worker v6 — hard bust after hydration white-screens */
+const CACHE = "tokenshit-v6";
 const PRECACHE = [
   "/manifest.webmanifest",
   "/icons/icon-192.png",
@@ -35,23 +35,22 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return;
 
-  // Never cache auth
+  // Never cache auth / API
   if (url.pathname.startsWith("/auth/") || url.pathname.startsWith("/api/")) {
     event.respondWith(fetch(req));
     return;
   }
 
-  // HTML navigations: ALWAYS network-first. Stale HTML + new chunk hashes = white screen.
+  // HTML: ALWAYS network-first. Stale HTML + new chunks = white screen.
   const isHtml =
     req.mode === "navigate" ||
     req.headers.get("accept")?.includes("text/html");
   if (isHtml) {
     event.respondWith(
-      fetch(req)
+      fetch(req, { cache: "no-store" })
         .then((res) => res)
-        .catch(() =>
-          // Offline: only icons shell, not a stale full document
-          caches.match("/splash/splash-boot.png").then(() =>
+        .catch(
+          () =>
             new Response(
               `<!doctype html><meta name=viewport content="width=device-width,initial-scale=1">
               <body style="margin:0;background:#0a0a0f;color:#fff8e7;font-family:system-ui;display:grid;place-items:center;min-height:100dvh;text-align:center;padding:24px">
@@ -60,13 +59,12 @@ self.addEventListener("fetch", (event) => {
               <button onclick="location.reload()" style="margin-top:16px;padding:12px 20px;border-radius:12px;border:0;background:#39ff14;color:#000;font-weight:700">Reload</button></div></body>`,
               { headers: { "Content-Type": "text/html; charset=utf-8" } }
             )
-          )
         )
     );
     return;
   }
 
-  // Next.js bundles: network-first (hashed URLs). Cache only as offline fallback.
+  // Next.js bundles: network-first, never serve stale hashed miss forever
   if (url.pathname.startsWith("/_next/static/")) {
     event.respondWith(
       fetch(req)
@@ -77,12 +75,11 @@ self.addEventListener("fetch", (event) => {
           }
           return res;
         })
-        .catch(() => caches.match(req))
+        .catch(() => caches.match(req).then((h) => h || Response.error()))
     );
     return;
   }
 
-  // Icons / brand / fonts: cache-first OK (immutable paths)
   const isAsset =
     url.pathname.startsWith("/icons/") ||
     url.pathname.startsWith("/brand/") ||

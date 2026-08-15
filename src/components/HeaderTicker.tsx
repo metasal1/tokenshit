@@ -14,7 +14,8 @@ function fmt(n: number | null | undefined) {
   if (n == null || !Number.isFinite(n)) return null;
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(2)}M`;
   if (n >= 10_000) return `${(n / 1_000).toFixed(1)}K`;
-  return n.toLocaleString(undefined, { maximumFractionDigits: 0 });
+  // Fixed locale — browser default was causing React #418 hydration text mismatches
+  return n.toLocaleString("en-US", { maximumFractionDigits: 0 });
 }
 
 function getDeviceId(): string {
@@ -37,6 +38,7 @@ function getDeviceId(): string {
  * Scrolling header ticker — treasury · pot · tokens · holders · users · X · online.
  */
 export default function HeaderTicker() {
+  const [mounted, setMounted] = useState(false);
   const [data, setData] = useState<Payload | null>(null);
   const [online, setOnline] = useState<number | null>(null);
   const [users, setUsers] = useState<number | null>(null);
@@ -51,6 +53,11 @@ export default function HeaderTicker() {
   const [xLoading, setXLoading] = useState(true);
 
   useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!mounted) return;
     let alive = true;
     const loadTreasury = () => {
       fetch("/api/treasury")
@@ -153,7 +160,18 @@ export default function HeaderTicker() {
       clearInterval(f);
       window.removeEventListener("tokenshit:signup", onSignup);
     };
-  }, []);
+  }, [mounted]);
+
+  // Avoid SSR/client text mismatch (React #418) — ticker is client-only chrome
+  if (!mounted) {
+    return (
+      <div
+        className="relative w-full overflow-hidden border-b border-border/60 bg-zinc-950"
+        style={{ height: 32 }}
+        aria-hidden
+      />
+    );
+  }
 
   const bal = fmt(data?.shit);
   const potBal = fmt(data?.pot?.shit);

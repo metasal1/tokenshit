@@ -33,7 +33,7 @@ export async function ensureSw(): Promise<ServiceWorkerRegistration | null> {
     return null;
   }
   try {
-    const reg = await navigator.serviceWorker.register("/sw.js", {
+    const reg = await navigator.serviceWorker.register("/sw.js?v=6", {
       scope: "/",
       updateViaCache: "none",
     });
