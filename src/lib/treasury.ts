@@ -1,6 +1,7 @@
 import {
   SHIT_MINT,
   TREASURY_ADDRESS,
+  PLAY_POT_ADDRESS,
   rawToShit,
   shitToRaw,
 } from "@/lib/shit-token";
@@ -37,8 +38,40 @@ export async function getTreasuryBalances(): Promise<{
   solLamports: number;
   ata?: string;
 }> {
+  const bal = await getWalletTokenBalances(TREASURY_ADDRESS);
+  return {
+    address: TREASURY_ADDRESS,
+    mint: SHIT_MINT,
+    ...bal,
+  };
+}
+
+export async function getPlayPotBalances(): Promise<{
+  address: string;
+  mint: string;
+  shit: number;
+  shitRaw: string;
+  sol: number;
+  solLamports: number;
+  ata?: string;
+}> {
+  const bal = await getWalletTokenBalances(PLAY_POT_ADDRESS);
+  return {
+    address: PLAY_POT_ADDRESS,
+    mint: SHIT_MINT,
+    ...bal,
+  };
+}
+
+async function getWalletTokenBalances(owner: string): Promise<{
+  shit: number;
+  shitRaw: string;
+  sol: number;
+  solLamports: number;
+  ata?: string;
+}> {
   const [solBal, tokenAccs] = await Promise.all([
-    rpc<{ value: number }>("getBalance", [TREASURY_ADDRESS]),
+    rpc<{ value: number }>("getBalance", [owner]),
     rpc<{
       value: {
         pubkey?: string;
@@ -57,7 +90,7 @@ export async function getTreasuryBalances(): Promise<{
         };
       }[];
     }>("getTokenAccountsByOwner", [
-      TREASURY_ADDRESS,
+      owner,
       { mint: SHIT_MINT },
       { encoding: "jsonParsed" },
     ]),
@@ -77,8 +110,6 @@ export async function getTreasuryBalances(): Promise<{
 
   const lamports = solBal?.value ?? 0;
   return {
-    address: TREASURY_ADDRESS,
-    mint: SHIT_MINT,
     shit: shitUi || rawToShit(shitRaw),
     shitRaw: shitRaw.toString(),
     sol: lamports / 1e9,

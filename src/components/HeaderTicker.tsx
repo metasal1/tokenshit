@@ -7,6 +7,7 @@ import { BalanceSkeleton, PulseDot, SpinLoader } from "@/components/StatLoader";
 
 type Payload = {
   shit?: number;
+  pot?: { shit?: number; address?: string; sol?: number };
 };
 
 function fmt(n: number | null | undefined) {
@@ -33,7 +34,7 @@ function getDeviceId(): string {
 }
 
 /**
- * Scrolling header ticker — treasury · tokens · holders · users · X · online.
+ * Scrolling header ticker — treasury · pot · tokens · holders · users · X · online.
  */
 export default function HeaderTicker() {
   const [data, setData] = useState<Payload | null>(null);
@@ -155,6 +156,7 @@ export default function HeaderTicker() {
   }, []);
 
   const bal = fmt(data?.shit);
+  const potBal = fmt(data?.pot?.shit);
   const usersLabel = fmt(users);
   const holdersLabel = fmt(holders);
   const tokensLabel = fmt(tokens);
@@ -174,6 +176,25 @@ export default function HeaderTicker() {
           ) : (
             <span className="text-neon font-semibold">
               {bal} ${SHIT_SYMBOL}
+            </span>
+          )}
+        </Link>
+      ),
+    },
+    {
+      key: "pot",
+      node: (
+        <Link
+          href="/play"
+          className="inline-flex items-center gap-1.5 hover:text-neon transition-colors"
+          title="Play pot escrow — stakes + prizes"
+        >
+          <span className="text-zinc-500">POT</span>
+          {treasuryLoading || potBal == null ? (
+            <BalanceSkeleton />
+          ) : (
+            <span className="text-amber-300 font-semibold">
+              {potBal} ${SHIT_SYMBOL}
             </span>
           )}
         </Link>
@@ -278,7 +299,7 @@ export default function HeaderTicker() {
     >
       <div
         className="header-ticker-track absolute left-0 top-0 flex h-full items-center gap-0 whitespace-nowrap font-mono text-[11px] sm:text-xs text-zinc-300"
-        aria-label="Treasury, tokens, holders, users, X followers, and online ticker"
+        aria-label="Treasury, play pot, tokens, holders, users, X followers, and online ticker"
       >
         {loop.map((it, i) => (
           <span key={`${it.key}-${i}`} className="inline-flex items-center">
