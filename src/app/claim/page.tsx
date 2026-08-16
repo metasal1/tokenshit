@@ -68,7 +68,7 @@ export default function ClaimPage() {
             <span className="emoji" aria-hidden>
               🔁
             </span>
-            Buy / swap →
+            Buy →
           </Link>
         </div>
 

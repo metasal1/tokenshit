@@ -115,9 +115,9 @@ export default function SwapDesk() {
   const { signTransaction } = useSignTransaction();
   const { fundWallet } = useFundWallet();
 
-  const [mode, setMode] = useState<Mode>("buy");
-  /** buy mode always SOL→SHIT; swap mode: sellAsset is usdc|shit */
-  const [sellAsset, setSellAsset] = useState<Asset>("usdc");
+  const [mode] = useState<Mode>("buy");
+  /** buy only — swap/sell UI hidden */
+  const [sellAsset] = useState<Asset>("usdc");
   const [amount, setAmount] = useState("0.1");
   const [slippageBps, setSlippageBps] = useState(150);
   const [busy, setBusy] = useState<"fund" | "swap" | null>(null);
@@ -308,8 +308,7 @@ export default function SwapDesk() {
   };
 
   const flipSwap = () => {
-    if (mode !== "swap") return;
-    setSellAsset((s) => (s === "usdc" ? "shit" : "usdc"));
+    /* sell/swap disabled */
   };
 
   async function onFund() {
@@ -529,43 +528,28 @@ export default function SwapDesk() {
         }`;
 
   const primaryLabel = !authenticated
-    ? "Login to swap"
+    ? "Login to buy"
     : busy === "swap"
       ? "Confirm in wallet…"
-      : mode === "buy"
-        ? `Buy $${SHIT_SYMBOL}`
-        : `Swap ${payLabel} → ${getLabel}`;
+      : `Buy $${SHIT_SYMBOL}`;
 
   return (
     <section className="rounded-2xl border border-border bg-card overflow-hidden shadow-[0_0_40px_rgba(0,0,0,0.35)]">
       <SolanaFundingBootstrap />
 
-      {/* Tabs */}
-      <div className="grid grid-cols-2 border-b border-border">
-        {(
-          [
-            ["buy", `Buy $${SHIT_SYMBOL}`],
-            ["swap", "Swap"],
-          ] as const
-        ).map(([k, label]) => (
-          <button
-            key={k}
-            type="button"
-            onClick={() => setMode(k)}
-            className={`min-h-12 text-sm font-bold transition-colors ${
-              mode === k
-                ? "bg-zinc-900 text-neon border-b-2 border-neon"
-                : "text-zinc-500 hover:text-zinc-200 hover:bg-zinc-950/60"
-            }`}
-          >
-            {label}
-          </button>
-        ))}
+      {/* Buy only — swap/sell tab hidden */}
+      <div className="border-b border-border px-4 py-3">
+        <p className="text-sm font-bold text-neon font-orbitron uppercase tracking-wide">
+          Buy ${SHIT_SYMBOL}
+        </p>
+        <p className="text-[11px] text-zinc-500 mt-0.5">
+          Card or SOL → $TOKENSHIT. Selling is off.
+        </p>
       </div>
 
       <div className="p-4 sm:p-5 space-y-4">
         <p className="text-[11px] font-mono text-neon/90 border border-neon/25 bg-neon/5 rounded-lg px-3 py-2">
-          Network fees sponsored · no SOL needed to swap $TOKENSHIT (buy still needs SOL size)
+          Buy with SOL · fees sponsored when available · selling is off
         </p>
         {/* Balances strip */}
         <div className="grid grid-cols-3 gap-2 text-[11px] font-mono">
@@ -663,20 +647,14 @@ export default function SwapDesk() {
           </div>
         </div>
 
-        {/* Flip */}
+        {/* Direction fixed: SOL → $TOKENSHIT */}
         <div className="flex justify-center -my-1 relative z-10">
-          <button
-            type="button"
-            onClick={() => {
-              if (mode === "buy") setMode("swap");
-              else flipSwap();
-            }}
-            className="h-10 w-10 rounded-xl border border-zinc-600 bg-zinc-900 text-zinc-200 hover:border-neon hover:text-neon transition-colors font-mono text-lg"
-            title={mode === "swap" ? "Flip direction" : "Open swap"}
-            aria-label="Flip direction"
+          <div
+            className="h-10 w-10 rounded-xl border border-zinc-700 bg-zinc-900 text-zinc-500 font-mono text-lg flex items-center justify-center"
+            aria-hidden
           >
-            ⇅
-          </button>
+            ↓
+          </div>
         </div>
 
         {/* You get */}
@@ -705,26 +683,6 @@ export default function SwapDesk() {
             <p className="text-[11px] text-amber-400/90">{quoteErr}</p>
           )}
         </div>
-
-        {/* Swap pair selector when in swap mode */}
-        {mode === "swap" && (
-          <div className="flex flex-wrap gap-2 items-center justify-between">
-            <div className="flex gap-1.5">
-              <Chip
-                active={sellAsset === "usdc"}
-                onClick={() => setSellAsset("usdc")}
-              >
-                USDC → ${SHIT_SYMBOL}
-              </Chip>
-              <Chip
-                active={sellAsset === "shit"}
-                onClick={() => setSellAsset("shit")}
-              >
-                ${SHIT_SYMBOL} → USDC
-              </Chip>
-            </div>
-          </div>
-        )}
 
         {/* Meta row */}
         <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] font-mono text-zinc-500">

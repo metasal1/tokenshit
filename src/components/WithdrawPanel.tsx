@@ -218,7 +218,7 @@ export default function WithdrawPanel({
           href="/swap"
           className="shrink-0 text-[10px] font-orbitron uppercase tracking-wider text-neon-blue hover:underline"
         >
-          Swap
+          Buy
         </Link>
       </div>
 

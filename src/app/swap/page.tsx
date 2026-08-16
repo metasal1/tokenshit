@@ -19,22 +19,22 @@ import { USDC_MINT } from "@/lib/buy-fee";
 import { pageMeta } from "@/lib/seo";
 
 export const metadata: Metadata = pageMeta({
-  title: `Swap $${SHIT_SYMBOL}`,
-  description: `Buy $${SHIT_SYMBOL} with SOL, swap $${SHIT_SYMBOL} ↔ USDC, or withdraw to any Solana wallet.`,
+  title: `Buy $${SHIT_SYMBOL}`,
+  description: `Buy $${SHIT_SYMBOL} with SOL or card. Withdraw to any Solana wallet.`,
   path: "/swap",
 });
 
+/** Buy-only desk (swap/sell hidden). Route stays /swap for old links. */
 export default function SwapPage() {
   return (
     <div className="mx-auto w-full max-w-lg px-3 sm:px-4 pt-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:py-10 space-y-4 sm:space-y-5">
       <header className="space-y-2">
         <h1 className="text-2xl sm:text-3xl font-black leading-tight tracking-tight">
-          <span className="neon-text">Swap</span>
+          <span className="neon-text">Buy</span>
         </h1>
         <p className="text-zinc-400 text-sm leading-snug">
-          Buy ${SHIT_SYMBOL} with SOL, trade ${SHIT_SYMBOL} ↔ USDC, then{" "}
-          <span className="text-zinc-300">withdraw</span> to Phantom or any
-          wallet.
+          Get ${SHIT_SYMBOL} with SOL or card. Selling is off — withdraw to your
+          own wallet if you need to move bags.
         </p>
         <p className="text-xs text-zinc-600">
           Free drops?{" "}
