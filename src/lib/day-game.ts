@@ -4,7 +4,7 @@
  */
 import { tursoExecute } from "@/lib/turso";
 import { pickWinnerWallet } from "@/lib/day-vrf";
-import { TREASURY_ADDRESS, PLAY_POT_ADDRESS } from "@/lib/shit-token";
+import { PLAY_POT_ADDRESS } from "@/lib/shit-token";
 import { rpc } from "@/lib/treasury";
 
 export const DAY_STAKE_AMOUNT = 1_000;
@@ -464,24 +464,17 @@ export async function verifyStakeTransfer(opts: {
 
     const pre = tx.meta?.preTokenBalances || [];
     const post = tx.meta?.postTokenBalances || [];
-    // Accept play pot (current) or legacy treasury deposit during migration
-    const sinks = [PLAY_POT_ADDRESS, TREASURY_ADDRESS];
+    // Stakes MUST land on play pot (rev…). Claims treasury is not a valid sink.
+    const sink = PLAY_POT_ADDRESS;
 
-    let potOk = false;
-    for (const sink of sinks) {
-      const preT =
-        pre.find((b) => b.mint === SHIT_MINT && b.owner === sink)
-          ?.uiTokenAmount?.amount || "0";
-      const postT =
-        post.find((b) => b.mint === SHIT_MINT && b.owner === sink)
-          ?.uiTokenAmount?.amount || "0";
-      const delta = BigInt(postT) - BigInt(preT);
-      if (delta >= BigInt(need)) {
-        potOk = true;
-        break;
-      }
-    }
-    if (!potOk) {
+    const preT =
+      pre.find((b) => b.mint === SHIT_MINT && b.owner === sink)
+        ?.uiTokenAmount?.amount || "0";
+    const postT =
+      post.find((b) => b.mint === SHIT_MINT && b.owner === sink)
+        ?.uiTokenAmount?.amount || "0";
+    const potDelta = BigInt(postT) - BigInt(preT);
+    if (potDelta < BigInt(need)) {
       const preU =
         pre.find((b) => b.mint === SHIT_MINT && b.owner === opts.wallet)
           ?.uiTokenAmount?.amount || "0";
@@ -495,6 +488,10 @@ export async function verifyStakeTransfer(opts: {
           error: `Need ${DAY_STAKE_AMOUNT} $TOKENSHIT to play pot`,
         };
       }
+      return {
+        ok: false,
+        error: `Play must send ${DAY_STAKE_AMOUNT} $TOKENSHIT to pot ${sink.slice(0, 8)}…`,
+      };
     }
     return { ok: true };
   } catch (e) {
