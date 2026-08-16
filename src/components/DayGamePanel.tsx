@@ -5,14 +5,15 @@ import { usePrivy } from "@privy-io/react-auth";
 import {
   useWallets,
   useSignAndSendTransaction,
+  useSignTransaction,
 } from "@privy-io/react-auth/solana";
 import { pickSolanaAddress } from "@/lib/privy-identity";
 import { useSafeLogin } from "@/hooks/useSafeLogin";
 import { SHIT_SYMBOL, PLAY_POT_ADDRESS, playPotPortfolioUrl } from "@/lib/shit-token";
 import {
   b64ToBytes,
-  encodeSigBs58,
   friendlySolanaSendError,
+  sendWithPrivyFallback,
 } from "@/lib/solana-send";
 import Link from "next/link";
 import { EmojiIcon } from "@/components/EmojiIcon";
@@ -208,6 +209,7 @@ export default function DayGamePanel({
   const { safeLogin } = useSafeLogin();
   const { wallets } = useWallets();
   const { signAndSendTransaction } = useSignAndSendTransaction();
+  const { signTransaction } = useSignTransaction();
   const wallet = useMemo(
     () => pickSolanaAddress(wallets, user),
     [wallets, user]
@@ -451,6 +453,21 @@ export default function DayGamePanel({
           `Need ${PLAY_STAKE.toLocaleString()} $${SHIT_SYMBOL} (you have ${have.toLocaleString(undefined, { maximumFractionDigits: 2 })}). Claim or buy first.`
         );
       }
+      // SOL for unsponsored / sign+raw fallback
+      let solBal: number | null = null;
+      try {
+        const br = await fetch(
+          `/api/wallet/balances?address=${encodeURIComponent(wallet)}`,
+          { cache: "no-store" }
+        );
+        if (br.ok) {
+          const bd = await br.json();
+          solBal = Number(bd.sol);
+        }
+      } catch {
+        /* ignore */
+      }
+
       setPhase("Building…");
       const rawTx = await fetchTransferTx(wallet);
       const txBytes = b64ToBytes(rawTx);
@@ -462,35 +479,14 @@ export default function DayGamePanel({
 
       const desc = `Play 1,000 $${SHIT_SYMBOL} · ${side.toUpperCase()} ${pick.symbol || pick.name}`;
       setPhase("Signing…");
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      let result: any;
-      try {
-        result = await signAndSendTransaction({
-          transaction: txBytes,
-          wallet: walletObj,
-          chain: "solana:mainnet",
-          options: {
-            sponsor: true,
-            uiOptions: { showWalletUIs: false, description: desc },
-          },
-        });
-      } catch {
-        result = await signAndSendTransaction({
-          transaction: txBytes,
-          wallet: walletObj,
-          chain: "solana:mainnet",
-          options: {
-            sponsor: true,
-            uiOptions: { showWalletUIs: true, description: desc },
-          },
-        });
-      }
-      let signature: string | null = null;
-      if (result?.signature instanceof Uint8Array) {
-        signature = encodeSigBs58(result.signature);
-      } else if (typeof result?.signature === "string") {
-        signature = result.signature;
-      }
+      const signature = await sendWithPrivyFallback({
+        txBytes,
+        wallet: walletObj,
+        signAndSendTransaction,
+        signTransaction,
+        description: desc,
+        solBalance: solBal,
+      });
       if (!signature) throw new Error("No signature from wallet");
 
       setPhase("Confirming…");
