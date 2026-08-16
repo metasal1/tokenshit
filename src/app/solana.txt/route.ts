@@ -3,6 +3,7 @@ import {
   CLAIM_X_FOLLOW,
   CLAIM_X_TWEET,
   CLAIM_X_VERIFIED,
+  PLAY_POT_ADDRESS,
   SHIT_DECIMALS,
   SHIT_MINT,
   SHIT_SYMBOL,
@@ -24,10 +25,12 @@ decimals: ${SHIT_DECIMALS}
 
 site: https://tokenshit.com
 claim: https://tokenshit.com/claim
+play: https://tokenshit.com/play
 buy: https://jup.ag/swap/SOL-${SHIT_MINT}
 chart: https://dexscreener.com/solana/${SHIT_MINT}
 
 treasury: ${TREASURY_ADDRESS}
+play_pot: ${PLAY_POT_ADDRESS}
 
 x_tweet_claim: ${CLAIM_X_TWEET}
 x_follow_claim: ${CLAIM_X_FOLLOW}
@@ -41,6 +44,7 @@ tokens_xyz: https://tokens.xyz
 
 solscan_token: https://solscan.io/token/${SHIT_MINT}
 portfolio_treasury: https://sol.new/portfolio/${TREASURY_ADDRESS}
+portfolio_play_pot: https://sol.new/portfolio/${PLAY_POT_ADDRESS}
 `;
   return new Response(BODY, {
     headers: {

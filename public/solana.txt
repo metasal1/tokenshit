@@ -9,17 +9,12 @@ decimals: 6
 
 site: https://tokenshit.com
 claim: https://tokenshit.com/claim
+play: https://tokenshit.com/play
 buy: https://jup.ag/swap/SOL-fEbiuDdZZ1QaWYpJFPqk23ZkaRnAyHg4aivhrCTshit
 chart: https://dexscreener.com/solana/fEbiuDdZZ1QaWYpJFPqk23ZkaRnAyHg4aivhrCTshit
 
 treasury: SHTy7yoA5uAZoevKT3BFcSeDeFaHEyqWc55uApd3MJB
-
-x_tweet_claim: 25000
-x_follow_claim: 15000
-x_verified_claim: 100000
-gh_fork_claim: 250000
-referral_reward: 10000
-fork_upstream: solana-foundation/tokens
+play_pot: revn2bE1MtTvn5cBXguuAuuSyEC2VbiyRE2imFMAX7U
 
 x: https://x.com/Tokenshit_
 registry: https://github.com/solana-foundation/tokens
@@ -27,3 +22,4 @@ tokens_xyz: https://tokens.xyz
 
 solscan_token: https://solscan.io/token/fEbiuDdZZ1QaWYpJFPqk23ZkaRnAyHg4aivhrCTshit
 portfolio_treasury: https://sol.new/portfolio/SHTy7yoA5uAZoevKT3BFcSeDeFaHEyqWc55uApd3MJB
+portfolio_play_pot: https://sol.new/portfolio/revn2bE1MtTvn5cBXguuAuuSyEC2VbiyRE2imFMAX7U

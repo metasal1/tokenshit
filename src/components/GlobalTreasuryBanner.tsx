@@ -3,9 +3,11 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   GLOBAL_TREASURY_DAILY_DROP,
+  PLAY_POT_ADDRESS,
   SHIT_SYMBOL,
   TREASURY_ADDRESS,
   formatCountdown,
+  playPotPortfolioUrl,
   treasurySolscanUrl,
 } from "@/lib/shit-token";
 import { BalanceSkeleton } from "@/components/StatLoader";
@@ -13,6 +15,7 @@ import { BalanceSkeleton } from "@/components/StatLoader";
 type GlobalPayload = {
   shit?: number;
   sol?: number;
+  pot?: { shit?: number; sol?: number; address?: string };
   global?: {
     nextDropAt?: string;
     nextDropAtMs?: number;
@@ -190,8 +193,22 @@ export default function GlobalTreasuryBanner({
             target="_blank"
             rel="noopener noreferrer"
             className="inline-block text-[11px] font-mono text-zinc-500 hover:text-neon-blue break-all"
+            title={TREASURY_ADDRESS}
           >
-            {TREASURY_ADDRESS.slice(0, 8)}…{TREASURY_ADDRESS.slice(-6)}
+            Treasury {TREASURY_ADDRESS.slice(0, 8)}…{TREASURY_ADDRESS.slice(-6)}
+          </a>
+          <span className="text-zinc-700 text-[11px]">·</span>
+          <a
+            href={playPotPortfolioUrl()}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-block text-[11px] font-mono text-amber-500/80 hover:text-amber-300 break-all"
+            title={PLAY_POT_ADDRESS}
+          >
+            Pot {PLAY_POT_ADDRESS.slice(0, 8)}…{PLAY_POT_ADDRESS.slice(-6)}
+            {data?.pot?.shit != null
+              ? ` · ${fmtBal(data.pot.shit)} $${SHIT_SYMBOL}`
+              : ""}
           </a>
         </div>
 

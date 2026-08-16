@@ -5,9 +5,11 @@ import OnrampButton from "@/components/OnrampButton";
 import WalletAddressCard from "@/components/WalletAddressCard";
 import CopyableAddress from "@/components/CopyableAddress";
 import {
+  PLAY_POT_ADDRESS,
   SHIT_MINT,
   SHIT_SYMBOL,
   TREASURY_ADDRESS,
+  playPotPortfolioUrl,
   treasurySolscanUrl,
 } from "@/lib/shit-token";
 import { USDC_MINT } from "@/lib/buy-fee";
@@ -58,8 +60,13 @@ export default function SwapPage() {
         />
         <CopyableAddress
           address={TREASURY_ADDRESS}
-          label="Treasury"
+          label="Treasury (claims / house)"
           explorer={treasurySolscanUrl()}
+        />
+        <CopyableAddress
+          address={PLAY_POT_ADDRESS}
+          label="Play pot (stakes / prizes)"
+          explorer={playPotPortfolioUrl()}
         />
       </section>
     </div>

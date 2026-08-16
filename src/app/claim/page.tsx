@@ -15,11 +15,13 @@ import {
   CLAIM_EMAIL_LIST,
   GH_FORK_UPSTREAM,
   GLOBAL_TREASURY_DAILY_DROP,
+  PLAY_POT_ADDRESS,
   REFERRAL_REWARD_SHIT,
   SHIT_MINT,
   SHIT_SYMBOL,
   TREASURY_ADDRESS,
   X_HANDLE,
+  playPotPortfolioUrl,
   treasurySolscanUrl,
 } from "@/lib/shit-token";
 import { pageMeta } from "@/lib/seo";
@@ -101,8 +103,13 @@ export default function ClaimPage() {
         />
         <CopyableAddress
           address={TREASURY_ADDRESS}
-          label="Treasury"
+          label="Treasury (claims / house)"
           explorer={treasurySolscanUrl()}
+        />
+        <CopyableAddress
+          address={PLAY_POT_ADDRESS}
+          label="Play pot (stakes / prizes)"
+          explorer={playPotPortfolioUrl()}
         />
         <p className="text-[11px] text-zinc-600 font-mono break-all">
           fork {GH_FORK_UPSTREAM}

@@ -7,6 +7,8 @@ import {
   PLAY_POT_ADDRESS,
   SHIT_SYMBOL,
   TREASURY_ADDRESS,
+  playPotPortfolioUrl,
+  treasurySolscanUrl,
 } from "@/lib/shit-token";
 import { HOUR_PRODUCT } from "@/lib/hour-product";
 
@@ -118,19 +120,27 @@ export default function WalletsBoard() {
             Winners
           </Link>
           <a
-            href={`https://solscan.io/account/${PLAY_POT_ADDRESS}`}
+            href={playPotPortfolioUrl()}
             target="_blank"
             rel="noopener noreferrer"
             className="text-amber-300 hover:underline"
           >
-            Pot on Solscan
+            Pot portfolio
+          </a>
+          <a
+            href={treasurySolscanUrl()}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-neon hover:underline"
+          >
+            Treasury portfolio
           </a>
         </div>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
         <a
-          href={`https://solscan.io/account/${PLAY_POT_ADDRESS}`}
+          href={playPotPortfolioUrl()}
           target="_blank"
           rel="noopener noreferrer"
           className="rounded-2xl border border-amber-500/30 bg-amber-950/20 p-4 hover:border-amber-400/50 transition"
@@ -149,7 +159,7 @@ export default function WalletsBoard() {
           </p>
         </a>
         <a
-          href={`https://solscan.io/account/${TREASURY_ADDRESS}`}
+          href={treasurySolscanUrl()}
           target="_blank"
           rel="noopener noreferrer"
           className="rounded-2xl border border-neon/25 bg-neon/5 p-4 hover:border-neon/50 transition"

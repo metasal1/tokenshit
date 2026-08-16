@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { SHIT_SYMBOL } from "@/lib/shit-token";
+import { SHIT_SYMBOL, PLAY_POT_ADDRESS, TREASURY_ADDRESS, playPotPortfolioUrl, treasurySolscanUrl } from "@/lib/shit-token";
 import { BalanceSkeleton, PulseDot, SpinLoader } from "@/components/StatLoader";
 
 type Payload = {
@@ -184,9 +184,12 @@ export default function HeaderTicker() {
     {
       key: "bal",
       node: (
-        <Link
-          href="/claim"
+        <a
+          href={treasurySolscanUrl()}
+          target="_blank"
+          rel="noopener noreferrer"
           className="inline-flex items-center gap-1.5 hover:text-neon transition-colors"
+          title={`Treasury ${TREASURY_ADDRESS}`}
         >
           <span className="text-zinc-500">Treasury</span>
           {treasuryLoading || bal == null ? (
@@ -196,16 +199,18 @@ export default function HeaderTicker() {
               {bal} ${SHIT_SYMBOL}
             </span>
           )}
-        </Link>
+        </a>
       ),
     },
     {
       key: "pot",
       node: (
-        <Link
-          href="/play"
+        <a
+          href={playPotPortfolioUrl()}
+          target="_blank"
+          rel="noopener noreferrer"
           className="inline-flex items-center gap-1.5 hover:text-neon transition-colors"
-          title="Play pot escrow — stakes + prizes"
+          title={`Play pot ${PLAY_POT_ADDRESS}`}
         >
           <span className="text-zinc-500">POT</span>
           {treasuryLoading || potBal == null ? (
@@ -215,7 +220,7 @@ export default function HeaderTicker() {
               {potBal} ${SHIT_SYMBOL}
             </span>
           )}
-        </Link>
+        </a>
       ),
     },
     {

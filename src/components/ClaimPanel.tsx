@@ -12,6 +12,7 @@ import {
   CLAIM_X_PREMIUM,
   CLAIM_X_TWEET,
   CLAIM_X_VERIFIED,
+  PLAY_POT_ADDRESS,
   SHIT_MINT,
   SHIT_SYMBOL,
   TREASURY_ADDRESS,
@@ -19,6 +20,7 @@ import {
   X_URL,
   followIntentUrl,
   mintSolscanUrl,
+  playPotPortfolioUrl,
   shitBuyUrl,
   treasurySolscanUrl,
   tweetTagIntentUrl,
@@ -1017,6 +1019,15 @@ export default function ClaimPanel() {
           rel="noopener noreferrer"
         >
           Treasury on sol.new ↗
+        </a>
+        <a
+          href={playPotPortfolioUrl()}
+          className="text-amber-500/80 hover:text-amber-300 min-h-9 inline-flex items-center font-mono"
+          target="_blank"
+          rel="noopener noreferrer"
+          title={PLAY_POT_ADDRESS}
+        >
+          Play pot on sol.new ↗
         </a>
       </div>
 
