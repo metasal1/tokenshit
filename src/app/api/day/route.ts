@@ -101,6 +101,7 @@ export async function GET() {
             price: m.price,
             pct: move?.pct ?? null,
             openPrice: move?.openPrice ?? null,
+            source: m.source || null,
           };
         });
       })(),

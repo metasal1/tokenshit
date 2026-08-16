@@ -650,6 +650,8 @@ export async function getLiveLeaders(utcHour: string): Promise<{
 
   // If open was frozen on stale Tokens.xyz prices (every move ≈ 0) but
   // multi-source live has real divergence, re-baseline open once this hour.
+  // Also rebase when live is fresh multi-source but open looks like rounded txyz stats
+  // (integer-ish majors like BTC 63009 while live is 629xx).
   if (openM.size > 0 && live.length > 0) {
     let compared = 0;
     let nearZero = 0;
@@ -660,26 +662,28 @@ export async function getLiveLeaders(utcHour: string): Promise<{
       compared++;
       const abs = Math.abs((L.price - o.price) / o.price) * 100;
       if (abs < 0.03) nearZero++;
-      if (abs >= 0.08) bigDiv++;
+      if (abs >= 0.05) bigDiv++;
     }
-    // Stale open vs fresh Jupiter/CG: most tiles flat but several clearly moved
-    if (compared >= 5 && nearZero / compared >= 0.8 && bigDiv >= 3) {
-      const fresh = live.filter((m) => m.source && m.source !== "tokens.xyz");
-      if (fresh.length >= Math.min(5, Math.ceil(live.length * 0.35))) {
-        await tursoExecute(
-          `DELETE FROM day_prices WHERE utc_day = ? AND phase = 'open'`,
-          [utcHour]
-        );
-        await tursoExecute(
-          `UPDATE day_rounds SET open_snap_at = NULL WHERE utc_day = ?`,
-          [utcHour]
-        );
-        await snapshotPrices(utcHour, "open");
-        openM = await loadPhase(utcHour, "open");
-        live = await fetchRealMajorsLive();
-        liveById.clear();
-        for (const m of live) liveById.set(m.assetId, m);
-      }
+    const fresh = live.filter((m) => m.source && m.source !== "tokens.xyz");
+    const freshRatio = live.length ? fresh.length / live.length : 0;
+    const shouldRebase =
+      compared >= 5 &&
+      ((nearZero / compared >= 0.75 && bigDiv >= 2 && freshRatio >= 0.3) ||
+        (nearZero / compared >= 0.95 && freshRatio >= 0.5));
+    if (shouldRebase) {
+      await tursoExecute(
+        `DELETE FROM day_prices WHERE utc_day = ? AND phase = 'open'`,
+        [utcHour]
+      );
+      await tursoExecute(
+        `UPDATE day_rounds SET open_snap_at = NULL WHERE utc_day = ?`,
+        [utcHour]
+      );
+      await snapshotPrices(utcHour, "open");
+      openM = await loadPhase(utcHour, "open");
+      live = await fetchRealMajorsLive();
+      liveById.clear();
+      for (const m of live) liveById.set(m.assetId, m);
     }
   }
 
@@ -711,9 +715,29 @@ export async function getLiveLeaders(utcHour: string): Promise<{
     return b.volume24h - a.volume24h;
   });
 
+  // Never show the same bag as both HIT and SHIT when the board is flat
+  let hitting = byHit[0] || null;
+  let shitting = byShit[0] || null;
+  if (
+    hitting &&
+    shitting &&
+    hitting.assetId === shitting.assetId &&
+    byShit.length > 1
+  ) {
+    shitting = byShit[1];
+  }
+  if (
+    hitting &&
+    shitting &&
+    hitting.assetId === shitting.assetId &&
+    byHit.length > 1
+  ) {
+    hitting = byHit[1];
+  }
+
   return {
-    hitting: byHit[0] || null,
-    shitting: byShit[0] || null,
+    hitting,
+    shitting,
     topHit: byHit.slice(0, 5),
     topShit: byShit.slice(0, 5),
     moves,
@@ -761,7 +785,16 @@ export async function settleDay(utcDay: string): Promise<{
   }
 
   const hitBag = pickExtreme(moves, "max");
-  const shitBag = pickExtreme(moves, "min");
+  let shitBag = pickExtreme(moves, "min");
+  // Flat board: don't crown the same asset HIT and SHIT
+  if (hitBag && shitBag && hitBag.assetId === shitBag.assetId) {
+    const sortedAsc = [...moves].sort((a, b) => {
+      if (a.pct !== b.pct) return a.pct - b.pct;
+      return b.volume24h - a.volume24h;
+    });
+    const alt = sortedAsc.find((m) => m.assetId !== hitBag.assetId);
+    if (alt) shitBag = { assetId: alt.assetId, pct: alt.pct };
+  }
 
   const hitStakes = await listStakes(utcDay, "hit");
   const shitStakes = await listStakes(utcDay, "shit");
