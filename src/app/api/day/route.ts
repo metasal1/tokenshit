@@ -7,7 +7,9 @@ import {
   fetchRealMajorsLive,
   formatHourLabel,
   getLiveLeaders,
+  getMyTickets,
   getRound,
+  getTicketHeat,
   listStakes,
   nextUtcHourMs,
   recordStake,
@@ -17,22 +19,28 @@ import {
 import { requirePrivy } from "@/lib/privy-server";
 import { isSolanaAddress, getClientIp, rateLimitIp } from "@/lib/api-guard";
 import { SHIT_MINT, TREASURY_ADDRESS, PLAY_POT_ADDRESS } from "@/lib/shit-token";
+import { priceAssetById } from "@/lib/live-prices";
 
 export const dynamic = "force-dynamic";
 
 /**
- * GET /api/day — current hour round + live hitting/shitting
- * POST /api/day — stake
+ * GET /api/day — current hour round + live leaders + bags
+ * Optional ?wallet= for myTickets
+ * POST /api/day — play (multi-ticket OK; any priced bag)
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const hour = utcHourString();
     await ensureRound(hour);
-    const [round, stakes, majors, leaders] = await Promise.all([
+    const walletQ =
+      request.nextUrl.searchParams.get("wallet")?.trim() || "";
+
+    const [round, stakes, majors, leaders, heat] = await Promise.all([
       getRound(hour),
       listStakes(hour),
       fetchRealMajorsLive().catch(() => []),
       getLiveLeaders(hour).catch(() => null),
+      getTicketHeat(hour).catch(() => new Map()),
     ]);
 
     const hitCount = stakes.filter((s) => s.side === "hit").length;
@@ -44,7 +52,6 @@ export async function GET() {
       stakes.filter((s) => s.side === "shit").map((s) => s.wallet)
     ).size;
 
-    // stake pressure on current leaders
     const hitLeaderId = leaders?.hitting?.assetId;
     const shitLeaderId = leaders?.shitting?.assetId;
     const stakesOnHitting = hitLeaderId
@@ -56,6 +63,19 @@ export async function GET() {
           .length
       : 0;
 
+    let myTickets: Array<{
+      assetId: string;
+      side: DaySide;
+      tickets: number;
+    }> = [];
+    if (walletQ && isSolanaAddress(walletQ)) {
+      myTickets = await getMyTickets(hour, walletQ);
+    }
+
+    const pctMap = new Map(
+      (leaders?.moves || []).map((x) => [x.assetId, x] as const)
+    );
+
     return Response.json({
       enabled: DAY_GAME_ENABLED,
       cadence: "hourly",
@@ -66,6 +86,7 @@ export async function GET() {
       nextCloseAt: new Date(nextUtcHourMs()).toISOString(),
       stakeAmount: DAY_STAKE_AMOUNT,
       houseFeeBps: DAY_HOUSE_FEE_BPS,
+      multiTicket: true,
       treasury: TREASURY_ADDRESS,
       pot: PLAY_POT_ADDRESS,
       mint: SHIT_MINT,
@@ -73,8 +94,11 @@ export async function GET() {
       stats: {
         hitStakes: hitCount,
         shitStakes: shitCount,
-        hitTickets: uniqueHit,
-        shitTickets: uniqueShit,
+        /** Total plays (tickets) — multi-play counts multiple */
+        hitTickets: hitCount,
+        shitTickets: shitCount,
+        hitPlayers: uniqueHit,
+        shitPlayers: uniqueShit,
       },
       leaders: leaders
         ? {
@@ -87,25 +111,24 @@ export async function GET() {
             compared: leaders.compared,
           }
         : null,
-      majors: (() => {
-        const pctMap = new Map(
-          (leaders?.moves || []).map((x) => [x.assetId, x] as const)
-        );
-        return majors.slice(0, 120).map((m) => {
-          const move = pctMap.get(m.assetId);
-          return {
-            assetId: m.assetId,
-            name: m.name,
-            symbol: m.symbol,
-            logo: m.logo,
-            price: m.price,
-            pct: move?.pct ?? null,
-            openPrice: move?.openPrice ?? null,
-            source: m.source || null,
-          };
-        });
-      })(),
+      majors: majors.slice(0, 120).map((m) => {
+        const move = pctMap.get(m.assetId);
+        const h = heat.get(m.assetId);
+        return {
+          assetId: m.assetId,
+          name: m.name,
+          symbol: m.symbol,
+          logo: m.logo,
+          price: m.price,
+          pct: move?.pct ?? null,
+          openPrice: move?.openPrice ?? null,
+          source: m.source || null,
+          hitPlays: h?.hit || 0,
+          shitPlays: h?.shit || 0,
+        };
+      }),
       majorsCount: majors.length,
+      myTickets,
     });
   } catch (e) {
     return Response.json(
@@ -124,7 +147,7 @@ export async function POST(request: NextRequest) {
     const limited = await rateLimitIp({
       ip,
       bucket: "day_stake",
-      limit: 60,
+      limit: 200,
       windowHours: 1,
     });
     if (limited) return limited;
@@ -174,10 +197,11 @@ export async function POST(request: NextRequest) {
       wallet = match;
     }
 
-    const majors = await fetchRealMajorsLive();
-    if (!majors.some((m) => m.assetId === assetId)) {
+    // Any bag we can price (majors or full registry)
+    const priced = await priceAssetById(assetId);
+    if (!priced || !(priced.price > 0)) {
       return Response.json(
-        { error: "asset must be a real major" },
+        { error: "Bag not playable yet — pick another or try again" },
         { status: 400 }
       );
     }
@@ -201,9 +225,12 @@ export async function POST(request: NextRequest) {
       utcHour: hour,
       side,
       assetId,
+      symbol: priced.symbol,
       amount: DAY_STAKE_AMOUNT,
       hitPot: rec.hitPot,
       shitPot: rec.shitPot,
+      ticketCount: rec.ticketCount,
+      multiTicket: true,
       signature,
     });
   } catch (e) {

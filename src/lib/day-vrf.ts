@@ -33,17 +33,14 @@ export function indexFromSeed(seedHex: string, n: number): number {
   return Number(value % BigInt(n));
 }
 
-/** Unique wallets, stable sort for ticket order */
+/** Multi-ticket: each play is one entry. Same wallet may appear many times. */
 export function normalizeTickets(wallets: string[]): string[] {
-  const seen = new Set<string>();
   const out: string[] = [];
   for (const w of wallets) {
     const t = w.trim();
-    if (!t || seen.has(t)) continue;
-    seen.add(t);
+    if (!t) continue;
     out.push(t);
   }
-  out.sort((a, b) => a.localeCompare(b));
   return out;
 }
 

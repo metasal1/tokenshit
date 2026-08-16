@@ -246,3 +246,62 @@ export async function priceMajorsLive(
     })
     .filter((m) => m.price > 0);
 }
+
+/**
+ * Price any Tokens.xyz asset id (not just majors) for play / lazy open snap.
+ */
+export async function priceAssetById(
+  assetId: string
+): Promise<PricedMajor | null> {
+  const id = assetId.trim();
+  if (!id) return null;
+
+  // Prefer majors universe hit (fast path)
+  try {
+    const uni = await fetchMajorsUniverse();
+    const hit = uni.find((u) => u.assetId === id);
+    if (hit) {
+      const priced = await priceMajorsLive([hit]);
+      return priced[0] || null;
+    }
+  } catch {
+    /* fall through */
+  }
+
+  // Detail fetch
+  try {
+    const data = await apiFetch(`/assets/${encodeURIComponent(id)}`);
+    const a = (data?.asset || data) as Record<string, unknown>;
+    const stats = (a.stats || {}) as Record<string, unknown>;
+    const cm = (a.canonicalMarket || {}) as Record<string, unknown>;
+    const pv = (a.primaryVariant || {}) as Record<string, unknown>;
+    const market = (pv.market || {}) as Record<string, unknown>;
+    const mint = pv.mint ? String(pv.mint) : null;
+    const coinId = cm.coinId ? String(cm.coinId) : null;
+    const fallback =
+      num(market.price) ?? num(stats.price) ?? num(cm.price) ?? 0;
+    const hint: PriceHint = {
+      assetId: id,
+      symbol: String(a.symbol || pv.symbol || ""),
+      name: String(a.name || pv.name || a.symbol || id),
+      logo: String(
+        a.imageUrl ||
+          (market.logoURI as string) ||
+          (a as { logo?: string }).logo ||
+          ""
+      ),
+      mint,
+      coinId,
+      fallbackPrice: fallback,
+      volume24h: num(market.volume24hUSD) ?? num(stats.volume24hUSD) ?? 0,
+      txyzChange1h:
+        num(market.priceChange1hPercent) ??
+        num(stats.priceChange1hPercent) ??
+        null,
+    };
+    const priced = await priceMajorsLive([hint]);
+    return priced[0] || null;
+  } catch {
+    return null;
+  }
+}

@@ -512,7 +512,10 @@ export async function recordStake(opts: {
   side: DaySide;
   signature: string;
   twitter?: string | null;
-}): Promise<{ ok: true; hitPot: number; shitPot: number } | { ok: false; error: string; status: number }> {
+}): Promise<
+  | { ok: true; hitPot: number; shitPot: number; ticketCount: number }
+  | { ok: false; error: string; status: number }
+> {
   if (!DAY_GAME_ENABLED) {
     return { ok: false, error: "Day game paused", status: 503 };
   }
@@ -520,6 +523,16 @@ export async function recordStake(opts: {
   const round = await getRound(opts.utcDay);
   if (!round || round.status !== "open") {
     return { ok: false, error: "Round not open for play", status: 400 };
+  }
+
+  // Freeze open price on first play of this bag (lazy open snap)
+  const openOk = await ensureOpenSnapForAsset(opts.utcDay, opts.assetId);
+  if (!openOk) {
+    return {
+      ok: false,
+      error: "Could not price this bag yet — try another or wait a moment",
+      status: 400,
+    };
   }
 
   const ver = await verifyStakeTransfer({
@@ -556,11 +569,104 @@ export async function recordStake(opts: {
     [DAY_STAKE_AMOUNT, opts.utcDay]
   );
   const updated = await getRound(opts.utcDay);
+  const tc = await tursoExecute(
+    `SELECT COUNT(*) FROM day_stakes
+     WHERE utc_day = ? AND wallet = ? AND asset_id = ? AND side = ?`,
+    [opts.utcDay, opts.wallet, opts.assetId, opts.side]
+  );
   return {
     ok: true,
     hitPot: updated?.hitPot || 0,
     shitPot: updated?.shitPot || 0,
+    ticketCount: Number(tc.rows[0]?.[0] || 1),
   };
+}
+
+/** Lazy open snap — freeze price when bag is first played or entered. */
+export async function ensureOpenSnapForAsset(
+  utcDay: string,
+  assetId: string
+): Promise<boolean> {
+  await ensureRound(utcDay);
+  const existing = await tursoExecute(
+    `SELECT price FROM day_prices WHERE utc_day = ? AND phase = 'open' AND asset_id = ? LIMIT 1`,
+    [utcDay, assetId]
+  );
+  if (existing.rows.length) return true;
+
+  const { priceAssetById } = await import("@/lib/live-prices");
+  const priced = await priceAssetById(assetId);
+  if (!priced || !(priced.price > 0)) return false;
+
+  const now = new Date().toISOString();
+  await tursoExecute(
+    `INSERT INTO day_prices
+      (utc_day, phase, asset_id, price, volume24h, name, symbol, logo, snapped_at)
+     VALUES (?, 'open', ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(utc_day, phase, asset_id) DO NOTHING`,
+    [
+      utcDay,
+      assetId,
+      Number(priced.price),
+      Number(priced.volume24h) || 0,
+      priced.name,
+      priced.symbol,
+      priced.logo,
+      now,
+    ]
+  );
+  // mark open snap time if empty
+  await tursoExecute(
+    `UPDATE day_rounds SET open_snap_at = COALESCE(open_snap_at, ?) WHERE utc_day = ?`,
+    [now, utcDay]
+  );
+  return true;
+}
+
+/** Per-wallet ticket counts this hour (multi-play). */
+export async function getMyTickets(
+  utcDay: string,
+  wallet: string
+): Promise<Array<{ assetId: string; side: DaySide; tickets: number }>> {
+  if (!wallet) return [];
+  const r = await tursoExecute(
+    `SELECT asset_id, side, COUNT(*) as n
+     FROM day_stakes
+     WHERE utc_day = ? AND lower(wallet) = lower(?)
+     GROUP BY asset_id, side
+     ORDER BY n DESC`,
+    [utcDay, wallet]
+  );
+  return (r.rows || []).map((row) => ({
+    assetId: String(row[0]),
+    side: String(row[1]) as DaySide,
+    tickets: Number(row[2] || 0),
+  }));
+}
+
+/**
+ * Ticket counts per asset this hour (for bag badges).
+ */
+export async function getTicketHeat(
+  utcDay: string
+): Promise<Map<string, { hit: number; shit: number }>> {
+  const r = await tursoExecute(
+    `SELECT asset_id, side, COUNT(*) FROM day_stakes
+     WHERE utc_day = ?
+     GROUP BY asset_id, side`,
+    [utcDay]
+  );
+  const m = new Map<string, { hit: number; shit: number }>();
+  for (const row of r.rows || []) {
+    const id = String(row[0]);
+    const side = String(row[1]);
+    const n = Number(row[2] || 0);
+    const cur = m.get(id) || { hit: 0, shit: 0 };
+    if (side === "hit") cur.hit = n;
+    else if (side === "shit") cur.shit = n;
+    m.set(id, cur);
+  }
+  return m;
 }
 
 type PriceRow = {
@@ -799,24 +905,16 @@ export async function settleDay(utcDay: string): Promise<{
   const hitStakes = await listStakes(utcDay, "hit");
   const shitStakes = await listStakes(utcDay, "shit");
 
-  // 1 wallet = 1 ticket among those who staked correct side on winning bag
+  // Tickets = each play (same wallet can hold many tickets on the winning bag)
   const hitTickets = hitBag
-    ? [
-        ...new Set(
-          hitStakes
-            .filter((s) => s.assetId === hitBag.assetId)
-            .map((s) => s.wallet)
-        ),
-      ]
+    ? hitStakes
+        .filter((s) => s.assetId === hitBag.assetId)
+        .map((s) => s.wallet)
     : [];
   const shitTickets = shitBag
-    ? [
-        ...new Set(
-          shitStakes
-            .filter((s) => s.assetId === shitBag.assetId)
-            .map((s) => s.wallet)
-        ),
-      ]
+    ? shitStakes
+        .filter((s) => s.assetId === shitBag.assetId)
+        .map((s) => s.wallet)
     : [];
 
   const hitPot = round.hitPot;
