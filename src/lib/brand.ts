@@ -20,6 +20,8 @@ export const BRAND = {
   xHandle: "Tokenshit_",
   mint: "fEbiuDdZZ1QaWYpJFPqk23ZkaRnAyHg4aivhrCTshit",
   treasury: "SHTy7yoA5uAZoevKT3BFcSeDeFaHEyqWc55uApd3MJB",
+  /** Play pot escrow — stakes / prizes (rev vanity) */
+  playPot: "revn2bE1MtTvn5cBXguuAuuSyEC2VbiyRE2imFMAX7U",
   typefullySocialSetId: 326045,
 
   colors: {

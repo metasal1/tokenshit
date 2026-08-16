@@ -106,6 +106,11 @@ export function treasurySolscanUrl(): string {
   return `https://sol.new/portfolio/${TREASURY_ADDRESS}`;
 }
 
+/** Play pot escrow portfolio (stakes in · prizes out) */
+export function playPotPortfolioUrl(): string {
+  return `https://sol.new/portfolio/${PLAY_POT_ADDRESS}`;
+}
+
 /** @deprecated alias — portfolio lives on sol.new */
 export function treasuryPortfolioUrl(): string {
   return treasurySolscanUrl();

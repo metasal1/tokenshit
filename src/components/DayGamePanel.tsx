@@ -8,7 +8,7 @@ import {
 } from "@privy-io/react-auth/solana";
 import { pickSolanaAddress } from "@/lib/privy-identity";
 import { useSafeLogin } from "@/hooks/useSafeLogin";
-import { SHIT_SYMBOL } from "@/lib/shit-token";
+import { SHIT_SYMBOL, PLAY_POT_ADDRESS, playPotPortfolioUrl } from "@/lib/shit-token";
 import {
   b64ToBytes,
   encodeSigBs58,
@@ -892,12 +892,23 @@ export default function DayGamePanel({
                 }`
               : "Tap a bag · double-tap plays"}
           </span>
-          <Link
-            href={HOUR_PRODUCT.winnersPath}
-            className="text-neon-blue hover:underline shrink-0 font-orbitron uppercase tracking-wider text-[10px]"
-          >
-            Winners
-          </Link>
+          <div className="flex items-center gap-2 shrink-0">
+            <a
+              href={playPotPortfolioUrl()}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-amber-400/90 hover:underline font-mono text-[10px]"
+              title={PLAY_POT_ADDRESS}
+            >
+              pot {PLAY_POT_ADDRESS.slice(0, 6)}…
+            </a>
+            <Link
+              href={HOUR_PRODUCT.winnersPath}
+              className="text-neon-blue hover:underline font-orbitron uppercase tracking-wider text-[10px]"
+            >
+              Winners
+            </Link>
+          </div>
         </div>
 
         {/* status line — always in dock */}
