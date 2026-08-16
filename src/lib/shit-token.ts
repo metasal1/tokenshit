@@ -34,20 +34,20 @@ export const PLAY_REV_ADDRESS =
   process.env.NEXT_PUBLIC_PLAY_REV_ADDRESS ||
   "revn2bE1MtTvn5cBXguuAuuSyEC2VbiyRE2imFMAX7U";
 
-/** One-time claim amounts (Metasal 2026-08 — lowered) */
-export const CLAIM_X_VERIFIED = 1_500;
+/** One-time claim amounts (Metasal) */
+export const CLAIM_X_VERIFIED = 10_000;
 /** X Premium (blue) */
-export const CLAIM_X_PREMIUM = 3_000;
+export const CLAIM_X_PREMIUM = 15_000;
 /** GitHub fork of solana-foundation/tokens */
 export const CLAIM_GH_FORK = 15_000;
 /** Tweet + tag @Tokenshit_ — every 24h; tweet must be <24h old */
-export const CLAIM_X_TWEET = 1_000;
+export const CLAIM_X_TWEET = 5_000;
 /** Follow @Tokenshit_ (once) — minor */
-export const CLAIM_X_FOLLOW = 500;
+export const CLAIM_X_FOLLOW = 3_000;
 /** Join email list (once) */
-export const CLAIM_EMAIL_LIST = 1_000;
+export const CLAIM_EMAIL_LIST = 5_000;
 /** $TOKENSHIT per referral */
-export const REFERRAL_REWARD_SHIT = 500;
+export const REFERRAL_REWARD_SHIT = 2_000;
 
 /** Anti-farm floors (overridable via env — see src/lib/abuse.ts) */
 export const CLAIM_REQUIRE_PFP = process.env.CLAIM_REQUIRE_PFP !== "0";
