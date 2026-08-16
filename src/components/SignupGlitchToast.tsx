@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { sfx } from "@/lib/sfx";
 
 type SignupEvent = {
   id: number;
@@ -20,8 +19,8 @@ function fmtFollowers(n: number) {
 }
 
 const SEEN_KEY = "tokenshit_signup_toast_seen";
-const TOAST_MS = 4200;
-const POLL_MS = 18_000;
+const TOAST_MS = 2800;
+const POLL_MS = 28_000;
 
 function readSeen(): number {
   try {
@@ -58,11 +57,7 @@ export default function SignupGlitchToast() {
     setEvt(next);
     setVisible(true);
     writeSeen(Math.max(readSeen(), next.id));
-    try {
-      sfx.chime?.();
-    } catch {
-      /* optional */
-    }
+    // quiet — no SFX for social signup toasts
     if (hideTimer.current) window.clearTimeout(hideTimer.current);
     hideTimer.current = window.setTimeout(() => {
       setVisible(false);
@@ -70,7 +65,7 @@ export default function SignupGlitchToast() {
         setEvt(null);
         showing.current = false;
         showNext();
-      }, 280);
+      }, 180);
     }, TOAST_MS);
   };
 
@@ -80,6 +75,8 @@ export default function SignupGlitchToast() {
     if (queue.current.some((q) => q.id === e.id)) return;
     if (evt?.id === e.id) return;
     queue.current.push(e);
+    // keep queue tiny
+    if (queue.current.length > 2) queue.current = queue.current.slice(-2);
     showNext();
   };
 
@@ -101,7 +98,8 @@ export default function SignupGlitchToast() {
           writeSeen(Number(d.events[0].id));
           return;
         }
-        for (const e of fresh) enqueue(e);
+        // only newest signup to avoid spam
+        if (fresh.length) enqueue(fresh[fresh.length - 1]!);
       } catch {
         /* ignore */
       }
@@ -130,16 +128,13 @@ export default function SignupGlitchToast() {
 
   return (
     <div
-      className={`signup-glitch-toast fixed z-[140] left-3 right-3 sm:left-auto sm:right-4 sm:w-[340px] bottom-[max(1rem,env(safe-area-inset-bottom))] pointer-events-none transition-all duration-300 ${
-        visible
-          ? "opacity-100 translate-y-0"
-          : "opacity-0 translate-y-3"
+      className={`signup-glitch-toast fixed z-[140] pointer-events-none transition-all duration-200 ${
+        visible ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-2"
       }`}
       role="status"
       aria-live="polite"
     >
-      <div className="signup-glitch-card relative overflow-hidden rounded-xl border border-neon/50 bg-zinc-950/95 backdrop-blur-md shadow-[0_0_24px_rgba(57,255,20,0.25)] px-3 py-3 flex items-center gap-3">
-        <div className="signup-glitch-scan" aria-hidden />
+      <div className="signup-glitch-card pointer-events-auto relative overflow-hidden rounded-xl border border-neon/35 bg-zinc-950/90 backdrop-blur-md shadow-sm px-2.5 py-2 flex items-center gap-2">
         <div className="relative shrink-0">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
@@ -148,28 +143,23 @@ export default function SignupGlitchToast() {
               `https://unavatar.io/twitter/${encodeURIComponent(evt.handle)}`
             }
             alt=""
-            width={48}
-            height={48}
-            className="h-12 w-12 rounded-full border-2 border-neon/60 object-cover bg-zinc-800"
+            width={28}
+            height={28}
+            className="h-7 w-7 rounded-full border border-neon/40 object-cover bg-zinc-800"
             onError={(e) => {
               (e.target as HTMLImageElement).src =
                 "data:image/svg+xml," +
                 encodeURIComponent(
-                  `<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48"><rect fill="#18181b" width="48" height="48"/><text x="24" y="30" text-anchor="middle" font-size="20">💩</text></svg>`
+                  `<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28"><rect fill="#18181b" width="28" height="28"/><text x="14" y="19" text-anchor="middle" font-size="12" fill="#39ff14">$</text></svg>`
                 );
             }}
           />
-          {evt.verified ? (
-            <span className="absolute -bottom-0.5 -right-0.5 text-[10px] bg-sky-500 text-white rounded-full h-4 w-4 flex items-center justify-center border border-zinc-950">
-              ✓
-            </span>
-          ) : null}
         </div>
         <div className="min-w-0 flex-1">
-          <p className="text-[10px] uppercase tracking-wider text-neon font-mono mb-0.5 signup-glitch-text">
-            New degen locked in
+          <p className="text-[9px] uppercase tracking-wider text-neon/90 font-orbitron">
+            New degen
           </p>
-          <p className="text-sm font-semibold text-white truncate">
+          <p className="text-[12px] font-semibold text-white truncate leading-tight">
             <a
               href={`https://x.com/${evt.handle}`}
               target="_blank"
@@ -179,98 +169,27 @@ export default function SignupGlitchToast() {
               @{evt.handle}
             </a>
             {evt.followers != null && (
-              <span className="text-zinc-400 font-normal font-mono text-xs ml-2">
-                {fmtFollowers(evt.followers)} flw
+              <span className="text-zinc-500 font-normal font-mono text-[10px] ml-1.5">
+                {fmtFollowers(evt.followers)}
               </span>
             )}
           </p>
-          {evt.referrer ? (
-            <p className="text-[11px] text-zinc-400 mt-0.5 truncate">
-              via{" "}
-              <a
-                href={`https://x.com/${evt.referrer}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-neon-blue hover:underline pointer-events-auto"
-              >
-                @{evt.referrer}
-              </a>
-            </p>
-          ) : (
-            <p className="text-[11px] text-zinc-600 mt-0.5">organic signup</p>
-          )}
         </div>
+        <button
+          type="button"
+          onClick={() => {
+            setVisible(false);
+            window.setTimeout(() => {
+              setEvt(null);
+              showing.current = false;
+            }, 150);
+          }}
+          className="shrink-0 pointer-events-auto text-zinc-500 hover:text-white text-sm leading-none px-1"
+          aria-label="Dismiss"
+        >
+          ×
+        </button>
       </div>
-
-      <style jsx>{`
-        .signup-glitch-card {
-          animation: signup-glitch-in 0.45s steps(2, end);
-        }
-        .signup-glitch-scan {
-          position: absolute;
-          inset: 0;
-          background: repeating-linear-gradient(
-            0deg,
-            transparent,
-            transparent 2px,
-            rgba(57, 255, 20, 0.04) 2px,
-            rgba(57, 255, 20, 0.04) 4px
-          );
-          pointer-events: none;
-          mix-blend-mode: screen;
-          animation: signup-scan 1.2s linear infinite;
-        }
-        .signup-glitch-text {
-          text-shadow:
-            1px 0 #ff00aa,
-            -1px 0 #00e5ff;
-          animation: signup-chrom 0.8s steps(2, end) 2;
-        }
-        @keyframes signup-glitch-in {
-          0% {
-            transform: translate(2px, -2px) skewX(-2deg);
-            filter: hue-rotate(40deg);
-          }
-          40% {
-            transform: translate(-2px, 1px) skewX(1deg);
-          }
-          100% {
-            transform: none;
-            filter: none;
-          }
-        }
-        @keyframes signup-scan {
-          0% {
-            transform: translateY(-30%);
-            opacity: 0.5;
-          }
-          100% {
-            transform: translateY(30%);
-            opacity: 0.15;
-          }
-        }
-        @keyframes signup-chrom {
-          0%,
-          100% {
-            text-shadow:
-              1px 0 #ff00aa,
-              -1px 0 #00e5ff;
-          }
-          50% {
-            text-shadow:
-              -2px 0 #ff00aa,
-              2px 0 #00e5ff;
-          }
-        }
-        @media (prefers-reduced-motion: reduce) {
-          .signup-glitch-card,
-          .signup-glitch-scan,
-          .signup-glitch-text {
-            animation: none !important;
-            text-shadow: none !important;
-          }
-        }
-      `}</style>
     </div>
   );
 }
