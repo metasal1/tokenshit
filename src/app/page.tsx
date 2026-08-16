@@ -5,10 +5,12 @@ import RandomTokenVote from "@/components/RandomTokenVote";
 import GlobalTreasuryBanner from "@/components/GlobalTreasuryBanner";
 import ShareRefButton from "@/components/ShareRefButton";
 import HomePlayTeaser from "@/components/HomePlayTeaser";
+import CopyableAddress from "@/components/CopyableAddress";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { EmojiIcon } from "@/components/EmojiIcon";
 import { pageMeta } from "@/lib/seo";
+import { SHIT_MINT, SHIT_SYMBOL } from "@/lib/shit-token";
 
 /**
  * Home — clean entry:
@@ -53,6 +55,13 @@ export default function Home() {
           <p className="text-xs sm:text-sm text-zinc-500 max-w-sm mx-auto leading-snug">
             Every token is shit until proven otherwise.
           </p>
+          <div className="mt-3 max-w-md mx-auto text-left">
+            <CopyableAddress
+              address={SHIT_MINT}
+              label={`$${SHIT_SYMBOL} CA`}
+              explorer={`https://solscan.io/token/${SHIT_MINT}`}
+            />
+          </div>
           <div className="mt-4 max-w-md mx-auto relative z-[60]">
             <SearchBar big />
           </div>
