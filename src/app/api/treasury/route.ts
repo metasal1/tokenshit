@@ -1,4 +1,4 @@
-import { getTreasuryBalances, getPlayPotBalances } from "@/lib/treasury";
+import { getTreasuryBalances, getPlayPotBalances, getPlayRevBalances } from "@/lib/treasury";
 import {
   CLAIM_GH_FORK,
   CLAIM_X_FOLLOW,
@@ -10,6 +10,7 @@ import {
   SHIT_SYMBOL,
   TREASURY_ADDRESS,
   PLAY_POT_ADDRESS,
+  PLAY_REV_ADDRESS,
 } from "@/lib/shit-token";
 import {
   buildDropSchedule,
@@ -23,11 +24,12 @@ export const revalidate = 15;
 export async function GET() {
   const now = new Date();
   try {
-    const [bal, pot, lastDrop, droppedToday] = await Promise.all([
+    const [bal, pot, lastDrop, droppedToday, rev] = await Promise.all([
       getTreasuryBalances(),
       getPlayPotBalances().catch(() => null),
       getLastDrop(),
       hasDroppedToday(now),
+      getPlayRevBalances().catch(() => null),
     ]);
     const schedule = buildDropSchedule(now);
 
@@ -45,6 +47,17 @@ export async function GET() {
             }
           : {
               address: PLAY_POT_ADDRESS,
+              shit: 0,
+              sol: 0,
+            },
+        rev: rev
+          ? {
+              address: rev.address,
+              shit: rev.shit,
+              sol: rev.sol,
+            }
+          : {
+              address: PLAY_REV_ADDRESS,
               shit: 0,
               sol: 0,
             },
@@ -81,6 +94,7 @@ export async function GET() {
         shit: 0,
         sol: 0,
         pot: { address: PLAY_POT_ADDRESS, shit: 0, sol: 0 },
+        rev: { address: PLAY_REV_ADDRESS, shit: 0, sol: 0 },
         global: {
           ...schedule,
           droppedToday: false,

@@ -19,17 +19,20 @@ export const TREASURY_ADDRESS =
   "SHTy7yoA5uAZoevKT3BFcSeDeFaHEyqWc55uApd3MJB";
 
 /**
- * Play pot / escrow + house revenue (**rev…** vanity).
- * Flow: play stakes **in** → pot; settle pays **winners** from pot;
- * house cut (25%) **stays on pot/rev** (not claims treasury).
- * Claims treasury (SHTy) is separate — social claims only.
+ * Play pot escrow — stakes **in**, prizes **out**.
+ * `potRvs…` (not claims SHTy, not rev revenue).
  */
 export const PLAY_POT_ADDRESS =
   process.env.NEXT_PUBLIC_PLAY_POT_ADDRESS ||
-  "revn2bE1MtTvn5cBXguuAuuSyEC2VbiyRE2imFMAX7U";
+  "potRvsxc3dju4nQA28vMLuTvppyUiiphjkkTz92gF1r";
 
-/** Alias — pot is the rev revenue wallet */
-export const PLAY_REV_ADDRESS = PLAY_POT_ADDRESS;
+/**
+ * Play house / revenue wallet (**rev…**).
+ * Settle sends 25% house cut pot → rev. Claims still use SHTy.
+ */
+export const PLAY_REV_ADDRESS =
+  process.env.NEXT_PUBLIC_PLAY_REV_ADDRESS ||
+  "revn2bE1MtTvn5cBXguuAuuSyEC2VbiyRE2imFMAX7U";
 
 /** One-time claim amounts (Metasal rules) */
 export const CLAIM_X_VERIFIED = 10_000;
@@ -113,6 +116,11 @@ export function treasurySolscanUrl(): string {
 /** Play pot escrow portfolio (stakes in · prizes out) */
 export function playPotPortfolioUrl(): string {
   return `https://sol.new/portfolio/${PLAY_POT_ADDRESS}`;
+}
+
+/** Play house / rev revenue portfolio */
+export function playRevPortfolioUrl(): string {
+  return `https://sol.new/portfolio/${PLAY_REV_ADDRESS}`;
 }
 
 /** @deprecated alias — portfolio lives on sol.new */

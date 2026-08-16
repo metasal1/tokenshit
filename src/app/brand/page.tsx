@@ -333,6 +333,10 @@ export default function BrandPage() {
             <div className="text-zinc-500">Play pot (stakes / prizes)</div>
             <div className="text-amber-200/90 break-all">{BRAND.playPot}</div>
           </div>
+          <div className="rounded-xl border border-border bg-card p-4 space-y-1 font-mono text-xs sm:col-span-2">
+            <div className="text-zinc-500">Play rev (house 25%)</div>
+            <div className="text-zinc-200 break-all">{BRAND.playRev}</div>
+          </div>
         </div>
         <div className="flex flex-wrap gap-2">
           <span className="rounded-lg bg-neon text-black text-sm font-semibold px-4 py-2">

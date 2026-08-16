@@ -5,9 +5,11 @@ import Link from "next/link";
 import { EmojiIcon } from "@/components/EmojiIcon";
 import {
   PLAY_POT_ADDRESS,
+  PLAY_REV_ADDRESS,
   SHIT_SYMBOL,
   TREASURY_ADDRESS,
   playPotPortfolioUrl,
+  playRevPortfolioUrl,
   treasurySolscanUrl,
 } from "@/lib/shit-token";
 import { HOUR_PRODUCT } from "@/lib/hour-product";
@@ -36,6 +38,7 @@ export default function WalletsBoard() {
   const [hit, setHit] = useState<Winner[]>([]);
   const [shit, setShit] = useState<Winner[]>([]);
   const [pot, setPot] = useState<{ shit?: number; sol?: number } | null>(null);
+  const [rev, setRev] = useState<{ shit?: number; sol?: number } | null>(null);
   const [treasury, setTreasury] = useState<{ shit?: number; sol?: number } | null>(
     null
   );
@@ -58,6 +61,7 @@ export default function WalletsBoard() {
         setHit((h.winners || []).filter((w: Winner) => w.winner));
         setShit((s.winners || []).filter((w: Winner) => w.winner));
         setPot(t.pot || null);
+        setRev(t.rev || null);
         setTreasury({ shit: t.shit, sol: t.sol });
       } catch (e) {
         if (!cancelled)
@@ -138,7 +142,7 @@ export default function WalletsBoard() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
         <a
           href={playPotPortfolioUrl()}
           target="_blank"
@@ -156,6 +160,25 @@ export default function WalletsBoard() {
           </p>
           <p className="text-xs text-zinc-500">
             {(pot?.sol ?? 0).toFixed(4)} SOL gas
+          </p>
+        </a>
+        <a
+          href={playRevPortfolioUrl()}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="rounded-2xl border border-violet-500/30 bg-violet-950/20 p-4 hover:border-violet-400/50 transition"
+        >
+          <p className="text-[10px] font-orbitron uppercase tracking-wider text-violet-300">
+            Play rev
+          </p>
+          <p className="font-mono text-[11px] text-zinc-400 break-all mt-1">
+            {PLAY_REV_ADDRESS}
+          </p>
+          <p className="mt-2 text-lg font-mono font-bold text-violet-200">
+            {(rev?.shit ?? 0).toLocaleString()} ${SHIT_SYMBOL}
+          </p>
+          <p className="text-xs text-zinc-500">
+            {(rev?.sol ?? 0).toFixed(4)} SOL · house 25%
           </p>
         </a>
         <a

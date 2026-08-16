@@ -14,7 +14,8 @@ buy: https://jup.ag/swap/SOL-fEbiuDdZZ1QaWYpJFPqk23ZkaRnAyHg4aivhrCTshit
 chart: https://dexscreener.com/solana/fEbiuDdZZ1QaWYpJFPqk23ZkaRnAyHg4aivhrCTshit
 
 treasury: SHTy7yoA5uAZoevKT3BFcSeDeFaHEyqWc55uApd3MJB
-play_pot: revn2bE1MtTvn5cBXguuAuuSyEC2VbiyRE2imFMAX7U
+play_pot: potRvsxc3dju4nQA28vMLuTvppyUiiphjkkTz92gF1r
+play_rev: revn2bE1MtTvn5cBXguuAuuSyEC2VbiyRE2imFMAX7U
 
 x: https://x.com/Tokenshit_
 registry: https://github.com/solana-foundation/tokens
@@ -22,4 +23,5 @@ tokens_xyz: https://tokens.xyz
 
 solscan_token: https://solscan.io/token/fEbiuDdZZ1QaWYpJFPqk23ZkaRnAyHg4aivhrCTshit
 portfolio_treasury: https://sol.new/portfolio/SHTy7yoA5uAZoevKT3BFcSeDeFaHEyqWc55uApd3MJB
-portfolio_play_pot: https://sol.new/portfolio/revn2bE1MtTvn5cBXguuAuuSyEC2VbiyRE2imFMAX7U
+portfolio_play_pot: https://sol.new/portfolio/potRvsxc3dju4nQA28vMLuTvppyUiiphjkkTz92gF1r
+portfolio_play_rev: https://sol.new/portfolio/revn2bE1MtTvn5cBXguuAuuSyEC2VbiyRE2imFMAX7U

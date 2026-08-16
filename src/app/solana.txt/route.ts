@@ -4,6 +4,7 @@ import {
   CLAIM_X_TWEET,
   CLAIM_X_VERIFIED,
   PLAY_POT_ADDRESS,
+  PLAY_REV_ADDRESS,
   SHIT_DECIMALS,
   SHIT_MINT,
   SHIT_SYMBOL,
@@ -31,6 +32,7 @@ chart: https://dexscreener.com/solana/${SHIT_MINT}
 
 treasury: ${TREASURY_ADDRESS}
 play_pot: ${PLAY_POT_ADDRESS}
+play_rev: ${PLAY_REV_ADDRESS}
 
 x_tweet_claim: ${CLAIM_X_TWEET}
 x_follow_claim: ${CLAIM_X_FOLLOW}
@@ -45,6 +47,7 @@ tokens_xyz: https://tokens.xyz
 solscan_token: https://solscan.io/token/${SHIT_MINT}
 portfolio_treasury: https://sol.new/portfolio/${TREASURY_ADDRESS}
 portfolio_play_pot: https://sol.new/portfolio/${PLAY_POT_ADDRESS}
+portfolio_play_rev: https://sol.new/portfolio/${PLAY_REV_ADDRESS}
 `;
   return new Response(BODY, {
     headers: {

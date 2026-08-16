@@ -940,9 +940,9 @@ export async function settleDay(utcDay: string): Promise<{
     let toTreasury = false;
 
     const { sendShitFromPlayPot } = await import("@/lib/treasury");
-    const { PLAY_POT_ADDRESS: revPot } = await import("@/lib/shit-token");
+    const { PLAY_REV_ADDRESS: revWallet } = await import("@/lib/shit-token");
 
-    // Play → pot. Settle: pot → winner (75%); house 25% retained on pot/rev.
+    // Play → pot. Settle: pot → winner (75%); pot → rev (25% house).
     // Claims treasury (SHTy) is NOT the house sink for play.
     // IMPORTANT: never sweep "DB pot" amount if on-chain is lower / prizes unpaid.
     if (opts.tickets.length === 0 || prize <= 0 || !opts.bag) {
@@ -982,16 +982,24 @@ export async function settleDay(utcDay: string): Promise<{
         const paid = await sendShitFromPlayPot(winner, prize);
         prizeSig = paid.signature;
       }
-      // House cut stays on pot/rev — no transfer (pot already holds it).
-      // Record accounting only; feeSig marks retained-in-rev.
+      // House cut: pot → rev revenue wallet
       if (fee > 0) {
-        feeSig = `retained:${revPot.slice(0, 8)}:${fee}`;
-        vrf = {
-          ...(vrf || {}),
-          houseFee: fee,
-          houseSink: revPot,
-          houseMode: "retained_in_pot",
-        };
+        try {
+          const feePaid = await sendShitFromPlayPot(revWallet, fee);
+          feeSig = feePaid.signature;
+          vrf = {
+            ...(vrf || {}),
+            houseFee: fee,
+            houseSink: revWallet,
+            houseMode: "pot_to_rev",
+          };
+        } catch (fe) {
+          vrf = {
+            ...(vrf || {}),
+            feeError: fe instanceof Error ? fe.message : String(fe),
+            houseSink: revWallet,
+          };
+        }
       }
     } catch (e) {
       // fail → do NOT destroy pot; leave for manual retry

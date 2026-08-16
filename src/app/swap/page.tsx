@@ -6,10 +6,12 @@ import WalletAddressCard from "@/components/WalletAddressCard";
 import CopyableAddress from "@/components/CopyableAddress";
 import {
   PLAY_POT_ADDRESS,
+  PLAY_REV_ADDRESS,
   SHIT_MINT,
   SHIT_SYMBOL,
   TREASURY_ADDRESS,
   playPotPortfolioUrl,
+  playRevPortfolioUrl,
   treasurySolscanUrl,
 } from "@/lib/shit-token";
 import { USDC_MINT } from "@/lib/buy-fee";
@@ -67,6 +69,11 @@ export default function SwapPage() {
           address={PLAY_POT_ADDRESS}
           label="Play pot (stakes / prizes)"
           explorer={playPotPortfolioUrl()}
+        />
+        <CopyableAddress
+          address={PLAY_REV_ADDRESS}
+          label="Play rev (house 25%)"
+          explorer={playRevPortfolioUrl()}
         />
       </section>
     </div>
