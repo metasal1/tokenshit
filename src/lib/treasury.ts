@@ -326,7 +326,7 @@ async function sendShitFromPayer(opts: {
           feePayer = treasuryKp;
         } else {
           throw new Error(
-            `Play pot needs SOL for fees (pot=${(potLamports / 1e9).toFixed(4)} treasury=${(tLamports / 1e9).toFixed(4)}). Top up potRvs… with ~0.2 SOL`
+            `Play pot needs SOL for fees (pot=${(potLamports / 1e9).toFixed(4)} treasury=${(tLamports / 1e9).toFixed(4)}). Top up play pot (rev…) with ~0.2 SOL`
           );
         }
       } catch (e) {
