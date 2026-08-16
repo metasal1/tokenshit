@@ -378,7 +378,7 @@ export default function WhalesBoard() {
         </Link>
         <span>·</span>
         <Link href="/swap" className="text-neon-blue hover:underline">
-          Swap
+          Buy
         </Link>
         <span>·</span>
         <Link href="/" className="hover:text-zinc-400">

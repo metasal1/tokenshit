@@ -24,7 +24,7 @@ export const metadata: Metadata = {
   ...pageMeta({
     title: "TOKEN$HIT — Every token is shit until proven otherwise",
     description:
-      "Play $HIT OF THE DAY, vote HIT or SHIT on Solana assets, claim rewards, swap $TOKENSHIT.",
+      "Play $HIT OF THE DAY, vote HIT or SHIT on Solana assets, claim rewards.",
     path: "/",
     og: "home",
   }),
@@ -35,7 +35,7 @@ export const metadata: Metadata = {
 
 const QUICK = [
   { href: "/claim", label: "Claim", emoji: "🎁" },
-  { href: "/swap", label: "Swap", emoji: "🔁" },
+  { href: "/play", label: "Play", emoji: "🎯" },
   { href: "/memes", label: "Memes", emoji: "🎨" },
   { href: "/whales", label: "Whales", emoji: "🐋" },
 ] as const;

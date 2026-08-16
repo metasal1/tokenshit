@@ -63,7 +63,7 @@ export default function SeekerPage() {
         {[
           { href: "/play", label: "Play", sub: "$HIT OF THE DAY" },
           { href: "/claim", label: "Claim", sub: "Rewards" },
-          { href: "/swap", label: "Swap", sub: "Buy $TOKENSHIT" },
+          { href: "/swap", label: "Buy", sub: "Get $TOKENSHIT" },
         ].map((x) => (
           <Link
             key={x.href}
