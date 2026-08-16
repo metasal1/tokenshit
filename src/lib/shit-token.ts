@@ -21,10 +21,11 @@ export const TREASURY_ADDRESS =
 /**
  * Play pot / escrow — stakes in, prizes out.
  * Separate from claims treasury so social drops don't empty game pots.
+ * Vanity **rev…** (2026-08-16)
  */
 export const PLAY_POT_ADDRESS =
   process.env.NEXT_PUBLIC_PLAY_POT_ADDRESS ||
-  "potRvsxc3dju4nQA28vMLuTvppyUiiphjkkTz92gF1r";
+  "revn2bE1MtTvn5cBXguuAuuSyEC2VbiyRE2imFMAX7U";
 
 /** One-time claim amounts (Metasal rules) */
 export const CLAIM_X_VERIFIED = 10_000;
