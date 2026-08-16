@@ -63,6 +63,24 @@ export async function getPlayPotBalances(): Promise<{
   };
 }
 
+export async function getPlayRevBalances(): Promise<{
+  address: string;
+  mint: string;
+  shit: number;
+  shitRaw: string;
+  sol: number;
+  solLamports: number;
+  ata?: string;
+}> {
+  const { PLAY_REV_ADDRESS } = await import("@/lib/shit-token");
+  const bal = await getWalletTokenBalances(PLAY_REV_ADDRESS);
+  return {
+    address: PLAY_REV_ADDRESS,
+    mint: SHIT_MINT,
+    ...bal,
+  };
+}
+
 async function getWalletTokenBalances(owner: string): Promise<{
   shit: number;
   shitRaw: string;
@@ -326,7 +344,7 @@ async function sendShitFromPayer(opts: {
           feePayer = treasuryKp;
         } else {
           throw new Error(
-            `Play pot needs SOL for fees (pot=${(potLamports / 1e9).toFixed(4)} treasury=${(tLamports / 1e9).toFixed(4)}). Top up play pot (rev…) with ~0.2 SOL`
+            `Play pot needs SOL for fees (pot=${(potLamports / 1e9).toFixed(4)} treasury=${(tLamports / 1e9).toFixed(4)}). Top up potRvs… with ~0.2 SOL`
           );
         }
       } catch (e) {
