@@ -34,9 +34,10 @@ type Major = {
   symbol: string;
   logo: string;
   price: number;
-  /** Live % vs hour open (null if no snap yet) */
   pct?: number | null;
   openPrice?: number | null;
+  hitPlays?: number;
+  shitPlays?: number;
 };
 
 type Leader = {
@@ -50,28 +51,24 @@ type Leader = {
   volume24h: number;
 };
 
+type MyTicket = { assetId: string; side: "hit" | "shit"; tickets: number };
+
 type DayStatus = {
   enabled: boolean;
-  cadence?: string;
   utcDay: string;
   utcHour?: string;
-  hourLabel?: string;
   msToClose: number;
   nextCloseAt: string;
   stakeAmount: number;
-  houseFeeBps: number;
-  treasury: string;
-  mint: string;
-  round: {
-    hitPot: number;
-    shitPot: number;
-    status: string;
-  } | null;
+  multiTicket?: boolean;
+  round: { hitPot: number; shitPot: number; status: string } | null;
   stats: {
     hitStakes: number;
     shitStakes: number;
     hitTickets: number;
     shitTickets: number;
+    hitPlayers?: number;
+    shitPlayers?: number;
   };
   leaders?: {
     hitting: Leader | null;
@@ -80,10 +77,10 @@ type DayStatus = {
     topShit?: Leader[];
     stakesOnHitting?: number;
     stakesOnShitting?: number;
-    compared?: number;
   } | null;
   majors: Major[];
   majorsCount: number;
+  myTickets?: MyTicket[];
 };
 
 function TokenMark({
@@ -128,12 +125,12 @@ function fmt(n: number) {
 }
 
 function fmtCountdown(ms: number) {
-  if (ms <= 0) return "00:00:00";
+  if (ms <= 0) return "00:00";
   const s = Math.floor(ms / 1000);
-  const h = Math.floor(s / 3600);
-  const m = Math.floor((s % 3600) / 60);
+  const m = Math.floor(s / 60);
   const sec = s % 60;
-  return [h, m, sec].map((x) => String(x).padStart(2, "0")).join(":");
+  // MM:SS for dock (less width)
+  return `${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
 }
 
 async function fetchTransferTx(wallet: string): Promise<string> {
@@ -164,13 +161,47 @@ async function fetchShitBalance(wallet: string): Promise<number | null> {
   }
 }
 
+type SearchHit = {
+  assetId: string;
+  name: string;
+  symbol: string;
+  logo: string;
+};
+
+function mapSearchResults(data: unknown): SearchHit[] {
+  const root = data as {
+    results?: unknown[];
+    assets?: unknown[];
+  };
+  const rows = (root.results || root.assets || []) as Record<string, unknown>[];
+  const out: SearchHit[] = [];
+  for (const row of rows) {
+    const a = (row.asset as Record<string, unknown>) || row;
+    const pv = (a.primaryVariant as Record<string, unknown>) || {};
+    const market = (pv.market as Record<string, unknown>) || {};
+    const assetId = String(a.assetId || a.id || row.assetId || "").trim();
+    if (!assetId) continue;
+    out.push({
+      assetId,
+      name: String(a.name || pv.name || a.symbol || assetId),
+      symbol: String(a.symbol || pv.symbol || ""),
+      logo: String(
+        a.imageUrl || market.logoURI || a.logo || ""
+      ),
+    });
+  }
+  return out;
+}
+
+/**
+ * $HIT OF THE DAY play surface — mobile dock, multi-ticket, any bag.
+ * No page-scroll required to play / confirm / see loader.
+ */
 export default function DayGamePanel({
   compactTitle = false,
   dense = false,
 }: {
-  /** Hide big H1 when page already has product brand */
   compactTitle?: boolean;
-  /** Tighter padding on play page / home card */
   dense?: boolean;
 } = {}) {
   const { ready, authenticated, getAccessToken, user } = usePrivy();
@@ -184,9 +215,13 @@ export default function DayGamePanel({
 
   const [status, setStatus] = useState<DayStatus | null>(null);
   const [q, setQ] = useState("");
+  const [searchHits, setSearchHits] = useState<SearchHit[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [chip, setChip] = useState<"movers" | "recent" | "all">("movers");
   const [selected, setSelected] = useState<Major | null>(null);
   const [side, setSide] = useState<"hit" | "shit">("hit");
   const [busy, setBusy] = useState(false);
+  const [phase, setPhase] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
   const [tick, setTick] = useState(0);
@@ -196,19 +231,21 @@ export default function DayGamePanel({
   const [hitDelta, setHitDelta] = useState(0);
   const [shitDelta, setShitDelta] = useState(0);
   const prevPots = useRef<{ hit: number; shit: number } | null>(null);
-
+  const lastTap = useRef<{ id: string; t: number } | null>(null);
+  const recentRef = useRef<Major[]>([]);
 
   const load = useCallback(() => {
-    fetch("/api/day", { cache: "no-store" })
+    const w = wallet ? `?wallet=${encodeURIComponent(wallet)}` : "";
+    fetch(`/api/day${w}`, { cache: "no-store" })
       .then((r) => r.json())
       .then((d) => setStatus(d))
       .catch(() => {});
-  }, []);
+  }, [wallet]);
 
   useEffect(() => {
     setMounted(true);
     load();
-    const a = setInterval(load, 20_000);
+    const a = setInterval(load, 15_000);
     const b = setInterval(() => setTick((t) => t + 1), 1000);
     return () => {
       clearInterval(a);
@@ -216,14 +253,45 @@ export default function DayGamePanel({
     };
   }, [load]);
 
+  // Remote search (any bag)
+  useEffect(() => {
+    const s = q.trim();
+    if (s.length < 2) {
+      setSearchHits([]);
+      setSearching(false);
+      return;
+    }
+    let alive = true;
+    setSearching(true);
+    const t = window.setTimeout(() => {
+      fetch(`/api/search?q=${encodeURIComponent(s)}&limit=24`, {
+        cache: "no-store",
+      })
+        .then((r) => r.json())
+        .then((d) => {
+          if (!alive) return;
+          setSearchHits(mapSearchResults(d));
+        })
+        .catch(() => {
+          if (alive) setSearchHits([]);
+        })
+        .finally(() => {
+          if (alive) setSearching(false);
+        });
+    }, 280);
+    return () => {
+      alive = false;
+      clearTimeout(t);
+    };
+  }, [q]);
+
   const countdown = useMemo(() => {
-    if (!mounted || !status?.nextCloseAt) return "—:—:—";
+    if (!mounted || !status?.nextCloseAt) return "—:—";
     const ms = Date.parse(status.nextCloseAt) - Date.now();
     return fmtCountdown(ms);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status?.nextCloseAt, tick, mounted]);
 
-  // Pot up → sound + flash (other players / self)
   useEffect(() => {
     if (!status?.round) return;
     const hit = status.round.hitPot || 0;
@@ -264,37 +332,81 @@ export default function DayGamePanel({
     return () => clearTimeout(t);
   }, [shitFlash]);
 
-  const filtered = useMemo(() => {
+  const myMap = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const t of status?.myTickets || []) {
+      if (t.side !== side) continue;
+      m.set(t.assetId, (m.get(t.assetId) || 0) + t.tickets);
+    }
+    return m;
+  }, [status?.myTickets, side]);
+
+  const bags = useMemo(() => {
     const list = status?.majors || [];
     const s = q.trim().toLowerCase();
-    let out = !s
-      ? [...list]
-      : list.filter(
-          (m) =>
-            m.symbol.toLowerCase().includes(s) ||
-            m.name.toLowerCase().includes(s) ||
-            m.assetId.toLowerCase().includes(s)
+
+    // Remote search overrides chips when query long enough
+    if (s.length >= 2 && searchHits.length) {
+      const byId = new Map(list.map((m) => [m.assetId, m]));
+      return searchHits.map((h) => {
+        const known = byId.get(h.assetId);
+        return (
+          known || {
+            assetId: h.assetId,
+            name: h.name,
+            symbol: h.symbol,
+            logo: h.logo,
+            price: 0,
+            pct: null,
+          }
         );
-    // Rank by hour % for the selected side (HIT = best first, SHIT = worst first)
-    out.sort((a, b) => {
-      const ap = a.pct;
-      const bp = b.pct;
-      const aN = ap == null || !Number.isFinite(ap);
-      const bN = bp == null || !Number.isFinite(bp);
-      if (aN && bN) return 0;
-      if (aN) return 1;
-      if (bN) return -1;
-      return side === "hit" ? (bp as number) - (ap as number) : (ap as number) - (bp as number);
-    });
+      });
+    }
+
+    let out = [...list];
+    if (s) {
+      out = out.filter(
+        (m) =>
+          m.symbol.toLowerCase().includes(s) ||
+          m.name.toLowerCase().includes(s) ||
+          m.assetId.toLowerCase().includes(s)
+      );
+    } else if (chip === "recent") {
+      const ids = new Set(recentRef.current.map((r) => r.assetId));
+      const recent = recentRef.current.filter((r) =>
+        list.some((m) => m.assetId === r.assetId)
+      );
+      const rest = list.filter((m) => !ids.has(m.assetId));
+      out = [...recent, ...rest];
+    } else if (chip === "movers") {
+      out.sort((a, b) => {
+        const ap = Math.abs(a.pct ?? 0);
+        const bp = Math.abs(b.pct ?? 0);
+        return bp - ap;
+      });
+    } else {
+      // all — sort by side %
+      out.sort((a, b) => {
+        const ap = a.pct;
+        const bp = b.pct;
+        const aN = ap == null || !Number.isFinite(ap);
+        const bN = bp == null || !Number.isFinite(bp);
+        if (aN && bN) return 0;
+        if (aN) return 1;
+        if (bN) return -1;
+        return side === "hit"
+          ? (bp as number) - (ap as number)
+          : (ap as number) - (bp as number);
+      });
+    }
     return out;
-  }, [status?.majors, q, side]);
+  }, [status?.majors, q, side, chip, searchHits]);
 
-  const lastTap = useRef<{ id: string; t: number } | null>(null);
-
-  async function play(bag?: Major | null) {
+  async function play(bag?: Major | SearchHit | null) {
     const pick = bag ?? selected;
     setErr(null);
     setMsg(null);
+    setPhase(null);
     if (!authenticated) {
       safeLogin();
       return;
@@ -304,19 +416,42 @@ export default function DayGamePanel({
       return;
     }
     if (!pick) {
-      setErr("Tap a bag (double-tap to play!)");
+      setErr("Pick a bag first");
       return;
     }
-    if (bag) setSelected(bag);
+    if (bag) {
+      setSelected({
+        assetId: bag.assetId,
+        name: bag.name,
+        symbol: bag.symbol,
+        logo: bag.logo,
+        price: "price" in bag ? (bag as Major).price : 0,
+        pct: "pct" in bag ? (bag as Major).pct : null,
+      });
+    }
+    // remember recent
+    recentRef.current = [
+      {
+        assetId: pick.assetId,
+        name: pick.name,
+        symbol: pick.symbol,
+        logo: pick.logo,
+        price: "price" in pick ? (pick as Major).price : 0,
+        pct: "pct" in pick ? (pick as Major).pct ?? null : null,
+      },
+      ...recentRef.current.filter((r) => r.assetId !== pick.assetId),
+    ].slice(0, 24);
+
     setBusy(true);
     try {
-      // Fast client check before wallet popup / auto-sign
+      setPhase("Checking balance…");
       const have = await fetchShitBalance(wallet);
       if (have != null && have < PLAY_STAKE) {
         throw new Error(
-          `Need ${PLAY_STAKE.toLocaleString()} $${SHIT_SYMBOL} to play (you have ${have.toLocaleString(undefined, { maximumFractionDigits: 2 })}). Claim or buy first.`
+          `Need ${PLAY_STAKE.toLocaleString()} $${SHIT_SYMBOL} (you have ${have.toLocaleString(undefined, { maximumFractionDigits: 2 })}). Claim or buy first.`
         );
       }
+      setPhase("Building…");
       const rawTx = await fetchTransferTx(wallet);
       const txBytes = b64ToBytes(rawTx);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -326,7 +461,7 @@ export default function DayGamePanel({
       if (!walletObj) throw new Error("No wallet object");
 
       const desc = `Play 1,000 $${SHIT_SYMBOL} · ${side.toUpperCase()} ${pick.symbol || pick.name}`;
-      // Auto-sign when sponsored (no wallet modal). Fall back to UI if Privy requires it.
+      setPhase("Signing…");
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       let result: any;
       try {
@@ -336,10 +471,7 @@ export default function DayGamePanel({
           chain: "solana:mainnet",
           options: {
             sponsor: true,
-            uiOptions: {
-              showWalletUIs: false,
-              description: desc,
-            },
+            uiOptions: { showWalletUIs: false, description: desc },
           },
         });
       } catch {
@@ -349,10 +481,7 @@ export default function DayGamePanel({
           chain: "solana:mainnet",
           options: {
             sponsor: true,
-            uiOptions: {
-              showWalletUIs: true,
-              description: desc,
-            },
+            uiOptions: { showWalletUIs: true, description: desc },
           },
         });
       }
@@ -364,6 +493,7 @@ export default function DayGamePanel({
       }
       if (!signature) throw new Error("No signature from wallet");
 
+      setPhase("Confirming…");
       const token = await getAccessToken();
       const res = await fetch("/api/day", {
         method: "POST",
@@ -382,46 +512,51 @@ export default function DayGamePanel({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Play failed");
+      const tc = Number(data.ticketCount || 1);
       setMsg(
-        `In · ${side.toUpperCase()} ${pick.symbol || pick.name} · pot ${fmt(
-          side === "hit" ? data.hitPot : data.shitPot
-        )}`
+        `+1 ticket · ${side.toUpperCase()} ${pick.symbol || pick.name} · you ×${tc}`
       );
+      setPhase(null);
       sfx.potUp();
       if (side === "hit") {
         setHitFlash(true);
         setHitDelta(1000);
         const h = (prevPots.current?.hit ?? 0) + 1000;
-        prevPots.current = {
-          hit: h,
-          shit: prevPots.current?.shit ?? 0,
-        };
+        prevPots.current = { hit: h, shit: prevPots.current?.shit ?? 0 };
       } else {
         setShitFlash(true);
         setShitDelta(1000);
         const s = (prevPots.current?.shit ?? 0) + 1000;
-        prevPots.current = {
-          hit: prevPots.current?.hit ?? 0,
-          shit: s,
-        };
+        prevPots.current = { hit: prevPots.current?.hit ?? 0, shit: s };
       }
       load();
     } catch (e) {
+      setPhase(null);
       setErr(friendlySolanaSendError(e));
     } finally {
       setBusy(false);
     }
   }
 
-  /** Single tap = select. Double tap / double-click = select + play. */
-  function onBagTap(m: Major) {
+  function onBagTap(m: Major | SearchHit) {
     const now = Date.now();
     const prev = lastTap.current;
-    setSelected(m);
+    const asMajor: Major = {
+      assetId: m.assetId,
+      name: m.name,
+      symbol: m.symbol,
+      logo: m.logo,
+      price: "price" in m ? (m as Major).price : 0,
+      pct: "pct" in m ? (m as Major).pct ?? null : null,
+      hitPlays: "hitPlays" in m ? (m as Major).hitPlays : 0,
+      shitPlays: "shitPlays" in m ? (m as Major).shitPlays : 0,
+    };
+    setSelected(asMajor);
     setErr(null);
+    setMsg(null);
     if (prev && prev.id === m.assetId && now - prev.t < 380) {
       lastTap.current = null;
-      void play(m);
+      void play(asMajor);
       return;
     }
     lastTap.current = { id: m.assetId, t: now };
@@ -439,184 +574,252 @@ export default function DayGamePanel({
 
   const hitPot = status.round?.hitPot || 0;
   const shitPot = status.round?.shitPot || 0;
+  const L = status.leaders;
+  const myOnSelected = selected
+    ? myMap.get(selected.assetId) || 0
+    : 0;
 
   const cta = busy
-    ? "Confirming…"
+    ? phase || "Working…"
     : !authenticated
       ? "Login to play"
       : !selected
-        ? "Double-tap a bag ↓"
+        ? "Pick a bag"
         : `Play 1,000 · ${side.toUpperCase()} ${selected.symbol || selected.name}`;
 
+  const dockStatus = err || msg || phase || null;
+
   return (
-    <div className="space-y-3">
-      <section
-        className={`rounded-2xl border border-neon/30 bg-card ${
-          dense ? "p-3.5 sm:p-4" : "p-4 sm:p-5"
-        } space-y-4`}
-      >
-        <div className="flex items-start justify-between gap-3">
+    <div
+      className={`flex flex-col ${
+        dense
+          ? "min-h-0 h-[min(calc(100dvh-7.5rem),720px)]"
+          : "min-h-0 h-[min(calc(100dvh-6rem),760px)]"
+      }`}
+    >
+      {/* ── Status strip ── */}
+      <div className="shrink-0 rounded-t-2xl border border-b-0 border-neon/25 bg-card px-3 pt-2.5 pb-2 space-y-2">
+        <div className="flex items-center justify-between gap-2">
           <div className="min-w-0">
             {!compactTitle ? (
-              <>
-                <p className="text-[10px] font-orbitron uppercase tracking-[0.2em] text-neon">
-                  {HOUR_PRODUCT.name}
-                </p>
-                <h2 className="text-lg sm:text-xl font-bold text-white mt-0.5">
-                  Play 1,000 ${SHIT_SYMBOL}
-                </h2>
-              </>
+              <p className="text-[10px] font-orbitron uppercase tracking-[0.18em] text-neon truncate">
+                {HOUR_PRODUCT.name}
+              </p>
             ) : (
-              <h2 className="text-sm font-orbitron uppercase tracking-wider text-zinc-300">
-                Play 1,000 ${SHIT_SYMBOL}
-              </h2>
+              <p className="text-[10px] font-orbitron uppercase tracking-wider text-zinc-400">
+                Multi-ticket · any bag
+              </p>
             )}
-            <p className="text-[11px] text-zinc-500 mt-1">
-              HIT or SHIT · double-tap a bag to play · hourly UTC
-            </p>
           </div>
-          <div className="text-right shrink-0">
-            <div className="text-[9px] uppercase text-zinc-500 font-orbitron tracking-wider">
-              Closes
-            </div>
-            <div className="text-xl font-mono font-bold text-neon tabular-nums leading-none mt-0.5">
+          <div className="text-right shrink-0 flex items-baseline gap-2">
+            <span className="text-[9px] uppercase text-zinc-500 font-orbitron">
+              closes
+            </span>
+            <span className="text-lg font-mono font-bold text-neon tabular-nums leading-none">
               {countdown}
-            </div>
+            </span>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 rounded-xl border border-zinc-800 bg-zinc-950/60 px-3 py-2.5">
+        {/* pots */}
+        <div className="flex items-center gap-2 rounded-xl border border-zinc-800/80 bg-zinc-950/50 px-2.5 py-1.5">
           <div
-            className={`flex-1 min-w-0 relative rounded-lg px-1 py-0.5 transition-colors duration-300 ${
-              hitFlash ? "bg-green-500/20 ring-1 ring-green-400/60" : ""
+            className={`flex-1 relative rounded-md px-1 ${
+              hitFlash ? "bg-green-500/15" : ""
             }`}
           >
-            <div className="text-[10px] font-orbitron uppercase tracking-wider text-green-400/90 flex items-center gap-1">
-              <EmojiIcon size={12}>🎯</EmojiIcon> Hit pot
+            <div className="text-[9px] font-orbitron uppercase text-green-400/90 flex items-center gap-0.5">
+              <EmojiIcon size={11}>🎯</EmojiIcon> HIT
             </div>
-            <div
-              className={`text-lg font-mono font-bold text-green-400 tabular-nums transition-transform duration-300 ${
-                hitFlash ? "scale-110 drop-shadow-[0_0_12px_rgba(34,197,94,0.8)]" : ""
-              }`}
-            >
+            <div className="text-base font-mono font-bold text-green-400 tabular-nums">
               {fmt(hitPot)}
             </div>
             {hitFlash && hitDelta > 0 && (
-              <span className="pointer-events-none absolute -top-1 right-0 text-xs font-bold font-mono text-green-300 animate-[potfloat_0.9s_ease-out_forwards]">
+              <span className="absolute -top-0.5 right-0 text-[10px] font-mono font-bold text-green-300 animate-[potfloat_0.9s_ease-out_forwards]">
                 +{fmt(hitDelta)}
               </span>
             )}
           </div>
-          <div className="w-px h-10 bg-zinc-800 shrink-0" />
+          <div className="w-px h-8 bg-zinc-800" />
           <div
-            className={`flex-1 min-w-0 relative rounded-lg px-1 py-0.5 text-right transition-colors duration-300 ${
-              shitFlash ? "bg-red-500/20 ring-1 ring-red-400/60" : ""
+            className={`flex-1 relative rounded-md px-1 text-right ${
+              shitFlash ? "bg-red-500/15" : ""
             }`}
           >
-            <div className="text-[10px] font-orbitron uppercase tracking-wider text-red-400/90 flex items-center justify-end gap-1">
-              Shit pot <EmojiIcon size={12}>💀</EmojiIcon>
+            <div className="text-[9px] font-orbitron uppercase text-red-400/90 flex items-center justify-end gap-0.5">
+              SHIT <EmojiIcon size={11}>💀</EmojiIcon>
             </div>
-            <div
-              className={`text-lg font-mono font-bold text-red-400 tabular-nums transition-transform duration-300 ${
-                shitFlash ? "scale-110 drop-shadow-[0_0_12px_rgba(239,68,68,0.75)]" : ""
-              }`}
-            >
+            <div className="text-base font-mono font-bold text-red-400 tabular-nums">
               {fmt(shitPot)}
             </div>
             {shitFlash && shitDelta > 0 && (
-              <span className="pointer-events-none absolute -top-1 left-0 text-xs font-bold font-mono text-red-300 animate-[potfloat_0.9s_ease-out_forwards]">
+              <span className="absolute -top-0.5 left-0 text-[10px] font-mono font-bold text-red-300 animate-[potfloat_0.9s_ease-out_forwards]">
                 +{fmt(shitDelta)}
               </span>
             )}
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-2">
+        {/* live leaders — tap to select */}
+        <div className="grid grid-cols-2 gap-1.5">
           <button
             type="button"
-            onClick={() => setSide("hit")}
-            className={`cursor-hit min-h-14 rounded-2xl font-bold text-base border-2 inline-flex flex-col items-center justify-center gap-0.5 font-orbitron tracking-wide transition-colors active:brightness-110 ${
-              side === "hit"
-                ? "border-green-400 bg-green-900/50 text-green-100 shadow-[0_0_28px_rgba(34,197,94,0.25)]"
-                : "border-zinc-800 text-zinc-500 hover:border-zinc-600"
-            }`}
+            disabled={!L?.hitting}
+            onClick={() => {
+              if (!L?.hitting) return;
+              setSide("hit");
+              setSelected({
+                assetId: L.hitting.assetId,
+                name: L.hitting.name,
+                symbol: L.hitting.symbol,
+                logo: L.hitting.logo,
+                price: L.hitting.price,
+                pct: L.hitting.pct,
+              });
+            }}
+            className="cursor-hit rounded-lg border border-green-900/50 bg-green-950/20 px-2 py-1.5 text-left disabled:opacity-40"
           >
-            <EmojiIcon size={22}>🎯</EmojiIcon>
-            HIT
+            <div className="text-[8px] font-orbitron uppercase text-green-500/80">
+              Live HIT
+            </div>
+            <div className="flex items-center gap-1.5 mt-0.5 min-w-0">
+              <TokenMark
+                logo={L?.hitting?.logo}
+                symbol={L?.hitting?.symbol}
+                size={18}
+              />
+              <span className="text-xs font-semibold text-white truncate">
+                {L?.hitting?.symbol || "—"}
+              </span>
+              <span className="text-[11px] font-mono font-bold text-green-400 ml-auto tabular-nums">
+                {fmtPct(L?.hitting?.pct)}
+              </span>
+            </div>
           </button>
           <button
             type="button"
-            onClick={() => setSide("shit")}
-            className={`cursor-shit min-h-14 rounded-2xl font-bold text-base border-2 inline-flex flex-col items-center justify-center gap-0.5 font-orbitron tracking-wide transition-colors active:brightness-110 ${
-              side === "shit"
-                ? "border-red-400 bg-red-900/50 text-red-100 shadow-[0_0_28px_rgba(239,68,68,0.22)]"
-                : "border-zinc-800 text-zinc-500 hover:border-zinc-600"
-            }`}
+            disabled={!L?.shitting}
+            onClick={() => {
+              if (!L?.shitting) return;
+              setSide("shit");
+              setSelected({
+                assetId: L.shitting.assetId,
+                name: L.shitting.name,
+                symbol: L.shitting.symbol,
+                logo: L.shitting.logo,
+                price: L.shitting.price,
+                pct: L.shitting.pct,
+              });
+            }}
+            className="cursor-shit rounded-lg border border-red-900/50 bg-red-950/20 px-2 py-1.5 text-left disabled:opacity-40"
           >
-            <EmojiIcon size={22}>💀</EmojiIcon>
-            SHIT
+            <div className="text-[8px] font-orbitron uppercase text-red-500/80">
+              Live SHIT
+            </div>
+            <div className="flex items-center gap-1.5 mt-0.5 min-w-0">
+              <TokenMark
+                logo={L?.shitting?.logo}
+                symbol={L?.shitting?.symbol}
+                size={18}
+              />
+              <span className="text-xs font-semibold text-white truncate">
+                {L?.shitting?.symbol || "—"}
+              </span>
+              <span className="text-[11px] font-mono font-bold text-red-400 ml-auto tabular-nums">
+                {fmtPct(L?.shitting?.pct)}
+              </span>
+            </div>
           </button>
         </div>
+      </div>
 
-        <div>
-          <div className="flex items-center justify-between gap-2 mb-2">
-            <p className="text-[10px] font-orbitron uppercase tracking-[0.16em] text-zinc-500">
-              Bags · tap once · double-tap play
-            </p>
-            <span className="text-[10px] font-mono text-zinc-600 truncate max-w-[55%] text-right">
-              {selected
-                ? `${side.toUpperCase()} · ${selected.symbol || selected.name}`
-                : `${filtered.length}${status.majorsCount ? `/${status.majorsCount}` : ""}`}
-            </span>
+      {/* ── Bag picker (middle, fixed, no page scroll) ── */}
+      <div className="flex-1 min-h-0 border-x border-border bg-card px-3 py-2 flex flex-col gap-2">
+        <input
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="Search any bag…"
+          className="w-full shrink-0 rounded-xl border border-zinc-800 bg-zinc-950 px-3 py-2 text-base sm:text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-neon/40"
+          enterKeyHint="search"
+        />
+
+        {!q.trim() && (
+          <div className="flex gap-1.5 shrink-0 overflow-x-auto no-scrollbar">
+            {(
+              [
+                ["movers", "Movers"],
+                ["recent", "Recent"],
+                ["all", "All"],
+              ] as const
+            ).map(([id, label]) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => setChip(id)}
+                className={`shrink-0 rounded-full px-3 py-1 text-[11px] font-orbitron uppercase tracking-wider border ${
+                  chip === id
+                    ? "border-neon/50 bg-neon/15 text-neon"
+                    : "border-zinc-800 text-zinc-500 hover:border-zinc-600"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+            {searching && (
+              <span className="text-[10px] text-zinc-600 self-center ml-1">
+                searching…
+              </span>
+            )}
           </div>
+        )}
 
-          <input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Filter bags…"
-            className="w-full rounded-xl border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-neon/40 mb-2"
-          />
-
+        {/* horizontal 2-row strip — swipe, no page scroll */}
+        <div
+          className={`flex-1 min-h-0 overflow-x-auto overflow-y-hidden overscroll-x-contain ${
+            side === "hit" ? "cursor-hit" : "cursor-shit"
+          }`}
+          role="listbox"
+          aria-label="Pick a bag"
+        >
           <div
-            className={`grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-2 max-h-[min(52vh,420px)] overflow-y-auto overscroll-contain ${
-              side === "hit" ? "cursor-hit" : "cursor-shit"
-            }`}
-            role="listbox"
-            aria-label="Pick a bag"
+            className="grid grid-rows-2 grid-flow-col auto-cols-[4.5rem] sm:auto-cols-[5rem] gap-1.5 h-full content-start pr-2"
+            style={{ width: "max-content" }}
           >
-            {filtered.map((m) => {
+            {bags.map((m) => {
               const on = selected?.assetId === m.assetId;
               const pct = m.pct;
               const pctKnown = pct != null && Number.isFinite(pct);
               const pctUp = pctKnown && (pct as number) >= 0;
+              const mine = myMap.get(m.assetId) || 0;
+              const heat =
+                side === "hit" ? m.hitPlays || 0 : m.shitPlays || 0;
               return (
                 <button
                   key={m.assetId}
                   type="button"
                   role="option"
                   aria-selected={on}
-                  title={`${m.symbol || m.name} ${fmtPct(pct)} this hour — double-tap to ${side.toUpperCase()}`}
+                  title={`${m.symbol || m.name} ${fmtPct(pct)} — double-tap play`}
                   disabled={busy}
                   onClick={() => onBagTap(m)}
                   onDoubleClick={(e) => {
                     e.preventDefault();
-                    setSelected(m);
                     void play(m);
                   }}
-                  className={`relative flex flex-col items-center justify-center gap-0.5 rounded-2xl border p-2 min-h-[84px] sm:min-h-[92px] transition-colors active:brightness-110 disabled:opacity-50 ${
+                  className={`relative flex flex-col items-center justify-center gap-0.5 rounded-xl border p-1.5 h-[4.75rem] sm:h-[5.25rem] transition-colors active:brightness-110 disabled:opacity-50 ${
                     on
                       ? side === "hit"
-                        ? "border-green-400 bg-green-950/55 ring-2 ring-green-400/50 shadow-[0_0_16px_rgba(34,197,94,0.3)]"
-                        : "border-red-400 bg-red-950/55 ring-2 ring-red-400/50 shadow-[0_0_16px_rgba(239,68,68,0.28)]"
-                      : "border-zinc-800/90 bg-zinc-950/70 hover:border-zinc-500 hover:bg-zinc-900"
+                        ? "border-green-400 bg-green-950/55 ring-2 ring-green-400/45"
+                        : "border-red-400 bg-red-950/55 ring-2 ring-red-400/45"
+                      : "border-zinc-800/90 bg-zinc-950/70 hover:border-zinc-500"
                   }`}
                 >
-                  <TokenMark logo={m.logo} symbol={m.symbol} size={36} />
-                  <span className="text-[10px] sm:text-[11px] font-semibold text-zinc-200 truncate w-full text-center leading-tight">
+                  <TokenMark logo={m.logo} symbol={m.symbol} size={28} />
+                  <span className="text-[10px] font-semibold text-zinc-200 truncate w-full text-center leading-tight">
                     {m.symbol || m.name}
                   </span>
                   <span
-                    className={`text-[10px] sm:text-[11px] font-mono font-bold tabular-nums leading-none ${
+                    className={`text-[10px] font-mono font-bold tabular-nums leading-none ${
                       !pctKnown
                         ? "text-zinc-600"
                         : pctUp
@@ -626,70 +829,131 @@ export default function DayGamePanel({
                   >
                     {fmtPct(pct)}
                   </span>
-                  {on && (
-                    <span
-                      className={`absolute -top-1 -right-1 text-[10px] leading-none rounded-full px-1 py-0.5 font-bold ${
-                        side === "hit"
-                          ? "bg-green-500 text-black"
-                          : "bg-red-500 text-white"
-                      }`}
-                    >
-                      ✓
+                  {mine > 0 && (
+                    <span className="absolute -top-1 -left-1 text-[9px] font-bold font-mono rounded-full bg-neon text-black px-1 leading-tight">
+                      ×{mine}
+                    </span>
+                  )}
+                  {heat > 0 && !mine && (
+                    <span className="absolute -top-1 -right-1 text-[8px] font-mono text-zinc-500">
+                      {heat}
                     </span>
                   )}
                 </button>
               );
             })}
-            {!filtered.length && (
-              <div className="col-span-full py-10 text-center text-sm text-zinc-600">
-                No match — clear filter
+            {!bags.length && (
+              <div className="row-span-2 flex items-center px-6 text-sm text-zinc-600">
+                {q.trim().length >= 2
+                  ? searching
+                    ? "Searching…"
+                    : "No match"
+                  : "No bags"}
               </div>
             )}
           </div>
         </div>
+      </div>
 
-        {err && (
-          <p className="text-xs text-red-400 bg-red-950/30 border border-red-900/40 rounded-lg px-3 py-2">
-            {err}
-          </p>
-        )}
-        {msg && (
-          <p className="text-xs text-neon bg-neon/10 border border-neon/30 rounded-lg px-3 py-2">
-            {msg}
-          </p>
-        )}
+      {/* ── Bottom dock (never scrolls away) ── */}
+      <div
+        className="shrink-0 rounded-b-2xl border border-t-0 border-neon/25 bg-card px-3 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] space-y-2 shadow-[0_-8px_24px_rgba(0,0,0,0.35)]"
+      >
+        <div className="grid grid-cols-2 gap-1.5">
+          <button
+            type="button"
+            onClick={() => setSide("hit")}
+            className={`cursor-hit min-h-12 rounded-xl font-bold text-sm border-2 inline-flex items-center justify-center gap-1.5 font-orbitron tracking-wide transition-colors ${
+              side === "hit"
+                ? "border-green-400 bg-green-900/50 text-green-100"
+                : "border-zinc-800 text-zinc-500"
+            }`}
+          >
+            <EmojiIcon size={18}>🎯</EmojiIcon> HIT
+          </button>
+          <button
+            type="button"
+            onClick={() => setSide("shit")}
+            className={`cursor-shit min-h-12 rounded-xl font-bold text-sm border-2 inline-flex items-center justify-center gap-1.5 font-orbitron tracking-wide transition-colors ${
+              side === "shit"
+                ? "border-red-400 bg-red-900/50 text-red-100"
+                : "border-zinc-800 text-zinc-500"
+            }`}
+          >
+            <EmojiIcon size={18}>💀</EmojiIcon> SHIT
+          </button>
+        </div>
+
+        <div className="flex items-center justify-between gap-2 text-[11px] min-h-[1.1rem]">
+          <span className="text-zinc-400 font-mono truncate">
+            {selected
+              ? `${side.toUpperCase()} · ${selected.symbol || selected.name}${
+                  myOnSelected ? ` · you ×${myOnSelected}` : ""
+                }`
+              : "Tap a bag · double-tap plays"}
+          </span>
+          <Link
+            href={HOUR_PRODUCT.winnersPath}
+            className="text-neon-blue hover:underline shrink-0 font-orbitron uppercase tracking-wider text-[10px]"
+          >
+            Winners
+          </Link>
+        </div>
+
+        {/* status line — always in dock */}
+        <div className="min-h-[1.15rem]">
+          {err && (
+            <p className="text-[11px] text-red-400 truncate">{err}</p>
+          )}
+          {!err && msg && (
+            <p className="text-[11px] text-neon truncate">{msg}</p>
+          )}
+          {!err && !msg && phase && (
+            <p className="text-[11px] text-zinc-400 truncate flex items-center gap-1">
+              <EmojiIcon size={12} className="animate-spin">
+                💫
+              </EmojiIcon>
+              {phase}
+            </p>
+          )}
+        </div>
 
         <button
           type="button"
           disabled={busy || !status.enabled}
           onClick={() => void play()}
-          className={`w-full min-h-14 rounded-2xl bg-neon text-black font-bold text-base hover:brightness-110 disabled:opacity-45 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2 font-orbitron tracking-wide uppercase active:scale-[0.98] transition ${
+          className={`w-full min-h-12 rounded-xl bg-neon text-black font-bold text-sm hover:brightness-110 disabled:opacity-45 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2 font-orbitron tracking-wide uppercase ${
             !busy && status.enabled
-              ? "shadow-[0_0_24px_rgba(57,255,20,0.25)] " +
+              ? "shadow-[0_0_20px_rgba(57,255,20,0.22)] " +
                 (side === "hit" ? "cursor-hit" : "cursor-shit")
               : ""
           }`}
         >
           {busy && (
-            <EmojiIcon size={18} className="animate-spin" label="Loading">
+            <EmojiIcon size={16} className="animate-spin" label="Loading">
               💫
             </EmojiIcon>
           )}
           {cta}
         </button>
 
-        <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-zinc-600">
-          <span>1 ticket / wallet / side / hour</span>
-          <span className="text-zinc-500">double-tap bag = play</span>
-          <Link href={HOUR_PRODUCT.winnersPath} className="text-neon-blue hover:underline">
-            Winners
-          </Link>
-          <Link href={HOUR_PRODUCT.prevPath} className="text-neon-blue hover:underline">
-            Last round
-          </Link>
-        </div>
-      </section>
-
+        {err && /claim|buy|balance|Need/i.test(err) && (
+          <div className="flex gap-2">
+            <Link
+              href="/claim"
+              className="flex-1 text-center text-[11px] py-1.5 rounded-lg border border-zinc-700 text-zinc-300"
+            >
+              Claim
+            </Link>
+            <Link
+              href="/swap"
+              className="flex-1 text-center text-[11px] py-1.5 rounded-lg border border-neon/40 text-neon"
+            >
+              Buy
+            </Link>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
