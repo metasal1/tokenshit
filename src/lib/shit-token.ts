@@ -172,8 +172,9 @@ export const GAME = {
 export const TOKENOMICS_BLURB = [
   "Vote free — earn Clout (XP).",
   "Buy $TOKENSHIT — skin in the game.",
-  `Tweet + tag @${X_HANDLE} — claim ${CLAIM_X_TWEET.toLocaleString()} $TOKENSHIT once.`,
-  "X verified — claim 100,000 $TOKENSHIT once.",
-  "Fork solana-foundation/tokens — claim 250,000 $TOKENSHIT once.",
-  "Refer friends — 10,000 $TOKENSHIT each.",
+  `Tweet + tag @${X_HANDLE} — claim ${CLAIM_X_TWEET.toLocaleString()} $TOKENSHIT every 24h.`,
+  `X verified — claim ${CLAIM_X_VERIFIED.toLocaleString()} $TOKENSHIT once.`,
+  `X Premium — claim ${CLAIM_X_PREMIUM.toLocaleString()} $TOKENSHIT once.`,
+  `Fork solana-foundation/tokens — claim ${CLAIM_GH_FORK.toLocaleString()} $TOKENSHIT once.`,
+  `Refer friends — ${REFERRAL_REWARD_SHIT.toLocaleString()} $TOKENSHIT each.`,
 ].join(" ");

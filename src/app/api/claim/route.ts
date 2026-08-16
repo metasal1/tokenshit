@@ -352,7 +352,7 @@ export async function POST(request: NextRequest) {
           return Response.json(
             {
               error:
-                "You have X Premium — use the Premium claim (20,000) instead of Verified (10,000).",
+                "You have X Premium — use the Premium claim instead of Verified.",
               code: "use_premium_tier",
             },
             { status: 400 }
