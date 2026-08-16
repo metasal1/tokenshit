@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { EmojiIcon } from '@/components/EmojiIcon';
 
 export default function ReferralToast() {
   const [referrer, setReferrer] = useState<string | null>(null);
@@ -11,7 +10,7 @@ export default function ReferralToast() {
       const detail = (e as CustomEvent<{ referrer: string }>).detail;
       if (!detail?.referrer) return;
       setReferrer(detail.referrer);
-      window.setTimeout(() => setReferrer(null), 8000);
+      window.setTimeout(() => setReferrer(null), 3200);
     };
     window.addEventListener('tokenshit:referred', handler);
     return () => window.removeEventListener('tokenshit:referred', handler);
@@ -21,18 +20,15 @@ export default function ReferralToast() {
 
   return (
     <div
-      className="fixed top-20 right-4 z-[130] max-w-sm animate-[slideIn_0.35s_cubic-bezier(0.2,0.9,0.3,1)_both]"
+      className="fixed z-[130] top-[max(4.25rem,calc(env(safe-area-inset-top)+3.25rem))] left-1/2 -translate-x-1/2 sm:left-auto sm:right-4 sm:translate-x-0 w-[min(16rem,calc(100vw-1rem))] pointer-events-none"
       role="status"
       aria-live="polite"
     >
-      <div className="bg-zinc-900 border border-neon/40 rounded-xl shadow-2xl px-4 py-3 flex items-start gap-3">
-        <div className="shrink-0 mt-0.5">
-          <EmojiIcon size={22}>✨</EmojiIcon>
-        </div>
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-white">You were referred</p>
-          <p className="text-xs text-zinc-400 mt-0.5">
-            By{' '}
+      <div className="rounded-xl border border-neon/35 bg-zinc-950/90 backdrop-blur-md shadow-sm px-2.5 py-2 flex items-center gap-2 pointer-events-auto">
+        <div className="min-w-0 flex-1">
+          <p className="text-[9px] font-orbitron uppercase tracking-wider text-neon/90">Referred</p>
+          <p className="text-[12px] text-white truncate">
+            by{' '}
             <a
               href={`https://x.com/${referrer}`}
               target="_blank"
@@ -41,23 +37,16 @@ export default function ReferralToast() {
             >
               @{referrer}
             </a>
-            {' · '}thanks for joining the shitshow.
           </p>
         </div>
         <button
           onClick={() => setReferrer(null)}
-          className="shrink-0 -mr-1 -mt-1 text-zinc-500 hover:text-white transition-colors"
+          className="shrink-0 text-zinc-500 hover:text-white text-sm leading-none px-1"
           aria-label="Dismiss"
         >
-          <EmojiIcon size={16}>❌</EmojiIcon>
+          ×
         </button>
       </div>
-      <style jsx>{`
-        @keyframes slideIn {
-          from { transform: translateX(120%); opacity: 0; }
-          to   { transform: translateX(0);    opacity: 1; }
-        }
-      `}</style>
     </div>
   );
 }

@@ -21,8 +21,9 @@ export type ClaimToastEvent = {
 };
 
 const SEEN_KEY = "tokenshit_claim_toast_seen_v2";
-const TOAST_MS = 5600;
-const POLL_MS = 10_000;
+const TOAST_MS = 3200;
+const TOAST_MS_SELF = 4200;
+const POLL_MS = 18_000;
 
 function fmtAmt(n: number) {
   if (!Number.isFinite(n)) return "—";
@@ -44,7 +45,7 @@ function kindMeta(kind: string): {
         emoji: "👀",
         label: "FOLLOW",
         accent: "text-sky-300",
-        ring: "border-sky-400/60 shadow-[0_0_32px_rgba(56,189,248,0.35)]",
+        ring: "border-sky-400/40",
         badge: "bg-sky-400 text-black",
       };
     case "x_tweet":
@@ -52,7 +53,7 @@ function kindMeta(kind: string): {
         emoji: "📣",
         label: "TWEET",
         accent: "text-neon",
-        ring: "border-neon/60 shadow-[0_0_32px_rgba(57,255,20,0.35)]",
+        ring: "border-neon/40",
         badge: "bg-neon text-black",
       };
     case "x_verified":
@@ -60,7 +61,7 @@ function kindMeta(kind: string): {
         emoji: "✅",
         label: "VERIFIED",
         accent: "text-sky-200",
-        ring: "border-sky-300/50 shadow-[0_0_28px_rgba(125,211,252,0.3)]",
+        ring: "border-sky-300/40",
         badge: "bg-sky-300 text-black",
       };
     case "x_premium":
@@ -68,7 +69,7 @@ function kindMeta(kind: string): {
         emoji: "💎",
         label: "PREMIUM",
         accent: "text-amber-300",
-        ring: "border-amber-400/55 shadow-[0_0_32px_rgba(251,191,36,0.35)]",
+        ring: "border-amber-400/40",
         badge: "bg-amber-400 text-black",
       };
     case "gh_fork":
@@ -76,7 +77,7 @@ function kindMeta(kind: string): {
         emoji: "🍴",
         label: "GH FORK",
         accent: "text-violet-300",
-        ring: "border-violet-400/55 shadow-[0_0_32px_rgba(167,139,250,0.35)]",
+        ring: "border-violet-400/40",
         badge: "bg-violet-400 text-black",
       };
     case "email_list":
@@ -84,7 +85,7 @@ function kindMeta(kind: string): {
         emoji: "📬",
         label: "LIST",
         accent: "text-[#fff8e7]",
-        ring: "border-[#fff8e7]/40 shadow-[0_0_28px_rgba(255,248,231,0.2)]",
+        ring: "border-[#fff8e7]/35",
         badge: "bg-[#fff8e7] text-black",
       };
     case "day_hit":
@@ -93,10 +94,7 @@ function kindMeta(kind: string): {
         emoji: kind === "day_hit" ? "🎯" : "💀",
         label: kind === "day_hit" ? "HIT POT" : "SHIT POT",
         accent: kind === "day_hit" ? "text-neon" : "text-red-300",
-        ring:
-          kind === "day_hit"
-            ? "border-neon/60 shadow-[0_0_36px_rgba(57,255,20,0.4)]"
-            : "border-red-400/55 shadow-[0_0_36px_rgba(248,113,113,0.35)]",
+        ring: kind === "day_hit" ? "border-neon/45" : "border-red-400/40",
         badge: kind === "day_hit" ? "bg-neon text-black" : "bg-red-400 text-black",
       };
     default:
@@ -104,7 +102,7 @@ function kindMeta(kind: string): {
         emoji: "💸",
         label: "CLAIM",
         accent: "text-neon",
-        ring: "border-neon/50 shadow-[0_0_28px_rgba(57,255,20,0.28)]",
+        ring: "border-neon/40",
         badge: "bg-neon text-black",
       };
   }
@@ -129,11 +127,11 @@ function writeSeen(id: number) {
 const FALLBACK_AVATAR =
   "data:image/svg+xml," +
   encodeURIComponent(
-    `<svg xmlns="http://www.w3.org/2000/svg" width="56" height="56"><rect fill="#0a0a0f" width="56" height="56"/><text x="28" y="36" text-anchor="middle" font-size="18" fill="#39ff14" font-family="monospace">$</text></svg>`
+    `<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><rect fill="#0a0a0f" width="40" height="40"/><text x="20" y="26" text-anchor="middle" font-size="14" fill="#39ff14" font-family="monospace">$</text></svg>`
   );
 
 /**
- * Top-right claim toast — brand, kind-colored, amount-forward.
+ * Compact claim toast — top-right pill, soft on mobile.
  * Polls /api/claim/recent + local tokenshit:claim.
  */
 export default function ClaimGlitchToast() {
@@ -160,7 +158,7 @@ export default function ClaimGlitchToast() {
       showing.current = false;
       // eslint-disable-next-line @typescript-eslint/no-use-before-define
       showNext();
-    }, 260);
+    }, 200);
   }, []);
 
   const showNext = useCallback(() => {
@@ -172,26 +170,21 @@ export default function ClaimGlitchToast() {
     setVisible(true);
     setProgress(100);
     writeSeen(Math.max(readSeen(), next.id));
-    try {
-      if (next.self) {
+    // SFX only for your own claim — others stay quiet
+    if (next.self) {
+      try {
         sfx.ding();
-      } else {
-        try {
-          // optional softer chime if present
-          (sfx as { chime?: () => void }).chime?.();
-        } catch {
-          sfx.ding();
-        }
+      } catch {
+        /* optional */
       }
-    } catch {
-      /* optional */
     }
 
+    const duration = next.self ? TOAST_MS_SELF : TOAST_MS;
     const started = Date.now();
     progTimer.current = window.setInterval(() => {
-      const p = Math.max(0, 100 - ((Date.now() - started) / TOAST_MS) * 100);
+      const p = Math.max(0, 100 - ((Date.now() - started) / duration) * 100);
       setProgress(p);
-    }, 50);
+    }, 80);
 
     hideTimer.current = window.setTimeout(() => {
       setVisible(false);
@@ -200,19 +193,23 @@ export default function ClaimGlitchToast() {
         showing.current = false;
         clearTimers();
         showNext();
-      }, 260);
-    }, TOAST_MS);
+      }, 200);
+    }, duration);
   }, []);
 
   const enqueue = useCallback(
     (e: ClaimToastEvent) => {
       if (!e?.id) return;
-      // Local self claims always show even if poll id is timestamp
       if (!e.self && e.id <= readSeen()) return;
       if (queue.current.some((q) => q.id === e.id)) return;
       if (evt?.id === e.id) return;
+      // Cap queue: drop older social toasts first
       queue.current.push(e);
-      if (queue.current.length > 10) queue.current = queue.current.slice(-10);
+      if (queue.current.length > 4) {
+        const selfs = queue.current.filter((q) => q.self);
+        const others = queue.current.filter((q) => !q.self).slice(-2);
+        queue.current = [...selfs, ...others].slice(-4);
+      }
       showNext();
     },
     [evt?.id, showNext]
@@ -234,7 +231,8 @@ export default function ClaimGlitchToast() {
           writeSeen(Number(d.events[0].id));
           return;
         }
-        for (const e of fresh) enqueue({ ...e, self: false });
+        // Only enqueue newest 1–2 social events to avoid toast spam
+        for (const e of fresh.slice(-2)) enqueue({ ...e, self: false });
       } catch {
         /* ignore */
       }
@@ -271,88 +269,67 @@ export default function ClaimGlitchToast() {
     : evt.github
       ? `https://github.com/${evt.github}`
       : null;
-  const solscan = evt.signature
-    ? `https://solscan.io/tx/${evt.signature}`
-    : null;
 
   return (
     <div
-      className={`fixed z-[150] top-[max(4.75rem,env(safe-area-inset-top))] left-3 right-3 sm:left-auto sm:right-4 sm:w-[380px] transition-all duration-300 ${
+      className={`claim-toast-wrap fixed z-[150] pointer-events-none transition-all duration-200 ${
         visible
           ? "opacity-100 translate-y-0"
-          : "opacity-0 -translate-y-3 pointer-events-none"
+          : "opacity-0 -translate-y-2"
       }`}
       role="status"
       aria-live="polite"
     >
       <div
-        className={`claim-toast-card relative overflow-hidden rounded-2xl border-2 bg-zinc-950/95 backdrop-blur-xl ${meta.ring}`}
+        className={`claim-toast-card pointer-events-auto relative overflow-hidden rounded-xl border bg-zinc-950/90 backdrop-blur-md ${meta.ring} ${
+          evt.self ? "shadow-md" : "shadow-sm"
+        }`}
       >
-        {/* scanlines */}
-        <div className="claim-toast-scan pointer-events-none absolute inset-0" />
-
-        {/* top row */}
-        <div className="relative flex items-start gap-3 px-3.5 pt-3.5 pb-2">
+        <div className="flex items-center gap-2 px-2.5 py-2 sm:px-3 sm:py-2.5">
           <div className="relative shrink-0">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={evt.avatarUrl || FALLBACK_AVATAR}
               alt=""
-              width={56}
-              height={56}
-              className="h-14 w-14 rounded-full border-2 border-white/20 object-cover bg-zinc-900"
+              width={32}
+              height={32}
+              className="h-8 w-8 rounded-full border border-white/15 object-cover bg-zinc-900"
               onError={(e) => {
                 (e.target as HTMLImageElement).src = FALLBACK_AVATAR;
               }}
             />
             <span
-              className={`absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full border border-zinc-950 text-[13px] ${meta.badge}`}
+              className={`absolute -bottom-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full border border-zinc-950 text-[10px] ${meta.badge}`}
               title={meta.label}
             >
-              <EmojiIcon size={14} className="leading-none">
+              <EmojiIcon size={10} className="leading-none">
                 {meta.emoji}
               </EmojiIcon>
             </span>
           </div>
 
-          <div className="min-w-0 flex-1 pt-0.5">
-            <div className="flex items-center gap-2 flex-wrap">
-              <p
-                className={`text-[10px] font-orbitron uppercase tracking-[0.18em] ${meta.accent} claim-toast-title`}
-              >
-                {evt.self ? "You claimed" : "Claim landed"}
-              </p>
-              {evt.self && (
-                <span className="text-[9px] font-orbitron uppercase tracking-wider rounded px-1.5 py-0.5 bg-neon text-black font-bold">
-                  you
-                </span>
-              )}
-            </div>
-
-            <p className="mt-0.5 text-base font-semibold text-white truncate">
-              {xHref ? (
-                <a
-                  href={xHref}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="hover:text-neon"
-                >
-                  {isGh ? display : `@${display}`}
-                </a>
-              ) : (
-                <span>{isGh ? display : `@${display}`}</span>
-              )}
+          <div className="min-w-0 flex-1">
+            <p className={`text-[9px] font-orbitron uppercase tracking-[0.14em] ${meta.accent}`}>
+              {evt.self ? "You" : "Claim"} · {evt.kindLabel || meta.label}
             </p>
-
-            <p className="mt-1 flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-              <span className="font-monoton text-2xl leading-none text-neon drop-shadow-[0_0_12px_rgba(57,255,20,0.55)]">
+            <p className="mt-0.5 flex items-baseline gap-1.5 min-w-0">
+              <span className="font-mono text-sm font-semibold text-neon tabular-nums">
                 +{fmtAmt(evt.amount)}
               </span>
-              <span className="text-xs font-orbitron uppercase tracking-wider text-zinc-400">
-                ${SHIT_SYMBOL}
-              </span>
-              <span className="text-[10px] font-mono text-zinc-500">
-                · {evt.kindLabel || meta.label}
+              <span className="text-[10px] text-zinc-500">${SHIT_SYMBOL}</span>
+              <span className="truncate text-[11px] text-zinc-400">
+                {xHref ? (
+                  <a
+                    href={xHref}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="hover:text-neon"
+                  >
+                    {isGh ? display : `@${display}`}
+                  </a>
+                ) : (
+                  <span>{isGh ? display : `@${display}`}</span>
+                )}
               </span>
             </p>
           </div>
@@ -360,43 +337,17 @@ export default function ClaimGlitchToast() {
           <button
             type="button"
             onClick={dismiss}
-            className="shrink-0 rounded-lg border border-zinc-700/80 px-2 py-1 text-[10px] font-orbitron uppercase tracking-wider text-zinc-400 hover:border-zinc-500 hover:text-white"
+            className="shrink-0 -mr-0.5 text-zinc-500 hover:text-white text-sm leading-none px-1"
             aria-label="Dismiss"
           >
-            ✕
+            ×
           </button>
         </div>
 
-        {/* actions */}
-        <div className="relative flex gap-2 px-3.5 pb-3">
-          <a
-            href="/claim"
-            className="min-h-9 flex-1 inline-flex items-center justify-center rounded-lg bg-neon/15 border border-neon/40 text-[11px] font-orbitron uppercase tracking-wider text-neon hover:bg-neon/25"
-          >
-            Claim
-          </a>
-          {solscan && (
-            <a
-              href={solscan}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="min-h-9 flex-1 inline-flex items-center justify-center rounded-lg border border-zinc-600 text-[11px] font-orbitron uppercase tracking-wider text-zinc-300 hover:border-zinc-400 hover:text-white"
-            >
-              Tx
-            </a>
-          )}
-          <a
-            href="/play"
-            className="min-h-9 flex-1 inline-flex items-center justify-center rounded-lg border border-zinc-600 text-[11px] font-orbitron uppercase tracking-wider text-zinc-300 hover:border-neon/40 hover:text-neon"
-          >
-            Play
-          </a>
-        </div>
-
-        {/* countdown bar */}
-        <div className="h-1 w-full bg-zinc-900">
+        {/* thin countdown */}
+        <div className="h-0.5 w-full bg-zinc-900/80">
           <div
-            className="h-full bg-neon transition-[width] duration-75 ease-linear"
+            className="h-full bg-neon/80 transition-[width] duration-75 ease-linear"
             style={{ width: `${progress}%` }}
           />
         </div>
