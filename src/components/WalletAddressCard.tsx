@@ -52,6 +52,13 @@ export default function WalletAddressCard() {
         Your wallet
       </p>
       <CopyableAddress address={address} label="Solana address" />
+      <p className="text-[11px] text-zinc-500 leading-snug">
+        In-app wallet. To move funds out →{" "}
+        <a href="/swap#withdraw" className="text-neon-blue hover:underline">
+          Withdraw on Swap
+        </a>
+        .
+      </p>
     </div>
   );
 }
