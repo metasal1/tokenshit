@@ -940,14 +940,15 @@ export async function settleDay(utcDay: string): Promise<{
     let toTreasury = false;
 
     const { sendShitFromPlayPot } = await import("@/lib/treasury");
-    const { TREASURY_ADDRESS: house } = await import("@/lib/shit-token");
+    const { PLAY_POT_ADDRESS: revPot } = await import("@/lib/shit-token");
 
-    // Stakes sit in play pot. Prize from pot → winner; house fee pot → SHTy treasury.
+    // Play → pot. Settle: pot → winner (75%); house 25% retained on pot/rev.
+    // Claims treasury (SHTy) is NOT the house sink for play.
     // IMPORTANT: never sweep "DB pot" amount if on-chain is lower / prizes unpaid.
     if (opts.tickets.length === 0 || prize <= 0 || !opts.bag) {
-      toTreasury = true;
+      toTreasury = false;
       prize = 0;
-      // empty side: leave tokens for the other side's prize — do NOT sweep full DB pot
+      // empty side: leave tokens in pot — do NOT sweep
       return {
         winner: null,
         prize: 0,
@@ -955,7 +956,7 @@ export async function settleDay(utcDay: string): Promise<{
         prizeSig: null,
         feeSig: null,
         vrf: { empty: true, reason: "no tickets or bag" },
-        toTreasury: true,
+        toTreasury: false,
       };
     }
 
@@ -981,15 +982,16 @@ export async function settleDay(utcDay: string): Promise<{
         const paid = await sendShitFromPlayPot(winner, prize);
         prizeSig = paid.signature;
       }
+      // House cut stays on pot/rev — no transfer (pot already holds it).
+      // Record accounting only; feeSig marks retained-in-rev.
       if (fee > 0) {
-        try {
-          feeSig = (await sendShitFromPlayPot(house, fee)).signature;
-        } catch (fe) {
-          vrf = {
-            ...(vrf || {}),
-            feeError: fe instanceof Error ? fe.message : String(fe),
-          };
-        }
+        feeSig = `retained:${revPot.slice(0, 8)}:${fee}`;
+        vrf = {
+          ...(vrf || {}),
+          houseFee: fee,
+          houseSink: revPot,
+          houseMode: "retained_in_pot",
+        };
       }
     } catch (e) {
       // fail → do NOT destroy pot; leave for manual retry
@@ -1016,7 +1018,7 @@ export async function settleDay(utcDay: string): Promise<{
       prizeSig,
       feeSig,
       vrf,
-      toTreasury,
+      toTreasury: false,
     };
   }
 
