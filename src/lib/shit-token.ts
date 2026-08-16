@@ -19,13 +19,17 @@ export const TREASURY_ADDRESS =
   "SHTy7yoA5uAZoevKT3BFcSeDeFaHEyqWc55uApd3MJB";
 
 /**
- * Play pot / escrow — stakes in, prizes out.
- * Separate from claims treasury so social drops don't empty game pots.
- * Vanity **rev…** (2026-08-16)
+ * Play pot / escrow + house revenue (**rev…** vanity).
+ * Flow: play stakes **in** → pot; settle pays **winners** from pot;
+ * house cut (25%) **stays on pot/rev** (not claims treasury).
+ * Claims treasury (SHTy) is separate — social claims only.
  */
 export const PLAY_POT_ADDRESS =
   process.env.NEXT_PUBLIC_PLAY_POT_ADDRESS ||
   "revn2bE1MtTvn5cBXguuAuuSyEC2VbiyRE2imFMAX7U";
+
+/** Alias — pot is the rev revenue wallet */
+export const PLAY_REV_ADDRESS = PLAY_POT_ADDRESS;
 
 /** One-time claim amounts (Metasal rules) */
 export const CLAIM_X_VERIFIED = 10_000;
