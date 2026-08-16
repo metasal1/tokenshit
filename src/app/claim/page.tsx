@@ -3,6 +3,7 @@ import GlobalTreasuryBanner from "@/components/GlobalTreasuryBanner";
 import ShareRefButton from "@/components/ShareRefButton";
 import EmailCaptureCard from "@/components/EmailCaptureCard";
 import WalletAddressCard from "@/components/WalletAddressCard";
+import WithdrawPanel from "@/components/WithdrawPanel";
 import CopyableAddress from "@/components/CopyableAddress";
 import OnrampButton from "@/components/OnrampButton";
 import Link from "next/link";
@@ -95,6 +96,8 @@ export default function ClaimPage() {
       <EmailCaptureCard source="claim-page" />
       <ShareRefButton path="/" />
       <ClaimPanel />
+
+      <WithdrawPanel defaultAsset="shit" compact />
 
       <section className="rounded-xl border border-border bg-card p-3.5 sm:p-4 space-y-3">
         <h2 className="text-sm font-semibold text-foreground">Addresses</h2>

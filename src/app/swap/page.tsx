@@ -3,6 +3,7 @@ import Link from "next/link";
 import SwapDesk from "@/components/SwapDesk";
 import OnrampButton from "@/components/OnrampButton";
 import WalletAddressCard from "@/components/WalletAddressCard";
+import WithdrawPanel from "@/components/WithdrawPanel";
 import CopyableAddress from "@/components/CopyableAddress";
 import {
   PLAY_POT_ADDRESS,
@@ -19,7 +20,7 @@ import { pageMeta } from "@/lib/seo";
 
 export const metadata: Metadata = pageMeta({
   title: `Swap $${SHIT_SYMBOL}`,
-  description: `Buy $${SHIT_SYMBOL} with SOL, or swap $${SHIT_SYMBOL} ↔ USDC. Amount presets, balances, Jupiter routes.`,
+  description: `Buy $${SHIT_SYMBOL} with SOL, swap $${SHIT_SYMBOL} ↔ USDC, or withdraw to any Solana wallet.`,
   path: "/swap",
 });
 
@@ -31,8 +32,9 @@ export default function SwapPage() {
           <span className="neon-text">Swap</span>
         </h1>
         <p className="text-zinc-400 text-sm leading-snug">
-          Buy ${SHIT_SYMBOL} with SOL, or trade ${SHIT_SYMBOL} ↔ USDC. Set exact
-          size with presets or %.
+          Buy ${SHIT_SYMBOL} with SOL, trade ${SHIT_SYMBOL} ↔ USDC, then{" "}
+          <span className="text-zinc-300">withdraw</span> to Phantom or any
+          wallet.
         </p>
         <p className="text-xs text-zinc-600">
           Free drops?{" "}
@@ -47,6 +49,8 @@ export default function SwapPage() {
       <WalletAddressCard />
 
       <SwapDesk />
+
+      <WithdrawPanel defaultAsset="shit" />
 
       <section className="rounded-xl border border-border bg-card p-3.5 sm:p-4 space-y-3">
         <h2 className="text-sm font-semibold text-foreground">Addresses</h2>

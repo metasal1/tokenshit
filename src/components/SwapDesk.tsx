@@ -429,7 +429,7 @@ export default function SwapDesk() {
         await sendTx(sData.swapTransaction as string);
       }
 
-      setMsg(`${payLabel} → ${getLabel} submitted`);
+      setMsg(`${payLabel} → ${getLabel} submitted. Scroll down to Withdraw if you want it in Phantom.`);
       void refreshQuote();
       window.setTimeout(() => void loadBalances(), 2000);
     } catch (e) {
