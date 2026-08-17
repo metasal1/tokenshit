@@ -404,6 +404,23 @@ async function fromFxTwitter(username: string): Promise<any> {
     const json = await res.json();
     const u = json.user || {};
     if (!u.screen_name && !u.id) return null;
+    // fxtwitter puts badge under verification: { verified, type: individual|business|... }
+    const ver =
+      u.verification && typeof u.verification === "object"
+        ? (u.verification as {
+            verified?: boolean;
+            type?: string;
+          })
+        : {};
+    const vType = String(ver.type || "").toLowerCase();
+    const isBlue = Boolean(
+      u.is_blue_verified ||
+        u.isBlueVerified ||
+        ver.verified ||
+        ["individual", "blue", "business", "organization", "government"].includes(
+          vType
+        )
+    );
     return {
       ok: true,
       username: String(u.screen_name || clean),
@@ -412,8 +429,16 @@ async function fromFxTwitter(username: string): Promise<any> {
       followers: Number(u.followers || 0),
       following: Number(u.following || 0),
       tweets: Number(u.tweets || 0),
-      verified: Boolean(u.verified || u.is_blue_verified),
-      verifiedType: u.verified || u.is_blue_verified ? "blue" : "none",
+      verified: isBlue || Boolean(u.verified),
+      premium: isBlue,
+      isBlueVerified: isBlue,
+      verifiedType: isBlue
+        ? vType === "business" || vType === "organization"
+          ? "business"
+          : vType === "government"
+            ? "government"
+            : "blue"
+        : "none",
       profileImageUrl: u.avatar_url
         ? String(u.avatar_url).replace("_normal", "_bigger")
         : undefined,
@@ -422,6 +447,41 @@ async function fromFxTwitter(username: string): Promise<any> {
   } catch {
     return null;
   }
+}
+
+/** Merge free + paid profile hits — paid wins on badge flags. */
+function mergeXProfiles(
+  a: XUserPublic | null,
+  b: XUserPublic | null
+): XUserPublic | null {
+  if (!a) return b;
+  if (!b) return a;
+  const premium = Boolean(a.premium || b.premium);
+  const verified = Boolean(a.verified || b.verified || premium);
+  const verifiedType =
+    a.verifiedType && a.verifiedType !== "none"
+      ? a.verifiedType
+      : b.verifiedType && b.verifiedType !== "none"
+        ? b.verifiedType
+        : premium
+          ? "blue"
+          : "none";
+  return {
+    ok: a.ok || b.ok,
+    username: a.username || b.username,
+    id: a.id || b.id,
+    name: a.name || b.name,
+    followers: Math.max(Number(a.followers || 0), Number(b.followers || 0)),
+    following: Math.max(Number(a.following || 0), Number(b.following || 0)),
+    tweets: Math.max(Number(a.tweets || 0), Number(b.tweets || 0)),
+    verified,
+    premium,
+    verifiedType,
+    profileImageUrl: a.profileImageUrl || b.profileImageUrl,
+    hasPfp: Boolean(a.hasPfp || b.hasPfp),
+    error: a.ok ? a.error : b.error || a.error,
+    source: [a.source, b.source].filter(Boolean).join("+") || undefined,
+  };
 }
 
 const profileCache = new Map<string, { at: number; val: XUserPublic }>();
@@ -458,8 +518,17 @@ async function readTursoUser(username: string): Promise<XUserPublic | null> {
     if (!Number.isFinite(at)) return null;
     const val = JSON.parse(payload) as XUserPublic;
     // ok + 0 followers is often a free-API miss, not a real micro account — short TTL
+    // also short TTL when high followers but no badge (stale free cache missing blue)
     const zeroFollowers = val.ok && Number(val.followers || 0) <= 0;
-    const ttl = !val.ok || zeroFollowers ? TURSO_FAIL_TTL_MS : TURSO_OK_TTL_MS;
+    const badgeMiss =
+      val.ok &&
+      Number(val.followers || 0) >= 100 &&
+      !val.premium &&
+      !val.verified;
+    const ttl =
+      !val.ok || zeroFollowers || badgeMiss
+        ? TURSO_FAIL_TTL_MS
+        : TURSO_OK_TTL_MS;
     if (Date.now() - at > ttl) return null;
     return { ...val, source: val.source ? `${val.source}+cache` : "cache" };
   } catch {
@@ -506,38 +575,56 @@ export async function fetchXUserPublic(username: string): Promise<XUserPublic> {
 
   const key = clean.toLowerCase();
   const hit = profileCache.get(key);
-  if (hit && Date.now() - hit.at < PROFILE_CACHE_MS) {
+  // Skip memory cache when badge missing (force re-enrich for claims)
+  if (
+    hit &&
+    Date.now() - hit.at < PROFILE_CACHE_MS &&
+    (hit.val.premium || hit.val.verified || Number(hit.val.followers || 0) < 100)
+  ) {
     return hit.val;
   }
 
   const cached = await readTursoUser(key);
-  if (cached) {
+  if (
+    cached &&
+    (cached.premium ||
+      cached.verified ||
+      Number(cached.followers || 0) < 100)
+  ) {
     profileCache.set(key, { at: Date.now(), val: cached });
     return cached;
   }
 
-  // 1) Free first — covers most ≥100 follower gates
+  // 1) Free first — followers/PFP; may miss blue unless verification{} present
   const fx = await fromFxTwitter(clean);
-  if (fx?.ok && Number(fx.followers) > 0) {
-    return remember(key, withProfileFlags(fx));
+  let best: XUserPublic | null = fx?.ok ? withProfileFlags(fx) : null;
+
+  // 2) Always try twitterapi.io when badge unknown (isBlueVerified is reliable)
+  if (!best?.premium) {
+    const io = await fromTwitterApiIoUser(clean);
+    if (io?.ok) {
+      best = mergeXProfiles(best, withProfileFlags(io));
+    }
   }
 
-  // 2) twitterapi.io (paid, reliable)
-  const io = await fromTwitterApiIoUser(clean);
-  if (io?.ok) {
-    return remember(key, withProfileFlags(io));
+  // 3) TweetAPI if still no badge
+  if (!best?.premium && !best?.verified) {
+    const ta = await fromTweetApiUser(clean);
+    if (ta?.ok) {
+      best = mergeXProfiles(best, withProfileFlags(ta));
+    }
   }
 
-  // 3) TweetAPI.com
-  const ta = await fromTweetApiUser(clean);
-  if (ta?.ok) {
-    return remember(key, withProfileFlags(ta));
+  // 4) Official X last
+  if (!best?.premium && !best?.verified) {
+    const official = await fromOfficialX(clean);
+    if (official?.ok) {
+      best = mergeXProfiles(best, withProfileFlags(official));
+    }
   }
 
-  // 4) Official X last (credits often depleted) — cooldown after 402/429
-  const official = await fromOfficialX(clean);
-  if (official?.ok) {
-    return remember(key, withProfileFlags(official));
+  if (best?.ok) {
+    return remember(key, best);
   }
 
   // Prefer free zero-follower success over hard fail when user exists
@@ -545,11 +632,8 @@ export async function fetchXUserPublic(username: string): Promise<XUserPublic> {
     return remember(key, withProfileFlags(fx));
   }
 
-  const fail = io || ta || official || fx;
-  if (fail) {
-    const v = withProfileFlags(fail);
-    // cache failures briefly to stop claim spam hammering APIs
-    return remember(key, v);
+  if (best) {
+    return remember(key, best);
   }
   return withProfileFlags({
     ok: false,
