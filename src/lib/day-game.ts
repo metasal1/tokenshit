@@ -497,8 +497,12 @@ type RoundSideSnap = {
 
 async function loadAssetMetaForRound(
   hour: string,
-  assetId: string
+  assetId: string,
+  cache: Map<string, { symbol: string; name: string; logo: string }>
 ): Promise<{ symbol: string; name: string; logo: string }> {
+  const ck = `${hour}::${assetId}`;
+  const hit = cache.get(ck);
+  if (hit) return hit;
   const m = await tursoExecute(
     `SELECT name, symbol, logo FROM day_prices
      WHERE utc_day = ? AND asset_id = ?
@@ -506,14 +510,15 @@ async function loadAssetMetaForRound(
      LIMIT 1`,
     [hour, assetId]
   );
-  if (m.rows[0]) {
-    return {
-      name: String(m.rows[0][0] || ""),
-      symbol: String(m.rows[0][1] || assetId),
-      logo: String(m.rows[0][2] || ""),
-    };
-  }
-  return { name: assetId, symbol: assetId, logo: "" };
+  const meta = m.rows[0]
+    ? {
+        name: String(m.rows[0][0] || ""),
+        symbol: String(m.rows[0][1] || assetId),
+        logo: String(m.rows[0][2] || ""),
+      }
+    : { name: assetId, symbol: assetId, logo: "" };
+  cache.set(ck, meta);
+  return meta;
 }
 
 function accumulate(
@@ -585,7 +590,14 @@ export async function getHitShitPeriodBoards(
   roundsScanned: number;
 }> {
   await ensureDayGameSchema();
-  const lim = Math.min(720, Math.max(24, Math.floor(limitBuckets) * (period === "hour" ? 1 : period === "day" ? 24 : 168)));
+  const lim = Math.min(
+    period === "week" ? 336 : 720,
+    Math.max(
+      24,
+      Math.floor(limitBuckets) *
+        (period === "hour" ? 1 : period === "day" ? 24 : 48)
+    )
+  );
   const r = await tursoExecute(
     `SELECT utc_day, settled_at,
             hit_asset_id, hit_pct, hit_pot, hit_prize,
@@ -597,6 +609,49 @@ export async function getHitShitPeriodBoards(
      LIMIT ${lim}`,
     []
   );
+
+  // Prefetch metas for all assets in one query when possible
+  const hourIds = r.rows.map((row) => String(row[0] || "")).filter(Boolean);
+  const metaCache = new Map<
+    string,
+    { symbol: string; name: string; logo: string }
+  >();
+  if (hourIds.length) {
+    // chunk IN list
+    const uniqHours = [...new Set(hourIds)].slice(0, 200);
+    for (let i = 0; i < uniqHours.length; i += 40) {
+      const chunk = uniqHours.slice(i, i + 40);
+      const ph = chunk.map(() => "?").join(",");
+      try {
+        const mr = await tursoExecute(
+          `SELECT utc_day, asset_id, name, symbol, logo, phase FROM day_prices
+           WHERE utc_day IN (${ph})
+             AND phase IN ('close', 'open')`,
+          chunk
+        );
+        // prefer close over open
+        const best = new Map<string, { phase: string; meta: { name: string; symbol: string; logo: string } }>();
+        for (const row of mr.rows) {
+          const h = String(row[0] || "");
+          const id = String(row[1] || "");
+          const phase = String(row[5] || "");
+          const key = `${h}::${id}`;
+          const meta = {
+            name: String(row[2] || ""),
+            symbol: String(row[3] || id),
+            logo: String(row[4] || ""),
+          };
+          const prev = best.get(key);
+          if (!prev || (phase === "close" && prev.phase !== "close")) {
+            best.set(key, { phase, meta });
+          }
+        }
+        for (const [k, v] of best) metaCache.set(k, v.meta);
+      } catch {
+        /* fall back to per-row */
+      }
+    }
+  }
 
   type BucketAcc = {
     key: string;
@@ -640,7 +695,7 @@ export async function getHitShitPeriodBoards(
     const shitId = row[6] ? String(row[6]) : null;
 
     if (hitId) {
-      const meta = await loadAssetMetaForRound(hour, hitId);
+      const meta = await loadAssetMetaForRound(hour, hitId, metaCache);
       const snap: RoundSideSnap = {
         assetId: hitId,
         pct: row[3] != null ? Number(row[3]) : null,
@@ -652,7 +707,7 @@ export async function getHitShitPeriodBoards(
       accumulate(overallHit, snap);
     }
     if (shitId) {
-      const meta = await loadAssetMetaForRound(hour, shitId);
+      const meta = await loadAssetMetaForRound(hour, shitId, metaCache);
       const snap: RoundSideSnap = {
         assetId: shitId,
         pct: row[7] != null ? Number(row[7]) : null,
