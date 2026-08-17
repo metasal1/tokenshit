@@ -796,6 +796,23 @@ export async function getLiveLeaders(utcHour: string): Promise<{
     if (o.price <= 0) continue;
     const L = liveById.get(id);
     if (!L || L.price <= 0) continue;
+    // Guard: reject live prices that are absurd vs open (bad Dex pair, etc.)
+    // e.g. SOL open $75 live $0.008 → −99.99%
+    const ratio = L.price / o.price;
+    if (!(ratio >= 0.35 && ratio <= 2.8)) {
+      // Prefer open as "flat" rather than crown a garbage SHIT leader
+      moves.push({
+        assetId: id,
+        name: L.name || o.name || id,
+        symbol: L.symbol || o.symbol || "",
+        logo: L.logo || "",
+        openPrice: o.price,
+        price: o.price,
+        pct: 0,
+        volume24h: L.volume24h || o.volume24h || 0,
+      });
+      continue;
+    }
     const pct = ((L.price - o.price) / o.price) * 100;
     moves.push({
       assetId: id,
