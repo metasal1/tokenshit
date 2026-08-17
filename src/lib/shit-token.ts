@@ -34,20 +34,20 @@ export const PLAY_REV_ADDRESS =
   process.env.NEXT_PUBLIC_PLAY_REV_ADDRESS ||
   "revn2bE1MtTvn5cBXguuAuuSyEC2VbiyRE2imFMAX7U";
 
-/** One-time claim amounts (Metasal) */
-export const CLAIM_X_VERIFIED = 10_000;
+/** One-time claim amounts (Metasal — halved) */
+export const CLAIM_X_VERIFIED = 5_000;
 /** X Premium (blue) */
-export const CLAIM_X_PREMIUM = 15_000;
+export const CLAIM_X_PREMIUM = 7_500;
 /** GitHub fork of solana-foundation/tokens */
-export const CLAIM_GH_FORK = 15_000;
+export const CLAIM_GH_FORK = 7_500;
 /** Tweet + tag @Tokenshit_ — every 24h; tweet must be <24h old */
-export const CLAIM_X_TWEET = 5_000;
+export const CLAIM_X_TWEET = 2_500;
 /** Follow @Tokenshit_ (once) — minor */
-export const CLAIM_X_FOLLOW = 3_000;
+export const CLAIM_X_FOLLOW = 1_500;
 /** Join email list (once) */
-export const CLAIM_EMAIL_LIST = 5_000;
+export const CLAIM_EMAIL_LIST = 2_500;
 /** $TOKENSHIT per referral */
-export const REFERRAL_REWARD_SHIT = 2_000;
+export const REFERRAL_REWARD_SHIT = 1_000;
 
 /** Anti-farm floors (overridable via env — see src/lib/abuse.ts) */
 export const CLAIM_REQUIRE_PFP = process.env.CLAIM_REQUIRE_PFP !== "0";
@@ -65,7 +65,7 @@ export const ABUSE_MIN_FOLLOWERS_REFERRAL = Number(
  * Global treasury daily top-up (cron at UTC 00:00).
  * UI countdown targets next midnight UTC.
  */
-export const GLOBAL_TREASURY_DAILY_DROP = 1_000_000;
+export const GLOBAL_TREASURY_DAILY_DROP = 500_000;
 export const GLOBAL_TREASURY_CRON_UTC_HOUR = 0;
 
 export const GH_FORK_UPSTREAM = "solana-foundation/tokens";
