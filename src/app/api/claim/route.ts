@@ -21,7 +21,7 @@ import {
   tweetIdAlreadyClaimed,
   type ClaimKind,
 } from "@/lib/claims";
-import { getTreasuryBalances } from "@/lib/treasury";
+import { getTreasuryBalances, getPlayPotBalances } from "@/lib/treasury";
 import { payFromTreasury } from "@/lib/treasury-ledger";
 import { requirePrivy } from "@/lib/privy-server";
 import { assertNotBlacklisted } from "@/lib/security";
@@ -498,16 +498,22 @@ export async function POST(request: NextRequest) {
         { status: 503 }
       );
     }
-    if (bal.sol < 0.002) {
-      return Response.json(
-        {
-          error:
-            "Treasury needs more SOL for fees/ATA rent. Please top up treasury SOL and retry.",
-          treasury: bal.address,
-          sol: bal.sol,
-        },
-        { status: 503 }
-      );
+    if (bal.sol < 0.0015) {
+      // still allow if pot can sponsor gas (sendShitFromTreasury allowPlayPotFeePayer)
+      const pot = await getPlayPotBalances().catch(() => null);
+      if (!pot || pot.sol < 0.005) {
+        return Response.json(
+          {
+            error:
+              "Claims temporarily need SOL for network fees. We’re topping up — retry in a minute.",
+            code: "treasury_sol_low",
+            treasury: bal.address,
+            sol: bal.sol,
+            potSol: pot?.sol ?? null,
+          },
+          { status: 503 }
+        );
+      }
     }
 
     // Clear abandoned pending rows so retries aren't blocked
