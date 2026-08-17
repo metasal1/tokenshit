@@ -19,6 +19,7 @@ export const PLAY_PRODUCT = {
   /** Canonical public paths */
   path: "/play",
   winnersPath: "/winners",
+  boardsPath: "/boards",
   prevPath: "/play/prev",
   receiptPath: (key: string) => `/play/${encodeURIComponent(key)}`,
   /** Keep internal API stable */
