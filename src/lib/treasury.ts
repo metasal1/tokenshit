@@ -254,10 +254,12 @@ export async function sendShitFromTreasury(
     recipient,
     amountWhole,
     applyTreasuryGates: true,
+    // if claims treasury SOL is dust, pot can sponsor gas
+    allowPlayPotFeePayer: true,
   });
 }
 
-/** Play pot → winner (or house fee → SHTy). Fee payer may be treasury if pot SOL thin. */
+/** Play pot → winner (or house fee → rev). Fee payer may be treasury if pot SOL thin. */
 export async function sendShitFromPlayPot(
   recipient: string,
   amountWhole: number
@@ -282,6 +284,7 @@ async function sendShitFromPayer(opts: {
   amountWhole: number;
   applyTreasuryGates: boolean;
   allowTreasuryFeePayer?: boolean;
+  allowPlayPotFeePayer?: boolean;
   maxConfirmMs?: number;
   maxAttempts?: number;
 }): Promise<{ signature: string; amount: number }> {
@@ -351,6 +354,27 @@ async function sendShitFromPayer(opts: {
         if (e instanceof Error && e.message.includes("top up")) throw e;
         throw new Error(
           `Play pot has no SOL for fees (${(potLamports / 1e9).toFixed(4)} SOL). Send ~0.2 SOL to pot wallet.`
+        );
+      }
+    }
+  } else if (opts.allowPlayPotFeePayer) {
+    const tLamports = await conn.getBalance(tokenAuthority.publicKey);
+    if (tLamports < 3_000_000) {
+      // claims treasury dust — pot pays gas, treasury still signs token transfer
+      try {
+        const potKp = loadPlayPotKeypair();
+        const pLamports = await conn.getBalance(potKp.publicKey);
+        if (pLamports >= 5_000_000) {
+          feePayer = potKp;
+        } else {
+          throw new Error(
+            `Claims treasury needs SOL for fees (treasury=${(tLamports / 1e9).toFixed(4)} pot=${(pLamports / 1e9).toFixed(4)}). Top up SHTy… with ~0.15 SOL`
+          );
+        }
+      } catch (e) {
+        if (e instanceof Error && /Top up|needs SOL/i.test(e.message)) throw e;
+        throw new Error(
+          `Claims treasury has no SOL for fees (${(tLamports / 1e9).toFixed(4)} SOL). Send ~0.15 SOL to treasury.`
         );
       }
     }
