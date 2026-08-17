@@ -341,7 +341,9 @@ export async function POST(request: NextRequest) {
             {
               error:
                 "X Premium (blue) required for this reward. Non-premium verified can claim the verified tier instead.",
+              code: "not_premium",
               verifiedType: x.verifiedType,
+              verified: !!x.verified,
             },
             { status: 403 }
           );

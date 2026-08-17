@@ -132,20 +132,30 @@ function withProfileFlags(u: {
   verified: boolean;
   verifiedType?: string;
   premium?: boolean;
+  /** twitterapi.io / tweetapi often set this without verified_type */
+  isBlueVerified?: boolean;
   profileImageUrl?: string;
   error?: string;
   source?: string;
 }): XUserPublic {
-  const verifiedType = String(u.verifiedType || "none").toLowerCase();
-  const premium = Boolean(
-    u.premium ||
-      verifiedType === "blue" ||
-      (u.verified && verifiedType === "blue")
-  );
+  let verifiedType = String(u.verifiedType || "none").toLowerCase().trim();
+  if (!verifiedType || verifiedType === "null" || verifiedType === "undefined") {
+    verifiedType = "none";
+  }
+  // "none" is truthy — never use `vt || "blue"`; that left blue users as non-premium
+  const isBlue =
+    Boolean(u.premium) ||
+    Boolean(u.isBlueVerified) ||
+    verifiedType === "blue" ||
+    verifiedType === "business";
+  const premium = isBlue;
   const verified =
     premium ||
-    u.verified ||
+    Boolean(u.verified) ||
     ["blue", "business", "government"].includes(verifiedType);
+  if (premium && (verifiedType === "none" || !verifiedType)) {
+    verifiedType = "blue";
+  }
   const profileImageUrl = u.profileImageUrl;
   const hasPfp = Boolean(
     profileImageUrl &&
@@ -275,12 +285,20 @@ async function fromTwitterApiIoUser(username: string): Promise<any> {
         source: "twitterapi.io",
       };
     }
-    const verifiedType = String(d.verifiedType || d.verified_type || "none");
+    const rawVt = String(d.verifiedType || d.verified_type || "").toLowerCase();
+    const isBlueVerified = Boolean(d.isBlueVerified);
     const verified =
-      Boolean(d.isBlueVerified) ||
+      isBlueVerified ||
       Boolean(d.isVerified) ||
       Boolean(d.verified) ||
-      /blue|business|government/i.test(verifiedType);
+      /blue|business|government/i.test(rawVt);
+    const verifiedType = isBlueVerified
+      ? "blue"
+      : rawVt && rawVt !== "none"
+        ? rawVt
+        : verified
+          ? "blue"
+          : "none";
     return {
       ok: true,
       username: String(d.userName || d.username || clean),
@@ -290,7 +308,9 @@ async function fromTwitterApiIoUser(username: string): Promise<any> {
       following: Number(d.following ?? d.followingCount ?? 0),
       tweets: Number(d.statusesCount ?? d.statuses_count ?? d.tweets ?? 0),
       verified,
-      verifiedType: verified ? verifiedType || "blue" : "none",
+      premium: isBlueVerified || verifiedType === "blue",
+      isBlueVerified,
+      verifiedType,
       profileImageUrl: d.profilePicture
         ? String(d.profilePicture).replace("_normal", "_bigger")
         : d.profile_image_url
@@ -337,12 +357,20 @@ async function fromTweetApiUser(username: string): Promise<any> {
   }
   const json = await res.json();
   const d = json.data || json;
-  const verifiedType = String(d.verifiedType || d.verified_type || "none");
+  const rawVt = String(d.verifiedType || d.verified_type || "").toLowerCase();
+  const isBlueVerified = Boolean(d.isBlueVerified);
   const verified =
-    Boolean(d.isBlueVerified) || // premium blue
+    isBlueVerified || // premium blue
     Boolean(d.verified) ||
     Boolean(d.isIdentityVerified) ||
-    /blue|business|government/i.test(verifiedType);
+    /blue|business|government/i.test(rawVt);
+  const verifiedType = isBlueVerified
+    ? "blue"
+    : rawVt && rawVt !== "none"
+      ? rawVt
+      : verified
+        ? "blue"
+        : "none";
   return {
     ok: true,
     username: String(d.username || clean),
@@ -352,7 +380,9 @@ async function fromTweetApiUser(username: string): Promise<any> {
     following: Number(d.followingCount ?? d.following ?? 0),
     tweets: Number(d.tweetCount ?? d.statusesCount ?? d.tweets ?? 0),
     verified,
-    verifiedType: verified ? verifiedType || "blue" : "none",
+    premium: isBlueVerified || verifiedType === "blue",
+    isBlueVerified,
+    verifiedType,
     profileImageUrl: d.avatar
       ? String(d.avatar).replace("_normal", "_bigger")
       : undefined,
