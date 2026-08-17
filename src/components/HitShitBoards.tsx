@@ -206,7 +206,7 @@ export default function HitShitBoards() {
     setBuckets(null);
     setErr(null);
     const limit = period === "hour" ? 48 : period === "day" ? 21 : 12;
-    fetch(`/api/day/boards?period=${period}&limit=${limit}`, {
+    fetch(`/api/boards?period=${period}&limit=${limit}`, {
       cache: "no-store",
     })
       .then(async (r) => {
