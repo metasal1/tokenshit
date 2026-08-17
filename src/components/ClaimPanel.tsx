@@ -936,7 +936,7 @@ export default function ClaimPanel() {
           statusLoading={statusLoading && authenticated}
           title="Join the list"
           amount={CLAIM_EMAIL_LIST}
-          hint="One-time 5,000 after email signup (same X / wallet)."
+          hint="One-time email list claim (same X / wallet). (same X / wallet)."
         >
           <button
             type="button"
@@ -947,7 +947,7 @@ export default function ClaimPanel() {
             {busy === "email_list"
               ? "Claiming…"
               : authenticated
-                ? "Claim list 5k"
+                ? `Claim list ${CLAIM_EMAIL_LIST.toLocaleString()}`
                 : "Login with X"}
           </button>
         </RewardRow>
