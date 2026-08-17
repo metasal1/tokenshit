@@ -8,7 +8,7 @@ import {
 export const dynamic = "force-dynamic";
 
 /**
- * GET /api/day/boards?period=hour|day|week&limit=24
+ * GET /api/boards?period=hour|day|week&limit=24
  * HIT + SHIT boards aggregated by period.
  */
 export async function GET(request: Request) {
