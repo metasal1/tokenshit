@@ -564,6 +564,32 @@ export default function ClaimPanel() {
         const msgText = (data.error || `Claim failed (${res.status})`) + detail;
         setErr(msgText);
         setClaimPhase("error");
+        // Premium clicked but user is non-premium verified → auto-route verified
+        if (
+          kind === "x_premium" &&
+          (/non-premium verified|verified tier instead|use_premium/i.test(
+            String(data.error || "") + String(data.code || "")
+          ) ||
+            data.code === "not_premium")
+        ) {
+          setMsg("Not X Premium — trying Verified tier instead…");
+          window.setTimeout(() => {
+            void claim("x_verified");
+          }, 400);
+          return;
+        }
+        // Verified clicked but user is Premium → auto-route premium
+        if (
+          kind === "x_verified" &&
+          (data.code === "use_premium_tier" ||
+            /use the Premium claim|premium tier/i.test(String(data.error || "")))
+        ) {
+          setMsg("You have X Premium — claiming Premium tier…");
+          window.setTimeout(() => {
+            void claim("x_premium");
+          }, 400);
+          return;
+        }
         // Server says already claimed — lock the row
         if (
           res.status === 409 ||
@@ -671,7 +697,9 @@ export default function ClaimPanel() {
       <p className="text-[11px] sm:text-xs text-zinc-500 leading-snug rounded-lg border border-border/60 bg-zinc-950/40 px-3 py-2">
         <span className="text-zinc-300 font-medium">Rules:</span> X login
         required · PFP · 100+ followers · pay to Privy wallet linked to that X ·
-        verified 10k / premium 20k / GH fork 100k · tweet every 24h · 1 major
+        verified {CLAIM_X_VERIFIED.toLocaleString()} / premium{" "}
+          {CLAIM_X_PREMIUM.toLocaleString()} / GH fork{" "}
+          {CLAIM_GH_FORK.toLocaleString()} · tweet every 24h · 1 major
         claim per IP per day
       </p>
 
@@ -872,7 +900,7 @@ export default function ClaimPanel() {
               {busy === "x_premium"
                 ? "Claiming…"
                 : authenticated
-                  ? "Claim premium 20k"
+                  ? `Claim premium ${CLAIM_X_PREMIUM.toLocaleString()}`
                   : "Login with X"}
             </button>
           </RewardRow>
@@ -882,7 +910,7 @@ export default function ClaimPanel() {
             statusLoading={statusLoading && authenticated}
             title="X verified"
             amount={CLAIM_X_VERIFIED}
-            hint="Verified (not Premium) · 100+ followers · PFP · exclusive vs premium"
+            hint="Non-Premium check only · 100+ followers · PFP · exclusive vs premium"
           >
             <button
               type="button"
@@ -897,7 +925,7 @@ export default function ClaimPanel() {
               {busy === "x_verified"
                 ? "Claiming…"
                 : authenticated
-                  ? "Claim verified 10k"
+                  ? `Claim verified ${CLAIM_X_VERIFIED.toLocaleString()}`
                   : "Login with X"}
             </button>
           </RewardRow>
