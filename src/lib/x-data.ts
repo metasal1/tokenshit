@@ -457,7 +457,9 @@ async function readTursoUser(username: string): Promise<XUserPublic | null> {
     const at = Date.parse(updatedAt.includes("T") ? updatedAt : updatedAt.replace(" ", "T") + "Z");
     if (!Number.isFinite(at)) return null;
     const val = JSON.parse(payload) as XUserPublic;
-    const ttl = val.ok ? TURSO_OK_TTL_MS : TURSO_FAIL_TTL_MS;
+    // ok + 0 followers is often a free-API miss, not a real micro account — short TTL
+    const zeroFollowers = val.ok && Number(val.followers || 0) <= 0;
+    const ttl = !val.ok || zeroFollowers ? TURSO_FAIL_TTL_MS : TURSO_OK_TTL_MS;
     if (Date.now() - at > ttl) return null;
     return { ...val, source: val.source ? `${val.source}+cache` : "cache" };
   } catch {
@@ -588,7 +590,36 @@ const followCache = new Map<
   string,
   { at: number; val: { ok: boolean; following: boolean; error?: string; source?: string } }
 >();
-const FOLLOW_CACHE_MS = 30 * 60 * 1000;
+/** Positive follow hits stay longer; negatives / errors expire fast (just-followed UX). */
+const FOLLOW_CACHE_POS_MS = 30 * 60 * 1000;
+const FOLLOW_CACHE_NEG_MS = 2 * 60 * 1000;
+
+function isTokenshitFollowTarget(u: {
+  id?: string | number | null;
+  userName?: string | null;
+  screen_name?: string | null;
+  username?: string | null;
+}): boolean {
+  if (String(u.id ?? "") === TOKENSHIT_ID) return true;
+  const h = normalizeXHandle(u.userName || u.screen_name || u.username || "");
+  return h === TOKENSHIT_USER;
+}
+
+function relationshipFollowingFlag(data: Record<string, unknown> | null | undefined): boolean | null {
+  if (!data || typeof data !== "object") return null;
+  // twitterapi.io: data.following = source follows target
+  const keys = [
+    "following",
+    "isFollowing",
+    "is_following",
+    "source_follows_target",
+    "followingTarget",
+  ];
+  for (const k of keys) {
+    if (k in data) return Boolean(data[k]);
+  }
+  return null;
+}
 
 export async function checkXFollowsTokenshit(username: string): Promise<{
   ok: boolean;
@@ -601,8 +632,12 @@ export async function checkXFollowsTokenshit(username: string): Promise<{
 
   const fk = user.toLowerCase();
   const fc = followCache.get(fk);
-  if (fc && Date.now() - fc.at < FOLLOW_CACHE_MS) {
-    return { ...fc.val, source: (fc.val.source || "cache") + "+mem" };
+  if (fc) {
+    const ttl =
+      fc.val.ok && fc.val.following ? FOLLOW_CACHE_POS_MS : FOLLOW_CACHE_NEG_MS;
+    if (Date.now() - fc.at < ttl) {
+      return { ...fc.val, source: (fc.val.source || "cache") + "+mem" };
+    }
   }
 
   const rememberFollow = (val: {
@@ -615,7 +650,7 @@ export async function checkXFollowsTokenshit(username: string): Promise<{
     return val;
   };
 
-  // 1) twitterapi.io relationship (cheap + works with new key)
+  // 1) twitterapi.io relationship (cheap + authoritative when present)
   const ioKey = twitterApiIoKey();
   if (ioKey) {
     try {
@@ -632,13 +667,14 @@ export async function checkXFollowsTokenshit(username: string): Promise<{
       if (res.ok) {
         const json = (await res.json()) as {
           status?: string;
-          data?: { following?: boolean; followed_by?: boolean };
+          data?: Record<string, unknown>;
           msg?: string;
         };
-        if (json.status === "success" && json.data) {
+        const flag = relationshipFollowingFlag(json.data);
+        if (flag !== null && (json.status === "success" || Boolean(json.data))) {
           return rememberFollow({
             ok: true,
-            following: Boolean(json.data.following),
+            following: flag,
             source: "twitterapi.io",
           });
         }
@@ -647,7 +683,8 @@ export async function checkXFollowsTokenshit(username: string): Promise<{
       /* fall through */
     }
 
-    // 2) followings page scan (first page usually enough for recent follows)
+    // 2) followings page scan — POSITIVE only.
+    // First page is incomplete for heavy follow graphs; never treat a miss as "not following".
     try {
       const url = `${TWITTERAPI_IO_BASE}/twitter/user/followings?userName=${encodeURIComponent(user)}`;
       const res = await fetchTimeout(
@@ -657,29 +694,30 @@ export async function checkXFollowsTokenshit(username: string): Promise<{
       );
       if (res.ok) {
         const json = (await res.json()) as {
-          followings?: { id?: string; userName?: string; screen_name?: string }[];
+          followings?: {
+            id?: string;
+            userName?: string;
+            screen_name?: string;
+            username?: string;
+          }[];
+          data?: {
+            followings?: {
+              id?: string;
+              userName?: string;
+              screen_name?: string;
+              username?: string;
+            }[];
+          };
         };
-        const list = json.followings || [];
-        const following = list.some((u) => {
-          const h = normalizeXHandle(u.userName || u.screen_name || "");
-          return h === TOKENSHIT_USER || String(u.id || "") === TOKENSHIT_ID;
-        });
-        if (following) {
+        const list = json.followings || json.data?.followings || [];
+        if (list.some((u) => isTokenshitFollowTarget(u))) {
           return rememberFollow({
             ok: true,
             following: true,
             source: "twitterapi.io-followings",
           });
         }
-        // If we got a list and Tokenshit_ not in first page, still could be further —
-        // but check_follow_relationship is authoritative when it works.
-        if (list.length > 0) {
-          return rememberFollow({
-            ok: true,
-            following: false,
-            source: "twitterapi.io-followings",
-          });
-        }
+        // miss → fall through (do not cache false)
       }
     } catch {
       /* fall through */
@@ -709,12 +747,15 @@ export async function checkXFollowsTokenshit(username: string): Promise<{
       });
       if (res.ok) {
         const json = await res.json();
-        const d = json.data || json;
-        return rememberFollow({
-          ok: true,
-          following: Boolean(d.following),
-          source: "tweetapi",
-        });
+        const d = (json.data || json) as Record<string, unknown>;
+        const flag = relationshipFollowingFlag(d);
+        if (flag !== null) {
+          return rememberFollow({
+            ok: true,
+            following: flag,
+            source: "tweetapi",
+          });
+        }
       }
     } catch {
       /* fall through */
@@ -724,35 +765,35 @@ export async function checkXFollowsTokenshit(username: string): Promise<{
   // Official following pages are expensive (up to 3k follows) — skip if cooldown
   const bearer = xBearer();
   if (bearer && Date.now() >= officialXCooldownUntil) {
-    let next: string | null = null;
-    for (let page = 0; page < 1; page++) {
-      // single page max — was 3 pages and burned credits
-      const url = new URL(
-        `https://api.x.com/2/users/${profile.id}/following`
-      );
-      url.searchParams.set("max_results", "1000");
-      url.searchParams.set("user.fields", "username");
-      if (next) url.searchParams.set("pagination_token", next);
-      const fRes = await fetch(url.toString(), {
-        headers: { Authorization: `Bearer ${bearer}` },
-        cache: "no-store",
-      });
-      if (!fRes.ok) {
-        if (fRes.status === 402 || fRes.status === 429 || fRes.status === 401) {
-          officialXCooldownUntil = Date.now() + OFFICIAL_COOLDOWN_MS;
-        }
-        break;
-      }
+    // single page max — was 3 pages and burned credits; POSITIVE only
+    const url = new URL(
+      `https://api.x.com/2/users/${profile.id}/following`
+    );
+    url.searchParams.set("max_results", "1000");
+    url.searchParams.set("user.fields", "username");
+    const fRes = await fetch(url.toString(), {
+      headers: { Authorization: `Bearer ${bearer}` },
+      cache: "no-store",
+    });
+    if (fRes.ok) {
       const fJson = await fRes.json();
       const list = (fJson.data || []) as { id: string; username?: string }[];
-      const following = list.some(
-        (u) =>
-          u.id === TOKENSHIT_ID ||
-          (u.username || "").toLowerCase() === TOKENSHIT_USER
-      );
-      if (following)
-        return rememberFollow({ ok: true, following: true, source: "x-official" });
-      break;
+      if (
+        list.some(
+          (u) =>
+            u.id === TOKENSHIT_ID ||
+            (u.username || "").toLowerCase() === TOKENSHIT_USER
+        )
+      ) {
+        return rememberFollow({
+          ok: true,
+          following: true,
+          source: "x-official",
+        });
+      }
+      // miss on one page is inconclusive — do not claim not-following
+    } else if (fRes.status === 402 || fRes.status === 429 || fRes.status === 401) {
+      officialXCooldownUntil = Date.now() + OFFICIAL_COOLDOWN_MS;
     }
   }
 
