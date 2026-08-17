@@ -1,7 +1,8 @@
 /**
  * Multi-source live USD prices for the hour game.
  * Universe: Tokens.xyz majors. Price truth:
- *   Jupiter → DexScreener → CoinGecko → Tokens.xyz birdeye market (not rounded stats).
+ *   Jupiter → CoinGecko → DexScreener (sanity-checked) → txyz birdeye market.
+ * Reject Dex/Jup outliers that diverge wildly from known fallback (e.g. SOL $0.008).
  */
 import { apiFetch } from "@/lib/api";
 
@@ -25,11 +26,25 @@ export type PricedMajor = PriceHint & {
 const JUP_V3 = "https://api.jup.ag/price/v3";
 const CG_SIMPLE = "https://api.coingecko.com/api/v3/simple/price";
 const DEX_TOKENS = "https://api.dexscreener.com/latest/dex/tokens";
+const WSOL = "So11111111111111111111111111111111111111112";
 
 function chunk<T>(arr: T[], n: number): T[][] {
   const out: T[][] = [];
   for (let i = 0; i < arr.length; i += n) out.push(arr.slice(i, i + n));
   return out;
+}
+
+function normMint(m: string): string {
+  return m.trim();
+}
+
+/** True if candidate is within a sensible band of reference (blocks inverted/micro pairs). */
+function priceSane(candidate: number, ref: number | null | undefined): boolean {
+  if (!(candidate > 0) || !Number.isFinite(candidate)) return false;
+  if (!(ref && ref > 0)) return true;
+  const r = candidate / ref;
+  // Allow up to ~±60% hour move; reject 1000x bugs (SOL 75 → 0.008)
+  return r >= 0.4 && r <= 2.5;
 }
 
 async function fetchJupiterUsd(mints: string[]): Promise<Map<string, number>> {
@@ -41,7 +56,7 @@ async function fetchJupiterUsd(mints: string[]): Promise<Map<string, number>> {
       const url = `${JUP_V3}?ids=${group.map(encodeURIComponent).join(",")}`;
       const headers: Record<string, string> = {
         Accept: "application/json",
-        "User-Agent": "tokenshit-hour-game/1.0",
+        "User-Agent": "tokenshit-hour-game/1.1",
       };
       if (key) headers["x-api-key"] = key;
       const res = await fetch(url, { headers, cache: "no-store" });
@@ -52,7 +67,9 @@ async function fetchJupiterUsd(mints: string[]): Promise<Map<string, number>> {
       >;
       for (const [mint, row] of Object.entries(data || {})) {
         const p = row?.usdPrice ?? row?.price;
-        if (typeof p === "number" && Number.isFinite(p) && p > 0) map.set(mint, p);
+        if (typeof p === "number" && Number.isFinite(p) && p > 0) {
+          map.set(normMint(mint), p);
+        }
       }
     } catch {
       /* */
@@ -61,19 +78,23 @@ async function fetchJupiterUsd(mints: string[]): Promise<Map<string, number>> {
   return map;
 }
 
-/** DexScreener: best liquidity pair USD price per mint */
+/**
+ * DexScreener: best solana pair where mint is the **base** token.
+ * Prefer high liquidity; skip dust pools.
+ */
 async function fetchDexScreenerUsd(
   mints: string[]
 ): Promise<Map<string, number>> {
   const map = new Map<string, number>();
   if (!mints.length) return map;
+  const want = new Set(mints.map(normMint));
   for (const group of chunk(mints, 30)) {
     try {
       const url = `${DEX_TOKENS}/${group.join(",")}`;
       const res = await fetch(url, {
         headers: {
           Accept: "application/json",
-          "User-Agent": "tokenshit-hour-game/1.0",
+          "User-Agent": "tokenshit-hour-game/1.1",
         },
         cache: "no-store",
       });
@@ -87,15 +108,17 @@ async function fetchDexScreenerUsd(
           liquidity?: { usd?: number };
         }>;
       };
-      const best = new Map<string, { px: number; liq: number }>();
+      const best = new Map<string, { px: number; score: number }>();
       for (const p of data.pairs || []) {
-        const addr = (p.baseToken?.address || "").toString();
+        const base = normMint(p.baseToken?.address || "");
+        if (!base || !want.has(base)) continue;
+        if (p.chainId && p.chainId !== "solana") continue;
         const px = Number(p.priceUsd);
-        let liq = Number(p.liquidity?.usd || 0);
-        if (!addr || !(px > 0)) continue;
-        if (p.chainId === "solana") liq += 1e12; // prefer solana venues
-        const prev = best.get(addr);
-        if (!prev || liq > prev.liq) best.set(addr, { px, liq });
+        const liq = Number(p.liquidity?.usd || 0);
+        if (!(px > 0) || !(liq >= 5_000)) continue;
+        const score = liq;
+        const prev = best.get(base);
+        if (!prev || score > prev.score) best.set(base, { px, score });
       }
       for (const [mint, row] of best) {
         if (!map.has(mint)) map.set(mint, row.px);
@@ -123,7 +146,7 @@ async function fetchCoinGeckoUsd(
       const url = `${CG_SIMPLE}?ids=${group.map(encodeURIComponent).join(",")}&vs_currencies=usd`;
       const headers: Record<string, string> = {
         Accept: "application/json",
-        "User-Agent": "tokenshit-hour-game/1.0",
+        "User-Agent": "tokenshit-hour-game/1.1",
       };
       if (cgKey) headers["x-cg-demo-api-key"] = cgKey;
       const res = await fetch(url, { headers, cache: "no-store" });
@@ -175,15 +198,22 @@ export async function fetchMajorsUniverse(): Promise<PriceHint[]> {
     const cm = (a.canonicalMarket || {}) as Record<string, unknown>;
     const pv = (a.primaryVariant || {}) as Record<string, unknown>;
     const market = (pv.market || {}) as Record<string, unknown>;
-    const mint = pv.mint ? String(pv.mint) : null;
-    const coinId = cm.coinId ? String(cm.coinId) : null;
+    let mint = pv.mint ? String(pv.mint) : null;
+    // Normalize SOL
+    if (
+      assetId === "solana" ||
+      String(a.symbol || "").toUpperCase() === "SOL"
+    ) {
+      mint = WSOL;
+    }
+    const coinId = cm.coinId
+      ? String(cm.coinId)
+      : assetId === "solana"
+        ? "solana"
+        : null;
 
-    // Prefer birdeye market price (precise) over rounded stats.price
     const fallback =
-      num(market.price) ??
-      num(stats.price) ??
-      num(cm.price) ??
-      0;
+      num(market.price) ?? num(stats.price) ?? num(cm.price) ?? 0;
 
     if (!(fallback > 0) && !mint && !coinId) continue;
 
@@ -227,22 +257,35 @@ export async function priceMajorsLive(
 
   return universe
     .map((u) => {
-      let price = 0;
-      let source: PricedMajor["source"] = "tokens.xyz";
-      if (u.mint && jup.has(u.mint)) {
-        price = jup.get(u.mint)!;
-        source = "jupiter";
-      } else if (u.mint && dex.has(u.mint)) {
-        price = dex.get(u.mint)!;
-        source = "dexscreener";
-      } else if (u.coinId && cg.has(u.coinId)) {
-        price = cg.get(u.coinId)!;
-        source = "coingecko";
-      } else if (u.fallbackPrice > 0) {
-        price = u.fallbackPrice;
-        source = "tokens.xyz";
+      const mint = u.mint ? normMint(u.mint) : null;
+      const ref = u.fallbackPrice > 0 ? u.fallbackPrice : null;
+      const candidates: Array<{
+        price: number;
+        source: PricedMajor["source"];
+      }> = [];
+
+      // Prefer Jup → CG → Dex (dex last — flaky pairs) → txyz
+      if (mint && jup.has(mint)) {
+        candidates.push({ price: jup.get(mint)!, source: "jupiter" });
       }
-      return { ...u, price, source };
+      if (u.coinId && cg.has(u.coinId)) {
+        candidates.push({ price: cg.get(u.coinId)!, source: "coingecko" });
+      }
+      if (mint && dex.has(mint)) {
+        candidates.push({ price: dex.get(mint)!, source: "dexscreener" });
+      }
+      if (u.fallbackPrice > 0) {
+        candidates.push({ price: u.fallbackPrice, source: "tokens.xyz" });
+      }
+
+      for (const c of candidates) {
+        if (priceSane(c.price, ref ?? candidates[0]?.price)) {
+          return { ...u, price: c.price, source: c.source };
+        }
+      }
+      const any = candidates.find((c) => c.price > 0);
+      if (any) return { ...u, price: any.price, source: any.source };
+      return { ...u, price: 0, source: "tokens.xyz" as const };
     })
     .filter((m) => m.price > 0);
 }
@@ -256,7 +299,6 @@ export async function priceAssetById(
   const id = assetId.trim();
   if (!id) return null;
 
-  // Prefer majors universe hit (fast path)
   try {
     const uni = await fetchMajorsUniverse();
     const hit = uni.find((u) => u.assetId === id);
@@ -268,7 +310,6 @@ export async function priceAssetById(
     /* fall through */
   }
 
-  // Detail fetch
   try {
     const data = await apiFetch(`/assets/${encodeURIComponent(id)}`);
     const a = (data?.asset || data) as Record<string, unknown>;
