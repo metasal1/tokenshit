@@ -426,6 +426,269 @@ export async function listPastWinners(
   return out;
 }
 
+export type PeriodKey = "hour" | "day" | "week";
+
+export type BoardAssetStat = {
+  assetId: string;
+  symbol: string;
+  name: string;
+  logo: string;
+  wins: number;
+  avgPct: number | null;
+  bestPct: number | null;
+  worstPct: number | null;
+  totalPot: number;
+  totalPrize: number;
+};
+
+export type BoardPeriodBucket = {
+  /** hour key, YYYY-MM-DD, or YYYY-Www */
+  key: string;
+  label: string;
+  rounds: number;
+  hit: BoardAssetStat | null;
+  shit: BoardAssetStat | null;
+  /** top bags this period (ranked by wins then pot) */
+  topHit: BoardAssetStat[];
+  topShit: BoardAssetStat[];
+};
+
+function isoWeekKey(isoDay: string): { key: string; label: string } {
+  // isoDay: YYYY-MM-DD
+  const d = new Date(`${isoDay}T12:00:00.000Z`);
+  if (!Number.isFinite(d.getTime())) {
+    return { key: isoDay, label: isoDay };
+  }
+  // ISO week
+  const t = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+  const dayNum = t.getUTCDay() || 7;
+  t.setUTCDate(t.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(t.getUTCFullYear(), 0, 1));
+  const week = Math.ceil(((t.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
+  const y = t.getUTCFullYear();
+  const key = `${y}-W${String(week).padStart(2, "0")}`;
+  return { key, label: `Week ${week}, ${y}` };
+}
+
+function periodBucketKey(
+  utcHour: string,
+  period: PeriodKey
+): { key: string; label: string } {
+  // utcHour: YYYY-MM-DDTHH
+  if (period === "hour") {
+    return { key: utcHour, label: formatHourLabel(utcHour) };
+  }
+  const day = utcHour.slice(0, 10);
+  if (period === "day") {
+    return { key: day, label: day };
+  }
+  return isoWeekKey(day);
+}
+
+type RoundSideSnap = {
+  assetId: string;
+  pct: number | null;
+  pot: number;
+  prize: number;
+  symbol: string;
+  name: string;
+  logo: string;
+};
+
+async function loadAssetMetaForRound(
+  hour: string,
+  assetId: string
+): Promise<{ symbol: string; name: string; logo: string }> {
+  const m = await tursoExecute(
+    `SELECT name, symbol, logo FROM day_prices
+     WHERE utc_day = ? AND asset_id = ?
+     ORDER BY CASE phase WHEN 'close' THEN 0 ELSE 1 END
+     LIMIT 1`,
+    [hour, assetId]
+  );
+  if (m.rows[0]) {
+    return {
+      name: String(m.rows[0][0] || ""),
+      symbol: String(m.rows[0][1] || assetId),
+      logo: String(m.rows[0][2] || ""),
+    };
+  }
+  return { name: assetId, symbol: assetId, logo: "" };
+}
+
+function accumulate(
+  map: Map<string, BoardAssetStat & { pctSum: number; pctN: number }>,
+  snap: RoundSideSnap
+) {
+  const prev = map.get(snap.assetId);
+  const pct = snap.pct != null && Number.isFinite(snap.pct) ? snap.pct : null;
+  if (!prev) {
+    map.set(snap.assetId, {
+      assetId: snap.assetId,
+      symbol: snap.symbol,
+      name: snap.name,
+      logo: snap.logo,
+      wins: 1,
+      avgPct: pct,
+      bestPct: pct,
+      worstPct: pct,
+      totalPot: snap.pot,
+      totalPrize: snap.prize,
+      pctSum: pct ?? 0,
+      pctN: pct != null ? 1 : 0,
+    });
+    return;
+  }
+  prev.wins += 1;
+  prev.totalPot += snap.pot;
+  prev.totalPrize += snap.prize;
+  if (pct != null) {
+    prev.pctSum += pct;
+    prev.pctN += 1;
+    prev.avgPct = prev.pctSum / prev.pctN;
+    prev.bestPct =
+      prev.bestPct == null ? pct : Math.max(prev.bestPct, pct);
+    prev.worstPct =
+      prev.worstPct == null ? pct : Math.min(prev.worstPct, pct);
+  }
+  if (!prev.logo && snap.logo) prev.logo = snap.logo;
+  if (snap.symbol) prev.symbol = snap.symbol;
+  if (snap.name) prev.name = snap.name;
+}
+
+function rankStats(
+  map: Map<string, BoardAssetStat & { pctSum: number; pctN: number }>
+): BoardAssetStat[] {
+  return [...map.values()]
+    .map(({ pctSum: _s, pctN: _n, ...rest }) => rest)
+    .sort((a, b) => {
+      if (b.wins !== a.wins) return b.wins - a.wins;
+      if (b.totalPot !== a.totalPot) return b.totalPot - a.totalPot;
+      return (b.avgPct ?? -Infinity) - (a.avgPct ?? -Infinity);
+    });
+}
+
+/**
+ * HIT + SHIT boards for hour / day / week.
+ * - hour: each settled round is its own bucket
+ * - day / week: bags ranked by # of hours won in that period
+ */
+export async function getHitShitPeriodBoards(
+  period: PeriodKey,
+  limitBuckets = 24
+): Promise<{
+  period: PeriodKey;
+  buckets: BoardPeriodBucket[];
+  /** flat top bags across the whole window */
+  overallHit: BoardAssetStat[];
+  overallShit: BoardAssetStat[];
+  roundsScanned: number;
+}> {
+  await ensureDayGameSchema();
+  const lim = Math.min(720, Math.max(24, Math.floor(limitBuckets) * (period === "hour" ? 1 : period === "day" ? 24 : 168)));
+  const r = await tursoExecute(
+    `SELECT utc_day, settled_at,
+            hit_asset_id, hit_pct, hit_pot, hit_prize,
+            shit_asset_id, shit_pct, shit_pot, shit_prize
+     FROM day_rounds
+     WHERE status = 'settled'
+       AND (hit_asset_id IS NOT NULL OR shit_asset_id IS NOT NULL)
+     ORDER BY utc_day DESC
+     LIMIT ${lim}`,
+    []
+  );
+
+  type BucketAcc = {
+    key: string;
+    label: string;
+    rounds: number;
+    hitMap: Map<string, BoardAssetStat & { pctSum: number; pctN: number }>;
+    shitMap: Map<string, BoardAssetStat & { pctSum: number; pctN: number }>;
+  };
+
+  const buckets = new Map<string, BucketAcc>();
+  const overallHit = new Map<
+    string,
+    BoardAssetStat & { pctSum: number; pctN: number }
+  >();
+  const overallShit = new Map<
+    string,
+    BoardAssetStat & { pctSum: number; pctN: number }
+  >();
+
+  let roundsScanned = 0;
+  for (const row of r.rows) {
+    const hour = String(row[0] || "");
+    if (!hour) continue;
+    roundsScanned++;
+    const { key, label } = periodBucketKey(hour, period);
+    let b = buckets.get(key);
+    if (!b) {
+      if (buckets.size >= limitBuckets) continue;
+      b = {
+        key,
+        label,
+        rounds: 0,
+        hitMap: new Map(),
+        shitMap: new Map(),
+      };
+      buckets.set(key, b);
+    }
+    b.rounds += 1;
+
+    const hitId = row[2] ? String(row[2]) : null;
+    const shitId = row[6] ? String(row[6]) : null;
+
+    if (hitId) {
+      const meta = await loadAssetMetaForRound(hour, hitId);
+      const snap: RoundSideSnap = {
+        assetId: hitId,
+        pct: row[3] != null ? Number(row[3]) : null,
+        pot: Number(row[4] || 0),
+        prize: Number(row[5] || 0),
+        ...meta,
+      };
+      accumulate(b.hitMap, snap);
+      accumulate(overallHit, snap);
+    }
+    if (shitId) {
+      const meta = await loadAssetMetaForRound(hour, shitId);
+      const snap: RoundSideSnap = {
+        assetId: shitId,
+        pct: row[7] != null ? Number(row[7]) : null,
+        pot: Number(row[8] || 0),
+        prize: Number(row[9] || 0),
+        ...meta,
+      };
+      accumulate(b.shitMap, snap);
+      accumulate(overallShit, snap);
+    }
+  }
+
+  const bucketList: BoardPeriodBucket[] = [...buckets.values()].map((b) => {
+    const topHit = rankStats(b.hitMap);
+    const topShit = rankStats(b.shitMap);
+    return {
+      key: b.key,
+      label: b.label,
+      rounds: b.rounds,
+      hit: topHit[0] || null,
+      shit: topShit[0] || null,
+      topHit: topHit.slice(0, 8),
+      topShit: topShit.slice(0, 8),
+    };
+  });
+
+  // hour period: already newest first from query; day/week map insertion is newest first
+  return {
+    period,
+    buckets: bucketList,
+    overallHit: rankStats(overallHit).slice(0, 15),
+    overallShit: rankStats(overallShit).slice(0, 15),
+    roundsScanned,
+  };
+}
+
 /** Verify user sent DAY_STAKE_AMOUNT TOKENSHIT to play pot (escrow) */
 export async function verifyStakeTransfer(opts: {
   signature: string;

@@ -401,6 +401,7 @@ function Layout({ children }: { children: React.ReactNode }) {
           <Link href="/whales" className="hover:text-foreground transition-colors">Whales</Link>
           <Link href="/memes" className="hover:text-foreground transition-colors">Memes</Link>
           <Link href="/stats" className="hover:text-foreground transition-colors">Stats</Link>
+          <Link href="/boards" className="hover:text-foreground transition-colors">Boards</Link>
           <Link href="/claim" className="hover:text-foreground transition-colors">Claim</Link>
           <Link href="/referrals" className="hover:text-foreground transition-colors">Referrals</Link>
           <ShitBalanceBadge />
@@ -444,6 +445,7 @@ function Layout({ children }: { children: React.ReactNode }) {
           <Link href="/whales" className="text-zinc-400 hover:text-foreground transition-colors py-1" onClick={() => setMenuOpen(false)}>Whales</Link>
           <Link href="/memes" className="text-zinc-400 hover:text-foreground transition-colors py-1" onClick={() => setMenuOpen(false)}>Memes</Link>
           <Link href="/stats" className="text-zinc-400 hover:text-foreground transition-colors py-1" onClick={() => setMenuOpen(false)}>Stats</Link>
+          <Link href="/boards" className="text-zinc-400 hover:text-foreground transition-colors py-1" onClick={() => setMenuOpen(false)}>Boards</Link>
           <Link href="/claim" className="text-zinc-400 hover:text-foreground transition-colors py-1" onClick={() => setMenuOpen(false)}>Claim</Link>
           <Link href="/referrals" className="text-zinc-400 hover:text-foreground transition-colors py-1" onClick={() => setMenuOpen(false)}>Referrals</Link>
           <ShitBalanceBadge />
