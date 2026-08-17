@@ -6,6 +6,7 @@ export const metadata: Metadata = pageMeta({
   description:
     "Earn $TOKENSHIT for every friend who joins with your link. Share your ref.",
   path: "/referrals",
+  og: "referrals",
 });
 
 export default function ReferralsLayout({
