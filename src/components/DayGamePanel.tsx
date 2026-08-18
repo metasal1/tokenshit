@@ -907,6 +907,30 @@ export default function DayGamePanel({
           </div>
         </div>
 
+        {/* Pre-sign play summary */}
+        <div className="rounded-lg border border-zinc-800/90 bg-zinc-950/60 px-2.5 py-1.5 text-[10px] font-mono text-zinc-500 space-y-0.5">
+          <div className="flex justify-between gap-2">
+            <span>Amount</span>
+            <span className="text-zinc-300">
+              {PLAY_STAKE.toLocaleString()} ${SHIT_SYMBOL} / ticket
+            </span>
+          </div>
+          <div className="flex justify-between gap-2">
+            <span>Recipient</span>
+            <span className="text-amber-400/90 truncate max-w-[62%]" title={PLAY_POT_ADDRESS}>
+              pot {PLAY_POT_ADDRESS.slice(0, 8)}…{PLAY_POT_ADDRESS.slice(-4)}
+            </span>
+          </div>
+          <div className="flex justify-between gap-2">
+            <span>House</span>
+            <span className="text-zinc-300">25% of pot · 75% winner</span>
+          </div>
+          <div className="flex justify-between gap-2">
+            <span>Network</span>
+            <span className="text-zinc-300">Sponsored when available</span>
+          </div>
+        </div>
+
         {/* status line — always in dock */}
         <div className="min-h-[1.15rem]">
           {err && (
