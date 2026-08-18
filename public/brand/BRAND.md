@@ -94,8 +94,6 @@ Don't: hashtags on X, auto-post, lame daily meme spam, corporate announce-speak.
 | PWA icon 512 | `/icons/icon-512.png` |
 | Maskable 192 | `/icons/maskable-192.png` |
 | Maskable 512 | `/icons/maskable-512.png` |
-| T$ mark PNG (primary) | `/brand/tokenshit.png` |
-| T$ mark 192 / 512 / 1024 | `/brand/mark-*.png` |
 | Hit/Shit hour poster 1080×1350 | `/brand/hit-shit-hour-poster.png` |
 | Hit/Shit hour poster @2x 2160×2700 | `/brand/hit-shit-hour-poster@2x.png` |
 | Hit/Shit hour banner 1200×630 | `/brand/hit-shit-hour-banner.png` |
