@@ -1,10 +1,12 @@
 // Tiny WebAudio synth — no assets, lazy AudioContext, mute in localStorage.
+// iOS: call sfx.unlock() inside a click/tap handler before first play.
 
 type Win = Window & { webkitAudioContext?: typeof AudioContext };
 
 const MUTE_KEY = "tokenshit_sfx_muted";
 let ctx: AudioContext | null = null;
 let muted: boolean | null = null;
+let unlocked = false;
 
 function readMuted(): boolean {
   if (muted !== null) return muted;
@@ -44,6 +46,27 @@ function getCtx(): AudioContext | null {
   }
 }
 
+/** Call from a user gesture so iOS allows audio. */
+export function unlockAudio(): boolean {
+  if (readMuted()) return false;
+  const c = getCtx();
+  if (!c) return false;
+  try {
+    if (c.state === "suspended") void c.resume();
+    // silent tick to fully unlock
+    const g = c.createGain();
+    g.gain.value = 0.0001;
+    const o = c.createOscillator();
+    o.connect(g).connect(c.destination);
+    o.start();
+    o.stop(c.currentTime + 0.01);
+    unlocked = true;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function blip(opts: {
   freq: number;
   durationMs: number;
@@ -56,11 +79,13 @@ function blip(opts: {
 }) {
   const c = getCtx();
   if (!c) return;
+  if (c.state === "suspended") void c.resume();
   const start = c.currentTime + (opts.delayMs ?? 0) / 1000;
   const dur = opts.durationMs / 1000;
   const attack = (opts.attackMs ?? 4) / 1000;
   const release = (opts.releaseMs ?? 80) / 1000;
-  const peak = opts.gain ?? 0.18;
+  // Mobile speakers are quiet — higher default peak
+  const peak = opts.gain ?? 0.28;
 
   const osc = c.createOscillator();
   const g = c.createGain();
@@ -91,6 +116,7 @@ function noiseBurst(opts: {
 }) {
   const c = getCtx();
   if (!c) return;
+  if (c.state === "suspended") void c.resume();
   const start = c.currentTime + (opts.delayMs ?? 0) / 1000;
   const dur = opts.durationMs / 1000;
   const len = Math.max(1, Math.floor(c.sampleRate * dur));
@@ -106,7 +132,7 @@ function noiseBurst(opts: {
   filter.frequency.setValueAtTime(opts.lowpassHz ?? 500, start);
   filter.frequency.exponentialRampToValueAtTime(80, start + dur);
   const g = c.createGain();
-  const peak = opts.gain ?? 0.2;
+  const peak = opts.gain ?? 0.28;
   g.gain.setValueAtTime(0.0001, start);
   g.gain.exponentialRampToValueAtTime(peak, start + 0.005);
   g.gain.exponentialRampToValueAtTime(0.0001, start + dur);
@@ -116,115 +142,164 @@ function noiseBurst(opts: {
 }
 
 export const sfx = {
-  /** Bright ascending triad — HIT */
+  unlock: unlockAudio,
+  isUnlocked: () => unlocked,
+
+  /** Bright ascending triad — HIT / UP */
   hit() {
-    blip({ freq: 523.25, durationMs: 120, type: "triangle", gain: 0.17 });
+    unlockAudio();
+    blip({ freq: 523.25, durationMs: 140, type: "triangle", gain: 0.32 });
     blip({
       freq: 659.25,
-      durationMs: 120,
+      durationMs: 140,
       type: "triangle",
-      gain: 0.15,
+      gain: 0.3,
       delayMs: 70,
     });
     blip({
       freq: 783.99,
-      durationMs: 180,
+      durationMs: 200,
       type: "triangle",
-      gain: 0.2,
+      gain: 0.34,
       delayMs: 140,
     });
     blip({
       freq: 2093,
-      durationMs: 100,
+      durationMs: 120,
       type: "sine",
-      gain: 0.06,
+      gain: 0.12,
       delayMs: 160,
       releaseMs: 80,
     });
   },
-  /** Low muddy thud + noise — SHIT */
+  /** Low muddy thud + noise — SHIT / DOWN */
   shit() {
+    unlockAudio();
     blip({
       freq: 140,
       sweepTo: 48,
-      durationMs: 320,
+      durationMs: 360,
       type: "sine",
-      gain: 0.32,
+      gain: 0.42,
       releaseMs: 220,
     });
     blip({
       freq: 100,
       sweepTo: 40,
-      durationMs: 300,
+      durationMs: 320,
       type: "sawtooth",
-      gain: 0.1,
+      gain: 0.16,
       delayMs: 40,
       releaseMs: 200,
     });
-    noiseBurst({ durationMs: 200, gain: 0.2, lowpassHz: 380, delayMs: 10 });
+    noiseBurst({ durationMs: 220, gain: 0.28, lowpassHz: 380, delayMs: 10 });
   },
   whoosh() {
+    unlockAudio();
     blip({
       freq: 880,
       sweepTo: 220,
-      durationMs: 220,
+      durationMs: 240,
       type: "sine",
-      gain: 0.1,
+      gain: 0.18,
       releaseMs: 120,
     });
   },
   chime() {
-    blip({ freq: 784, durationMs: 140, type: "sine", gain: 0.12 });
+    unlockAudio();
+    blip({ freq: 784, durationMs: 160, type: "sine", gain: 0.22 });
     blip({
       freq: 1175,
-      durationMs: 220,
+      durationMs: 240,
       type: "sine",
-      gain: 0.14,
+      gain: 0.24,
       delayMs: 110,
     });
   },
   ding() {
+    unlockAudio();
     blip({
       freq: 988,
-      durationMs: 320,
+      durationMs: 340,
       type: "sine",
-      gain: 0.12,
+      gain: 0.22,
       releaseMs: 240,
     });
   },
-  /** Cash-in / pot grew */
+  /** Cash-in / pot grew / ticket locked */
   potUp() {
-    blip({ freq: 523.25, durationMs: 90, type: "triangle", gain: 0.14 });
+    unlockAudio();
+    blip({ freq: 523.25, durationMs: 100, type: "triangle", gain: 0.28 });
     blip({
       freq: 659.25,
-      durationMs: 100,
+      durationMs: 110,
       type: "triangle",
-      gain: 0.16,
+      gain: 0.3,
       delayMs: 55,
     });
     blip({
       freq: 783.99,
-      durationMs: 140,
+      durationMs: 150,
       type: "triangle",
-      gain: 0.18,
+      gain: 0.32,
       delayMs: 110,
     });
     blip({
       freq: 1046.5,
-      durationMs: 220,
+      durationMs: 240,
       type: "sine",
-      gain: 0.12,
+      gain: 0.22,
       delayMs: 170,
       releaseMs: 160,
     });
   },
-  tap() {
+  /** Ticket locked success — juicier than potUp */
+  lock() {
+    unlockAudio();
+    blip({ freq: 392, durationMs: 80, type: "square", gain: 0.14 });
+    blip({ freq: 523.25, durationMs: 100, type: "triangle", gain: 0.28, delayMs: 50 });
+    blip({ freq: 659.25, durationMs: 120, type: "triangle", gain: 0.3, delayMs: 110 });
+    blip({ freq: 783.99, durationMs: 160, type: "triangle", gain: 0.32, delayMs: 180 });
     blip({
-      freq: 240,
-      durationMs: 40,
+      freq: 1568,
+      durationMs: 280,
+      type: "sine",
+      gain: 0.18,
+      delayMs: 240,
+      releaseMs: 200,
+    });
+  },
+  tap() {
+    unlockAudio();
+    blip({
+      freq: 420,
+      durationMs: 50,
       type: "square",
-      gain: 0.04,
-      releaseMs: 30,
+      gain: 0.1,
+      releaseMs: 35,
+    });
+  },
+  /** Side switch UP */
+  sideUp() {
+    unlockAudio();
+    blip({ freq: 600, durationMs: 70, type: "triangle", gain: 0.18 });
+    blip({ freq: 900, durationMs: 90, type: "triangle", gain: 0.2, delayMs: 45 });
+  },
+  /** Side switch DOWN */
+  sideDown() {
+    unlockAudio();
+    blip({ freq: 500, durationMs: 70, type: "triangle", gain: 0.18 });
+    blip({ freq: 280, durationMs: 110, type: "triangle", gain: 0.2, delayMs: 40 });
+  },
+  error() {
+    unlockAudio();
+    blip({
+      freq: 220,
+      sweepTo: 110,
+      durationMs: 220,
+      type: "sawtooth",
+      gain: 0.16,
+      releaseMs: 140,
     });
   },
 };
