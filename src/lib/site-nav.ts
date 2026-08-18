@@ -8,11 +8,13 @@ export type NavItem = {
   /** Emphasize (Play / Claim) */
   accent?: "neon" | "amber" | null;
   match?: "exact" | "prefix";
+  /** Optional badge in menus */
+  badge?: string;
 };
 
 /**
  * Primary CTA order (Metasal): Play · Claim · Memes · Refer
- * More: Boards · Buy · Stats · Winners · Whales
+ * More: Boards · KOLs · Buy · Stats · Winners · Whales
  */
 export const SITE_NAV: NavItem[] = [
   { href: "/play", label: "Play", primary: true, accent: "neon", match: "prefix" },
@@ -25,6 +27,13 @@ export const SITE_NAV: NavItem[] = [
     match: "prefix",
   },
   { href: "/boards", label: "Boards", primary: false, match: "prefix" },
+  {
+    href: "/kols",
+    label: "KOLs",
+    primary: false,
+    match: "prefix",
+    badge: "Soon",
+  },
   { href: "/swap", label: "Buy", primary: false, match: "prefix" },
   { href: "/stats", label: "Stats", primary: false, match: "prefix" },
   { href: "/winners", label: "Winners", primary: false, match: "prefix" },
