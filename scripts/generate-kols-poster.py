@@ -128,6 +128,10 @@ def make_poster(size: tuple[int, int], tag: str) -> Image.Image:
 
     # scale
     s = w / 1080
+    # Story (9:16): bump type so stack fills frame
+    tall = h / max(w, 1) >= 1.6
+    if tall:
+        s *= 1.12
     fs = lambda n: max(12, int(n * s))
 
     mono_sm = load_font("Monoton-Regular.ttf", fs(42))
@@ -138,7 +142,8 @@ def make_poster(size: tuple[int, int], tag: str) -> Image.Image:
     inter = load_font("Inter-Bold.ttf", fs(28))
     inter_sm = load_font("Inter-Regular.ttf", fs(22))
 
-    y = int(h * 0.06)
+    # Taller stories: start content higher in upper-middle (less empty void)
+    y = int(h * (0.10 if h / w > 1.5 else 0.06))
 
     # eyebrow
     eye = "COMING SOON  |  NOMINATIONS OPEN"
@@ -252,6 +257,34 @@ def make_poster(size: tuple[int, int], tag: str) -> Image.Image:
     url2 = "TOKEN$HIT  |  CT KOL COURT"
     u2w = text_w(orb_sm, url2)
     draw.text(((w - u2w) // 2, h - fs(42)), url2, font=orb_sm, fill=DIM)
+
+    # Center content vertically on very tall canvases (avoid empty bottom half)
+    if tall:
+        # find non-bg bounding content (approx upper 70%)
+        # shift scatter stays; only nudge mid stack by redrawing is heavy —
+        # paste a slight vertical bias: crop empty bottom and pad top equally
+        px = img.load()
+        bg = BG
+        # find last non-near-bg row above footer zone
+        last = h - fs(80)
+        for yy in range(h - fs(100), int(h * 0.35), -1):
+            row_has = False
+            for xx in range(0, w, 8):
+                c = px[xx, yy]
+                if abs(c[0]-bg[0])>12 or abs(c[1]-bg[1])>12 or abs(c[2]-bg[2])>12:
+                    row_has = True
+                    break
+            if row_has:
+                last = yy
+                break
+        # if content ends early, add more scatter lower third only
+        if last < h * 0.62:
+            scatter_emojis(img, f"kols-fill-{tag}-{w}x{h}", n=18)
+            # re-draw footer on top
+            draw = ImageDraw.Draw(img)
+            fw = text_w(orb_sm, foot)
+            draw.text(((w - fw) // 2, h - fs(70)), foot, font=orb_sm, fill=DIM)
+            draw.text(((w - u2w) // 2, h - fs(42)), url2, font=orb_sm, fill=DIM)
 
     return img.convert("RGB")
 
