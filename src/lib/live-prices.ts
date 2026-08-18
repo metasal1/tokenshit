@@ -247,7 +247,8 @@ export async function fetchMajorsUniverse(): Promise<PriceHint[]> {
 
 /**
  * Resolve live USD for each major.
- * Tokens.xyz first; external feeds only fill gaps / pass sanity vs txyz.
+ * Tokens.xyz preferred, but if txyz is frozen/stale while Jupiter (or CG/Dex)
+ * shows a real move, use the fresher feed (sanity-checked).
  */
 export async function priceMajorsLive(
   hints?: PriceHint[]
@@ -256,7 +257,6 @@ export async function priceMajorsLive(
   const mints = universe.map((u) => u.mint).filter(Boolean) as string[];
   const coinIds = universe.map((u) => u.coinId).filter(Boolean) as string[];
 
-  // Always load fallbacks in parallel, but pick txyz first when present
   const [jup, dex, cg] = await Promise.all([
     fetchJupiterUsd(mints),
     fetchDexScreenerUsd(mints),
@@ -268,34 +268,52 @@ export async function priceMajorsLive(
       const mint = u.mint ? normMint(u.mint) : null;
       const txyz = u.fallbackPrice > 0 ? u.fallbackPrice : null;
 
-      // 1) Tokens.xyz is source of truth when we have a price
-      if (txyz && txyz > 0) {
-        return { ...u, price: txyz, source: "tokens.xyz" as const };
-      }
-
-      // 2) Fallbacks only if txyz missing
-      const candidates: Array<{
-        price: number;
-        source: PricedMajor["source"];
-      }> = [];
+      const alts: Array<{ price: number; source: PricedMajor["source"] }> = [];
       if (mint && jup.has(mint)) {
-        candidates.push({ price: jup.get(mint)!, source: "jupiter" });
+        alts.push({ price: jup.get(mint)!, source: "jupiter" });
       }
       if (u.coinId && cg.has(u.coinId)) {
-        candidates.push({ price: cg.get(u.coinId)!, source: "coingecko" });
+        alts.push({ price: cg.get(u.coinId)!, source: "coingecko" });
       }
       if (mint && dex.has(mint)) {
-        candidates.push({ price: dex.get(mint)!, source: "dexscreener" });
+        alts.push({ price: dex.get(mint)!, source: "dexscreener" });
       }
 
-      for (const c of candidates) {
-        if (priceSane(c.price, txyz ?? candidates[0]?.price)) {
-          return { ...u, price: c.price, source: c.source };
+      // Prefer external when txyz missing
+      if (!(txyz && txyz > 0)) {
+        for (const c of alts) {
+          if (priceSane(c.price, alts[0]?.price)) {
+            return { ...u, price: c.price, source: c.source };
+          }
+        }
+        const any = alts.find((c) => c.price > 0);
+        if (any) return { ...u, price: any.price, source: any.source };
+        return { ...u, price: 0, source: "tokens.xyz" as const };
+      }
+
+      // txyz present — check if alts show a real divergence (stale txyz)
+      // Prefer Jupiter first among alts
+      const jupPx = mint && jup.has(mint) ? jup.get(mint)! : null;
+      const bestAlt =
+        jupPx && priceSane(jupPx, txyz)
+          ? { price: jupPx, source: "jupiter" as const }
+          : alts.find((c) => priceSane(c.price, txyz)) || null;
+
+      if (bestAlt) {
+        const div = Math.abs(bestAlt.price - txyz) / txyz;
+        const txyzFlat1h =
+          u.txyzChange1h == null || Math.abs(u.txyzChange1h) < 0.05;
+        // If external differs ≥0.15% and txyz 1h is flat/missing → external wins
+        if (div >= 0.0015 && (txyzFlat1h || div >= 0.01)) {
+          return { ...u, price: bestAlt.price, source: bestAlt.source };
+        }
+        // Strong divergence always prefer external if sane
+        if (div >= 0.02) {
+          return { ...u, price: bestAlt.price, source: bestAlt.source };
         }
       }
-      const any = candidates.find((c) => c.price > 0);
-      if (any) return { ...u, price: any.price, source: any.source };
-      return { ...u, price: 0, source: "tokens.xyz" as const };
+
+      return { ...u, price: txyz, source: "tokens.xyz" as const };
     })
     .filter((m) => m.price > 0);
 }

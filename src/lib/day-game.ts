@@ -1033,6 +1033,98 @@ function pickExtreme(
   return { assetId: top.assetId, pct: top.pct };
 }
 
+/** Detect stale/flat price board (all majors frozen). */
+export function isPriceBoardHealthy(
+  moves: Array<{ pct: number }>
+): { ok: boolean; nearZeroRatio: number; spread: number; n: number } {
+  const n = moves.length;
+  if (n < 3) return { ok: false, nearZeroRatio: 1, spread: 0, n };
+  let nearZero = 0;
+  let min = Infinity;
+  let max = -Infinity;
+  for (const m of moves) {
+    if (Math.abs(m.pct) < 0.05) nearZero++;
+    if (m.pct < min) min = m.pct;
+    if (m.pct > max) max = m.pct;
+  }
+  const nearZeroRatio = nearZero / n;
+  const spread = max - min;
+  // Unhealthy if almost everything is flat OR total spread is noise
+  const ok = !(nearZeroRatio >= 0.7 && spread < 0.25) && !(spread < 0.08 && n >= 5);
+  return { ok, nearZeroRatio, spread, n };
+}
+
+function computeMovesFromSnaps(
+  openM: Map<string, PriceRow>,
+  closeM: Map<string, PriceRow>
+): Array<{ assetId: string; pct: number; volume24h: number }> {
+  const moves: Array<{ assetId: string; pct: number; volume24h: number }> = [];
+  for (const [id, o] of openM) {
+    const c = closeM.get(id);
+    if (!c || o.price <= 0 || c.price <= 0) continue;
+    // Guard absurd open/close ratio (bad pair / wrong mint)
+    const ratio = c.price / o.price;
+    if (!(ratio >= 0.35 && ratio <= 2.8)) {
+      moves.push({
+        assetId: id,
+        pct: 0,
+        volume24h: c.volume24h || o.volume24h || 0,
+      });
+      continue;
+    }
+    const pct = ((c.price - o.price) / o.price) * 100;
+    moves.push({
+      assetId: id,
+      pct,
+      volume24h: c.volume24h || o.volume24h || 0,
+    });
+  }
+  return moves;
+}
+
+/**
+ * Re-fetch close snapshot when board looks frozen.
+ * Returns moves after retries.
+ */
+async function loadMovesWithCloseRetry(
+  utcDay: string,
+  openM: Map<string, PriceRow>
+): Promise<{
+  moves: Array<{ assetId: string; pct: number; volume24h: number }>;
+  closeM: Map<string, PriceRow>;
+  retries: number;
+  healthy: ReturnType<typeof isPriceBoardHealthy>;
+}> {
+  let closeM = await loadPhase(utcDay, "close");
+  if (closeM.size === 0) {
+    await snapshotPrices(utcDay, "close");
+    closeM = await loadPhase(utcDay, "close");
+  }
+
+  let moves = computeMovesFromSnaps(openM, closeM);
+  let healthy = isPriceBoardHealthy(moves);
+  let retries = 0;
+
+  while (!healthy.ok && retries < 3) {
+    retries++;
+    await tursoExecute(
+      `DELETE FROM day_prices WHERE utc_day = ? AND phase = 'close'`,
+      [utcDay]
+    );
+    await tursoExecute(
+      `UPDATE day_rounds SET close_snap_at = NULL WHERE utc_day = ?`,
+      [utcDay]
+    );
+    // brief backoff via loop cost; CF has no sleep guarantee — snapshot is enough
+    await snapshotPrices(utcDay, "close");
+    closeM = await loadPhase(utcDay, "close");
+    moves = computeMovesFromSnaps(openM, closeM);
+    healthy = isPriceBoardHealthy(moves);
+  }
+
+  return { moves, closeM, retries, healthy };
+}
+
 export type LiveLeader = {
   assetId: string;
   name: string;
@@ -1185,7 +1277,10 @@ export async function getLiveLeaders(utcHour: string): Promise<{
   };
 }
 
-export async function settleDay(utcDay: string): Promise<{
+export async function settleDay(
+  utcDay: string,
+  opts?: { force?: boolean }
+): Promise<{
   ok: boolean;
   error?: string;
   result?: Record<string, unknown>;
@@ -1195,7 +1290,27 @@ export async function settleDay(utcDay: string): Promise<{
   const round = await getRound(utcDay);
   if (!round) return { ok: false, error: "no round" };
   if (round.status === "settled") {
-    return { ok: true, result: { already: true, utcDay } };
+    // Allow force re-rank only when no prizes left the pot (safe retry)
+    const paidOut =
+      (round.hitPrize && round.hitPrize > 0 && round.hitWinner) ||
+      (round.shitPrize && round.shitPrize > 0 && round.shitWinner);
+    if (!opts?.force || paidOut) {
+      return { ok: true, result: { already: true, utcDay, paidOut: !!paidOut } };
+    }
+    // Reset status for re-settle of bag winners only
+    await tursoExecute(
+      `UPDATE day_rounds SET status = 'open', settled_at = NULL,
+         hit_asset_id = NULL, shit_asset_id = NULL, hit_pct = NULL, shit_pct = NULL,
+         hit_winner = NULL, shit_winner = NULL, hit_prize = NULL, shit_prize = NULL,
+         hit_fee = NULL, shit_fee = NULL, hit_sig = NULL, shit_sig = NULL,
+         hit_fee_sig = NULL, shit_fee_sig = NULL, close_snap_at = NULL
+       WHERE utc_day = ?`,
+      [utcDay]
+    );
+    await tursoExecute(
+      `DELETE FROM day_prices WHERE utc_day = ? AND phase = 'close'`,
+      [utcDay]
+    );
   }
 
   // Ensure snapshots
@@ -1204,23 +1319,12 @@ export async function settleDay(utcDay: string): Promise<{
     await snapshotPrices(utcDay, "open");
     openM = await loadPhase(utcDay, "open");
   }
-  let closeM = await loadPhase(utcDay, "close");
-  if (closeM.size === 0) {
-    await snapshotPrices(utcDay, "close");
-    closeM = await loadPhase(utcDay, "close");
-  }
 
-  const moves: Array<{ assetId: string; pct: number; volume24h: number }> = [];
-  for (const [id, o] of openM) {
-    const c = closeM.get(id);
-    if (!c || o.price <= 0 || c.price <= 0) continue;
-    const pct = ((c.price - o.price) / o.price) * 100;
-    moves.push({
-      assetId: id,
-      pct,
-      volume24h: c.volume24h || o.volume24h || 0,
-    });
-  }
+  const {
+    moves,
+    retries: priceRetries,
+    healthy: boardHealth,
+  } = await loadMovesWithCloseRetry(utcDay, openM);
 
   const hitBag = pickExtreme(moves, "max");
   let shitBag = pickExtreme(moves, "min");
@@ -1249,8 +1353,10 @@ export async function settleDay(utcDay: string): Promise<{
         .map((s) => s.wallet)
     : [];
 
-  const hitPot = round.hitPot;
-  const shitPot = round.shitPot;
+  // re-read round pots after possible force reset
+  const round2 = (await getRound(utcDay)) || round;
+  const hitPot = round2.hitPot;
+  const shitPot = round2.shitPot;
 
   async function settleSide(opts: {
     side: DaySide;
@@ -1384,6 +1490,9 @@ export async function settleDay(utcDay: string): Promise<{
     hitTickets: hitTickets.length,
     shitTickets: shitTickets.length,
     moveCount: moves.length,
+    priceRetries,
+    boardHealth,
+    force: !!opts?.force,
   });
 
   await tursoExecute(
@@ -1432,6 +1541,9 @@ export async function settleDay(utcDay: string): Promise<{
       shit: shitRes,
       hitTickets: hitTickets.length,
       shitTickets: shitTickets.length,
+      priceRetries,
+      boardHealth,
+      force: !!opts?.force,
     },
   };
 }
