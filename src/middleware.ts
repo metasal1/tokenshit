@@ -38,6 +38,8 @@ export function middleware(request: NextRequest) {
 }
 
 function withSecurityHeaders(res: NextResponse): NextResponse {
+  res.headers.delete("X-Powered-By");
+  res.headers.set("X-Powered-By", "");
   // HSTS — 180d; CF zone also sets this
   res.headers.set(
     "Strict-Transport-Security",
@@ -52,7 +54,6 @@ function withSecurityHeaders(res: NextResponse): NextResponse {
   );
   res.headers.set("Cross-Origin-Opener-Policy", "same-origin-allow-popups");
   res.headers.set("X-DNS-Prefetch-Control", "on");
-  // CSP: allow Privy, Jupiter, analytics, wallets — tighten later if needed
   res.headers.set(
     "Content-Security-Policy",
     [
@@ -60,8 +61,8 @@ function withSecurityHeaders(res: NextResponse): NextResponse {
       "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://challenges.cloudflare.com https://*.privy.io https://auth.privy.io https://www.googletagmanager.com https://www.google-analytics.com",
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "font-src 'self' data: https://fonts.gstatic.com",
-      "img-src 'self' data: blob: https: http:",
-      "connect-src 'self' https: wss: https://*.privy.io https://auth.privy.io https://*.helius-rpc.com https://*.solana.com https://api.mainnet-beta.solana.com https://quote-api.jup.ag https://api.jup.ag https://lite-api.jup.ag https://api.tokens.xyz https://api.dexscreener.com https://api.coingecko.com https://www.google-analytics.com https://region1.google-analytics.com https://*.turso.io",
+      "img-src 'self' data: blob: https:",
+      "connect-src 'self' https: wss: https://*.privy.io https://auth.privy.io https://api.mainnet-beta.solana.com wss://api.mainnet-beta.solana.com https://quote-api.jup.ag https://api.jup.ag https://lite-api.jup.ag https://api.tokens.xyz https://api.dexscreener.com https://api.coingecko.com https://www.google-analytics.com https://region1.google-analytics.com https://*.turso.io",
       "frame-src 'self' https://*.privy.io https://auth.privy.io https://challenges.cloudflare.com https://*.moonpay.com https://buy.moonpay.com",
       "frame-ancestors 'none'",
       "base-uri 'self'",

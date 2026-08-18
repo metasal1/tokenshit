@@ -1,14 +1,40 @@
 import { type NextRequest } from "next/server";
 import { tursoExecute } from "@/lib/turso";
+import { requirePrivy } from "@/lib/privy-server";
+import { getClientIp, rateLimitIp } from "@/lib/api-guard";
 
 export const dynamic = "force-dynamic";
 
+/**
+ * POST /api/vote
+ * Body: { assetId, vote, deviceId? }
+ * twitterUsername from body is IGNORED unless it matches Privy session X.
+ */
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const { assetId, vote, twitterUsername, deviceId } = body;
+    const limited = await rateLimitIp({
+      ip: getClientIp(request),
+      bucket: "vote",
+      limit: 200,
+      windowHours: 1,
+    });
+    if (limited) return limited;
 
-    const voterId = twitterUsername || deviceId;
+    const body = await request.json();
+    const assetId = String(body.assetId || "").trim();
+    const vote = body.vote;
+    const deviceId = body.deviceId ? String(body.deviceId).trim().slice(0, 128) : "";
+
+    // Only use twitter if authenticated session matches
+    let twitterFromSession: string | null = null;
+    const auth = await requirePrivy(request, {});
+    if (auth.ok && auth.id.twitter) {
+      twitterFromSession = String(auth.id.twitter)
+        .toLowerCase()
+        .replace(/^@/, "");
+    }
+
+    const voterId = twitterFromSession || deviceId;
 
     if (!assetId || !vote || !voterId) {
       return Response.json(
@@ -24,6 +50,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (assetId.length > 128 || !/^[a-zA-Z0-9_.:-]+$/.test(assetId)) {
+      return Response.json({ error: "Invalid asset" }, { status: 400 });
+    }
+
     try {
       await tursoExecute(
         "INSERT INTO votes (asset_id, device_id, vote) VALUES (?, ?, ?)",
@@ -37,14 +67,9 @@ export async function POST(request: NextRequest) {
           { status: 409 }
         );
       }
-      // surface retryable DB pressure
       if (/429|load-shed|503|unavailable/i.test(msg)) {
         return Response.json(
-          {
-            error: "Database busy — retry",
-            retryable: true,
-            detail: msg.slice(0, 200),
-          },
+          { error: "Database busy — retry", retryable: true },
           { status: 503 }
         );
       }
@@ -63,18 +88,15 @@ export async function POST(request: NextRequest) {
         if (row[0] === "shit") shits = Number(row[1]);
       }
     } catch {
-      // insert succeeded; counts optional
       if (vote === "hit") hits = 1;
       else shits = 1;
     }
 
     return Response.json({ hits, shits, userVote: vote });
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    const retryable = /429|load-shed|503|unavailable|fetch failed/i.test(msg);
+  } catch {
     return Response.json(
-      { error: msg, retryable },
-      { status: retryable ? 503 : 500 }
+      { error: "Vote failed", retryable: true },
+      { status: 500 }
     );
   }
 }

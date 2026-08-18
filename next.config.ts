@@ -19,6 +19,7 @@ const securityHeaders = [
     key: "Cross-Origin-Opener-Policy",
     value: "same-origin-allow-popups",
   },
+  { key: "X-Powered-By", value: "" },
 ];
 
 const nextConfig: NextConfig = {
@@ -27,6 +28,7 @@ const nextConfig: NextConfig = {
     "*.trycloudflare.com",
     "*.vercel.app",
   ],
+  poweredByHeader: false,
   eslint: {
     ignoreDuringBuilds: true,
   },

@@ -1,13 +1,19 @@
-/**
- * Client Solana send helpers — Jupiter base64 txs + Privy sign.
- * Prefer signTransaction + our RPC send when Privy "prepare" fails (-32602).
- */
+/** Client Solana send helpers — Jupiter base64 txs + Privy sign. */
 
+/** Same-origin RPC proxy (never dedicated Helius in the browser bundle). */
+export function getSolanaSendRpc(): string {
+  if (typeof window !== "undefined") {
+    return `${window.location.origin}/api/rpc`;
+  }
+  return "https://tokenshit.com/api/rpc";
+}
+
+/** @deprecated use getSolanaSendRpc() — kept for import compat */
 export const SOLANA_SEND_RPC =
-  process.env.NEXT_PUBLIC_SOLANA_RPC_URL ||
-  "https://viviyan-bkj12u-fast-mainnet.helius-rpc.com";
+  typeof window !== "undefined"
+    ? `${typeof location !== "undefined" ? location.origin : ""}/api/rpc`
+    : "https://tokenshit.com/api/rpc";
 
-/** Reliable base64 → bytes (atob can mangle large txs in some browsers). */
 export function b64ToBytes(b64: string): Uint8Array {
   const clean = b64.replace(/\s/g, "");
   if (typeof Buffer !== "undefined") {
@@ -51,36 +57,6 @@ export function encodeSigBs58(sigBytes: Uint8Array): string {
   return out;
 }
 
-export function friendlySolanaSendError(e: unknown): string {
-  const m = extractErrorMessage(e);
-  const low = m.toLowerCase();
-  if (/user rejected|denied|cancel/i.test(m)) return "Cancelled.";
-  if (/something went wrong|please try again/i.test(low) && m.length < 80) {
-    return "Wallet could not send this tx. Need ≥1,000 $TOKENSHIT + a little SOL (or fee sponsor). Retry, or Claim/Buy first.";
-  }
-  if (/insufficient|0x1|lamport|insufficientfundsforrent|0x0/i.test(low)) {
-    return "Not enough SOL for fees (keep ~0.01 SOL) or not enough $TOKENSHIT for this play.";
-  }
-  if (/blockhash|expired|block height/i.test(low)) {
-    return "Tx expired — tap Play again.";
-  }
-  if (/-32602|invalid (method )?param|failed to prepare|preparing your transaction/i.test(low)) {
-    return "Wallet prepare failed (common with Token-2022). Retry — we fall back to sign + broadcast.";
-  }
-  if (/5663005|lookup table|address lookup/i.test(low)) {
-    return "Wallet couldn’t load the route — refresh and try again.";
-  }
-  if (/slippage|0x1771|custom program error: 6001/i.test(low)) {
-    return "Price moved — bump slippage or retry.";
-  }
-  if (/need .*tokenshit|insufficient_shit/i.test(low)) {
-    return m;
-  }
-  // trim huge Privy dumps
-  if (m.length > 220) return `${m.slice(0, 200)}…`;
-  return m || "Something went wrong — retry.";
-}
-
 export function extractErrorMessage(e: unknown): string {
   if (e == null) return "";
   if (typeof e === "string") return e;
@@ -113,6 +89,35 @@ export function extractErrorMessage(e: unknown): string {
   return String(e);
 }
 
+export function friendlySolanaSendError(e: unknown): string {
+  const m = extractErrorMessage(e);
+  const low = m.toLowerCase();
+  if (/user rejected|denied|cancel/i.test(m)) return "Cancelled.";
+  if (/something went wrong|please try again/i.test(low) && m.length < 80) {
+    return "Wallet could not send this tx. Need ≥1,000 $TOKENSHIT + a little SOL (or fee sponsor). Retry, or Claim/Buy first.";
+  }
+  if (/insufficient|0x1|lamport|insufficientfundsforrent|0x0/i.test(low)) {
+    return "Not enough SOL for fees (keep ~0.01 SOL) or not enough $TOKENSHIT for this play.";
+  }
+  if (/blockhash|expired|block height/i.test(low)) {
+    return "Tx expired — tap Play again.";
+  }
+  if (/-32602|invalid (method )?param|failed to prepare|preparing your transaction/i.test(low)) {
+    return "Wallet prepare failed (common with Token-2022). Retry — we fall back to sign + broadcast.";
+  }
+  if (/5663005|lookup table|address lookup/i.test(low)) {
+    return "Wallet couldn’t load the route — refresh and try again.";
+  }
+  if (/slippage|0x1771|custom program error: 6001/i.test(low)) {
+    return "Price moved — bump slippage or retry.";
+  }
+  if (/need .*tokenshit|insufficient_shit/i.test(low)) {
+    return m;
+  }
+  if (m.length > 220) return `${m.slice(0, 200)}…`;
+  return m || "Something went wrong — retry.";
+}
+
 export function isPrepareFailure(e: unknown): boolean {
   const m = extractErrorMessage(e);
   return /failed to prepare|-32602|invalid (method )?param|preparing your transaction|simulate|something went wrong/i.test(
@@ -120,7 +125,6 @@ export function isPrepareFailure(e: unknown): boolean {
   );
 }
 
-/** Send already-signed tx bytes via JSON-RPC. */
 export async function sendRawBase64(
   signedTx: Uint8Array,
   opts?: { skipPreflight?: boolean }
@@ -129,7 +133,8 @@ export async function sendRawBase64(
     typeof Buffer !== "undefined"
       ? Buffer.from(signedTx).toString("base64")
       : btoa(String.fromCharCode(...Array.from(signedTx)));
-  const res = await fetch(SOLANA_SEND_RPC, {
+  const rpc = getSolanaSendRpc();
+  const res = await fetch(rpc, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -156,10 +161,6 @@ export async function sendRawBase64(
   return String(json.result);
 }
 
-/**
- * Sign+send with Privy: sponsor first → UI → unsponsored → sign+raw RPC.
- * Returns base58 signature.
- */
 export async function sendWithPrivyFallback(opts: {
   txBytes: Uint8Array;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -169,7 +170,6 @@ export async function sendWithPrivyFallback(opts: {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   signTransaction?: (args: any) => Promise<any>;
   description?: string;
-  /** user SOL balance for fee fallbacks */
   solBalance?: number | null;
 }): Promise<string> {
   const {
@@ -207,7 +207,6 @@ export async function sendWithPrivyFallback(opts: {
       result = await trySend(true, true);
     } catch (e2) {
       lastErr = e2;
-      // unsponsored if user has SOL
       if ((solBalance ?? 0) >= 0.003) {
         try {
           result = await trySend(false, true);
@@ -227,7 +226,6 @@ export async function sendWithPrivyFallback(opts: {
     if (typeof result?.signature === "string") return result.signature;
   }
 
-  // sign + our RPC broadcast (bypasses Privy prepare on Token-2022)
   if (signTransaction && (solBalance ?? 0) >= 0.003) {
     try {
       const signed = await signTransaction({
@@ -247,7 +245,7 @@ export async function sendWithPrivyFallback(opts: {
 
   if ((solBalance ?? 0) < 0.003 && isPrepareFailure(lastErr)) {
     throw new Error(
-      "Fee sponsorship failed and this wallet has almost no SOL. Add ~0.01 SOL (Add SOL on Swap), then retry."
+      "Fee sponsorship failed and this wallet has almost no SOL. Add ~0.01 SOL (Add SOL on Buy), then retry."
     );
   }
   throw lastErr instanceof Error

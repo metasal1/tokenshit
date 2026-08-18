@@ -1,18 +1,31 @@
 import { createSolanaRpc, createSolanaRpcSubscriptions } from "@solana/kit";
 import { toSolanaWalletConnectors } from "@privy-io/react-auth/solana";
 
-/** Shared Helius mainnet RPC (same host used elsewhere in the app). */
-export const SOLANA_HTTP_RPC =
-  process.env.NEXT_PUBLIC_SOLANA_RPC_URL ||
-  "https://viviyan-bkj12u-fast-mainnet.helius-rpc.com";
+/**
+ * Browser RPC — same-origin proxy only (never ship dedicated Helius URL).
+ * Server code uses SOLANA_RPC_URL / HEIUS env privately.
+ */
+function browserRpcHttp(): string {
+  if (typeof window !== "undefined") {
+    return `${window.location.origin}/api/rpc`;
+  }
+  // SSR placeholder — Privy client hydrates with window origin
+  return process.env.NEXT_PUBLIC_SOLANA_RPC_URL?.startsWith("/")
+    ? `https://tokenshit.com${process.env.NEXT_PUBLIC_SOLANA_RPC_URL}`
+    : process.env.NEXT_PUBLIC_SITE_URL
+      ? `${process.env.NEXT_PUBLIC_SITE_URL}/api/rpc`
+      : "https://tokenshit.com/api/rpc";
+}
 
+export const SOLANA_HTTP_RPC = browserRpcHttp();
+
+/** WS: public Solana (proxy is HTTP-only). Override with NEXT_PUBLIC_SOLANA_WS_URL. */
 export const SOLANA_WS_RPC =
   process.env.NEXT_PUBLIC_SOLANA_WS_URL ||
-  SOLANA_HTTP_RPC.replace(/^https:/i, "wss:");
+  "wss://api.mainnet-beta.solana.com";
 
 /**
  * Privy config for TOKENSHIT — Solana only (no EVM).
- * PWA: allowOAuthInEmbeddedBrowsers + customOAuthRedirectUrl (set client-side).
  */
 export function getPrivyConfig(opts?: { oauthRedirectUrl?: string }) {
   const redirect =
@@ -20,6 +33,11 @@ export function getPrivyConfig(opts?: { oauthRedirectUrl?: string }) {
     (typeof window !== "undefined"
       ? `${window.location.origin}/auth/oauth-return`
       : "https://tokenshit.com/auth/oauth-return");
+
+  const httpRpc =
+    typeof window !== "undefined"
+      ? `${window.location.origin}/api/rpc`
+      : SOLANA_HTTP_RPC;
 
   return {
     loginMethods: ["email", "twitter", "github"] as (
@@ -31,7 +49,6 @@ export function getPrivyConfig(opts?: { oauthRedirectUrl?: string }) {
       theme: "dark" as const,
       accentColor: "#39ff14" as `#${string}`,
       logo: "https://tokenshit.com/icons/icon-192.png",
-      /** Hide MetaMask / EVM connectors — Solana only */
       walletChainType: "solana-only" as const,
       showWalletLoginFirst: false,
     },
@@ -58,20 +75,12 @@ export function getPrivyConfig(opts?: { oauthRedirectUrl?: string }) {
     solana: {
       rpcs: {
         "solana:mainnet": {
-          rpc: createSolanaRpc(SOLANA_HTTP_RPC),
+          rpc: createSolanaRpc(httpRpc),
           rpcSubscriptions: createSolanaRpcSubscriptions(SOLANA_WS_RPC),
         },
       },
     },
-    /**
-     * PWA / iOS standalone: OAuth must full-page redirect, not popup.
-     * Redirect URL must be allowlisted in Privy Dashboard → Login methods / allowed origins.
-     */
     customOAuthRedirectUrl: redirect,
-    /**
-     * iOS home-screen WKWebView is an embedded browser — without this,
-     * some OAuth providers refuse the flow.
-     */
     allowOAuthInEmbeddedBrowsers: true,
   };
 }
