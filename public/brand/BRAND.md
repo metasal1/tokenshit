@@ -91,6 +91,10 @@ Don't: hashtags on X, auto-post, lame daily meme spam, corporate announce-speak.
 | Hit/Shit hour poster @2x 2160×2700 | `/brand/hit-shit-hour-poster@2x.png` |
 | Hit/Shit hour banner 1200×630 | `/brand/hit-shit-hour-banner.png` |
 | Hit/Shit hour banner @2x 2400×1260 | `/brand/hit-shit-hour-banner@2x.png` |
+| Jupiter like claim poster 1080×1350 | `/brand/jup-like-claim-poster.png` |
+| Jupiter like claim @2x | `/brand/jup-like-claim-poster@2x.png` |
+| Jupiter like feed/story/og | `/posters/jup-like-claim-*.png` |
+| Jupiter logo (PNG) | `/brand/jupiter-logo.png` |
 | Noto emoji PNGs (icons) | `/brand/emoji/` |
 | Brand fonts (Monoton etc.) | `/brand/fonts/` |
 | Dynamic OG | `/opengraph-image` · `/twitter-image` |
