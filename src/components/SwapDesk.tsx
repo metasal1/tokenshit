@@ -714,6 +714,65 @@ export default function SwapDesk() {
           </div>
         </div>
 
+        {/* Pre-sign summary (security review #6) */}
+        <div className="rounded-xl border border-border/80 bg-zinc-950/70 px-3 py-2.5 space-y-1.5 text-[11px] font-mono">
+          <div className="flex justify-between gap-2">
+            <span className="text-zinc-500">You receive (est.)</span>
+            <span className="text-neon font-semibold tabular-nums">
+              {quoteLoading ? (
+                "…"
+              ) : quoteOut != null ? (
+                <>
+                  {fmt(quoteOut, getAsset === "shit" ? 0 : 4)} {getLabel}
+                </>
+              ) : (
+                "—"
+              )}
+            </span>
+          </div>
+          <div className="flex justify-between gap-2">
+            <span className="text-zinc-500">Min received</span>
+            <span className="text-zinc-300 tabular-nums">
+              {quoteOut != null && Number.isFinite(quoteOut)
+                ? `${fmt(
+                    quoteOut * (1 - slippageBps / 10_000),
+                    getAsset === "shit" ? 0 : 4
+                  )} ${getLabel}`
+                : "—"}
+            </span>
+          </div>
+          <div className="flex justify-between gap-2">
+            <span className="text-zinc-500">Route</span>
+            <span className="text-zinc-300">
+              Jupiter · {payLabel} → {getLabel}
+            </span>
+          </div>
+          <div className="flex justify-between gap-2">
+            <span className="text-zinc-500">Recipient</span>
+            <span className="text-zinc-300 truncate max-w-[58%]">
+              {walletAddress
+                ? `${walletAddress.slice(0, 4)}…${walletAddress.slice(-4)} (your wallet)`
+                : "Login required"}
+            </span>
+          </div>
+          <div className="flex justify-between gap-2">
+            <span className="text-zinc-500">Network fee</span>
+            <span className="text-zinc-300">
+              Sponsored when available · else ~0.00001 SOL
+            </span>
+          </div>
+          <div className="flex justify-between gap-2">
+            <span className="text-zinc-500">Platform fee</span>
+            <span className="text-zinc-300">Off on this desk</span>
+          </div>
+          <div className="flex justify-between gap-2">
+            <span className="text-zinc-500">Token-2022</span>
+            <span className="text-zinc-300">
+              ${SHIT_SYMBOL} · transfer-checked
+            </span>
+          </div>
+        </div>
+
         {err && (
           <p
             className="text-sm text-red-400 break-words bg-red-950/35 border border-red-900/50 rounded-lg px-3 py-2"
