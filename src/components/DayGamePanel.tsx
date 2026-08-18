@@ -586,78 +586,74 @@ export default function DayGamePanel({
   const dockStatus = err || msg || phase || null;
 
   return (
-    <div
-      className={`flex flex-col ${
-        dense
-          ? "min-h-0 h-[min(calc(100dvh-7.5rem),720px)]"
-          : "min-h-0 h-[min(calc(100dvh-6rem),760px)]"
-      }`}
-    >
-      {/* ── Status strip ── */}
-      <div className="shrink-0 rounded-t-2xl border border-b-0 border-neon/25 bg-card px-3 pt-2.5 pb-2 space-y-2">
+    <div className="flex h-full min-h-0 flex-col">
+      {/* ── Hero status ── */}
+      <div className="shrink-0 space-y-2.5 rounded-t-2xl border border-b-0 border-neon/30 bg-gradient-to-b from-zinc-900/90 to-card px-3 pb-2.5 pt-3">
         <div className="flex items-center justify-between gap-2">
           <div className="min-w-0">
-            {!compactTitle ? (
-              <p className="text-[10px] font-orbitron uppercase tracking-[0.18em] text-neon truncate">
-                {HOUR_PRODUCT.name}
-              </p>
-            ) : (
-              <p className="text-[10px] font-orbitron uppercase tracking-wider text-zinc-400">
-                Multi-ticket · any bag
-              </p>
-            )}
+            <p className="font-orbitron text-[10px] uppercase tracking-[0.2em] text-neon">
+              {HOUR_PRODUCT.name}
+            </p>
+            <p className="mt-0.5 text-[11px] text-zinc-500">
+              Pick a bag · HIT or SHIT · multi-ticket · pot splits
+            </p>
           </div>
-          <div className="text-right shrink-0 flex items-baseline gap-2">
-            <span className="text-[9px] uppercase text-zinc-500 font-orbitron">
+          <div className="shrink-0 rounded-xl border border-neon/30 bg-black/50 px-3 py-1.5 text-center">
+            <div className="font-orbitron text-[9px] uppercase tracking-wider text-zinc-500">
               closes
-            </span>
-            <span className="text-lg font-mono font-bold text-neon tabular-nums leading-none">
+            </div>
+            <div className="font-mono text-xl font-black tabular-nums leading-none text-neon">
               {countdown}
-            </span>
+            </div>
           </div>
         </div>
 
         {/* pots */}
-        <div className="flex items-center gap-2 rounded-xl border border-zinc-800/80 bg-zinc-950/50 px-2.5 py-1.5">
+        <div className="grid grid-cols-2 gap-2">
           <div
-            className={`flex-1 relative rounded-md px-1 ${
-              hitFlash ? "bg-green-500/15" : ""
+            className={`relative overflow-hidden rounded-xl border border-green-800/50 bg-gradient-to-br from-green-950/80 to-zinc-950 px-3 py-2.5 ${
+              hitFlash ? "ring-2 ring-green-400/50" : ""
             }`}
           >
-            <div className="text-[9px] font-orbitron uppercase text-green-400/90 flex items-center gap-0.5">
-              <EmojiIcon size={11}>🎯</EmojiIcon> HIT
+            <div className="flex items-center gap-1 font-orbitron text-[10px] uppercase tracking-wider text-green-400">
+              <EmojiIcon size={14}>🎯</EmojiIcon> HIT pot
             </div>
-            <div className="text-base font-mono font-bold text-green-400 tabular-nums">
+            <div className="mt-1 font-mono text-2xl font-black tabular-nums text-green-300">
               {fmt(hitPot)}
             </div>
+            <div className="text-[10px] text-zinc-500">
+              {status.stats?.hitTickets || 0} tickets
+            </div>
             {hitFlash && hitDelta > 0 && (
-              <span className="absolute -top-0.5 right-0 text-[10px] font-mono font-bold text-green-300 animate-[potfloat_0.9s_ease-out_forwards]">
+              <span className="absolute right-2 top-2 font-mono text-xs font-bold text-green-300">
                 +{fmt(hitDelta)}
               </span>
             )}
           </div>
-          <div className="w-px h-8 bg-zinc-800" />
           <div
-            className={`flex-1 relative rounded-md px-1 text-right ${
-              shitFlash ? "bg-red-500/15" : ""
+            className={`relative overflow-hidden rounded-xl border border-red-800/50 bg-gradient-to-br from-red-950/80 to-zinc-950 px-3 py-2.5 text-right ${
+              shitFlash ? "ring-2 ring-red-400/50" : ""
             }`}
           >
-            <div className="text-[9px] font-orbitron uppercase text-red-400/90 flex items-center justify-end gap-0.5">
-              SHIT <EmojiIcon size={11}>💀</EmojiIcon>
+            <div className="flex items-center justify-end gap-1 font-orbitron text-[10px] uppercase tracking-wider text-red-400">
+              SHIT pot <EmojiIcon size={14}>💀</EmojiIcon>
             </div>
-            <div className="text-base font-mono font-bold text-red-400 tabular-nums">
+            <div className="mt-1 font-mono text-2xl font-black tabular-nums text-red-300">
               {fmt(shitPot)}
             </div>
+            <div className="text-[10px] text-zinc-500">
+              {status.stats?.shitTickets || 0} tickets
+            </div>
             {shitFlash && shitDelta > 0 && (
-              <span className="absolute -top-0.5 left-0 text-[10px] font-mono font-bold text-red-300 animate-[potfloat_0.9s_ease-out_forwards]">
+              <span className="absolute left-2 top-2 font-mono text-xs font-bold text-red-300">
                 +{fmt(shitDelta)}
               </span>
             )}
           </div>
         </div>
 
-        {/* live leaders — tap to select */}
-        <div className="grid grid-cols-2 gap-1.5">
+        {/* live leaders */}
+        <div className="grid grid-cols-2 gap-2">
           <button
             type="button"
             disabled={!L?.hitting}
@@ -673,23 +669,25 @@ export default function DayGamePanel({
                 pct: L.hitting.pct,
               });
             }}
-            className="cursor-hit rounded-lg border border-green-900/50 bg-green-950/20 px-2 py-1.5 text-left disabled:opacity-40"
+            className="cursor-hit rounded-xl border border-green-800/60 bg-green-950/30 px-2.5 py-2 text-left transition hover:border-green-500/60 disabled:opacity-40"
           >
-            <div className="text-[8px] font-orbitron uppercase text-green-500/80">
+            <div className="font-orbitron text-[9px] uppercase tracking-wider text-green-500/90">
               Live HIT
             </div>
-            <div className="flex items-center gap-1.5 mt-0.5 min-w-0">
+            <div className="mt-1 flex min-w-0 items-center gap-2">
               <TokenMark
                 logo={L?.hitting?.logo}
                 symbol={L?.hitting?.symbol}
-                size={18}
+                size={28}
               />
-              <span className="text-xs font-semibold text-white truncate">
-                {L?.hitting?.symbol || "—"}
-              </span>
-              <span className="text-[11px] font-mono font-bold text-green-400 ml-auto tabular-nums">
-                {fmtPct(L?.hitting?.pct)}
-              </span>
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-sm font-bold text-white">
+                  {L?.hitting?.symbol || "—"}
+                </div>
+                <div className="font-mono text-xs font-bold tabular-nums text-green-400">
+                  {fmtPct(L?.hitting?.pct)}
+                </div>
+              </div>
             </div>
           </button>
           <button
@@ -707,52 +705,56 @@ export default function DayGamePanel({
                 pct: L.shitting.pct,
               });
             }}
-            className="cursor-shit rounded-lg border border-red-900/50 bg-red-950/20 px-2 py-1.5 text-left disabled:opacity-40"
+            className="cursor-shit rounded-xl border border-red-800/60 bg-red-950/30 px-2.5 py-2 text-left transition hover:border-red-500/60 disabled:opacity-40"
           >
-            <div className="text-[8px] font-orbitron uppercase text-red-500/80">
+            <div className="font-orbitron text-[9px] uppercase tracking-wider text-red-500/90">
               Live SHIT
             </div>
-            <div className="flex items-center gap-1.5 mt-0.5 min-w-0">
+            <div className="mt-1 flex min-w-0 items-center gap-2">
               <TokenMark
                 logo={L?.shitting?.logo}
                 symbol={L?.shitting?.symbol}
-                size={18}
+                size={28}
               />
-              <span className="text-xs font-semibold text-white truncate">
-                {L?.shitting?.symbol || "—"}
-              </span>
-              <span className="text-[11px] font-mono font-bold text-red-400 ml-auto tabular-nums">
-                {fmtPct(L?.shitting?.pct)}
-              </span>
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-sm font-bold text-white">
+                  {L?.shitting?.symbol || "—"}
+                </div>
+                <div className="font-mono text-xs font-bold tabular-nums text-red-400">
+                  {fmtPct(L?.shitting?.pct)}
+                </div>
+              </div>
             </div>
           </button>
         </div>
       </div>
 
-      {/* ── Bag picker (middle, fixed, no page scroll) ── */}
-      <div className="flex-1 min-h-0 border-x border-border bg-card px-3 py-2 flex flex-col gap-2">
-        <input
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder="Search any bag…"
-          className="w-full shrink-0 rounded-xl border border-zinc-800 bg-zinc-950 px-3 py-2 text-base sm:text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-neon/40"
-          enterKeyHint="search"
-        />
+      {/* ── Bag grid (scrolls) ── */}
+      <div className="flex min-h-0 flex-1 flex-col gap-2 border-x border-border bg-card px-3 py-2">
+        <div className="flex shrink-0 items-center gap-2">
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Search any bag…"
+            className="min-h-11 w-full flex-1 rounded-xl border border-zinc-800 bg-zinc-950 px-3 text-base text-white placeholder:text-zinc-600 focus:border-neon/40 focus:outline-none sm:text-sm"
+            enterKeyHint="search"
+          />
+        </div>
 
         {!q.trim() && (
-          <div className="flex gap-1.5 shrink-0 overflow-x-auto no-scrollbar">
+          <div className="flex shrink-0 gap-1.5 overflow-x-auto no-scrollbar">
             {(
               [
                 ["movers", "Movers"],
                 ["recent", "Recent"],
-                ["all", "All"],
+                ["all", side === "hit" ? "Best HIT" : "Worst SHIT"],
               ] as const
             ).map(([id, label]) => (
               <button
                 key={id}
                 type="button"
                 onClick={() => setChip(id)}
-                className={`shrink-0 rounded-full px-3 py-1 text-[11px] font-orbitron uppercase tracking-wider border ${
+                className={`shrink-0 rounded-full border px-3 py-1.5 text-[11px] font-orbitron uppercase tracking-wider ${
                   chip === id
                     ? "border-neon/50 bg-neon/15 text-neon"
                     : "border-zinc-800 text-zinc-500 hover:border-zinc-600"
@@ -762,25 +764,21 @@ export default function DayGamePanel({
               </button>
             ))}
             {searching && (
-              <span className="text-[10px] text-zinc-600 self-center ml-1">
+              <span className="ml-1 self-center text-[10px] text-zinc-600">
                 searching…
               </span>
             )}
           </div>
         )}
 
-        {/* horizontal 2-row strip — swipe, no page scroll */}
         <div
-          className={`flex-1 min-h-0 overflow-x-auto overflow-y-hidden overscroll-x-contain ${
+          className={`min-h-0 flex-1 overflow-y-auto overscroll-contain pb-1 ${
             side === "hit" ? "cursor-hit" : "cursor-shit"
           }`}
           role="listbox"
           aria-label="Pick a bag"
         >
-          <div
-            className="grid grid-rows-2 grid-flow-col auto-cols-[4.5rem] sm:auto-cols-[5rem] gap-1.5 h-full content-start pr-2"
-            style={{ width: "max-content" }}
-          >
+          <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
             {bags.map((m) => {
               const on = selected?.assetId === m.assetId;
               const pct = m.pct;
@@ -795,27 +793,27 @@ export default function DayGamePanel({
                   type="button"
                   role="option"
                   aria-selected={on}
-                  title={`${m.symbol || m.name} ${fmtPct(pct)} — double-tap play`}
+                  title={`${m.symbol || m.name} ${fmtPct(pct)}`}
                   disabled={busy}
                   onClick={() => onBagTap(m)}
                   onDoubleClick={(e) => {
                     e.preventDefault();
                     void play(m);
                   }}
-                  className={`relative flex flex-col items-center justify-center gap-0.5 rounded-xl border p-1.5 h-[4.75rem] sm:h-[5.25rem] transition-colors active:brightness-110 disabled:opacity-50 ${
+                  className={`relative flex flex-col items-center gap-1 rounded-2xl border p-2.5 transition active:scale-[0.98] disabled:opacity-50 ${
                     on
                       ? side === "hit"
-                        ? "border-green-400 bg-green-950/55 ring-2 ring-green-400/45"
-                        : "border-red-400 bg-red-950/55 ring-2 ring-red-400/45"
-                      : "border-zinc-800/90 bg-zinc-950/70 hover:border-zinc-500"
+                        ? "border-green-400 bg-green-950/60 ring-2 ring-green-400/40"
+                        : "border-red-400 bg-red-950/60 ring-2 ring-red-400/40"
+                      : "border-zinc-800 bg-zinc-950/80 hover:border-zinc-500"
                   }`}
                 >
-                  <TokenMark logo={m.logo} symbol={m.symbol} size={28} />
-                  <span className="text-[10px] font-semibold text-zinc-200 truncate w-full text-center leading-tight">
+                  <TokenMark logo={m.logo} symbol={m.symbol} size={36} />
+                  <span className="w-full truncate text-center text-xs font-bold text-zinc-100">
                     {m.symbol || m.name}
                   </span>
                   <span
-                    className={`text-[10px] font-mono font-bold tabular-nums leading-none ${
+                    className={`font-mono text-xs font-bold tabular-nums ${
                       !pctKnown
                         ? "text-zinc-600"
                         : pctUp
@@ -826,121 +824,123 @@ export default function DayGamePanel({
                     {fmtPct(pct)}
                   </span>
                   {mine > 0 && (
-                    <span className="absolute -top-1 -left-1 text-[9px] font-bold font-mono rounded-full bg-neon text-black px-1 leading-tight">
+                    <span className="absolute -right-1 -top-1 rounded-full bg-neon px-1.5 font-mono text-[10px] font-bold text-black">
                       ×{mine}
                     </span>
                   )}
                   {heat > 0 && !mine && (
-                    <span className="absolute -top-1 -right-1 text-[8px] font-mono text-zinc-500">
+                    <span className="absolute -left-1 -top-1 font-mono text-[9px] text-zinc-600">
                       {heat}
                     </span>
                   )}
                 </button>
               );
             })}
-            {!bags.length && (
-              <div className="row-span-2 flex items-center px-6 text-sm text-zinc-600">
-                {q.trim().length >= 2
-                  ? searching
-                    ? "Searching…"
-                    : "No match"
-                  : "No bags"}
-              </div>
-            )}
           </div>
+          {!bags.length && (
+            <div className="flex h-24 items-center justify-center text-sm text-zinc-600">
+              {q.trim().length >= 2
+                ? searching
+                  ? "Searching…"
+                  : "No match"
+                : "No bags"}
+            </div>
+          )}
         </div>
       </div>
 
-      {/* ── Bottom dock (never scrolls away) ── */}
-      <div
-        className="shrink-0 rounded-b-2xl border border-t-0 border-neon/25 bg-card px-3 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] space-y-2 shadow-[0_-8px_24px_rgba(0,0,0,0.35)]"
-      >
-        <div className="grid grid-cols-2 gap-1.5">
+      {/* ── Dock ── */}
+      <div className="shrink-0 space-y-2 rounded-b-2xl border border-t-0 border-neon/30 bg-card px-3 pb-[max(0.65rem,env(safe-area-inset-bottom))] pt-2.5 shadow-[0_-12px_32px_rgba(0,0,0,0.45)]">
+        <div className="grid grid-cols-2 gap-2">
           <button
             type="button"
             onClick={() => setSide("hit")}
-            className={`cursor-hit min-h-12 rounded-xl font-bold text-sm border-2 inline-flex items-center justify-center gap-1.5 font-orbitron tracking-wide transition-colors ${
+            className={`cursor-hit inline-flex min-h-12 items-center justify-center gap-1.5 rounded-xl border-2 font-orbitron text-sm font-bold tracking-wide transition-colors ${
               side === "hit"
-                ? "border-green-400 bg-green-900/50 text-green-100"
+                ? "border-green-400 bg-green-900/55 text-green-50"
                 : "border-zinc-800 text-zinc-500"
             }`}
           >
-            <EmojiIcon size={18}>🎯</EmojiIcon> HIT
+            <EmojiIcon size={20}>🎯</EmojiIcon> HIT
           </button>
           <button
             type="button"
             onClick={() => setSide("shit")}
-            className={`cursor-shit min-h-12 rounded-xl font-bold text-sm border-2 inline-flex items-center justify-center gap-1.5 font-orbitron tracking-wide transition-colors ${
+            className={`cursor-shit inline-flex min-h-12 items-center justify-center gap-1.5 rounded-xl border-2 font-orbitron text-sm font-bold tracking-wide transition-colors ${
               side === "shit"
-                ? "border-red-400 bg-red-900/50 text-red-100"
+                ? "border-red-400 bg-red-900/55 text-red-50"
                 : "border-zinc-800 text-zinc-500"
             }`}
           >
-            <EmojiIcon size={18}>💀</EmojiIcon> SHIT
+            <EmojiIcon size={20}>💀</EmojiIcon> SHIT
           </button>
         </div>
 
-        <div className="flex items-center justify-between gap-2 text-[11px] min-h-[1.1rem]">
-          <span className="text-zinc-400 font-mono truncate">
-            {selected
-              ? `${side.toUpperCase()} · ${selected.symbol || selected.name}${
-                  myOnSelected ? ` · you ×${myOnSelected}` : ""
-                }`
-              : "Tap a bag · double-tap plays"}
-          </span>
-          <div className="flex items-center gap-2 shrink-0">
-            <a
-              href={playPotPortfolioUrl()}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-amber-400/90 hover:underline font-mono text-[10px]"
-              title={PLAY_POT_ADDRESS}
-            >
-              pot {PLAY_POT_ADDRESS.slice(0, 6)}…
-            </a>
-            <Link
-              href={HOUR_PRODUCT.winnersPath}
-              className="text-neon-blue hover:underline font-orbitron uppercase tracking-wider text-[10px]"
-            >
-              Winners
-            </Link>
-          </div>
-        </div>
-
-        {/* Pre-sign play summary */}
-        <div className="rounded-lg border border-zinc-800/90 bg-zinc-950/60 px-2.5 py-1.5 text-[10px] font-mono text-zinc-500 space-y-0.5">
-          <div className="flex justify-between gap-2">
-            <span>Amount</span>
-            <span className="text-zinc-300">
-              {PLAY_STAKE.toLocaleString()} ${SHIT_SYMBOL} / ticket
-            </span>
-          </div>
-          <div className="flex justify-between gap-2">
-            <span>Recipient</span>
-            <span className="text-amber-400/90 truncate max-w-[62%]" title={PLAY_POT_ADDRESS}>
-              pot {PLAY_POT_ADDRESS.slice(0, 8)}…{PLAY_POT_ADDRESS.slice(-4)}
-            </span>
-          </div>
-          <div className="flex justify-between gap-2">
-            <span>House</span>
-            <span className="text-zinc-300">25% of pot · 75% winner</span>
-          </div>
-          <div className="flex justify-between gap-2">
-            <span>Network</span>
-            <span className="text-zinc-300">Sponsored when available</span>
-          </div>
-        </div>
-
-        {/* status line — always in dock */}
-        <div className="min-h-[1.15rem]">
-          {err && (
-            <p className="text-[11px] text-red-400 truncate">{err}</p>
+        {/* selection chip */}
+        <div className="flex min-h-[2.25rem] items-center gap-2 rounded-xl border border-zinc-800 bg-zinc-950/70 px-2.5 py-1.5">
+          {selected ? (
+            <>
+              <TokenMark
+                logo={selected.logo}
+                symbol={selected.symbol}
+                size={28}
+              />
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-sm font-bold text-white">
+                  {selected.symbol || selected.name}
+                </div>
+                <div className="font-mono text-[10px] text-zinc-500">
+                  {side.toUpperCase()}
+                  {myOnSelected ? ` · you ×${myOnSelected}` : " · no tickets yet"}
+                  {" · "}
+                  <span
+                    className={
+                      (selected.pct ?? 0) >= 0 ? "text-green-400" : "text-red-400"
+                    }
+                  >
+                    {fmtPct(selected.pct)}
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelected(null)}
+                className="rounded-lg px-2 py-1 text-[10px] text-zinc-500 hover:text-zinc-300"
+              >
+                Clear
+              </button>
+            </>
+          ) : (
+            <p className="w-full text-center text-xs text-zinc-500">
+              Tap a bag above to select
+            </p>
           )}
+        </div>
+
+        <p className="text-center font-mono text-[10px] text-zinc-600">
+          {PLAY_STAKE.toLocaleString()} ${SHIT_SYMBOL} / ticket · 75% split · 25%
+          house ·{" "}
+          <a
+            href={playPotPortfolioUrl()}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-amber-400/80 hover:underline"
+          >
+            pot
+          </a>
+          {" · "}
+          <Link href={HOUR_PRODUCT.winnersPath} className="text-neon-blue hover:underline">
+            winners
+          </Link>
+        </p>
+
+        <div className="min-h-[1.1rem]">
+          {err && <p className="truncate text-center text-[11px] text-red-400">{err}</p>}
           {!err && msg && (
-            <p className="text-[11px] text-neon truncate">{msg}</p>
+            <p className="truncate text-center text-[11px] text-neon">{msg}</p>
           )}
           {!err && !msg && phase && (
-            <p className="text-[11px] text-zinc-400 truncate flex items-center gap-1">
+            <p className="flex items-center justify-center gap-1 truncate text-[11px] text-zinc-400">
               <EmojiIcon size={12} className="animate-spin">
                 💫
               </EmojiIcon>
@@ -951,17 +951,17 @@ export default function DayGamePanel({
 
         <button
           type="button"
-          disabled={busy || !status.enabled}
+          disabled={busy || !status.enabled || (!selected && authenticated)}
           onClick={() => void play()}
-          className={`w-full min-h-12 rounded-xl bg-neon text-black font-bold text-sm hover:brightness-110 disabled:opacity-45 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2 font-orbitron tracking-wide uppercase ${
+          className={`inline-flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-neon font-orbitron text-base font-black uppercase tracking-wide text-black transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-45 ${
             !busy && status.enabled
-              ? "shadow-[0_0_20px_rgba(57,255,20,0.22)] " +
+              ? "shadow-[0_0_28px_rgba(57,255,20,0.28)] " +
                 (side === "hit" ? "cursor-hit" : "cursor-shit")
               : ""
           }`}
         >
           {busy && (
-            <EmojiIcon size={16} className="animate-spin" label="Loading">
+            <EmojiIcon size={18} className="animate-spin" label="Loading">
               💫
             </EmojiIcon>
           )}
@@ -972,13 +972,13 @@ export default function DayGamePanel({
           <div className="flex gap-2">
             <Link
               href="/claim"
-              className="flex-1 text-center text-[11px] py-1.5 rounded-lg border border-zinc-700 text-zinc-300"
+              className="flex-1 rounded-xl border border-zinc-700 py-2 text-center text-xs text-zinc-300"
             >
               Claim
             </Link>
             <Link
               href="/swap"
-              className="flex-1 text-center text-[11px] py-1.5 rounded-lg border border-neon/40 text-neon"
+              className="flex-1 rounded-xl border border-neon/40 py-2 text-center text-xs text-neon"
             >
               Buy
             </Link>
