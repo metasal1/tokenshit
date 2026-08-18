@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import VoteButtons from "./VoteButtons";
 import SkipNextButton from "./SkipNextButton";
+import RandomTokenSkeleton, { FunLoadTicker } from "./RandomTokenSkeleton";
 import { getVoterId } from "@/lib/privy-identity";
 import { usePrivy } from "@privy-io/react-auth";
 
@@ -77,41 +78,45 @@ export default function RandomTokenVote() {
   }, [fetchRandom]);
 
   if (loading && !token) {
-    return (
-      <div className="rounded-xl border border-border bg-card p-8 text-center">
-        <p className="text-zinc-500 text-sm">
-          Sniffing the chain for something unserious...
-        </p>
-      </div>
-    );
+    return <RandomTokenSkeleton />;
   }
 
   if (!token) return null;
 
   return (
-    <div className="rounded-xl border border-border bg-card overflow-hidden">
-      <div className="p-4 border-b border-border flex items-center justify-between gap-3">
-        <div className="flex items-center gap-3 min-w-0">
+    <div className="relative overflow-hidden rounded-xl border border-border bg-card">
+      {loading ? (
+        <div className="border-b border-neon/20">
+          <FunLoadTicker />
+        </div>
+      ) : null}
+
+      <div
+        className={`flex items-center justify-between gap-3 border-b border-border p-4 transition-opacity ${
+          loading ? "pointer-events-none opacity-50" : ""
+        }`}
+      >
+        <div className="flex min-w-0 items-center gap-3">
           {token.logo ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={token.logo}
               alt={token.symbol}
-              className="w-10 h-10 rounded-full bg-zinc-800 shrink-0"
+              className="h-10 w-10 shrink-0 rounded-full bg-zinc-800"
             />
           ) : (
-            <div className="w-10 h-10 rounded-full bg-zinc-800 flex items-center justify-center text-sm font-bold text-zinc-400 shrink-0">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-zinc-800 text-sm font-bold text-zinc-400">
               {token.symbol?.slice(0, 2)}
             </div>
           )}
           <div className="min-w-0">
             <Link
               href={`/token/${token.assetId}`}
-              className="font-bold text-foreground hover:text-neon-blue transition-colors truncate block"
+              className="block truncate font-bold text-foreground transition-colors hover:text-neon-blue"
             >
               {token.name}
             </Link>
-            <p className="text-xs text-zinc-500 font-mono">
+            <p className="font-mono text-xs text-zinc-500">
               {token.symbol}
               {token.list ? (
                 <span className="text-zinc-600"> · {token.list}</span>
@@ -121,15 +126,26 @@ export default function RandomTokenVote() {
         </div>
         <SkipNextButton
           variant="chip"
-          label="Next bag"
+          label={loading ? "Loading…" : "Next bag"}
           sublabel="shuffle"
           onClick={fetchRandom}
           disabled={loading}
         />
       </div>
-      <div className="p-4 pt-3">
-        <VoteButtons assetId={token.assetId} symbol={token.symbol} />
-      </div>
+
+      {loading ? (
+        <div className="space-y-3 p-4">
+          <FunLoadTicker compact />
+          <div className="grid grid-cols-2 gap-3 opacity-40">
+            <div className="skeleton h-24 rounded-xl" />
+            <div className="skeleton h-24 rounded-xl" />
+          </div>
+        </div>
+      ) : (
+        <div className="p-4 pt-3">
+          <VoteButtons assetId={token.assetId} symbol={token.symbol} />
+        </div>
+      )}
     </div>
   );
 }
