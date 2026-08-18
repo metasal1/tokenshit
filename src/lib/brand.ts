@@ -81,7 +81,7 @@ export const BRAND = {
       logoSquare: "/brand/logo-square.png",
       logoSquareTransparent: "/brand/logo-square-transparent.png",
       logoRoot: "/logo.png",
-      /** Favicon + PWA / Apple touch */
+      /** Favicon + PWA / Apple touch (canonical T$ monogram) */
       faviconIco: "/favicon.ico",
       appIcon: "/icon.png",
       appleIcon: "/apple-icon.png",
@@ -89,11 +89,6 @@ export const BRAND = {
       icon512: "/icons/icon-512.png",
       maskable192: "/icons/maskable-192.png",
       maskable512: "/icons/maskable-512.png",
-      /** Neon T$ monogram — PNG only (SVG breaks Telegram/chat previews) */
-      markPng: "/brand/tokenshit.png",
-      markPng192: "/brand/mark-192.png",
-      markPng512: "/brand/mark-512.png",
-      markPng1024: "/brand/mark-1024.png",
       squareSolid: "/brand/square-solid.png",
       squareOutline: "/brand/square-outline.png",
       squareGradient: "/brand/square-gradient.png",
