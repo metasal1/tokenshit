@@ -90,6 +90,12 @@ export const BRAND = {
       icon512: "/icons/icon-512.png",
       maskable192: "/icons/maskable-192.png",
       maskable512: "/icons/maskable-512.png",
+      /** Neon T$ monogram mark (use PNG in chat/TG — SVG often blocked) */
+      markPng: "/brand/tokenshit.png",
+      markPng192: "/brand/mark-192.png",
+      markPng512: "/brand/mark-512.png",
+      markPng1024: "/brand/mark-1024.png",
+      markSvg: "/brand/tokenshit.svg",
       squareSolid: "/brand/square-solid.png",
       squareOutline: "/brand/square-outline.png",
       squareGradient: "/brand/square-gradient.png",

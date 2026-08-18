@@ -156,14 +156,18 @@ export default function BrandPage() {
 
       <Section id="icons" title="Favicon & Apple icons">
         <p className="text-sm text-zinc-400 leading-relaxed">
-          App icons for browsers, PWA, and iOS home screen. Prefer PNG 192/512
-          for web; Apple touch uses{" "}
-          <code className="text-neon text-xs">/apple-icon.png</code>. Maskable
-          icons have safe padding for Android adaptive icons.
+          App icons for browsers, PWA, and iOS.{" "}
+          <strong className="text-zinc-200">Prefer PNG</strong> for Telegram /
+          chat previews — many clients can&apos;t open SVG as an image. Vector:{" "}
+          <code className="text-neon text-xs">/brand/tokenshit.svg</code>.
         </p>
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
           {(
             [
+              ["Mark PNG", BRAND.logo.assets.markPng, "512 · use this"],
+              ["Mark 192", BRAND.logo.assets.markPng192, "192×192"],
+              ["Mark 1024", BRAND.logo.assets.markPng1024, "1024×1024"],
+              ["Mark SVG", BRAND.logo.assets.markSvg, "vector"],
               ["Favicon .ico", BRAND.logo.assets.faviconIco, "16–48 multi"],
               ["App icon", BRAND.logo.assets.appIcon, "Next /icon.png"],
               ["Apple touch", BRAND.logo.assets.appleIcon, "iOS home"],
@@ -171,7 +175,6 @@ export default function BrandPage() {
               ["Icon 512", BRAND.logo.assets.icon512, "512×512 any"],
               ["Maskable 192", BRAND.logo.assets.maskable192, "192 adaptive"],
               ["Maskable 512", BRAND.logo.assets.maskable512, "512 adaptive"],
-              ["Mark SVG", BRAND.logo.assets.iconSvg, "vector"],
             ] as const
           ).map(([label, src, note]) => (
             <a
