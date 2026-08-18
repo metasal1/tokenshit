@@ -6,7 +6,8 @@ export type ClaimKind =
   | "gh_fork"
   | "x_tweet"
   | "x_follow"
-  | "email_list";
+  | "email_list"
+  | "jup_verified";
 
 /** Tweet claim cooldown + max tweet age */
 export const TWEET_CLAIM_COOLDOWN_MS = 24 * 60 * 60 * 1000;

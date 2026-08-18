@@ -2,6 +2,7 @@ import { type NextRequest } from "next/server";
 import {
   CLAIM_EMAIL_LIST,
   CLAIM_GH_FORK,
+  CLAIM_JUP_VERIFIED,
   CLAIM_X_FOLLOW,
   CLAIM_X_PREMIUM,
   CLAIM_X_TWEET,
@@ -45,6 +46,7 @@ const AMOUNTS: Record<ClaimKind, number> = {
   x_tweet: CLAIM_X_TWEET,
   x_follow: CLAIM_X_FOLLOW,
   email_list: CLAIM_EMAIL_LIST,
+  jup_verified: CLAIM_JUP_VERIFIED,
 };
 
 function isKind(k: string): k is ClaimKind {
@@ -83,6 +85,7 @@ export async function GET(request: NextRequest) {
         premium: CLAIM_X_PREMIUM,
         ghFork: CLAIM_GH_FORK,
         emailList: CLAIM_EMAIL_LIST,
+        jupVerified: CLAIM_JUP_VERIFIED,
         walletMustBePrivyLinkedToX: true,
       },
     });
@@ -128,6 +131,18 @@ export async function GET(request: NextRequest) {
       });
       detail = list;
       eligible = list.ok;
+    } else if (kind === "jup_verified") {
+      const { isJupTokenVerified, JUP_VRFD_DASHBOARD, checkJupVrfdEligibility } =
+        await import("@/lib/jup-vrfd");
+      const elig = await checkJupVrfdEligibility().catch(() => null);
+      const verified =
+        elig?.isVerified ?? (await isJupTokenVerified());
+      detail = {
+        ...(elig || {}),
+        isVerified: verified,
+        dashboard: JUP_VRFD_DASHBOARD(),
+      };
+      eligible = verified;
     }
 
     const claimed = await hasClaimed(kind, { twitter, github, wallet });
@@ -468,6 +483,26 @@ export async function POST(request: NextRequest) {
         );
       }
       amount = CLAIM_EMAIL_LIST;
+    } else if (kind === "jup_verified") {
+      const { isJupTokenVerified, JUP_VRFD_DASHBOARD, checkJupVrfdEligibility } =
+        await import("@/lib/jup-vrfd");
+      const elig = await checkJupVrfdEligibility().catch(() => null);
+      const verified =
+        elig?.isVerified ?? (await isJupTokenVerified());
+      if (!verified) {
+        return Response.json(
+          {
+            error:
+              "TOKEN$HIT is not Jupiter-verified yet. When VRFD marks the mint verified, claim here.",
+            code: "not_jup_verified",
+            dashboard: JUP_VRFD_DASHBOARD(),
+            canVerify: elig?.canVerify ?? null,
+            eligibility: elig,
+          },
+          { status: 403 }
+        );
+      }
+      amount = CLAIM_JUP_VERIFIED;
     }
 
     if (await hasClaimed(kind, { twitter, github, wallet })) {

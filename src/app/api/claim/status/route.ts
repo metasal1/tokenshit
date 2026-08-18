@@ -7,6 +7,7 @@ import {
 import {
   CLAIM_EMAIL_LIST,
   CLAIM_GH_FORK,
+  CLAIM_JUP_VERIFIED,
   CLAIM_X_FOLLOW,
   CLAIM_X_PREMIUM,
   CLAIM_X_TWEET,
@@ -23,6 +24,7 @@ const KINDS: ClaimKind[] = [
   "x_premium",
   "gh_fork",
   "email_list",
+  "jup_verified",
 ];
 
 const AMOUNTS: Record<ClaimKind, number> = {
@@ -32,6 +34,7 @@ const AMOUNTS: Record<ClaimKind, number> = {
   x_tweet: CLAIM_X_TWEET,
   x_follow: CLAIM_X_FOLLOW,
   email_list: CLAIM_EMAIL_LIST,
+  jup_verified: CLAIM_JUP_VERIFIED,
 };
 
 /**

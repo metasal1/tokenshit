@@ -17,6 +17,7 @@ export type PayoutKind =
   | "x_tweet"
   | "x_follow"
   | "email_list"
+  | "jup_verified"
   | "referral"
   | "day_hit"
   | "day_shit"
