@@ -34,12 +34,12 @@ export const metadata: Metadata = {
 };
 
 const QUICK = [
-  { href: "/claim", label: "Claim", emoji: "🎁" },
   { href: "/play", label: "Play", emoji: "🎯" },
   { href: "/memes", label: "Memes", emoji: "🎨" },
+  { href: "/referrals", label: "Refer", emoji: "🔗" },
+  { href: "/boards", label: "Boards", emoji: "📊" },
+  { href: "/claim", label: "Claim", emoji: "🎁" },
   { href: "/whales", label: "Whales", emoji: "🐋" },
-  { href: "/referrals", label: "Referrals", emoji: "🔗" },
-  { href: "/stats", label: "Stats", emoji: "📊" },
 ] as const;
 
 export default function Home() {

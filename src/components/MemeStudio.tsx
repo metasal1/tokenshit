@@ -34,7 +34,7 @@ function fileToDataUrl(file: Blob): Promise<string> {
   });
 }
 
-export default function MemeStudio() {
+export default function MemeStudio({ embedded = false }: { embedded?: boolean }) {
   const [items, setItems] = useState<MemeTemplate[]>([]);
   const [uploads, setUploads] = useState<MemeTemplate[]>([]);
   const [loading, setLoading] = useState(true);
@@ -496,7 +496,11 @@ export default function MemeStudio() {
 
   return (
     <div
-      className="mx-auto min-h-[70vh] w-full max-w-7xl px-3 sm:px-6 pb-[max(5rem,env(safe-area-inset-bottom))] pt-4 sm:pt-6"
+      className={
+        embedded
+          ? "w-full min-h-0 pb-2"
+          : "mx-auto min-h-[70vh] w-full max-w-7xl px-3 sm:px-6 pb-[max(5rem,env(safe-area-inset-bottom))] pt-4 sm:pt-6"
+      }
       onDragOver={(e) => {
         e.preventDefault();
         setDragOver(true);
@@ -521,44 +525,61 @@ export default function MemeStudio() {
         }}
       />
 
-      {/* Header */}
-      <header className="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-        <div>
-          <h1 className="text-3xl sm:text-4xl font-monoton leading-none">
-            <span className="neon-text">MEME</span>
-            <span className="neon-dollar">$</span>
-            <span className="neon-text">HIT</span>
-          </h1>
-          <p className="mt-2 max-w-xl text-sm text-zinc-500">
-            Pick a blank · type captions · drag & resize · light/dark Monoton.
-            Blanks via{" "}
-            <a
-              href="https://memes.sal.fun"
-              className="text-neon-blue hover:underline"
-              target="_blank"
-              rel="noopener noreferrer"
+      {/* Header — skip when PlayMatchShell provides chrome */}
+      {!embedded && (
+        <header className="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+          <div>
+            <h1 className="text-3xl sm:text-4xl font-monoton leading-none">
+              <span className="neon-text">MEME</span>
+              <span className="neon-dollar">$</span>
+              <span className="neon-text">HIT</span>
+            </h1>
+            <p className="mt-2 max-w-xl text-sm text-zinc-500">
+              Pick a blank · type captions · drag & resize · light/dark Monoton.
+              Blanks via{" "}
+              <a
+                href="https://memes.sal.fun"
+                className="text-neon-blue hover:underline"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                memes.sal.fun
+              </a>
+              .
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => fileRef.current?.click()}
+              className="rounded-2xl border border-neon/40 bg-neon/10 px-4 py-2.5 text-sm font-semibold text-neon hover:bg-neon/20"
             >
-              memes.sal.fun
-            </a>
-            .
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
+              Upload image
+            </button>
+            <Link
+              href="/"
+              className="rounded-2xl border border-white/10 px-4 py-2.5 text-sm text-zinc-400 hover:bg-white/5"
+            >
+              Home
+            </Link>
+          </div>
+        </header>
+      )}
+
+      {embedded && (
+        <div className="mb-3 flex flex-wrap items-center gap-2">
           <button
             type="button"
             onClick={() => fileRef.current?.click()}
-            className="rounded-2xl border border-neon/40 bg-neon/10 px-4 py-2.5 text-sm font-semibold text-neon hover:bg-neon/20"
+            className="rounded-xl border border-neon/40 bg-neon/10 px-3 py-2 text-xs font-semibold text-neon hover:bg-neon/20"
           >
-            Upload image
+            Upload
           </button>
-          <Link
-            href="/"
-            className="rounded-2xl border border-white/10 px-4 py-2.5 text-sm text-zinc-400 hover:bg-white/5"
-          >
-            Home
-          </Link>
+          <p className="text-[11px] text-zinc-500 flex-1 min-w-[10rem]">
+            Pick a blank · caption · download
+          </p>
         </div>
-      </header>
+      )}
 
       {dragOver && (
         <div className="mb-6 rounded-2xl border-2 border-dashed border-neon/50 bg-neon/5 py-10 text-center text-neon">
@@ -567,7 +588,7 @@ export default function MemeStudio() {
       )}
 
       {/* Filters */}
-      <div className="mb-6 flex flex-wrap items-center gap-2">
+      <div className={`mb-4 flex flex-wrap items-center gap-2 ${embedded ? "mb-3" : "mb-6"}`}>
         {(["all", "toly", "original"] as FaceFilter[]).map((f) => (
           <button
             key={f}
