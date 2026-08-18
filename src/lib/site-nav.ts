@@ -11,28 +11,32 @@ export type NavItem = {
 };
 
 /**
- * Product order:
- * 1 Play · 2 Claim · 3 Buy · 4 Boards
- * then Stats · Winners · Whales · Memes · Referrals
- * (Home = logo only — not a nav link)
+ * Primary CTA order (Metasal): Play · Memes · Refer · Boards
+ * More: Claim · Buy · Stats · Winners · Whales
  */
 export const SITE_NAV: NavItem[] = [
   { href: "/play", label: "Play", primary: true, accent: "neon", match: "prefix" },
-  { href: "/claim", label: "Claim", primary: true, accent: "amber", match: "prefix" },
-  { href: "/swap", label: "Buy", primary: true, match: "prefix" },
+  { href: "/memes", label: "Memes", primary: true, match: "prefix" },
+  {
+    href: "/referrals",
+    label: "Refer",
+    primary: true,
+    accent: "amber",
+    match: "prefix",
+  },
   { href: "/boards", label: "Boards", primary: true, match: "prefix" },
+  { href: "/claim", label: "Claim", primary: false, match: "prefix" },
+  { href: "/swap", label: "Buy", primary: false, match: "prefix" },
   { href: "/stats", label: "Stats", primary: false, match: "prefix" },
   { href: "/winners", label: "Winners", primary: false, match: "prefix" },
   { href: "/whales", label: "Whales", primary: false, match: "prefix" },
-  { href: "/memes", label: "Memes", primary: false, match: "prefix" },
-  { href: "/referrals", label: "Referrals", primary: false, match: "prefix" },
 ];
 
-/** Mobile bottom dock — max 4 */
+/** Mobile bottom dock — same CTA order */
 export const MOBILE_DOCK: NavItem[] = [
   { href: "/play", label: "Play", accent: "neon" },
-  { href: "/claim", label: "Claim", accent: "amber" },
-  { href: "/swap", label: "Buy" },
+  { href: "/memes", label: "Memes" },
+  { href: "/referrals", label: "Refer", accent: "amber" },
   { href: "/boards", label: "Boards" },
 ];
 
