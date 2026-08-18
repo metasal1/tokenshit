@@ -87,6 +87,13 @@ Don't: hashtags on X, auto-post, lame daily meme spam, corporate announce-speak.
 | X banner 1500×500 | `/brand/x-banner.jpg` |
 | OG / social 1200×630 | `/brand/og-image.png` |
 | OG share (wide lockup) | `/brand/og-share.png` |
+| Favicon | `/favicon.ico` |
+| App icon (Next) | `/icon.png` |
+| Apple touch icon | `/apple-icon.png` |
+| PWA icon 192 | `/icons/icon-192.png` |
+| PWA icon 512 | `/icons/icon-512.png` |
+| Maskable 192 | `/icons/maskable-192.png` |
+| Maskable 512 | `/icons/maskable-512.png` |
 | Hit/Shit hour poster 1080×1350 | `/brand/hit-shit-hour-poster.png` |
 | Hit/Shit hour poster @2x 2160×2700 | `/brand/hit-shit-hour-poster@2x.png` |
 | Hit/Shit hour banner 1200×630 | `/brand/hit-shit-hour-banner.png` |

@@ -82,6 +82,14 @@ export const BRAND = {
       logoSquareTransparent: "/brand/logo-square-transparent.png",
       logoRoot: "/logo.png",
       iconSvg: "/brand/icon.svg",
+      /** Favicon + PWA / Apple touch */
+      faviconIco: "/favicon.ico",
+      appIcon: "/icon.png",
+      appleIcon: "/apple-icon.png",
+      icon192: "/icons/icon-192.png",
+      icon512: "/icons/icon-512.png",
+      maskable192: "/icons/maskable-192.png",
+      maskable512: "/icons/maskable-512.png",
       squareSolid: "/brand/square-solid.png",
       squareOutline: "/brand/square-outline.png",
       squareGradient: "/brand/square-gradient.png",
@@ -94,6 +102,8 @@ export const BRAND = {
       hitShitHourPoster2x: "/brand/hit-shit-hour-poster@2x.png",
       hitShitHourBanner: "/brand/hit-shit-hour-banner.png",
       hitShitHourBanner2x: "/brand/hit-shit-hour-banner@2x.png",
+      jupLikePoster: "/brand/jup-like-claim-poster.png",
+      jupLikePoster2x: "/brand/jup-like-claim-poster@2x.png",
     },
   },
 

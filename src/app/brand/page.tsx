@@ -50,6 +50,7 @@ export default function BrandPage() {
           {(
             [
               ["#logo", "Logo"],
+              ["#icons", "Icons"],
               ["#colors", "Colors"],
               ["#type", "Type"],
               ["#voice", "Voice"],
@@ -151,6 +152,75 @@ export default function BrandPage() {
           </li>
           <li>Never stretch Monoton</li>
         </ul>
+      </Section>
+
+      <Section id="icons" title="Favicon & Apple icons">
+        <p className="text-sm text-zinc-400 leading-relaxed">
+          App icons for browsers, PWA, and iOS home screen. Prefer PNG 192/512
+          for web; Apple touch uses{" "}
+          <code className="text-neon text-xs">/apple-icon.png</code>. Maskable
+          icons have safe padding for Android adaptive icons.
+        </p>
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+          {(
+            [
+              ["Favicon .ico", BRAND.logo.assets.faviconIco, "16–48 multi"],
+              ["App icon", BRAND.logo.assets.appIcon, "Next /icon.png"],
+              ["Apple touch", BRAND.logo.assets.appleIcon, "iOS home"],
+              ["Icon 192", BRAND.logo.assets.icon192, "192×192 any"],
+              ["Icon 512", BRAND.logo.assets.icon512, "512×512 any"],
+              ["Maskable 192", BRAND.logo.assets.maskable192, "192 adaptive"],
+              ["Maskable 512", BRAND.logo.assets.maskable512, "512 adaptive"],
+              ["Mark SVG", BRAND.logo.assets.iconSvg, "vector"],
+            ] as const
+          ).map(([label, src, note]) => (
+            <a
+              key={src}
+              href={src}
+              download
+              target="_blank"
+              rel="noopener noreferrer"
+              className="group rounded-xl border border-border bg-card overflow-hidden hover:border-neon/50 transition-colors"
+            >
+              <div className="flex h-28 items-center justify-center bg-zinc-950 p-4">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={src}
+                  alt={label}
+                  className="max-h-full max-w-full object-contain drop-shadow-[0_0_12px_rgba(57,255,20,0.25)] group-hover:scale-105 transition-transform"
+                />
+              </div>
+              <div className="px-3 py-2.5 space-y-0.5">
+                <div className="text-xs font-semibold text-zinc-200">{label}</div>
+                <div className="text-[10px] text-zinc-500">{note}</div>
+                <div className="text-[10px] font-mono text-neon-blue truncate">
+                  {src}
+                </div>
+              </div>
+            </a>
+          ))}
+        </div>
+        <div className="rounded-xl border border-border bg-card p-4 space-y-2 text-xs font-mono text-zinc-400">
+          <p className="text-[10px] uppercase tracking-widest text-zinc-500">
+            HTML / PWA usage
+          </p>
+          <pre className="overflow-x-auto whitespace-pre-wrap leading-relaxed text-[11px] text-zinc-400">{`<link rel="icon" href="/favicon.ico" sizes="any" />
+<link rel="icon" href="/icons/icon-192.png" type="image/png" sizes="192x192" />
+<link rel="icon" href="/icons/icon-512.png" type="image/png" sizes="512x512" />
+<link rel="apple-touch-icon" href="/apple-icon.png" />
+<link rel="manifest" href="/manifest.webmanifest" />`}</pre>
+          <p className="text-zinc-500">
+            Manifest:{" "}
+            <a
+              href="/manifest.webmanifest"
+              className="text-neon-blue hover:underline"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              /manifest.webmanifest
+            </a>
+          </p>
+        </div>
       </Section>
 
       <Section id="colors" title="Colors">
@@ -363,11 +433,18 @@ export default function BrandPage() {
               ["Wide", BRAND.logo.assets.logoWide],
               ["Square", BRAND.logo.assets.logoSquare],
               ["Square clear", BRAND.logo.assets.logoSquareTransparent],
+              ["Favicon", BRAND.logo.assets.faviconIco],
+              ["Apple touch", BRAND.logo.assets.appleIcon],
+              ["Icon 192", BRAND.logo.assets.icon192],
+              ["Icon 512", BRAND.logo.assets.icon512],
+              ["Maskable 512", BRAND.logo.assets.maskable512],
               ["X banner", BRAND.logo.assets.xBanner],
               ["Hour poster", BRAND.logo.assets.hitShitHourPoster],
               ["Hour poster @2x", BRAND.logo.assets.hitShitHourPoster2x],
               ["Hour banner", BRAND.logo.assets.hitShitHourBanner],
               ["Hour banner @2x", BRAND.logo.assets.hitShitHourBanner2x],
+              ["Jup like poster", BRAND.logo.assets.jupLikePoster],
+              ["Jup like @2x", BRAND.logo.assets.jupLikePoster2x],
             ] as const
           ).map(([label, src]) => (
             <a
