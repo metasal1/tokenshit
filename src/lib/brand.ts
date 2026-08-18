@@ -77,6 +77,7 @@ export const BRAND = {
     assets: {
       logoPng: "/brand/logo.png",
       logoSvg: "/brand/tokenshit.svg",
+      logoSvgPng: "/brand/tokenshit.png",
       logoTransparent: "/brand/logo-transparent.png",
       logoWide: "/brand/logo-wide.png",
       logoSquare: "/brand/logo-square.png",
