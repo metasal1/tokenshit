@@ -112,7 +112,8 @@ async function heliusMeta(mint: string): Promise<AssetMeta | null> {
 
 /**
  * Resolve display name/symbol/logo for a voted assetId.
- * Tokens.xyz first (incl. primaryVariant); Helius DAS fallback.
+ * SOURCE OF TRUTH: Tokens.xyz (asset, curated, resolve-by-mint).
+ * Helius DAS is last-resort only when txyz has no row.
  */
 export async function resolveAssetMeta(assetId: string): Promise<AssetMeta> {
   const mintEarly = extractMint(assetId) || assetId;

@@ -1,8 +1,11 @@
 /**
  * Multi-source live USD prices for the hour game.
- * Universe: Tokens.xyz majors. Price truth:
- *   Jupiter → CoinGecko → DexScreener (sanity-checked) → txyz birdeye market.
- * Reject Dex/Jup outliers that diverge wildly from known fallback (e.g. SOL $0.008).
+ *
+ * SOURCE OF TRUTH: Tokens.xyz
+ *   - Universe: curated majors from api.tokens.xyz
+ *   - Price truth: Tokens.xyz market price first
+ *   - Fallbacks only when txyz missing/stale: Jupiter → CoinGecko → DexScreener
+ * Sanity-check fallbacks against the txyz reference when present.
  */
 import { apiFetch } from "@/lib/api";
 
@@ -20,7 +23,7 @@ export type PriceHint = {
 
 export type PricedMajor = PriceHint & {
   price: number;
-  source: "jupiter" | "dexscreener" | "coingecko" | "tokens.xyz";
+  source: "tokens.xyz" | "jupiter" | "dexscreener" | "coingecko";
 };
 
 const JUP_V3 = "https://api.jup.ag/price/v3";
@@ -38,12 +41,12 @@ function normMint(m: string): string {
   return m.trim();
 }
 
-/** True if candidate is within a sensible band of reference (blocks inverted/micro pairs). */
+/** True if candidate is within a sensible band of Tokens.xyz reference. */
 function priceSane(candidate: number, ref: number | null | undefined): boolean {
   if (!(candidate > 0) || !Number.isFinite(candidate)) return false;
   if (!(ref && ref > 0)) return true;
   const r = candidate / ref;
-  // Allow up to ~±60% hour move; reject 1000x bugs (SOL 75 → 0.008)
+  // Allow up to ~±60% vs txyz; reject inverted/micro pair bugs
   return r >= 0.4 && r <= 2.5;
 }
 
@@ -56,7 +59,7 @@ async function fetchJupiterUsd(mints: string[]): Promise<Map<string, number>> {
       const url = `${JUP_V3}?ids=${group.map(encodeURIComponent).join(",")}`;
       const headers: Record<string, string> = {
         Accept: "application/json",
-        "User-Agent": "tokenshit-hour-game/1.1",
+        "User-Agent": "tokenshit-hour-game/1.2",
       };
       if (key) headers["x-api-key"] = key;
       const res = await fetch(url, { headers, cache: "no-store" });
@@ -94,7 +97,7 @@ async function fetchDexScreenerUsd(
       const res = await fetch(url, {
         headers: {
           Accept: "application/json",
-          "User-Agent": "tokenshit-hour-game/1.1",
+          "User-Agent": "tokenshit-hour-game/1.2",
         },
         cache: "no-store",
       });
@@ -146,7 +149,7 @@ async function fetchCoinGeckoUsd(
       const url = `${CG_SIMPLE}?ids=${group.map(encodeURIComponent).join(",")}&vs_currencies=usd`;
       const headers: Record<string, string> = {
         Accept: "application/json",
-        "User-Agent": "tokenshit-hour-game/1.1",
+        "User-Agent": "tokenshit-hour-game/1.2",
       };
       if (cgKey) headers["x-cg-demo-api-key"] = cgKey;
       const res = await fetch(url, { headers, cache: "no-store" });
@@ -172,7 +175,7 @@ function num(v: unknown): number | null {
   return null;
 }
 
-/** Universe from Tokens.xyz — mints, logos, birdeye market price (not rounded stats). */
+/** Universe from Tokens.xyz — mints, logos, market price (source of truth). */
 export async function fetchMajorsUniverse(): Promise<PriceHint[]> {
   const data = await apiFetch(`/assets/curated?list=majors&groupBy=asset`);
   const raw = (data?.assets || data?.results || []) as Array<
@@ -212,6 +215,7 @@ export async function fetchMajorsUniverse(): Promise<PriceHint[]> {
         ? "solana"
         : null;
 
+    // Tokens.xyz market price = canonical reference
     const fallback =
       num(market.price) ?? num(stats.price) ?? num(cm.price) ?? 0;
 
@@ -241,7 +245,10 @@ export async function fetchMajorsUniverse(): Promise<PriceHint[]> {
   return out;
 }
 
-/** Resolve live USD for each major. */
+/**
+ * Resolve live USD for each major.
+ * Tokens.xyz first; external feeds only fill gaps / pass sanity vs txyz.
+ */
 export async function priceMajorsLive(
   hints?: PriceHint[]
 ): Promise<PricedMajor[]> {
@@ -249,6 +256,7 @@ export async function priceMajorsLive(
   const mints = universe.map((u) => u.mint).filter(Boolean) as string[];
   const coinIds = universe.map((u) => u.coinId).filter(Boolean) as string[];
 
+  // Always load fallbacks in parallel, but pick txyz first when present
   const [jup, dex, cg] = await Promise.all([
     fetchJupiterUsd(mints),
     fetchDexScreenerUsd(mints),
@@ -258,13 +266,18 @@ export async function priceMajorsLive(
   return universe
     .map((u) => {
       const mint = u.mint ? normMint(u.mint) : null;
-      const ref = u.fallbackPrice > 0 ? u.fallbackPrice : null;
+      const txyz = u.fallbackPrice > 0 ? u.fallbackPrice : null;
+
+      // 1) Tokens.xyz is source of truth when we have a price
+      if (txyz && txyz > 0) {
+        return { ...u, price: txyz, source: "tokens.xyz" as const };
+      }
+
+      // 2) Fallbacks only if txyz missing
       const candidates: Array<{
         price: number;
         source: PricedMajor["source"];
       }> = [];
-
-      // Prefer Jup → CG → Dex (dex last — flaky pairs) → txyz
       if (mint && jup.has(mint)) {
         candidates.push({ price: jup.get(mint)!, source: "jupiter" });
       }
@@ -274,12 +287,9 @@ export async function priceMajorsLive(
       if (mint && dex.has(mint)) {
         candidates.push({ price: dex.get(mint)!, source: "dexscreener" });
       }
-      if (u.fallbackPrice > 0) {
-        candidates.push({ price: u.fallbackPrice, source: "tokens.xyz" });
-      }
 
       for (const c of candidates) {
-        if (priceSane(c.price, ref ?? candidates[0]?.price)) {
+        if (priceSane(c.price, txyz ?? candidates[0]?.price)) {
           return { ...u, price: c.price, source: c.source };
         }
       }

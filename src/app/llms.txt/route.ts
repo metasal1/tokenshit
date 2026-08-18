@@ -35,7 +35,9 @@ Play $HIT OF THE DAY, free arena votes, claims, swap, whales.
 - Treasury: SHTy7yoA5uAZoevKT3BFcSeDeFaHEyqWc55uApd3MJB
 - X: https://x.com/Tokenshit_
 - Registry: https://github.com/solana-foundation/tokens
-- Data: https://tokens.xyz · https://docs.tokens.xyz
+- Data: **Tokens.xyz** (source of truth) · https://tokens.xyz · https://docs.tokens.xyz
+- Prices: Tokens.xyz market first; Jupiter / CoinGecko / Dex as fallback only
+- Play: $HIT OF THE DAY hourly · pot escrow · 75/25 house
 
 ## Optional
 
