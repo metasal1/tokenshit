@@ -106,12 +106,12 @@ export default function BrandPage() {
         </div>
         <div className="rounded-xl border border-neon/40 bg-zinc-950 overflow-hidden">
           <p className="text-[10px] uppercase tracking-widest text-zinc-500 font-mono px-4 pt-3">
-            Official SVG · cream T + green $
+            Official lockup · cream T + green $ (PNG preview · SVG download)
           </p>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src={BRAND.logo.assets.logoSvg}
-            alt="TOKEN$HIT official SVG"
+            src={BRAND.logo.assets.logoSvgPng}
+            alt="TOKEN$HIT official lockup"
             className="w-full max-h-[360px] object-contain p-6"
           />
           <div className="px-4 pb-4 flex flex-wrap gap-2">
