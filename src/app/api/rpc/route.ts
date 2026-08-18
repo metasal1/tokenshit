@@ -8,11 +8,18 @@ export const dynamic = "force-dynamic";
  * Browser never sees the dedicated Helius URL — only /api/rpc.
  * Allowlist methods only (no admin/DAS abuse).
  */
-const UPSTREAM =
+const PRIMARY =
   process.env.SOLANA_RPC_URL ||
   process.env.HELIUS_RPC_URL ||
   process.env.NEXT_PUBLIC_SOLANA_RPC_URL ||
-  "https://api.mainnet-beta.solana.com";
+  "https://viviyan-bkj12u-fast-mainnet.helius-rpc.com";
+
+/** PublicNode — secondary only (stress-tested 2026-08: 0/50 fail, ~300ms p50). */
+const SECONDARY = "https://solana.publicnode.com";
+
+const UPSTREAMS = [PRIMARY, SECONDARY].filter(
+  (u, i, a) => u && a.indexOf(u) === i
+);
 
 const ALLOWED = new Set([
   "getHealth",
@@ -90,20 +97,54 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const upstream = await fetch(UPSTREAM, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-      cache: "no-store",
-    });
-    const text = await upstream.text();
-    return new Response(text, {
-      status: upstream.status,
-      headers: {
-        "Content-Type": "application/json",
-        "Cache-Control": "no-store",
+    let lastStatus = 502;
+    let lastText = "";
+    for (const url of UPSTREAMS) {
+      try {
+        const upstream = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+          cache: "no-store",
+        });
+        const text = await upstream.text();
+        lastStatus = upstream.status;
+        lastText = text;
+        if (
+          upstream.ok ||
+          (upstream.status !== 429 &&
+            upstream.status !== 402 &&
+            upstream.status < 500)
+        ) {
+          return new Response(text, {
+            status: upstream.status,
+            headers: {
+              "Content-Type": "application/json",
+              "Cache-Control": "no-store",
+            },
+          });
+        }
+      } catch {
+        continue;
+      }
+    }
+    if (lastText) {
+      return new Response(lastText, {
+        status: lastStatus,
+        headers: {
+          "Content-Type": "application/json",
+          "Cache-Control": "no-store",
+        },
+      });
+    }
+    return Response.json(
+      {
+        jsonrpc: "2.0",
+        error: { code: -32000, message: "RPC upstream unavailable" },
+        id: null,
       },
-    });
+      { status: 502 }
+    );
   } catch {
     return Response.json(
       {
