@@ -5,31 +5,41 @@ import { requirePrivy } from "@/lib/privy-server";
 
 export const dynamic = "force-dynamic";
 
+/** Normalize did:privy:xxx ↔ xxx for allowlist compare */
+function normPrivyId(id: string): string {
+  const s = id.trim().toLowerCase();
+  return s.startsWith("did:privy:") ? s.slice("did:privy:".length) : s;
+}
+
+function isAdminPrivy(privyId: string): boolean {
+  const adminIds = (process.env.ADMIN_PRIVY_ID || "")
+    .split(",")
+    .map((s) => normPrivyId(s))
+    .filter(Boolean);
+  if (adminIds.length === 0) return false;
+  return adminIds.includes(normPrivyId(privyId));
+}
+
 /**
  * Admin dump — fail closed.
  * Auth: CRON_SECRET Bearer OR Privy token whose sub is in ADMIN_PRIVY_ID.
- * ADMIN_PRIVY_ID must be set (comma-separated did:privy:…).
+ * ADMIN_PRIVY_ID: comma-separated did:privy:… or bare ids.
  */
 export async function GET(req: NextRequest) {
-  const adminIds = (process.env.ADMIN_PRIVY_ID || "")
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
+  const hasAdmins = Boolean(
+    (process.env.ADMIN_PRIVY_ID || "").split(",").some((s) => s.trim())
+  );
 
-  if (adminIds.length === 0 && !process.env.CRON_SECRET) {
-    return Response.json(
-      { error: "Admin not configured" },
-      { status: 503 }
-    );
+  if (!hasAdmins && !process.env.CRON_SECRET) {
+    return Response.json({ error: "Admin not configured" }, { status: 503 });
   }
 
-  // Prefer cron secret (Workers-safe); else Privy admin allowlist
   const cronDenied = requireCronSecret(req);
   if (cronDenied) {
-    if (adminIds.length === 0) return cronDenied;
+    if (!hasAdmins) return cronDenied;
     const auth = await requirePrivy(req, {});
     if (!auth.ok) return auth.res;
-    if (!adminIds.includes(auth.id.privyId)) {
+    if (!isAdminPrivy(auth.id.privyId)) {
       return Response.json({ error: "Forbidden" }, { status: 403 });
     }
   }
@@ -95,5 +105,13 @@ export async function GET(req: NextRequest) {
       }
     : { signups: 0, totalVotes: 0, uniqueVoters: 0, referrals: 0 };
 
-  return Response.json({ stats, users, voters, referrals });
+  return Response.json(
+    { stats, users, voters, referrals },
+    {
+      headers: {
+        "Cache-Control": "no-store",
+        "X-Robots-Tag": "noindex, nofollow",
+      },
+    }
+  );
 }
