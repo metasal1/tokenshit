@@ -6,6 +6,21 @@
  */
 const HERMES = "https://hermes.pyth.network";
 
+function pythHeaders(): Record<string, string> {
+  const key =
+    process.env.PYTH_API_KEY ||
+    process.env.PYTH_HERMES_API_KEY ||
+    process.env.HERMES_API_KEY ||
+    "";
+  const h: Record<string, string> = {
+    Accept: "application/json",
+    "User-Agent": "tokenshit-hour-game/pyth-1.1",
+  };
+  if (key) h.Authorization = `Bearer ${key}`;
+  return h;
+}
+
+
 /** Well-known Crypto BASE/USD feed IDs (hex, no 0x) — seed map, rest discovered. */
 export const PYTH_SEED_FEEDS: Record<string, string> = {
   SOL: "ef0d8b6fda2ceba41da15d4095d1da392a0d2f8ed0c6c7bc0f4cfac8c280b56d",
@@ -59,10 +74,7 @@ export async function getPythUsdFeedMap(): Promise<Map<string, string>> {
 
   try {
     const res = await fetch(`${HERMES}/v2/price_feeds?asset_type=crypto`, {
-      headers: {
-        Accept: "application/json",
-        "User-Agent": "tokenshit-hour-game/pyth-1.0",
-      },
+      headers: pythHeaders(),
       cache: "no-store",
     });
     if (res.ok) {
@@ -135,7 +147,7 @@ export async function getPythUsdFeedMap(): Promise<Map<string, string>> {
       const res = await fetch(
         `${HERMES}/v2/price_feeds?query=${encodeURIComponent(q)}&asset_type=crypto`,
         {
-          headers: { Accept: "application/json" },
+          headers: pythHeaders(),
           cache: "no-store",
         }
       );
@@ -196,10 +208,7 @@ export async function fetchPythUsdBySymbols(
     try {
       const url = `${HERMES}/v2/updates/price/latest?${qs}&parsed=true`;
       const res = await fetch(url, {
-        headers: {
-          Accept: "application/json",
-          "User-Agent": "tokenshit-hour-game/pyth-1.0",
-        },
+        headers: pythHeaders(),
         cache: "no-store",
       });
       if (res.ok) {
@@ -227,7 +236,7 @@ export async function fetchPythUsdBySymbols(
     try {
       const qs2 = chunk.map((id) => `ids[]=${id}`).join("&");
       const res = await fetch(`${HERMES}/api/latest_price_feeds?${qs2}`, {
-        headers: { Accept: "application/json" },
+        headers: pythHeaders(),
         cache: "no-store",
       });
       if (!res.ok) continue;
