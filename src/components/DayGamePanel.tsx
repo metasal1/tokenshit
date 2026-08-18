@@ -467,12 +467,7 @@ export default function DayGamePanel({
     setBusy(true);
     try {
       setPhase("Checking balance…");
-      const have = await fetchShitBalance(wallet);
-      if (have != null && have < PLAY_STAKE) {
-        throw new Error(
-          `Need ${PLAY_STAKE.toLocaleString()} $${SHIT_SYMBOL} (you have ${have.toLocaleString(undefined, { maximumFractionDigits: 2 })}). Claim or buy first.`
-        );
-      }
+      let have: number | null = null;
       let solBal: number | null = null;
       try {
         const br = await fetch(
@@ -481,10 +476,24 @@ export default function DayGamePanel({
         );
         if (br.ok) {
           const bd = await br.json();
-          solBal = Number(bd.sol);
+          const n = Number(bd.shit ?? bd.tokenshit ?? bd.balance);
+          have = Number.isFinite(n) ? n : null;
+          const s = Number(bd.sol);
+          solBal = Number.isFinite(s) ? s : null;
         }
       } catch {
-        /* */
+        have = await fetchShitBalance(wallet);
+      }
+      if (have == null) have = await fetchShitBalance(wallet);
+      if (have != null && have < PLAY_STAKE) {
+        throw new Error(
+          `Need ${PLAY_STAKE.toLocaleString()} $${SHIT_SYMBOL} (you have ${have.toLocaleString(undefined, { maximumFractionDigits: 2 })}). Claim or buy first.`
+        );
+      }
+      if (solBal != null && solBal < 0.002) {
+        throw new Error(
+          `Need ~0.01 SOL for fees (you have ${solBal.toFixed(4)}). Sponsorship is off — add SOL on Buy, then retry.`
+        );
       }
 
       setPhase("Building…");
