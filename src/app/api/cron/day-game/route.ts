@@ -63,20 +63,24 @@ export async function POST(request: NextRequest) {
       const n = await snapshotPrices(day, "close");
       return Response.json({ ok: true, action: "close", hour: day, assets: n });
     }
-    if (action === "settle") {
+    if (action === "settle" || action === "retry") {
+      const force = action === "retry" || sp.get("force") === "1";
       await snapshotPrices(day, "close");
-      const result = await settleDay(day);
+      const result = await settleDay(day, { force });
       if (result.ok && result.result && !result.result.already) {
         const r = result.result as {
           hitBag?: { assetId: string; pct: number };
           shitBag?: { assetId: string; pct: number };
           hit?: { winner: string | null; prize: number; fee: number };
           shit?: { winner: string | null; prize: number; fee: number };
+          priceRetries?: number;
+          boardHealth?: { ok: boolean; spread: number; nearZeroRatio: number };
+          force?: boolean;
         };
         try {
           await sendTelegramMessage(
             [
-              `<b>$HIT OF THE DAY</b> · ${escapeHtml(day)}`,
+              `<b>$HIT OF THE DAY</b> · ${force ? "retry " : ""}${escapeHtml(day)}`,
               r.hitBag
                 ? `HIT: <code>${escapeHtml(r.hitBag.assetId)}</code> ${r.hitBag.pct.toFixed(2)}%`
                 : "HIT bag: —",
@@ -89,8 +93,13 @@ export async function POST(request: NextRequest) {
               r.shit?.winner
                 ? `SHIT winner: <code>${escapeHtml(r.shit.winner)}</code> +${Number(r.shit.prize).toLocaleString()}`
                 : `SHIT → empty / house`,
+              r.boardHealth
+                ? `board spread ${r.boardHealth.spread.toFixed(2)}% · retries ${r.priceRetries ?? 0}`
+                : "",
               `<a href="https://tokenshit.com/winners">Winners</a>`,
-            ].join("\n")
+            ]
+              .filter(Boolean)
+              .join("\n")
           );
         } catch {
           /* ignore */
@@ -144,7 +153,7 @@ export async function POST(request: NextRequest) {
     }
 
     return Response.json(
-      { error: "action must be open|close|settle|hourly" },
+      { error: "action must be open|close|settle|retry|hourly" },
       { status: 400 }
     );
   } catch (e) {
