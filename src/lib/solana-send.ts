@@ -1,4 +1,4 @@
-/** Client Solana send helpers — Jupiter base64 txs + Privy sign. */
+/** Client Solana send helpers — sign + our RPC (no Privy sponsor UI). */
 
 /** Same-origin RPC proxy (never dedicated Helius in the browser bundle). */
 export function getSolanaSendRpc(): string {
@@ -8,7 +8,7 @@ export function getSolanaSendRpc(): string {
   return "https://tokenshit.com/api/rpc";
 }
 
-/** @deprecated use getSolanaSendRpc() — kept for import compat */
+/** @deprecated use getSolanaSendRpc() */
 export const SOLANA_SEND_RPC =
   typeof window !== "undefined"
     ? `${typeof location !== "undefined" ? location.origin : ""}/api/rpc`
@@ -94,32 +94,20 @@ export function friendlySolanaSendError(e: unknown): string {
   const low = m.toLowerCase();
   if (/user rejected|denied|cancel/i.test(m)) return "Cancelled.";
   if (/something went wrong|please try again|retry transaction/i.test(low)) {
-    return "Wallet send failed. Pay gas with your own SOL (~0.01) — sponsorship is off. Retry Play.";
+    return "Wallet could not send. We use your SOL for gas (sponsorship off). Retry Play — if it keeps failing, refresh.";
   }
-  if (/insufficient|0x1|lamport|insufficientfundsforrent|0x0/i.test(low)) {
-    return "Not enough SOL for fees (keep ~0.01 SOL) or not enough $TOKENSHIT for this play.";
+  if (/insufficient|0x1|lamport|insufficientfundsforrent/i.test(low)) {
+    return "Not enough SOL for fees (keep ~0.01 SOL) or not enough $TOKENSHIT.";
   }
   if (/blockhash|expired|block height/i.test(low)) {
     return "Tx expired — tap Play again.";
   }
-  if (
-    /-32602|invalid (method )?param|failed to prepare|preparing your transaction/i.test(
-      low
-    )
-  ) {
-    return "Wallet prepare failed (Token-2022). Retry — we sign + broadcast ourselves.";
+  if (/-32602|invalid (method )?param|failed to prepare/i.test(low)) {
+    return "Wallet prepare failed. Retry Play.";
   }
-  if (/5663005|lookup table|address lookup/i.test(low)) {
-    return "Wallet couldn’t load the route — refresh and try again.";
-  }
-  if (/slippage|0x1771|custom program error: 6001/i.test(low)) {
-    return "Price moved — bump slippage or retry.";
-  }
-  if (/need .*tokenshit|insufficient_shit/i.test(low)) {
-    return m;
-  }
+  if (/need .*tokenshit|insufficient_shit/i.test(low)) return m;
   if (m.length > 220) return `${m.slice(0, 200)}…`;
-  return m || "Something went wrong — retry.";
+  return m || "Send failed — retry.";
 }
 
 export function isPrepareFailure(e: unknown): boolean {
@@ -151,7 +139,7 @@ export async function sendRawBase64(
           encoding: "base64",
           skipPreflight: opts?.skipPreflight ?? true,
           preflightCommitment: "confirmed",
-          maxRetries: 3,
+          maxRetries: 5,
         },
       ],
     }),
@@ -168,21 +156,44 @@ export async function sendRawBase64(
 function sigFromResult(result: unknown): string | null {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const r = result as any;
-  const sigBytes = r?.signature;
+  if (!r) return null;
+  if (typeof r === "string" && r.length > 40) return r;
+  const sigBytes = r.signature;
   if (sigBytes instanceof Uint8Array) return encodeSigBs58(sigBytes);
-  if (typeof r?.signature === "string" && r.signature.length > 40) {
+  if (typeof r.signature === "string" && r.signature.length > 40) {
     return r.signature;
   }
-  if (typeof r === "string" && r.length > 40) return r;
+  return null;
+}
+
+function extractSignedBytes(signed: unknown): Uint8Array | null {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const s = signed as any;
+  if (!s) return null;
+  if (s instanceof Uint8Array) return s;
+  if (s.signedTransaction instanceof Uint8Array) return s.signedTransaction;
+  if (s.transaction instanceof Uint8Array) return s.transaction;
+  // some privy versions nest
+  if (s.signedTransaction?.serialize) {
+    try {
+      return s.signedTransaction.serialize();
+    } catch {
+      /* */
+    }
+  }
   return null;
 }
 
 /**
- * Send a prebuilt tx via Privy.
+ * Self-pay gas path for Play (sponsorship OFF).
  *
- * Gas sponsorship is OFF in production — prefer user-paid fees
- * (sponsor:false) + signTransaction → raw broadcast fallback.
- * Only attempt sponsor when the wallet has almost no SOL.
+ * Never opens Privy signAndSend "Retry transaction" UI first —
+ * that path dies when gas sponsorship is disabled.
+ *
+ * Order:
+ * 1) signTransaction (no sponsor) → broadcast via /api/rpc
+ * 2) signAndSend sponsor:false, showWalletUIs:false (silent)
+ * 3) signAndSend sponsor:false with UI only if silent failed
  */
 export async function sendWithPrivyFallback(opts: {
   txBytes: Uint8Array;
@@ -204,89 +215,103 @@ export async function sendWithPrivyFallback(opts: {
     solBalance,
   } = opts;
 
-  const sol = solBalance == null || !Number.isFinite(solBalance) ? null : solBalance;
-  // Play Token-2022 transfer is cheap; 0.002 SOL is enough headroom
-  const canSelfPay = sol == null || sol >= 0.002;
+  const sol =
+    solBalance == null || !Number.isFinite(solBalance) ? null : solBalance;
+  if (sol != null && sol < 0.0015) {
+    throw new Error(
+      "Need ~0.01 SOL for network fees (sponsorship is off). Add SOL on Buy, then retry."
+    );
+  }
 
-  const trySend = (sponsor: boolean, showUi: boolean) =>
-    signAndSendTransaction({
+  let lastErr: unknown;
+
+  // ── 1) Sign only + our RPC (preferred) ──────────────────────────
+  if (signTransaction) {
+    try {
+      const signed = await signTransaction({
+        transaction: txBytes,
+        wallet,
+        chain: "solana:mainnet",
+        options: {
+          uiOptions: {
+            // false avoids the broken Privy "Retry transaction" sheet
+            showWalletUIs: false,
+            description: description || "Play ticket — you pay a tiny SOL fee",
+          },
+        },
+      });
+      const bytes = extractSignedBytes(signed);
+      if (bytes) {
+        return await sendRawBase64(bytes, { skipPreflight: true });
+      }
+      lastErr = new Error("Wallet returned no signed bytes");
+    } catch (e) {
+      lastErr = e;
+      if (/user rejected|denied|cancel/i.test(extractErrorMessage(e))) throw e;
+    }
+
+    // retry sign with UI if silent sign unsupported
+    try {
+      const signed = await signTransaction({
+        transaction: txBytes,
+        wallet,
+        chain: "solana:mainnet",
+        options: {
+          uiOptions: {
+            showWalletUIs: true,
+            description: description || "Play ticket — you pay a tiny SOL fee",
+          },
+        },
+      });
+      const bytes = extractSignedBytes(signed);
+      if (bytes) {
+        return await sendRawBase64(bytes, { skipPreflight: true });
+      }
+    } catch (e) {
+      lastErr = e;
+      if (/user rejected|denied|cancel/i.test(extractErrorMessage(e))) throw e;
+    }
+  }
+
+  // ── 2) signAndSend self-pay, NO wallet UI (no error modal) ──────
+  try {
+    const result = await signAndSendTransaction({
       transaction: txBytes,
       wallet,
       chain: "solana:mainnet",
       options: {
-        sponsor,
+        sponsor: false,
         uiOptions: {
-          showWalletUIs: showUi,
+          showWalletUIs: false,
           description: description || undefined,
         },
       },
     });
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let lastErr: unknown;
-
-  const attempts: Array<() => Promise<unknown>> = [];
-
-  if (canSelfPay) {
-    // 1) User pays gas — no sponsor (primary path)
-    attempts.push(() => trySend(false, true));
-    // 2) Sign only + our RPC broadcast (bypasses broken Privy prepare/sponsor UI)
-    if (signTransaction) {
-      attempts.push(async () => {
-        const signed = await signTransaction({
-          transaction: txBytes,
-          wallet,
-          chain: "solana:mainnet",
-          options: {
-            uiOptions: {
-              showWalletUIs: true,
-              description: description || undefined,
-            },
-          },
-        });
-        const signedBytes =
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          (signed as any)?.signedTransaction ??
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          (signed as any)?.transaction ??
-          signed;
-        if (!(signedBytes instanceof Uint8Array)) {
-          throw new Error("Wallet returned no signed transaction bytes");
-        }
-        return { signature: await sendRawBase64(signedBytes, { skipPreflight: true }) };
-      });
-    }
-    // 3) Last resort: sponsor (may still be configured for some users)
-    attempts.push(() => trySend(true, false));
-    attempts.push(() => trySend(true, true));
-  } else {
-    // Almost no SOL — try sponsor first, then clear error
-    attempts.push(() => trySend(true, false));
-    attempts.push(() => trySend(true, true));
-    attempts.push(() => trySend(false, true));
+    const sig = sigFromResult(result);
+    if (sig) return sig;
+  } catch (e) {
+    lastErr = e;
+    if (/user rejected|denied|cancel/i.test(extractErrorMessage(e))) throw e;
   }
 
-  for (const run of attempts) {
-    try {
-      const result = await run();
-      const sig = sigFromResult(result);
-      if (sig) return sig;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const nested = sigFromResult((result as any)?.data ?? (result as any)?.result);
-      if (nested) return nested;
-    } catch (e) {
-      lastErr = e;
-      // user cancel — stop
-      if (/user rejected|denied|cancel/i.test(extractErrorMessage(e))) {
-        throw e instanceof Error ? e : new Error(extractErrorMessage(e));
-      }
-    }
-  }
-
-  if ((sol ?? 0) < 0.002 && isPrepareFailure(lastErr)) {
-    throw new Error(
-      "Not enough SOL for fees and sponsorship is off. Add ~0.01 SOL on Buy, then retry."
-    );
+  // ── 3) Last: signAndSend with UI (may still show Privy sheet) ───
+  try {
+    const result = await signAndSendTransaction({
+      transaction: txBytes,
+      wallet,
+      chain: "solana:mainnet",
+      options: {
+        sponsor: false,
+        uiOptions: {
+          showWalletUIs: true,
+          description: description || "Play — network fee from your SOL",
+        },
+      },
+    });
+    const sig = sigFromResult(result);
+    if (sig) return sig;
+  } catch (e) {
+    lastErr = e;
   }
 
   throw lastErr instanceof Error

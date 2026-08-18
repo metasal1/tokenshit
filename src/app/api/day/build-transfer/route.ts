@@ -40,6 +40,7 @@ async function shitBalanceUi(owner: string): Promise<number> {
 
 /**
  * POST { wallet } → unsigned transfer 1000 SHIT → play pot escrow
+ * Versioned tx (v0) — Privy embedded signs these more reliably than legacy.
  */
 export async function POST(request: Request) {
   try {
@@ -62,7 +63,31 @@ export async function POST(request: Request) {
       );
     }
 
-    const { PublicKey, Transaction } = await import("@solana/web3.js");
+    // SOL check — sponsorship off; user must self-pay
+    const balRes = await rpc<{ value: number }>("getBalance", [
+      wallet,
+      { commitment: "confirmed" },
+    ]);
+    const lamports = Number(balRes?.value || 0);
+    const sol = lamports / 1e9;
+    if (sol < 0.0015) {
+      return Response.json(
+        {
+          error: `Need ~0.01 SOL for fees (you have ${sol.toFixed(4)}). Sponsorship is off — add SOL, then retry.`,
+          code: "insufficient_sol",
+          sol,
+        },
+        { status: 400 }
+      );
+    }
+
+    const {
+      PublicKey,
+      TransactionMessage,
+      VersionedTransaction,
+      SystemProgram,
+      ComputeBudgetProgram,
+    } = await import("@solana/web3.js");
     const {
       createTransferCheckedInstruction,
       getAssociatedTokenAddress,
@@ -93,20 +118,16 @@ export async function POST(request: Request) {
       value: { blockhash: string; lastValidBlockHeight: number };
     }>("getLatestBlockhash", [{ commitment: "confirmed" }]);
 
-    const tx = new Transaction();
-    tx.recentBlockhash = latest.value.blockhash;
-    tx.feePayer = owner;
-
-    tx.add(
+    const ixs = [
+      ComputeBudgetProgram.setComputeUnitLimit({ units: 120_000 }),
+      ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 50_000 }),
       createAssociatedTokenAccountIdempotentInstruction(
         owner,
         toAta,
         pot,
         mint,
         TOKEN_2022_PROGRAM_ID
-      )
-    );
-    tx.add(
+      ),
       createTransferCheckedInstruction(
         fromAta,
         mint,
@@ -116,22 +137,32 @@ export async function POST(request: Request) {
         decimals,
         [],
         TOKEN_2022_PROGRAM_ID
-      )
-    );
+      ),
+    ];
 
-    const serialized = tx.serialize({
-      requireAllSignatures: false,
-      verifySignatures: false,
-    });
+    // silence unused import if tree-shaken weirdly
+    void SystemProgram;
+
+    const msg = new TransactionMessage({
+      payerKey: owner,
+      recentBlockhash: latest.value.blockhash,
+      instructions: ixs,
+    }).compileToV0Message();
+
+    const vtx = new VersionedTransaction(msg);
+    const serialized = vtx.serialize();
     const b64 = Buffer.from(serialized).toString("base64");
 
     return Response.json({
       transaction: b64,
+      version: 0,
       amount: DAY_STAKE_AMOUNT,
       balance,
+      sol,
       mint: SHIT_MINT,
       pot: PLAY_POT_ADDRESS,
       blockhash: latest.value.blockhash,
+      lastValidBlockHeight: latest.value.lastValidBlockHeight,
     });
   } catch (e) {
     return Response.json(
