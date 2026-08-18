@@ -40,7 +40,7 @@ export const CLAIM_X_VERIFIED = 5_000;
 export const CLAIM_X_PREMIUM = 7_500;
 /** GitHub fork of solana-foundation/tokens */
 export const CLAIM_GH_FORK = 7_500;
-/** Jupiter VRFD verified (TOKENSHIT mint on verified.jup.ag) */
+/** Jupiter VRFD — like $TOKENSHIT on verified.jup.ag with same X (once) */
 export const CLAIM_JUP_VERIFIED = 5_000;
 /** Tweet + tag @Tokenshit_ — every 24h; tweet must be <24h old */
 export const CLAIM_X_TWEET = 2_500;
@@ -177,7 +177,7 @@ export const TOKENOMICS_BLURB = [
   `Tweet + tag @${X_HANDLE} — claim ${CLAIM_X_TWEET.toLocaleString()} $TOKENSHIT every 24h.`,
   `X verified — claim ${CLAIM_X_VERIFIED.toLocaleString()} $TOKENSHIT once.`,
   `X Premium — claim ${CLAIM_X_PREMIUM.toLocaleString()} $TOKENSHIT once.`,
-  `Jupiter VRFD verified — claim ${CLAIM_JUP_VERIFIED.toLocaleString()} $TOKENSHIT once.`,
+  `Like $TOKENSHIT on Jupiter VRFD (same X) — claim ${CLAIM_JUP_VERIFIED.toLocaleString()} $TOKENSHIT once.`,
   `Fork solana-foundation/tokens — claim ${CLAIM_GH_FORK.toLocaleString()} $TOKENSHIT once.`,
   `Refer friends — ${REFERRAL_REWARD_SHIT.toLocaleString()} $TOKENSHIT each.`,
 ].join(" ");

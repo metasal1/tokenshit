@@ -1,13 +1,15 @@
 /**
- * Jupiter VRFD / Express Verification helpers.
+ * Jupiter VRFD — likes + Express helpers.
+ * Likes API (public): https://token-verify-api.jup.ag
  * Docs: https://dev.jup.ag/docs/tokens/verification
- * Dashboard: https://verified.jup.ag/dashboard/<mint>
  *
- * SOT for TOKENSHIT catalog remains tokens.xyz — this is Jupiter badge only.
+ * Claim action: user likes TOKENSHIT on verified.jup.ag with same X → 5k SHIT.
+ * Tokens.xyz remains catalog SOT.
  */
 import { SHIT_MINT, X_HANDLE, X_URL } from "@/lib/shit-token";
 
 const JUP_API = "https://api.jup.ag";
+const VRFD_API = "https://token-verify-api.jup.ag";
 
 export const JUP_VRFD_DASHBOARD = (mint: string = SHIT_MINT) =>
   `https://verified.jup.ag/dashboard/${mint}`;
@@ -20,6 +22,12 @@ export type JupEligibility = {
   verificationError?: string;
   metadataError?: string;
   existingMetadataId?: number;
+};
+
+export type JupLiker = {
+  twitterId?: string;
+  twitterUsername: string;
+  profileImageUrl?: string;
 };
 
 function jupHeaders(): HeadersInit {
@@ -36,6 +44,13 @@ function jupHeaders(): HeadersInit {
   return h;
 }
 
+function vrfdHeaders(): HeadersInit {
+  return {
+    Accept: "application/json",
+    "User-Agent": "TokenShit/1.0 (+https://tokenshit.com)",
+  };
+}
+
 export async function checkJupVrfdEligibility(
   tokenId: string = SHIT_MINT
 ): Promise<JupEligibility> {
@@ -48,7 +63,6 @@ export async function checkJupVrfdEligibility(
   return (await res.json()) as JupEligibility;
 }
 
-/** Fast isVerified via tokens search (works on lite-api too). */
 export async function isJupTokenVerified(
   tokenId: string = SHIT_MINT
 ): Promise<boolean> {
@@ -56,7 +70,7 @@ export async function isJupTokenVerified(
     const elig = await checkJupVrfdEligibility(tokenId);
     return Boolean(elig.isVerified);
   } catch {
-    /* fall through to search */
+    /* fall through */
   }
   try {
     const url = `https://lite-api.jup.ag/tokens/v2/search?query=${encodeURIComponent(tokenId)}`;
@@ -65,7 +79,10 @@ export async function isJupTokenVerified(
       cache: "no-store",
     });
     if (!res.ok) return false;
-    const data = (await res.json()) as Array<{ id?: string; isVerified?: boolean }>;
+    const data = (await res.json()) as Array<{
+      id?: string;
+      isVerified?: boolean;
+    }>;
     const hit = (data || []).find(
       (t) => String(t.id || "").toLowerCase() === tokenId.toLowerCase()
     );
@@ -73,6 +90,123 @@ export async function isJupTokenVerified(
   } catch {
     return false;
   }
+}
+
+/** Summary likes + top likers (includes smartLikes). */
+export async function getTokenLikeSummary(
+  mint: string = SHIT_MINT
+): Promise<{
+  likes: number;
+  smartLikes: number;
+  topLikers: JupLiker[];
+}> {
+  const url = `${VRFD_API}/likes?mint=${encodeURIComponent(mint)}`;
+  const res = await fetch(url, { headers: vrfdHeaders(), cache: "no-store" });
+  if (!res.ok) {
+    throw new Error(`VRFD likes ${res.status}`);
+  }
+  const data = (await res.json()) as {
+    likes?: number;
+    smartLikes?: number;
+    topLikers?: JupLiker[];
+  };
+  return {
+    likes: Number(data.likes || 0),
+    smartLikes: Number(data.smartLikes || 0),
+    topLikers: Array.isArray(data.topLikers) ? data.topLikers : [],
+  };
+}
+
+/**
+ * Paginate VRFD likers until handle found or pages exhausted.
+ * Public — no auth required.
+ */
+export async function userLikedTokenOnVrfd(opts: {
+  twitter: string;
+  mint?: string;
+  maxPages?: number;
+  pageSize?: number;
+}): Promise<{
+  liked: boolean;
+  likes: number;
+  matched?: JupLiker;
+  pagesScanned: number;
+  dashboard: string;
+}> {
+  const mint = opts.mint || SHIT_MINT;
+  const handle = opts.twitter.replace(/^@/, "").trim().toLowerCase();
+  const dashboard = JUP_VRFD_DASHBOARD(mint);
+  if (!handle) {
+    return { liked: false, likes: 0, pagesScanned: 0, dashboard };
+  }
+
+  // Fast path: top likers on summary
+  try {
+    const sum = await getTokenLikeSummary(mint);
+    const top = sum.topLikers.find(
+      (u) =>
+        String(u.twitterUsername || "")
+          .replace(/^@/, "")
+          .toLowerCase() === handle
+    );
+    if (top) {
+      return {
+        liked: true,
+        likes: sum.likes,
+        matched: top,
+        pagesScanned: 0,
+        dashboard,
+      };
+    }
+    // If total likes fit in top list and not found → not liked
+    if (sum.likes > 0 && sum.topLikers.length >= sum.likes) {
+      return {
+        liked: false,
+        likes: sum.likes,
+        pagesScanned: 0,
+        dashboard,
+      };
+    }
+  } catch {
+    /* continue to list */
+  }
+
+  const maxPages = Math.min(Math.max(opts.maxPages ?? 15, 1), 40);
+  const limit = Math.min(Math.max(opts.pageSize ?? 50, 10), 100);
+  let likes = 0;
+  let pagesScanned = 0;
+
+  for (let page = 1; page <= maxPages; page++) {
+    const url = `${VRFD_API}/likes/list?mint=${encodeURIComponent(mint)}&page=${page}&limit=${limit}`;
+    const res = await fetch(url, { headers: vrfdHeaders(), cache: "no-store" });
+    if (!res.ok) break;
+    const json = (await res.json()) as {
+      success?: boolean;
+      data?: JupLiker[];
+      total?: number;
+    };
+    const rows = Array.isArray(json.data) ? json.data : [];
+    pagesScanned++;
+    if (typeof json.total === "number") likes = json.total;
+    const hit = rows.find(
+      (u) =>
+        String(u.twitterUsername || "")
+          .replace(/^@/, "")
+          .toLowerCase() === handle
+    );
+    if (hit) {
+      return {
+        liked: true,
+        likes: likes || rows.length,
+        matched: hit,
+        pagesScanned,
+        dashboard,
+      };
+    }
+    if (rows.length < limit) break;
+  }
+
+  return { liked: false, likes, pagesScanned, dashboard };
 }
 
 export type CraftTxnResult = {
@@ -106,7 +240,10 @@ export async function craftJupVrfdTxn(opts: {
         `craft-txn ${res.status}`
     );
   }
-  if (!(data as CraftTxnResult).transaction || !(data as CraftTxnResult).requestId) {
+  if (
+    !(data as CraftTxnResult).transaction ||
+    !(data as CraftTxnResult).requestId
+  ) {
     throw new Error("craft-txn missing transaction/requestId");
   }
   return data as CraftTxnResult;

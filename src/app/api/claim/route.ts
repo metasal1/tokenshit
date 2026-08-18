@@ -132,17 +132,12 @@ export async function GET(request: NextRequest) {
       detail = list;
       eligible = list.ok;
     } else if (kind === "jup_verified") {
-      const { isJupTokenVerified, JUP_VRFD_DASHBOARD, checkJupVrfdEligibility } =
-        await import("@/lib/jup-vrfd");
-      const elig = await checkJupVrfdEligibility().catch(() => null);
-      const verified =
-        elig?.isVerified ?? (await isJupTokenVerified());
-      detail = {
-        ...(elig || {}),
-        isVerified: verified,
-        dashboard: JUP_VRFD_DASHBOARD(),
-      };
-      eligible = verified;
+      if (!twitter)
+        return Response.json({ error: "twitter required" }, { status: 400 });
+      const { userLikedTokenOnVrfd } = await import("@/lib/jup-vrfd");
+      const like = await userLikedTokenOnVrfd({ twitter });
+      detail = like;
+      eligible = like.liked;
     }
 
     const claimed = await hasClaimed(kind, { twitter, github, wallet });
@@ -484,20 +479,19 @@ export async function POST(request: NextRequest) {
       }
       amount = CLAIM_EMAIL_LIST;
     } else if (kind === "jup_verified") {
-      const { isJupTokenVerified, JUP_VRFD_DASHBOARD, checkJupVrfdEligibility } =
-        await import("@/lib/jup-vrfd");
-      const elig = await checkJupVrfdEligibility().catch(() => null);
-      const verified =
-        elig?.isVerified ?? (await isJupTokenVerified());
-      if (!verified) {
+      // User must like TOKENSHIT on verified.jup.ag with the same X handle
+      const { userLikedTokenOnVrfd, JUP_VRFD_DASHBOARD } = await import(
+        "@/lib/jup-vrfd"
+      );
+      const like = await userLikedTokenOnVrfd({ twitter });
+      if (!like.liked) {
         return Response.json(
           {
             error:
-              "TOKEN$HIT is not Jupiter-verified yet. When VRFD marks the mint verified, claim here.",
-            code: "not_jup_verified",
-            dashboard: JUP_VRFD_DASHBOARD(),
-            canVerify: elig?.canVerify ?? null,
-            eligibility: elig,
+              "Like $TOKENSHIT on Jupiter VRFD with this X account, then claim. Same @handle as login.",
+            code: "not_jup_liked",
+            dashboard: like.dashboard || JUP_VRFD_DASHBOARD(),
+            likes: like.likes,
           },
           { status: 403 }
         );

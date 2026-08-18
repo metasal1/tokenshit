@@ -45,7 +45,7 @@ const REWARDS = [
   { label: "Join list", amt: CLAIM_EMAIL_LIST, emoji: "✉️" },
   { label: "X verified", amt: CLAIM_X_VERIFIED, emoji: "✅" },
   { label: "X premium", amt: CLAIM_X_PREMIUM, emoji: "💎" },
-  { label: "Jupiter VRFD", amt: CLAIM_JUP_VERIFIED, emoji: "🪐" },
+  { label: "Jupiter like", amt: CLAIM_JUP_VERIFIED, emoji: "🪐" },
   { label: "GH fork", amt: CLAIM_GH_FORK, emoji: "🍴" },
   { label: "Per referral", amt: REFERRAL_REWARD_SHIT, emoji: "🔗" },
   { label: "Daily UTC 0", amt: GLOBAL_TREASURY_DAILY_DROP, emoji: "🏦" },
