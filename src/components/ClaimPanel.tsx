@@ -8,6 +8,7 @@ import { isStandalonePwa } from "@/lib/pwa-auth";
 import {
   CLAIM_EMAIL_LIST,
   CLAIM_GH_FORK,
+  CLAIM_JUP_VERIFIED,
   CLAIM_X_FOLLOW,
   CLAIM_X_PREMIUM,
   CLAIM_X_TWEET,
@@ -36,7 +37,8 @@ type ClaimKind =
   | "gh_fork"
   | "x_tweet"
   | "x_follow"
-  | "email_list";
+  | "email_list"
+  | "jup_verified";
 
 type ClaimPhase = null | "session" | "verify" | "send" | "done" | "error";
 
@@ -55,6 +57,7 @@ const KIND_TITLE: Record<ClaimKind, string> = {
   x_verified: "X verified",
   email_list: "Email list",
   gh_fork: "GitHub fork",
+  jup_verified: "Jupiter VRFD",
 };
 
 function fmt(n: number) {
@@ -932,11 +935,56 @@ export default function ClaimPanel() {
         </div>
 
         <RewardRow
+          claimed={!!claimedStatus.jup_verified}
+          statusLoading={statusLoading && authenticated}
+          title="Jupiter VRFD"
+          amount={CLAIM_JUP_VERIFIED}
+          highlight
+          hint={
+            <>
+              One-time when $TOKENSHIT is{" "}
+              <a
+                href={`https://verified.jup.ag/dashboard/${SHIT_MINT}`}
+                className="text-neon-blue break-all"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Jupiter-verified
+              </a>
+              . Live check via Express API · 100+ followers · PFP
+            </>
+          }
+        >
+          <div className="space-y-2">
+            <button
+              type="button"
+              disabled={busy !== null || !!claimedStatus.jup_verified}
+              onClick={() => claim("jup_verified")}
+              className={BTN_NEON}
+            >
+              {busy === "jup_verified"
+                ? "Claiming…"
+                : authenticated
+                  ? `Claim VRFD ${CLAIM_JUP_VERIFIED.toLocaleString()}`
+                  : "Login with X"}
+            </button>
+            <a
+              href={`https://verified.jup.ag/dashboard/${SHIT_MINT}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block text-center text-[11px] font-mono text-zinc-500 hover:text-neon-blue"
+            >
+              Open Jupiter dashboard ↗
+            </a>
+          </div>
+        </RewardRow>
+
+        <RewardRow
           claimed={!!claimedStatus.email_list}
           statusLoading={statusLoading && authenticated}
           title="Join the list"
           amount={CLAIM_EMAIL_LIST}
-          hint="One-time email list claim (same X / wallet). (same X / wallet)."
+          hint="One-time email list claim (same X / wallet)."
         >
           <button
             type="button"

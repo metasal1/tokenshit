@@ -168,7 +168,12 @@ export async function gateSignupIp(ip: string): Promise<GateResult> {
 }
 
 export function isMajorClaimKind(kind: string): boolean {
-  return kind === "x_verified" || kind === "x_premium" || kind === "gh_fork";
+  return (
+    kind === "x_verified" ||
+    kind === "x_premium" ||
+    kind === "gh_fork" ||
+    kind === "jup_verified"
+  );
 }
 
 /**
