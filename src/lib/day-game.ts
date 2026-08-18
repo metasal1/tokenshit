@@ -1069,10 +1069,9 @@ export async function getLiveLeaders(utcHour: string): Promise<{
   let live = await fetchRealMajorsLive();
   const liveById = new Map(live.map((m) => [m.assetId, m]));
 
-  // If open was frozen on stale Tokens.xyz prices (every move ≈ 0) but
-  // multi-source live has real divergence, re-baseline open once this hour.
-  // Also rebase when live is fresh multi-source but open looks like rounded txyz stats
-  // (integer-ish majors like BTC 63009 while live is 629xx).
+  // If open was frozen on bad external feeds while Tokens.xyz live has
+  // real divergence (or vice versa: all flat while multi-source moved),
+  // re-baseline open once this hour. Tokens.xyz is SOT for live prices.
   if (openM.size > 0 && live.length > 0) {
     let compared = 0;
     let nearZero = 0;
@@ -1085,12 +1084,13 @@ export async function getLiveLeaders(utcHour: string): Promise<{
       if (abs < 0.03) nearZero++;
       if (abs >= 0.05) bigDiv++;
     }
-    const fresh = live.filter((m) => m.source && m.source !== "tokens.xyz");
-    const freshRatio = live.length ? fresh.length / live.length : 0;
+    // Prefer txyz-sourced lives; any valid live counts
+    const txyz = live.filter((m) => m.source === "tokens.xyz");
+    const txyzRatio = live.length ? txyz.length / live.length : 0;
     const shouldRebase =
       compared >= 5 &&
-      ((nearZero / compared >= 0.75 && bigDiv >= 2 && freshRatio >= 0.3) ||
-        (nearZero / compared >= 0.95 && freshRatio >= 0.5));
+      ((nearZero / compared >= 0.75 && bigDiv >= 2) ||
+        (nearZero / compared >= 0.95 && txyzRatio >= 0.5));
     if (shouldRebase) {
       await tursoExecute(
         `DELETE FROM day_prices WHERE utc_day = ? AND phase = 'open'`,
