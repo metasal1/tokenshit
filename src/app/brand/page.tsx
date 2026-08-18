@@ -157,17 +157,16 @@ export default function BrandPage() {
       <Section id="icons" title="Favicon & Apple icons">
         <p className="text-sm text-zinc-400 leading-relaxed">
           App icons for browsers, PWA, and iOS.{" "}
-          <strong className="text-zinc-200">Prefer PNG</strong> for Telegram /
-          chat previews — many clients can&apos;t open SVG as an image. Vector:{" "}
-          <code className="text-neon text-xs">/brand/tokenshit.svg</code>.
+          <strong className="text-zinc-200">PNG only</strong> for the T$ mark
+          (Telegram can&apos;t open SVG as an image). Apple touch:{" "}
+          <code className="text-neon text-xs">/apple-icon.png</code>.
         </p>
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
           {(
             [
-              ["Mark PNG", BRAND.logo.assets.markPng, "512 · use this"],
+              ["Mark PNG", BRAND.logo.assets.markPng, "512 · primary"],
               ["Mark 192", BRAND.logo.assets.markPng192, "192×192"],
               ["Mark 1024", BRAND.logo.assets.markPng1024, "1024×1024"],
-              ["Mark SVG", BRAND.logo.assets.markSvg, "vector"],
               ["Favicon .ico", BRAND.logo.assets.faviconIco, "16–48 multi"],
               ["App icon", BRAND.logo.assets.appIcon, "Next /icon.png"],
               ["Apple touch", BRAND.logo.assets.appleIcon, "iOS home"],

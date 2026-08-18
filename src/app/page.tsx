@@ -35,10 +35,10 @@ export const metadata: Metadata = {
 
 const QUICK = [
   { href: "/play", label: "Play", emoji: "🎯" },
+  { href: "/claim", label: "Claim", emoji: "🎁" },
   { href: "/memes", label: "Memes", emoji: "🎨" },
   { href: "/referrals", label: "Refer", emoji: "🔗" },
   { href: "/boards", label: "Boards", emoji: "📊" },
-  { href: "/claim", label: "Claim", emoji: "🎁" },
   { href: "/whales", label: "Whales", emoji: "🐋" },
 ] as const;
 
