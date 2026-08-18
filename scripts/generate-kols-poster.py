@@ -126,27 +126,36 @@ def rounded_rect(draw, box, r, fill, outline=None, width=2):
 def make_poster(size: tuple[int, int], tag: str) -> Image.Image:
     w, h = size
     img = Image.new("RGBA", (w, h), (*BG, 255))
-    scatter_emojis(img, f"kols-{tag}-{w}x{h}", n=22 if w >= 1000 else 16)
+    scatter_emojis(img, f"kols-{tag}-{w}x{h}", n=14 if w >= 1000 else 10)
     draw = ImageDraw.Draw(img)
 
     # scale
     s = w / 1080
-    # Story (9:16): bump type so stack fills frame
-    tall = h / max(w, 1) >= 1.6
+    aspect = h / max(w, 1)
+    tall = aspect >= 1.6
+    wide = aspect <= 0.6  # 1200x630 etc
     if tall:
-        s *= 1.12
-    fs = lambda n: max(12, int(n * s))
+        s *= 1.08
+    if wide:
+        # keep stack on one short canvas — smaller type + tighter gaps
+        s *= 0.55
+    fs = lambda n: max(10, int(n * s))
 
-    mono_sm = load_font("Monoton-Regular.ttf", fs(56))
-    mono_lg = load_font("Monoton-Regular.ttf", fs(128))
-    mono_xl = load_font("Monoton-Regular.ttf", fs(148))
-    orb = load_font("Orbitron-Bold.ttf", fs(30))
-    orb_sm = load_font("Orbitron-Bold.ttf", fs(22))
-    inter = load_font("Inter-Bold.ttf", fs(48))
-    inter_sm = load_font("Inter-Regular.ttf", fs(28))
+    mono_sm = load_font("Monoton-Regular.ttf", fs(72))
+    mono_lg = load_font("Monoton-Regular.ttf", fs(168))
+    mono_xl = load_font("Monoton-Regular.ttf", fs(210))
+    orb = load_font("Orbitron-Bold.ttf", fs(42))
+    orb_sm = load_font("Orbitron-Bold.ttf", fs(28))
+    inter = load_font("Inter-Bold.ttf", fs(68))
+    inter_sm = load_font("Inter-Regular.ttf", fs(36))
 
     # Taller stories: start content higher in upper-middle (less empty void)
-    y = int(h * (0.10 if h / w > 1.5 else 0.06))
+    if wide:
+        y = int(h * 0.04)
+    elif tall:
+        y = int(h * 0.05)
+    else:
+        y = int(h * 0.04)
 
     # eyebrow
     eye = "COMING SOON  |  NOMINATIONS OPEN"
@@ -164,7 +173,7 @@ def make_poster(size: tuple[int, int], tag: str) -> Image.Image:
     draw_glow_text(img, (x0, y), dol, f, NEON, NEON, glow_r=14)
     x0 += text_w(f, dol)
     draw_glow_text(img, (x0, y), t2, f, CREAM, GOLD, glow_r=10)
-    y += fs(88)
+    y += fs(100)
 
     # KOL$ hero — cream KOL + neon $ (tight advance widths)
     f = mono_xl if h / w < 1.4 else mono_lg
@@ -179,7 +188,7 @@ def make_poster(size: tuple[int, int], tag: str) -> Image.Image:
     for i, (t_, fill, glow) in enumerate(parts):
         draw_glow_text(img, (hx, y), t_, f, fill, glow, glow_r=20)
         hx += text_w(f, t_) + track
-    y += fs(170)
+    y += fs(220)
 
     # feature row: target skull crown
     feats = [("1f3af", "HIT"), ("1f480", "SHIT"), ("1f451", "CT")]
@@ -188,7 +197,7 @@ def make_poster(size: tuple[int, int], tag: str) -> Image.Image:
     for cp, lab in feats:
         em = load_emoji(cp)
         if em:
-            icons.append((em.resize((fs(96), fs(96)), Image.Resampling.LANCZOS), lab))
+            icons.append((em.resize((fs(110), fs(110)), Image.Resampling.LANCZOS), lab))
     if icons:
         row_w = sum(im.width for im, _ in icons) + gap * (len(icons) - 1)
         ix = (w - row_w) // 2
@@ -202,7 +211,7 @@ def make_poster(size: tuple[int, int], tag: str) -> Image.Image:
                 fill=MUTED,
             )
             ix += im.width + gap
-        y += fs(96) + fs(48)
+        y += fs(110) + fs(56)
 
     # tagline card
     pad = int(w * 0.08)
@@ -212,7 +221,7 @@ def make_poster(size: tuple[int, int], tag: str) -> Image.Image:
         "until proven otherwise.",
     ]
     sub = "Nominate CT voices  |  HIT or SHIT"
-    card_h = fs(280)
+    card_h = fs(200) if wide else fs(340)
     rounded_rect(
         draw,
         (pad, card_top, w - pad, card_top + card_h),
@@ -226,7 +235,7 @@ def make_poster(size: tuple[int, int], tag: str) -> Image.Image:
         lf = inter
         lw = text_w(lf, line)
         draw.text(((w - lw) // 2, cy), line, font=lf, fill=CREAM)
-        cy += fs(52)
+        cy += fs(40) if wide else fs(72)
     sw = text_w(orb_sm, sub)
     draw.text(((w - sw) // 2, cy + fs(8)), sub, font=orb_sm, fill=NEON)
 
@@ -235,8 +244,8 @@ def make_poster(size: tuple[int, int], tag: str) -> Image.Image:
     # CTA pill
     cta = "tokenshit.com/kols"
     cf = orb
-    cw = text_w(cf, cta) + fs(64)
-    ch = fs(72)
+    cw = text_w(cf, cta) + fs(80)
+    ch = fs(88)
     cx0 = (w - cw) // 2
     rounded_rect(
         draw,
@@ -255,8 +264,9 @@ def make_poster(size: tuple[int, int], tag: str) -> Image.Image:
 
     # footer
     foot = "SCOUT  |  NOMINATE  |  RATE"
-    fw = text_w(orb_sm, foot)
-    draw.text(((w - fw) // 2, min(y, h - fs(50))), foot, font=orb_sm, fill=DIM)
+    if not wide:
+        fw = text_w(orb_sm, foot)
+        draw.text(((w - fw) // 2, min(y, h - fs(50))), foot, font=orb_sm, fill=DIM)
 
     # bottom brand strip safe
     url2 = "TOKEN$HIT  |  CT KOL COURT"
