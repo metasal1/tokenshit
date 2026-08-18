@@ -59,26 +59,23 @@ export async function POST(request: NextRequest) {
     }
 
     if (!result.already) {
-      try {
-        const who = byX
-          ? `@${escapeHtml(String(byX).replace(/^@/, ""))}`
-          : "anon";
-        await sendTelegramMessage(
-          [
-            `🕵️ <b>KOL nom</b>`,
-            `→ <code>@${escapeHtml(result.handle)}</code>`,
-            `by ${who}`,
-            note
-              ? `note: ${escapeHtml(String(note).slice(0, 120))}`
-              : "",
-            `id ${result.id}`,
-          ]
-            .filter(Boolean)
-            .join("\n")
-        );
-      } catch {
-        /* ignore */
-      }
+      const who = byX
+        ? `@${escapeHtml(String(byX).replace(/^@/, ""))}`
+        : "anon";
+      const text = [
+        `KOL nom`,
+        `→ @${escapeHtml(result.handle)}`,
+        `by ${who}`,
+        note ? `note: ${escapeHtml(String(note).slice(0, 120))}` : "",
+        `id ${result.id}`,
+      ]
+        .filter(Boolean)
+        .join("\n");
+      // never block response on TG
+      void Promise.race([
+        sendTelegramMessage(text),
+        new Promise((r) => setTimeout(r, 2500)),
+      ]).catch(() => {});
     }
 
     return Response.json({
