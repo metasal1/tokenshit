@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback, useMemo } from 'react';
 import { PrivyProvider, usePrivy } from '@privy-io/react-auth';
 import { useWallets } from '@privy-io/react-auth/solana';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import AnimatedLogo from '@/components/AnimatedLogo';
 import PageTransition from '@/components/PageTransition';
 import { CanvasShell, CanvasHeaderFx } from '@/components/CanvasShell';
@@ -29,6 +30,21 @@ import { isStandalonePwa } from '@/lib/pwa-auth';
 import { TREASURY_ADDRESS, treasurySolscanUrl } from '@/lib/shit-token';
 import { getPrivyConfig } from '@/lib/privy-config';
 import { pickSolanaAddress } from '@/lib/privy-identity';
+import {
+  MOBILE_DOCK,
+  SITE_NAV,
+  navIsActive,
+  type NavItem,
+} from '@/lib/site-nav';
+
+function navLinkClass(active: boolean, accent?: NavItem["accent"]) {
+  if (active) {
+    if (accent === "neon") return "text-neon";
+    if (accent === "amber") return "text-amber-300";
+    return "text-white";
+  }
+  return "text-zinc-400 hover:text-foreground";
+}
 
 interface TokenBalance {
   mint: string;
@@ -381,29 +397,99 @@ function LoginButton() {
 }
 
 function Layout({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname() || "/";
   const [mounted, setMounted] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
   useEffect(() => setMounted(true), []);
+  useEffect(() => {
+    setMenuOpen(false);
+    setMoreOpen(false);
+  }, [pathname]);
+
+  const primary = SITE_NAV.filter((n) => n.primary);
+  const more = SITE_NAV.filter((n) => !n.primary);
 
   const nav = (
     <CanvasHeaderFx>
     <nav className="sticky top-0 z-50 border-b border-border bg-background/95 backdrop-blur-xl pt-[env(safe-area-inset-top,0px)]">
       <HeaderTicker />
-      <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3">
-        <Link href="/" className="flex items-center group shrink-0">
+      <div className="mx-auto flex max-w-7xl items-center justify-between gap-2 px-3 sm:px-4 py-2.5 sm:py-3">
+        <Link href="/" className="flex items-center group shrink-0" aria-label="TOKEN$HIT home">
           <AnimatedLogo size="nav" />
         </Link>
 
-        {/* Desktop nav */}
-        <div className="hidden sm:flex items-center gap-4 text-sm text-zinc-400 font-orbitron tracking-wide uppercase">
-          <Link href="/" className="hover:text-foreground transition-colors">Home</Link>
-          <Link href="/play" className="hover:text-foreground transition-colors">Play</Link>
-          <Link href="/whales" className="hover:text-foreground transition-colors">Whales</Link>
-          <Link href="/memes" className="hover:text-foreground transition-colors">Memes</Link>
-          <Link href="/stats" className="hover:text-foreground transition-colors">Stats</Link>
-          <Link href="/boards" className="hover:text-foreground transition-colors">Boards</Link>
-          <Link href="/claim" className="hover:text-foreground transition-colors">Claim</Link>
-          <Link href="/referrals" className="hover:text-foreground transition-colors">Referrals</Link>
+        {/* Desktop — primary product order */}
+        <div className="hidden md:flex items-center gap-1 lg:gap-1.5 text-[11px] lg:text-xs text-zinc-400 font-orbitron tracking-wide uppercase min-w-0">
+          {primary.map((item) => {
+            const active = navIsActive(pathname, item);
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`px-2 lg:px-2.5 py-1.5 rounded-md transition-colors ${navLinkClass(active, item.accent)} ${
+                  active ? "bg-white/5" : "hover:bg-white/[0.03]"
+                }`}
+              >
+                {item.label}
+              </Link>
+            );
+          })}
+
+          {/* More */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setMoreOpen((v) => !v)}
+              className={`px-2 lg:px-2.5 py-1.5 rounded-md transition-colors ${
+                more.some((m) => navIsActive(pathname, m))
+                  ? "text-white bg-white/5"
+                  : "text-zinc-400 hover:text-foreground hover:bg-white/[0.03]"
+              }`}
+              aria-expanded={moreOpen}
+              aria-haspopup="menu"
+            >
+              More
+              <span className="ml-0.5 opacity-60" aria-hidden>
+                ▾
+              </span>
+            </button>
+            {moreOpen && (
+              <>
+                <button
+                  type="button"
+                  className="fixed inset-0 z-40 cursor-default"
+                  aria-label="Close menu"
+                  onClick={() => setMoreOpen(false)}
+                />
+                <div
+                  role="menu"
+                  className="absolute right-0 top-full mt-1 z-50 min-w-[10.5rem] rounded-xl border border-border bg-zinc-950/98 shadow-2xl py-1 backdrop-blur-xl"
+                >
+                  {more.map((item) => {
+                    const active = navIsActive(pathname, item);
+                    return (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        role="menuitem"
+                        onClick={() => setMoreOpen(false)}
+                        className={`block px-3.5 py-2 text-[11px] font-orbitron uppercase tracking-wide transition-colors ${
+                          active
+                            ? "text-neon bg-neon/10"
+                            : "text-zinc-400 hover:text-white hover:bg-zinc-900"
+                        }`}
+                      >
+                        {item.label}
+                      </Link>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+          </div>
+
+          <div className="w-px h-4 bg-zinc-800 mx-0.5 shrink-0" aria-hidden />
           <ShitBalanceBadge />
           <XFollowersBadge compact />
           <ShareRefButton variant="compact" path="/" showLogin={false} />
@@ -411,15 +497,18 @@ function Layout({ children }: { children: React.ReactNode }) {
           {mounted && <LoginButton />}
         </div>
 
-        {/* Mobile nav */}
-        <div className="flex sm:hidden items-center gap-2">
+        {/* Tablet / phone top bar */}
+        <div className="flex md:hidden items-center gap-1.5">
+          <ShitBalanceBadge />
           {mounted && <LoginButton />}
           <button
+            type="button"
             onClick={() => setMenuOpen(!menuOpen)}
-            className="p-2 text-zinc-400 hover:text-white transition-colors"
-            aria-label="Menu"
+            className="p-2 text-zinc-400 hover:text-white transition-colors rounded-lg border border-transparent hover:border-border"
+            aria-label={menuOpen ? "Close menu" : "Open menu"}
+            aria-expanded={menuOpen}
           >
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
               {menuOpen ? (
                 <>
                   <line x1="18" y1="6" x2="6" y2="18" />
@@ -437,20 +526,39 @@ function Layout({ children }: { children: React.ReactNode }) {
         </div>
       </div>
 
-      {/* Mobile dropdown */}
+      {/* Mobile / tablet full menu */}
       {menuOpen && (
-        <div className="sm:hidden border-t border-border bg-background/95 backdrop-blur-xl px-4 py-3 flex flex-col gap-3 text-sm font-orbitron tracking-wide uppercase">
-          <Link href="/" className="text-zinc-400 hover:text-foreground transition-colors py-1" onClick={() => setMenuOpen(false)}>Home</Link>
-          <Link href="/play" className="text-zinc-400 hover:text-foreground transition-colors py-1" onClick={() => setMenuOpen(false)}>Play</Link>
-          <Link href="/whales" className="text-zinc-400 hover:text-foreground transition-colors py-1" onClick={() => setMenuOpen(false)}>Whales</Link>
-          <Link href="/memes" className="text-zinc-400 hover:text-foreground transition-colors py-1" onClick={() => setMenuOpen(false)}>Memes</Link>
-          <Link href="/stats" className="text-zinc-400 hover:text-foreground transition-colors py-1" onClick={() => setMenuOpen(false)}>Stats</Link>
-          <Link href="/boards" className="text-zinc-400 hover:text-foreground transition-colors py-1" onClick={() => setMenuOpen(false)}>Boards</Link>
-          <Link href="/claim" className="text-zinc-400 hover:text-foreground transition-colors py-1" onClick={() => setMenuOpen(false)}>Claim</Link>
-          <Link href="/referrals" className="text-zinc-400 hover:text-foreground transition-colors py-1" onClick={() => setMenuOpen(false)}>Referrals</Link>
-          <ShitBalanceBadge />
-          <XFollowersBadge compact />
-          <ShareRefButton variant="compact" path="/" />
+        <div className="md:hidden border-t border-border bg-background/98 backdrop-blur-xl px-3 py-3 space-y-1">
+          <p className="px-2 pb-1 text-[9px] font-orbitron uppercase tracking-[0.18em] text-zinc-600">
+            Menu
+          </p>
+          {SITE_NAV.map((item) => {
+            const active = navIsActive(pathname, item);
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={() => setMenuOpen(false)}
+                className={`flex items-center justify-between rounded-lg px-3 py-2.5 text-sm font-orbitron tracking-wide uppercase transition-colors ${
+                  active
+                    ? item.accent === "neon"
+                      ? "bg-neon/15 text-neon"
+                      : item.accent === "amber"
+                        ? "bg-amber-500/15 text-amber-300"
+                        : "bg-white/10 text-white"
+                    : "text-zinc-400 hover:bg-zinc-900 hover:text-white"
+                }`}
+              >
+                <span>{item.label}</span>
+                {active && <span className="text-[10px] opacity-70">●</span>}
+              </Link>
+            );
+          })}
+          <div className="flex items-center gap-3 px-2 pt-2 border-t border-border mt-2">
+            <XFollowersBadge compact />
+            <ShareRefButton variant="compact" path="/" />
+            <SfxMuteToggle />
+          </div>
         </div>
       )}
     </nav>
@@ -468,8 +576,52 @@ function Layout({ children }: { children: React.ReactNode }) {
       <ClaimGlitchToast />
       <SignupGlitchToast />
       <EmailSignupModal />
-      <main className="flex-1"><PageTransition>{children}</PageTransition></main>
-      <footer className="border-t border-border py-6 text-center text-sm text-zinc-500 font-orbitron tracking-wide">
+      <main className="flex-1 pb-[calc(4.25rem+env(safe-area-inset-bottom,0px))] md:pb-0">
+        <PageTransition>{children}</PageTransition>
+      </main>
+
+      {/* Mobile bottom dock — product order */}
+      <nav
+        className="md:hidden fixed bottom-0 inset-x-0 z-50 border-t border-border bg-background/95 backdrop-blur-xl pb-[env(safe-area-inset-bottom,0px)]"
+        aria-label="Primary"
+      >
+        <div className="grid grid-cols-4 gap-0 max-w-lg mx-auto">
+          {MOBILE_DOCK.map((item) => {
+            const active = navIsActive(pathname, item);
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`flex flex-col items-center justify-center gap-0.5 py-2 text-[10px] font-orbitron uppercase tracking-wider transition-colors ${
+                  active
+                    ? item.accent === "neon"
+                      ? "text-neon"
+                      : item.accent === "amber"
+                        ? "text-amber-300"
+                        : "text-white"
+                    : "text-zinc-500"
+                }`}
+              >
+                <span
+                  className={`h-0.5 w-6 rounded-full mb-0.5 ${
+                    active
+                      ? item.accent === "neon"
+                        ? "bg-neon"
+                        : item.accent === "amber"
+                          ? "bg-amber-300"
+                          : "bg-white"
+                      : "bg-transparent"
+                  }`}
+                  aria-hidden
+                />
+                {item.label}
+              </Link>
+            );
+          })}
+        </div>
+      </nav>
+
+      <footer className="border-t border-border py-6 text-center text-sm text-zinc-500 font-orbitron tracking-wide hidden md:block">
         <p className="font-sans normal-case tracking-normal">TokenShit — Every token is shit until proven otherwise.</p>
         <p className="mt-2 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-zinc-600 uppercase text-xs">
           <TreasuryBalanceBadge />
@@ -531,6 +683,19 @@ function Layout({ children }: { children: React.ReactNode }) {
             href="/privacy"
             className="text-zinc-500 hover:text-zinc-300 transition-colors"
           >
+            Privacy
+          </Link>
+        </p>
+      </footer>
+      {/* Compact footer strip on mobile */}
+      <footer className="md:hidden border-t border-border py-3 text-center text-[10px] text-zinc-600 font-orbitron tracking-wide mb-[calc(4.25rem+env(safe-area-inset-bottom,0px))]">
+        <p className="font-sans normal-case">
+          TokenShit ·{" "}
+          <Link href="/terms" className="hover:text-zinc-400">
+            Terms
+          </Link>
+          {" · "}
+          <Link href="/privacy" className="hover:text-zinc-400">
             Privacy
           </Link>
         </p>
