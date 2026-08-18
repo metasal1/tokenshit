@@ -64,12 +64,21 @@ export default function AdminPage() {
         cache: "no-store",
       });
       if (res.status === 403) {
+        const d = await res.json().catch(() => ({}));
         throw new Error(
-          "Forbidden — your Privy id is not in ADMIN_PRIVY_ID"
+          (d as { error?: string }).error ||
+            "Forbidden — your Privy id is not in ADMIN_PRIVY_ID"
         );
       }
       if (res.status === 503) {
         throw new Error("Admin not configured (set ADMIN_PRIVY_ID secret)");
+      }
+      if (res.status === 401) {
+        const d = await res.json().catch(() => ({}));
+        throw new Error(
+          (d as { error?: string }).error ||
+            "Unauthorized — log out and log back in"
+        );
       }
       if (!res.ok) {
         const d = await res.json().catch(() => ({}));

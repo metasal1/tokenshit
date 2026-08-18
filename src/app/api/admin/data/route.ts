@@ -1,6 +1,5 @@
 import { type NextRequest } from "next/server";
 import { tursoBatch } from "@/lib/turso";
-import { requireCronSecret } from "@/lib/api-guard";
 import { requirePrivy } from "@/lib/privy-server";
 
 export const dynamic = "force-dynamic";
@@ -11,36 +10,61 @@ function normPrivyId(id: string): string {
   return s.startsWith("did:privy:") ? s.slice("did:privy:".length) : s;
 }
 
-function isAdminPrivy(privyId: string): boolean {
-  const adminIds = (process.env.ADMIN_PRIVY_ID || "")
+function adminAllowlist(): string[] {
+  return (process.env.ADMIN_PRIVY_ID || "")
     .split(",")
     .map((s) => normPrivyId(s))
     .filter(Boolean);
+}
+
+function isAdminPrivy(privyId: string): boolean {
+  const adminIds = adminAllowlist();
   if (adminIds.length === 0) return false;
   return adminIds.includes(normPrivyId(privyId));
 }
 
 /**
  * Admin dump — fail closed.
- * Auth: CRON_SECRET Bearer OR Privy token whose sub is in ADMIN_PRIVY_ID.
- * ADMIN_PRIVY_ID: comma-separated did:privy:… or bare ids.
+ * Auth: Privy token whose sub is in ADMIN_PRIVY_ID (comma-separated).
+ * Optional: x-cron-secret / Bearer CRON_SECRET for automation.
  */
 export async function GET(req: NextRequest) {
-  const hasAdmins = Boolean(
-    (process.env.ADMIN_PRIVY_ID || "").split(",").some((s) => s.trim())
-  );
+  const allow = adminAllowlist();
+  const cronSecret =
+    process.env.CRON_SECRET ||
+    process.env.TREASURY_DROP_SECRET ||
+    process.env.HERMES_CRON_SECRET ||
+    "";
 
-  if (!hasAdmins && !process.env.CRON_SECRET) {
-    return Response.json({ error: "Admin not configured" }, { status: 503 });
-  }
+  const authHeader = req.headers.get("authorization") || "";
+  const bearer = authHeader.toLowerCase().startsWith("bearer ")
+    ? authHeader.slice(7).trim()
+    : "";
+  const headerSecret =
+    req.headers.get("x-cron-secret") ||
+    req.headers.get("x-admin-secret") ||
+    "";
 
-  const cronDenied = requireCronSecret(req);
-  if (cronDenied) {
-    if (!hasAdmins) return cronDenied;
+  // Cron path (exact secret match only — never treat Privy JWT as cron)
+  if (cronSecret && (bearer === cronSecret || headerSecret === cronSecret)) {
+    // ok — cron
+  } else {
+    if (allow.length === 0) {
+      return Response.json(
+        { error: "Admin not configured (ADMIN_PRIVY_ID)" },
+        { status: 503 }
+      );
+    }
     const auth = await requirePrivy(req, {});
     if (!auth.ok) return auth.res;
     if (!isAdminPrivy(auth.id.privyId)) {
-      return Response.json({ error: "Forbidden" }, { status: 403 });
+      return Response.json(
+        {
+          error: "Forbidden — Privy id not on allowlist",
+          yourId: auth.id.privyId,
+        },
+        { status: 403 }
+      );
     }
   }
 
