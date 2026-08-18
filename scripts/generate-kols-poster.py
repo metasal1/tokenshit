@@ -256,41 +256,55 @@ def make_poster(size: tuple[int, int], tag: str) -> Image.Image:
     return img.convert("RGB")
 
 
-def save(img: Image.Image, name: str) -> Path:
+def save(img: Image.Image, name: str, brand: str | None = None) -> Path:
     path = OUT / name
     img.save(path, "PNG", optimize=True)
-    # brand aliases
-    if "1080" in name or name.endswith("poster.png"):
-        shutil.copy(path, BRAND / "kols-poster.png")
-    if "1200x630" in name or "banner" in name:
-        shutil.copy(path, BRAND / "kols-banner.png")
-    if "og" in name:
-        shutil.copy(path, BRAND / "kols-og.png")
+    if brand:
+        b = BRAND / brand
+        shutil.copy(path, b)
+        print("brand", b, img.size)
     print("wrote", path, img.size, path.stat().st_size)
     return path
 
 
 def main():
-    # story 1080x1350
-    p1 = make_poster((1080, 1350), "story")
-    save(p1, "kols-1080x1350.png")
-    save(p1, "kols-poster.png")
-    # square
-    p2 = make_poster((1080, 1080), "square")
-    save(p2, "kols-1080.png")
-    # og banner
-    p3 = make_poster((1200, 630), "og")
-    save(p3, "kols-1200x630.png")
-    # cache for TG
     cache = Path("/Volumes/PRO-G40/MacHome-Offload/dotfiles/hermes/cache/images")
     cache.mkdir(parents=True, exist_ok=True)
+
+    # Match jup-like / hit-shit campaign sizes
+    # 1) 4:5 feed poster 1080x1350
+    p45 = make_poster((1080, 1350), "45")
+    save(p45, "kols-1080x1350.png", brand="kols-poster.png")
+    save(p45, "kols-poster.png")
+    p45_2 = p45.resize((2160, 2700), Image.Resampling.LANCZOS)
+    save(p45_2, "kols-poster@2x.png", brand="kols-poster@2x.png")
+
+    # 2) Full story 1080x1920
+    pst = make_poster((1080, 1920), "story")
+    save(pst, "kols-story.png")
+    save(pst, "kols-1080x1920.png")
+
+    # 3) Square 1080 + 1200
+    psq = make_poster((1080, 1080), "square")
+    save(psq, "kols-1080.png")
+    psq12 = make_poster((1200, 1200), "square12")
+    save(psq12, "kols-1200.png")
+
+    # 4) OG / X banner 1200x630
+    pog = make_poster((1200, 630), "og")
+    save(pog, "kols-1200x630.png", brand="kols-banner.png")
+    save(pog, "kols-og.png", brand="kols-og.png")
+    pog2 = pog.resize((2400, 1260), Image.Resampling.LANCZOS)
+    save(pog2, "kols-banner@2x.png", brand="kols-banner@2x.png")
+
     for src, dst in [
         (OUT / "kols-1080x1350.png", cache / "kols-poster.png"),
-        (OUT / "kols-1080.png", cache / "kols-square.png"),
+        (OUT / "kols-story.png", cache / "kols-story.png"),
+        (OUT / "kols-1200.png", cache / "kols-square.png"),
         (OUT / "kols-1200x630.png", cache / "kols-banner.png"),
     ]:
         shutil.copy(src, dst)
-        print("cache", dst)
+        print("cache", dst, Image.open(src).size)
 
 
 if __name__ == "__main__":
