@@ -29,12 +29,10 @@ export default function PlayPage() {
       titleAccent="of the day"
       links={[
         { href: PLAY_PRODUCT.winnersPath, label: "Winners", primary: true },
-        { href: "/memes", label: "Memes" },
-        { href: "/referrals", label: "Refer" },
         { href: "/boards", label: "Boards" },
       ]}
     >
-      <DayGamePanel compactTitle dense />
+      <DayGamePanel dense />
     </PlayMatchShell>
   );
 }

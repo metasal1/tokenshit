@@ -25,9 +25,9 @@ export function PlayMatchShell({
 }) {
   return (
     <div
-      className={`mx-auto w-full max-w-lg px-3 pt-2 sm:pt-3 flex flex-col min-h-0 ${
+      className={`mx-auto w-full max-w-xl px-3 pt-2 sm:pt-3 flex flex-col min-h-0 ${
         fill
-          ? "h-[calc(100dvh-env(safe-area-inset-top)-3.25rem-4.5rem)] md:h-[calc(100dvh-env(safe-area-inset-top)-3.25rem)]"
+          ? "h-[calc(100dvh-env(safe-area-inset-top)-3.5rem-4.25rem)] md:h-[calc(100dvh-env(safe-area-inset-top)-3.5rem)]"
           : "pb-[max(1.25rem,env(safe-area-inset-bottom))]"
       }`}
     >
