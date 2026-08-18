@@ -82,3 +82,13 @@ e.g. ecosystem hosts, traders, builders, meme accounts — **no** Foundation imp
 
 - Page: **KOLs** · *Rate CT voices. HIT or SHIT.*  
 - Coming soon: *Court is assembling. Curating the first roster.*
+
+
+## Nominations (live)
+
+- UI: `/kols` · `KolNominateForm`
+- API: `POST /api/kols/nominate` `{ handle, note?, byX? }`
+- Table: `kol_nominations` (pending → accepted/live/rejected)
+- Limits: 8/day per X scout · 5/day anon IP
+- TG ping on new nom
+- **No payout on submit** — pay-on-accept later

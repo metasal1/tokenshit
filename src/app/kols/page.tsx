@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { EmojiIcon } from "@/components/EmojiIcon";
+import KolNominateForm from "@/components/KolNominateForm";
 import { pageMeta } from "@/lib/seo";
 
 export const dynamic = "force-static";
@@ -8,7 +9,7 @@ export const dynamic = "force-static";
 export const metadata: Metadata = pageMeta({
   title: "KOLs",
   description:
-    "Vote HIT or SHIT on Crypto Twitter KOLs. Coming soon on TOKEN$HIT.",
+    "Nominate Crypto Twitter KOLs. Vote HIT or SHIT — coming soon on TOKEN$HIT.",
   path: "/kols",
 });
 
@@ -17,7 +18,7 @@ export default function KolsComingSoonPage() {
     <main className="mx-auto w-full max-w-lg px-4 py-10 sm:py-14">
       <div className="mb-6 text-center">
         <p className="font-orbitron text-[10px] uppercase tracking-[0.25em] text-zinc-500">
-          Coming soon
+          Coming soon · nominations open
         </p>
         <h1 className="mt-2 font-monoton text-4xl leading-none tracking-wide sm:text-5xl">
           <span className="neon-text">KOL</span>
@@ -28,9 +29,13 @@ export default function KolsComingSoonPage() {
           <span className="text-zinc-200">HIT or SHIT.</span>
         </p>
         <p className="mx-auto mt-2 max-w-sm text-xs leading-relaxed text-zinc-500">
-          Every KOL is shit until proven otherwise. Same energy as bags — now
-          for the timeline.
+          Every KOL is shit until proven otherwise. Suggest who belongs on the
+          board — we curate, then voting goes live.
         </p>
+      </div>
+
+      <div className="mb-6">
+        <KolNominateForm />
       </div>
 
       <div className="overflow-hidden rounded-2xl border border-border bg-card">
@@ -51,7 +56,7 @@ export default function KolsComingSoonPage() {
 
         <div className="space-y-4 p-4">
           <p className="text-center font-mono text-[11px] text-zinc-500">
-            Court is assembling · curating the first roster
+            Vote court loading after roster lock
           </p>
 
           <div className="grid grid-cols-2 gap-3">
@@ -72,15 +77,15 @@ export default function KolsComingSoonPage() {
           <ul className="space-y-2 rounded-xl border border-zinc-800 bg-zinc-950/50 px-3 py-3 font-mono text-[11px] text-zinc-500">
             <li className="flex gap-2">
               <span className="text-neon">→</span>
-              Vote on CT KOLs (handles + vibes)
+              Nominate CT KOLs now
             </li>
             <li className="flex gap-2">
               <span className="text-neon">→</span>
-              HIT / SHIT leaderboards
+              Accepted noms get scout credit later
             </li>
             <li className="flex gap-2">
               <span className="text-neon">→</span>
-              Solana-first roster, no CA spam
+              HIT / SHIT boards when live
             </li>
           </ul>
         </div>
