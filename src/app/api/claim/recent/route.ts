@@ -6,16 +6,16 @@ import { type NextRequest } from "next/server";
 export const dynamic = "force-dynamic";
 
 const KIND_LABEL: Record<string, string> = {
-  jup_verified: "Jupiter VRFD",
-    x_premium: "X premium",
-    x_verified: "X verified",
-    gh_fork: "GH fork",
-    x_tweet: "tweet tag",
-    x_follow: "X follow",
-    email_list: "list join",
-    day_hit: "HIT pot",
-    day_shit: "SHIT pot",
-  };
+  jup_verified: "Jupiter like",
+  x_premium: "X premium",
+  x_verified: "X verified",
+  gh_fork: "GH fork",
+  x_tweet: "tweet tag",
+  x_follow: "X follow",
+  email_list: "list join",
+  day_hit: "HIT pot",
+  day_shit: "SHIT pot",
+};
 
 function maskHandle(h: string | null): string | null {
   if (!h) return null;

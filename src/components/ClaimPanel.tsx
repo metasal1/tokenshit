@@ -57,7 +57,7 @@ const KIND_TITLE: Record<ClaimKind, string> = {
   x_verified: "X verified",
   email_list: "Email list",
   gh_fork: "GitHub fork",
-  jup_verified: "Jupiter VRFD",
+  jup_verified: "Jupiter like",
 };
 
 function fmt(n: number) {
@@ -937,25 +937,35 @@ export default function ClaimPanel() {
         <RewardRow
           claimed={!!claimedStatus.jup_verified}
           statusLoading={statusLoading && authenticated}
-          title="Jupiter VRFD"
+          title="Like on Jupiter"
           amount={CLAIM_JUP_VERIFIED}
           highlight
           hint={
             <>
-              One-time when $TOKENSHIT is{" "}
+              Open{" "}
               <a
                 href={`https://verified.jup.ag/dashboard/${SHIT_MINT}`}
                 className="text-neon-blue break-all"
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                Jupiter-verified
+                Jupiter VRFD
               </a>
-              . Live check via Express API · 100+ followers · PFP
+              , sign in with the <strong className="text-zinc-300">same X</strong>,{" "}
+              <strong className="text-zinc-300">like</strong> $TOKENSHIT, then
+              claim · 100+ followers · PFP
             </>
           }
         >
           <div className="space-y-2">
+            <a
+              href={`https://verified.jup.ag/dashboard/${SHIT_MINT}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={BTN_OUTLINE + " inline-flex items-center justify-center"}
+            >
+              1. Like on Jupiter ↗
+            </a>
             <button
               type="button"
               disabled={busy !== null || !!claimedStatus.jup_verified}
@@ -963,19 +973,11 @@ export default function ClaimPanel() {
               className={BTN_NEON}
             >
               {busy === "jup_verified"
-                ? "Claiming…"
+                ? "Checking like…"
                 : authenticated
-                  ? `Claim VRFD ${CLAIM_JUP_VERIFIED.toLocaleString()}`
+                  ? `2. Claim ${CLAIM_JUP_VERIFIED.toLocaleString()}`
                   : "Login with X"}
             </button>
-            <a
-              href={`https://verified.jup.ag/dashboard/${SHIT_MINT}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="block text-center text-[11px] font-mono text-zinc-500 hover:text-neon-blue"
-            >
-              Open Jupiter dashboard ↗
-            </a>
           </div>
         </RewardRow>
 
