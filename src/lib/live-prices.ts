@@ -1,13 +1,19 @@
 /**
  * Multi-source live USD prices for the hour game.
  *
- * SOURCE OF TRUTH: Tokens.xyz
- *   - Universe: curated majors from api.tokens.xyz
- *   - Price truth: Tokens.xyz market price first
- *   - Fallbacks only when txyz missing/stale: Jupiter → CoinGecko → DexScreener
- * Sanity-check fallbacks against the txyz reference when present.
+ * Universe / metadata: Tokens.xyz curated majors (+ board symbol backfill)
+ * PRICE TRUTH (priority):
+ *   1. Pyth Hermes (oracle, low latency)
+ *   2. Jupiter
+ *   3. CoinGecko
+ *   4. DexScreener
+ *   5. Tokens.xyz market (last — often stale 1h)
  */
 import { apiFetch } from "@/lib/api";
+import {
+  fetchPythUsdBySymbols,
+  HOUR_BOARD_SYMBOLS,
+} from "@/lib/pyth-prices";
 
 export type PriceHint = {
   assetId: string;
@@ -23,7 +29,7 @@ export type PriceHint = {
 
 export type PricedMajor = PriceHint & {
   price: number;
-  source: "tokens.xyz" | "jupiter" | "dexscreener" | "coingecko";
+  source: "pyth" | "tokens.xyz" | "jupiter" | "dexscreener" | "coingecko";
 };
 
 const JUP_V3 = "https://api.jup.ag/price/v3";
@@ -175,7 +181,7 @@ function num(v: unknown): number | null {
   return null;
 }
 
-/** Universe from Tokens.xyz — mints, logos, market price (source of truth). */
+/** Universe from Tokens.xyz + hard board symbols (Pyth-priced). */
 export async function fetchMajorsUniverse(): Promise<PriceHint[]> {
   const data = await apiFetch(`/assets/curated?list=majors&groupBy=asset`);
   const raw = (data?.assets || data?.results || []) as Array<
@@ -190,19 +196,27 @@ export async function fetchMajorsUniverse(): Promise<PriceHint[]> {
     rowVolume24h,
   } = await import("@/lib/majors-filter");
 
-  const filtered = filterRealMajors(raw as never[]);
+  const boardSym = new Set(HOUR_BOARD_SYMBOLS.map((s) => s.toUpperCase()));
+  const realOrBoard = raw.filter((row) => {
+    const id = rowAssetId(row as never);
+    const sym = rowSymbol(row as never).toUpperCase();
+    if (!id) return false;
+    if (filterRealMajors([row as never]).length) return true;
+    return boardSym.has(sym);
+  });
+
   const out: PriceHint[] = [];
-  for (const row of filtered) {
+  const seen = new Set<string>();
+  for (const row of realOrBoard) {
     const a = ((row as { asset?: Record<string, unknown> }).asset ||
       row) as Record<string, unknown>;
     const assetId = rowAssetId(row as never);
-    if (!assetId) continue;
+    if (!assetId || seen.has(assetId)) continue;
     const stats = (a.stats || {}) as Record<string, unknown>;
     const cm = (a.canonicalMarket || {}) as Record<string, unknown>;
     const pv = (a.primaryVariant || {}) as Record<string, unknown>;
     const market = (pv.market || {}) as Record<string, unknown>;
     let mint = pv.mint ? String(pv.mint) : null;
-    // Normalize SOL
     if (
       assetId === "solana" ||
       String(a.symbol || "").toUpperCase() === "SOL"
@@ -215,25 +229,24 @@ export async function fetchMajorsUniverse(): Promise<PriceHint[]> {
         ? "solana"
         : null;
 
-    // Tokens.xyz market price = canonical reference
     const fallback =
       num(market.price) ?? num(stats.price) ?? num(cm.price) ?? 0;
-
-    if (!(fallback > 0) && !mint && !coinId) continue;
 
     const ch1 =
       num(market.priceChange1hPercent) ??
       num(stats.priceChange1hPercent) ??
       null;
 
+    const symbol = rowSymbol(row as never) || String(a.symbol || "");
+    seen.add(assetId);
     out.push({
       assetId,
-      symbol: rowSymbol(row as never) || String(a.symbol || ""),
+      symbol,
       name: rowName(row as never) || assetId,
       logo: rowLogo(row as never),
       mint,
       coinId,
-      fallbackPrice: fallback,
+      fallbackPrice: fallback > 0 ? fallback : 0,
       volume24h:
         num(market.volume24hUSD) ??
         rowVolume24h(row as never) ??
@@ -242,13 +255,31 @@ export async function fetchMajorsUniverse(): Promise<PriceHint[]> {
       txyzChange1h: ch1,
     });
   }
+
+  // Backfill any HOUR_BOARD symbols missing from txyz list
+  for (const sym of HOUR_BOARD_SYMBOLS) {
+    if ([...out].some((o) => o.symbol.toUpperCase() === sym)) continue;
+    const assetId = sym.toLowerCase();
+    if (seen.has(assetId)) continue;
+    seen.add(assetId);
+    out.push({
+      assetId,
+      symbol: sym,
+      name: sym,
+      logo: "",
+      mint: sym === "SOL" ? WSOL : null,
+      coinId: sym === "SOL" ? "solana" : sym === "BTC" ? "bitcoin" : sym === "ETH" ? "ethereum" : null,
+      fallbackPrice: 0,
+      volume24h: 0,
+      txyzChange1h: null,
+    });
+  }
+
   return out;
 }
 
 /**
- * Resolve live USD for each major.
- * Tokens.xyz preferred, but if txyz is frozen/stale while Jupiter (or CG/Dex)
- * shows a real move, use the fresher feed (sanity-checked).
+ * Resolve live USD — Pyth first, then Jup/CG/Dex, txyz last.
  */
 export async function priceMajorsLive(
   hints?: PriceHint[]
@@ -256,8 +287,10 @@ export async function priceMajorsLive(
   const universe = hints || (await fetchMajorsUniverse());
   const mints = universe.map((u) => u.mint).filter(Boolean) as string[];
   const coinIds = universe.map((u) => u.coinId).filter(Boolean) as string[];
+  const symbols = universe.map((u) => u.symbol).filter(Boolean);
 
-  const [jup, dex, cg] = await Promise.all([
+  const [pyth, jup, dex, cg] = await Promise.all([
+    fetchPythUsdBySymbols(symbols),
     fetchJupiterUsd(mints),
     fetchDexScreenerUsd(mints),
     fetchCoinGeckoUsd(coinIds),
@@ -267,53 +300,51 @@ export async function priceMajorsLive(
     .map((u) => {
       const mint = u.mint ? normMint(u.mint) : null;
       const txyz = u.fallbackPrice > 0 ? u.fallbackPrice : null;
+      const sym = (u.symbol || "").toUpperCase();
 
-      const alts: Array<{ price: number; source: PricedMajor["source"] }> = [];
+      const candidates: Array<{
+        price: number;
+        source: PricedMajor["source"];
+      }> = [];
+
+      // 1) Pyth oracle
+      if (sym && pyth.has(sym)) {
+        candidates.push({ price: pyth.get(sym)!, source: "pyth" });
+      }
+      // 2) Jupiter
       if (mint && jup.has(mint)) {
-        alts.push({ price: jup.get(mint)!, source: "jupiter" });
+        candidates.push({ price: jup.get(mint)!, source: "jupiter" });
       }
+      // 3) CoinGecko
       if (u.coinId && cg.has(u.coinId)) {
-        alts.push({ price: cg.get(u.coinId)!, source: "coingecko" });
+        candidates.push({ price: cg.get(u.coinId)!, source: "coingecko" });
       }
+      // 4) Dex
       if (mint && dex.has(mint)) {
-        alts.push({ price: dex.get(mint)!, source: "dexscreener" });
+        candidates.push({ price: dex.get(mint)!, source: "dexscreener" });
+      }
+      // 5) Tokens.xyz last (often stale)
+      if (txyz) {
+        candidates.push({ price: txyz, source: "tokens.xyz" });
       }
 
-      // Prefer external when txyz missing
-      if (!(txyz && txyz > 0)) {
-        for (const c of alts) {
-          if (priceSane(c.price, alts[0]?.price)) {
+      // Prefer first sane candidate; pyth skips tight txyz band when txyz flat
+      const ref = txyz;
+      for (const c of candidates) {
+        if (c.source === "pyth" && c.price > 0) {
+          // Pyth is oracle — accept unless absurd vs txyz when txyz present
+          if (!ref || priceSane(c.price, ref) || Math.abs(c.price - ref) / ref < 0.5) {
             return { ...u, price: c.price, source: c.source };
           }
         }
-        const any = alts.find((c) => c.price > 0);
-        if (any) return { ...u, price: any.price, source: any.source };
-        return { ...u, price: 0, source: "tokens.xyz" as const };
-      }
-
-      // txyz present — check if alts show a real divergence (stale txyz)
-      // Prefer Jupiter first among alts
-      const jupPx = mint && jup.has(mint) ? jup.get(mint)! : null;
-      const bestAlt =
-        jupPx && priceSane(jupPx, txyz)
-          ? { price: jupPx, source: "jupiter" as const }
-          : alts.find((c) => priceSane(c.price, txyz)) || null;
-
-      if (bestAlt) {
-        const div = Math.abs(bestAlt.price - txyz) / txyz;
-        const txyzFlat1h =
-          u.txyzChange1h == null || Math.abs(u.txyzChange1h) < 0.05;
-        // If external differs ≥0.15% and txyz 1h is flat/missing → external wins
-        if (div >= 0.0015 && (txyzFlat1h || div >= 0.01)) {
-          return { ...u, price: bestAlt.price, source: bestAlt.source };
-        }
-        // Strong divergence always prefer external if sane
-        if (div >= 0.02) {
-          return { ...u, price: bestAlt.price, source: bestAlt.source };
+        if (c.source !== "tokens.xyz" && priceSane(c.price, ref ?? c.price)) {
+          return { ...u, price: c.price, source: c.source };
         }
       }
-
-      return { ...u, price: txyz, source: "tokens.xyz" as const };
+      // last resort any positive
+      const any = candidates.find((c) => c.price > 0);
+      if (any) return { ...u, price: any.price, source: any.source };
+      return { ...u, price: 0, source: "tokens.xyz" as const };
     })
     .filter((m) => m.price > 0);
 }
