@@ -38,6 +38,9 @@ def load_font(name: str, size: int) -> ImageFont.FreeTypeFont:
 
 
 def text_w(font: ImageFont.ImageFont, text: str) -> int:
+    # getlength = advance width (avoids Monoton $ bbox side-bearing blowouts)
+    if hasattr(font, "getlength"):
+        return int(font.getlength(text))
     bb = font.getbbox(text)
     return int(bb[2] - bb[0])
 
@@ -139,7 +142,7 @@ def make_poster(size: tuple[int, int], tag: str) -> Image.Image:
     mono_xl = load_font("Monoton-Regular.ttf", fs(148))
     orb = load_font("Orbitron-Bold.ttf", fs(30))
     orb_sm = load_font("Orbitron-Bold.ttf", fs(22))
-    inter = load_font("Inter-Bold.ttf", fs(40))
+    inter = load_font("Inter-Bold.ttf", fs(48))
     inter_sm = load_font("Inter-Regular.ttf", fs(28))
 
     # Taller stories: start content higher in upper-middle (less empty void)
@@ -163,18 +166,20 @@ def make_poster(size: tuple[int, int], tag: str) -> Image.Image:
     draw_glow_text(img, (x0, y), t2, f, CREAM, GOLD, glow_r=10)
     y += fs(88)
 
-    # KOL$ hero
-    k1, kd, k2 = "KOL", "$", ""
-    # just KOL$ big
-    hero = "KOL$"
-    # draw KOL cream + $ neon
-    f = mono_xl if h > w else mono_lg
-    tw_k = text_w(f, "KOL")
-    tw_d = text_w(f, "$")
-    hx = (w - tw_k - tw_d) // 2
-    draw_glow_text(img, (hx, y), "KOL", f, CREAM, GOLD, glow_r=18)
-    draw_glow_text(img, (hx + tw_k, y), "$", f, NEON, NEON, glow_r=22)
-    y += fs(160)
+    # KOL$ hero — cream KOL + neon $ (tight advance widths)
+    f = mono_xl if h / w < 1.4 else mono_lg
+    if h >= 1300 and w <= 1200:
+        f = mono_xl
+    parts = [("KOL", CREAM, GOLD), ("$", NEON, NEON)]
+    total = sum(text_w(f, t_) for t_, _, _ in parts)
+    # slight negative tracking so $ sits snug
+    track = -fs(8)
+    total += track * (len(parts) - 1)
+    hx = (w - total) // 2
+    for i, (t_, fill, glow) in enumerate(parts):
+        draw_glow_text(img, (hx, y), t_, f, fill, glow, glow_r=20)
+        hx += text_w(f, t_) + track
+    y += fs(170)
 
     # feature row: target skull crown
     feats = [("1f3af", "HIT"), ("1f480", "SHIT"), ("1f451", "CT")]
@@ -207,7 +212,7 @@ def make_poster(size: tuple[int, int], tag: str) -> Image.Image:
         "until proven otherwise.",
     ]
     sub = "Nominate CT voices  |  HIT or SHIT"
-    card_h = fs(260)
+    card_h = fs(280)
     rounded_rect(
         draw,
         (pad, card_top, w - pad, card_top + card_h),
@@ -216,7 +221,7 @@ def make_poster(size: tuple[int, int], tag: str) -> Image.Image:
         outline=(*NEON, 80),
         width=max(2, fs(3)),
     )
-    cy = card_top + fs(28)
+    cy = card_top + fs(40)
     for line in lines:
         lf = inter
         lw = text_w(lf, line)
