@@ -64,6 +64,19 @@ export default function AdminPage() {
     if (user?.id) setMyId(user.id);
   }, [user?.id]);
 
+  // Deep link: /admin?tab=kols
+  useEffect(() => {
+    try {
+      const q = new URLSearchParams(window.location.search).get("tab") || "";
+      const tq = q.toLowerCase();
+      if (tq === "kols" || tq === "kol") setTab("kols");
+      else if (tq === "voters") setTab("voters");
+      else if (tq === "referrals") setTab("referrals");
+    } catch {
+      /* */
+    }
+  }, []);
+
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -221,7 +234,7 @@ export default function AdminPage() {
     );
   }
 
-  const tabs: { key: Tab; label: string; icon: React.ReactNode }[] = [
+  const tabs: { key: Tab; label: string; icon: React.ReactNode; count?: number }[] = [
     {
       key: "users",
       label: `Users (${data?.users.length ?? "…"})`,
@@ -239,8 +252,10 @@ export default function AdminPage() {
     },
     {
       key: "kols",
-      label: `KOLs (${(kolRows || data?.kolNoms || []).filter((n) => n.status === "pending").length || (kolRows || data?.kolNoms || []).length || "…"})`,
+      label: "KOLs",
       icon: <EmojiIcon size={16}>🕵️</EmojiIcon>,
+      count: (kolRows || data?.kolNoms || []).filter((n) => n.status === "pending")
+        .length,
     },
   ];
 
@@ -285,22 +300,44 @@ export default function AdminPage() {
       )}
 
       {data && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-6">
           {[
             { label: "Email signups", value: data.stats.signups },
             { label: "Total votes", value: data.stats.totalVotes },
             { label: "Unique voters", value: data.stats.uniqueVoters },
             { label: "Referrals", value: data.stats.referrals },
+            {
+              label: "KOL pending",
+              value: (kolRows || data.kolNoms || []).filter(
+                (n) => n.status === "pending"
+              ).length,
+              tab: "kols" as Tab,
+            },
           ].map((s) => (
-            <div
+            <button
               key={s.label}
-              className="rounded-xl border border-border bg-card p-4"
+              type="button"
+              onClick={() => {
+                if ("tab" in s && s.tab) {
+                  setTab(s.tab);
+                  void loadKols("pending");
+                }
+              }}
+              className={`rounded-xl border bg-card p-4 text-left transition-colors ${
+                "tab" in s && s.tab
+                  ? "border-amber-500/40 hover:border-amber-400/70 cursor-pointer"
+                  : "border-border cursor-default"
+              }`}
             >
               <p className="text-xs text-zinc-500 mb-1">{s.label}</p>
-              <p className="text-2xl font-black font-mono text-foreground">
+              <p
+                className={`text-2xl font-black font-mono ${
+                  "tab" in s && s.tab ? "text-amber-300" : "text-foreground"
+                }`}
+              >
                 {Number(s.value).toLocaleString()}
               </p>
-            </div>
+            </button>
           ))}
         </div>
       )}
@@ -321,7 +358,20 @@ export default function AdminPage() {
             }`}
           >
             {t.icon}
-            {t.label}
+            <span>{t.label}</span>
+            {typeof t.count === "number" ? (
+              <span
+                className={`rounded-full px-1.5 py-0.5 text-[10px] font-mono ${
+                  tab === t.key
+                    ? "bg-black/20 text-black"
+                    : t.count > 0
+                      ? "bg-amber-500/20 text-amber-300"
+                      : "bg-zinc-800 text-zinc-500"
+                }`}
+              >
+                {t.count}
+              </span>
+            ) : null}
           </button>
         ))}
       </div>
