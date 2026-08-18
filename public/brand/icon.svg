@@ -1,4 +1,110 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-  <rect width="100" height="100" rx="18" fill="#0a0a0f"/>
-  <text x="50" y="74" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-style="italic" font-weight="900" font-size="76" fill="#39ff14">$</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="TOKEN$HIT mark">
+  <title>TOKEN$HIT</title>
+  <defs>
+    <!-- Neon glows -->
+    <filter id="glowCream" x="-50%" y="-50%" width="200%" height="200%" color-interpolation-filters="sRGB">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="6" result="b"/>
+      <feMerge>
+        <feMergeNode in="b"/>
+        <feMergeNode in="b"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="glowGreen" x="-50%" y="-50%" width="200%" height="200%" color-interpolation-filters="sRGB">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="8" result="b"/>
+      <feMerge>
+        <feMergeNode in="b"/>
+        <feMergeNode in="b"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="softBg" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="40"/>
+    </filter>
+    <!-- Cream stroke style (TOKEN T) -->
+    <linearGradient id="cream" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#fffef5"/>
+      <stop offset="55%" stop-color="#fff8e7"/>
+      <stop offset="100%" stop-color="#f0c040"/>
+    </linearGradient>
+    <linearGradient id="neon" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#7cff55"/>
+      <stop offset="45%" stop-color="#39ff14"/>
+      <stop offset="100%" stop-color="#1fd100"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Dark void -->
+  <rect width="512" height="512" rx="96" fill="#0a0a0f"/>
+  <!-- Soft neon wash -->
+  <circle cx="300" cy="260" r="160" fill="#39ff14" opacity="0.12" filter="url(#softBg)"/>
+  <circle cx="180" cy="240" r="120" fill="#f0c040" opacity="0.08" filter="url(#softBg)"/>
+
+  <!-- ===== Cream neon T (left) — stacked bar motif ===== -->
+  <g filter="url(#glowCream)" transform="translate(78 118)">
+    <!-- outer glow pass (slightly thicker) -->
+    <g fill="none" stroke="#f0c040" stroke-opacity="0.35" stroke-width="22" stroke-linecap="round" stroke-linejoin="round">
+      <!-- top bar -->
+      <path d="M28 36 H168"/>
+      <!-- stem -->
+      <path d="M98 36 V252"/>
+      <!-- left bars -->
+      <path d="M28 88 H92"/>
+      <path d="M28 132 H92"/>
+      <path d="M28 176 H92"/>
+    </g>
+    <!-- main cream strokes -->
+    <g fill="none" stroke="url(#cream)" stroke-width="16" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M28 36 H168"/>
+      <path d="M98 36 V252"/>
+      <path d="M28 88 H92"/>
+      <path d="M28 132 H92"/>
+      <path d="M28 176 H92"/>
+    </g>
+    <!-- hot core -->
+    <g fill="none" stroke="#fffef8" stroke-width="5" stroke-linecap="round" stroke-opacity="0.9">
+      <path d="M28 36 H168"/>
+      <path d="M98 36 V252"/>
+      <path d="M28 88 H92"/>
+      <path d="M28 132 H92"/>
+      <path d="M28 176 H92"/>
+    </g>
+  </g>
+
+  <!-- ===== Neon green $ (right) ===== -->
+  <g filter="url(#glowGreen)" transform="translate(248 96)">
+    <!-- S-curve body of dollar (two vertical strokes for tube look) -->
+    <path
+      d="M118 48
+         C 52 48, 36 88, 36 118
+         C 36 148, 56 168, 118 176
+         C 176 184, 196 204, 196 236
+         C 196 272, 164 312, 92 312
+         C 48 312, 28 292, 24 268"
+      fill="none"
+      stroke="url(#neon)"
+      stroke-width="28"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    />
+    <!-- inner core -->
+    <path
+      d="M118 48
+         C 52 48, 36 88, 36 118
+         C 36 148, 56 168, 118 176
+         C 176 184, 196 204, 196 236
+         C 196 272, 164 312, 92 312
+         C 48 312, 28 292, 24 268"
+      fill="none"
+      stroke="#c8ffb0"
+      stroke-width="8"
+      stroke-linecap="round"
+      stroke-opacity="0.85"
+    />
+    <!-- vertical stem through $ -->
+    <line x1="116" y1="18" x2="116" y2="342"
+      stroke="url(#neon)" stroke-width="22" stroke-linecap="round"/>
+    <line x1="116" y1="18" x2="116" y2="342"
+      stroke="#e8ffd8" stroke-width="6" stroke-linecap="round" stroke-opacity="0.9"/>
+  </g>
 </svg>
