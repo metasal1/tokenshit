@@ -497,7 +497,12 @@ export default function DayGamePanel({
       }
 
       setPhase("Building…");
-      const rawTx = await fetchTransferTx(wallet);
+      let rawTx: string;
+      try {
+        rawTx = await fetchTransferTx(wallet);
+      } catch (be) {
+        throw be;
+      }
       const txBytes = b64ToBytes(rawTx);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const walletObj =
