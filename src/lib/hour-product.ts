@@ -15,7 +15,7 @@ export const PLAY_PRODUCT = {
   tagline: "Call HIT or SHIT. Play the bag.",
   /** Rules blurb */
   blurb:
-    "1,000 $TOKENSHIT · real majors · best % takes HIT pot · worst % takes SHIT pot · VRF picks one wallet · 25% house",
+    "1,000 $TOKENSHIT · real majors · best % takes HIT pot · worst % takes SHIT pot · prize split across winning tickets · 25% house",
   /** Canonical public paths */
   path: "/play",
   winnersPath: "/winners",

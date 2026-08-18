@@ -19,6 +19,12 @@ type Winner = {
   logo: string;
   pct: number | null;
   winner: string | null;
+  winners?: Array<{
+    wallet: string;
+    tickets: number;
+    amount: number;
+    sig?: string | null;
+  }>;
   prize: number;
   fee: number;
   pot: number;
@@ -102,7 +108,7 @@ export default function WinnersBoard({
           </div>
         </div>
         <p className="text-xs text-zinc-500">
-          Past bags + wallet winners (or treasury). Newest first.
+          Past bags · pot split across winning tickets. Newest first.
         </p>
 
         <div className="flex rounded-xl border border-border overflow-hidden text-sm font-bold font-orbitron tracking-wide uppercase">
@@ -209,21 +215,48 @@ export default function WinnersBoard({
               </div>
               <div className="text-right shrink-0">
                 <div className="text-xs font-mono text-neon">
-                  {shortAddr(w.winner)}
+                  {w.winners && w.winners.length > 1
+                    ? `SPLIT · ${w.winners.length}`
+                    : shortAddr(
+                        w.winner && String(w.winner).startsWith("SPLIT")
+                          ? null
+                          : w.winner
+                      )}
                 </div>
                 <div className="text-[10px] text-zinc-500">
                   {w.prize > 0
                     ? `${w.prize.toLocaleString()} $${SHIT_SYMBOL}`
-                    : "treasury"}
+                    : "empty"}
                 </div>
               </div>
             </div>
-            {w.winner && (
-              <div className="mt-2 pt-2 border-t border-white/5 text-[10px] font-mono text-zinc-600 break-all">
+            {w.winners && w.winners.length > 0 ? (
+              <div className="mt-2 space-y-1 border-t border-white/5 pt-2">
+                {w.winners.map((p) => (
+                  <div
+                    key={p.wallet}
+                    className="flex items-center justify-between gap-2 font-mono text-[10px] text-zinc-500"
+                  >
+                    <span className="truncate text-zinc-400">
+                      {shortAddr(p.wallet)}
+                      {p.tickets > 1 ? ` ×${p.tickets}` : ""}
+                    </span>
+                    <span className="shrink-0 text-neon">
+                      +{Number(p.amount || 0).toLocaleString()}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : w.winner && !String(w.winner).startsWith("SPLIT") ? (
+              <div className="mt-2 break-all border-t border-white/5 pt-2 font-mono text-[10px] text-zinc-600">
                 {w.winner}
               </div>
-            )}
-            {(w.vrf || w.vrfLink) && (
+            ) : null}
+            {w.winners && w.winners.length > 1 ? (
+              <div className="mt-2 border-t border-white/5 pt-2 font-mono text-[10px] text-zinc-600">
+                Split by tickets · 75% pot · 25% house
+              </div>
+            ) : (w.vrf || w.vrfLink) && !((w.vrf as { mode?: string } | null | undefined)?.mode === "split") ? (
               <div
                 className="mt-2 pt-2 border-t border-white/5"
                 onClick={(e) => e.preventDefault()}
@@ -243,7 +276,7 @@ export default function WinnersBoard({
                   </a>
                 ) : null}
               </div>
-            )}
+            ) : null}
           </Link>
         ))}
       </div>

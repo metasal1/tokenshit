@@ -85,13 +85,13 @@ export async function POST(request: NextRequest) {
                 ? `HIT: <code>${escapeHtml(r.hitBag.assetId)}</code> ${r.hitBag.pct.toFixed(2)}%`
                 : "HIT bag: —",
               r.hit?.winner
-                ? `HIT winner: <code>${escapeHtml(r.hit.winner)}</code> +${Number(r.hit.prize).toLocaleString()}`
+                ? `HIT split: <code>${escapeHtml(r.hit.winner)}</code> +${Number(r.hit.prize).toLocaleString()}`
                 : `HIT → empty / house`,
               r.shitBag
                 ? `SHIT: <code>${escapeHtml(r.shitBag.assetId)}</code> ${r.shitBag.pct.toFixed(2)}%`
                 : "SHIT bag: —",
               r.shit?.winner
-                ? `SHIT winner: <code>${escapeHtml(r.shit.winner)}</code> +${Number(r.shit.prize).toLocaleString()}`
+                ? `SHIT split: <code>${escapeHtml(r.shit.winner)}</code> +${Number(r.shit.prize).toLocaleString()}`
                 : `SHIT → empty / house`,
               r.boardHealth
                 ? `board spread ${r.boardHealth.spread.toFixed(2)}% · retries ${r.priceRetries ?? 0}`
@@ -128,13 +128,13 @@ export async function POST(request: NextRequest) {
               ? `🎯 HIT <code>${escapeHtml(r.hitBag.assetId)}</code> ${r.hitBag.pct.toFixed(2)}%`
               : "🎯 HIT bag: —",
             r.hit?.winner
-              ? `💰 HIT prize <b>+${Number(r.hit.prize).toLocaleString()}</b> → <code>${escapeHtml(r.hit.winner)}</code>${r.hit.prizeSig ? `\n<a href="https://solscan.io/tx/${escapeHtml(r.hit.prizeSig)}">payout tx</a>` : ""}`
+              ? `💰 HIT pot <b>+${Number(r.hit.prize).toLocaleString()}</b> split → <code>${escapeHtml(r.hit.winner)}</code>${r.hit.prizeSig ? `\n<a href="https://solscan.io/tx/${escapeHtml(r.hit.prizeSig)}">payout tx</a>` : ""}`
               : "HIT → empty / house",
             r.shitBag
               ? `💀 SHIT <code>${escapeHtml(r.shitBag.assetId)}</code> ${r.shitBag.pct.toFixed(2)}%`
               : "💀 SHIT bag: —",
             r.shit?.winner
-              ? `💰 SHIT prize <b>+${Number(r.shit.prize).toLocaleString()}</b> → <code>${escapeHtml(r.shit.winner)}</code>${r.shit.prizeSig ? `\n<a href="https://solscan.io/tx/${escapeHtml(r.shit.prizeSig)}">payout tx</a>` : ""}`
+              ? `💰 SHIT pot <b>+${Number(r.shit.prize).toLocaleString()}</b> split → <code>${escapeHtml(r.shit.winner)}</code>${r.shit.prizeSig ? `\n<a href="https://solscan.io/tx/${escapeHtml(r.shit.prizeSig)}">payout tx</a>` : ""}`
               : "SHIT → empty / house",
             `👀 <a href="https://tokenshit.com/winners">Winners</a> · <a href="https://tokenshit.com/play">Play</a>`,
           ];
