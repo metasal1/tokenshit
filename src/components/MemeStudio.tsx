@@ -645,9 +645,9 @@ export default function MemeStudio({ embedded = false }: { embedded?: boolean })
         ))}
       </div>
 
-      {/* Editor modal */}
+      {/* Editor modal — above sticky nav + bottom dock */}
       {selected && (
-        <div className="fixed inset-0 z-50 flex items-stretch justify-center bg-black/85 md:items-center md:p-6">
+        <div className="fixed inset-0 z-[220] flex items-stretch justify-center bg-black/85 md:items-center md:p-6">
           <div className="flex h-[100dvh] w-full max-w-5xl flex-col overflow-hidden border-white/10 bg-[#0a0a0a] md:h-auto md:max-h-[90svh] md:rounded-3xl md:border">
             <div className="flex items-center justify-between border-b border-white/10 px-3 py-2.5 pt-[max(0.65rem,env(safe-area-inset-top))] md:px-6 md:py-3 md:pt-3">
               <div className="min-w-0 pr-2">
