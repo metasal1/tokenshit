@@ -1161,9 +1161,51 @@ export async function getLiveLeaders(utcHour: string): Promise<{
   let live = await fetchRealMajorsLive();
   const liveById = new Map(live.map((m) => [m.assetId, m]));
 
-  // If open was frozen on bad external feeds while Tokens.xyz live has
+  // If open snap is thin vs live universe (e.g. old 2-asset freeze), fill missing
+  // assets at current live price as open (late joiners) OR full rebase if tiny.
+  if (live.length >= 8 && openM.size > 0 && openM.size < Math.min(8, Math.floor(live.length * 0.35))) {
+    // Full rebase — open was incomplete
+    await tursoExecute(
+      `DELETE FROM day_prices WHERE utc_day = ? AND phase = 'open'`,
+      [utcHour]
+    );
+    await tursoExecute(
+      `UPDATE day_rounds SET open_snap_at = NULL WHERE utc_day = ?`,
+      [utcHour]
+    );
+    await snapshotPrices(utcHour, "open");
+    openM = await loadPhase(utcHour, "open");
+    live = await fetchRealMajorsLive();
+    liveById.clear();
+    for (const m of live) liveById.set(m.assetId, m);
+  } else if (live.length > openM.size + 3) {
+    // Insert-only fill for assets missing from open
+    const now = new Date().toISOString();
+    for (const m of live) {
+      if (openM.has(m.assetId) || !(m.price > 0)) continue;
+      await tursoExecute(
+        `INSERT INTO day_prices
+          (utc_day, phase, asset_id, price, volume24h, name, symbol, logo, snapped_at)
+         VALUES (?, 'open', ?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(utc_day, phase, asset_id) DO NOTHING`,
+        [
+          utcHour,
+          m.assetId,
+          m.price,
+          m.volume24h || 0,
+          m.name || "",
+          m.symbol || "",
+          m.logo || "",
+          now,
+        ]
+      );
+    }
+    openM = await loadPhase(utcHour, "open");
+  }
+
+  // If open was frozen on bad external feeds while live has
   // real divergence (or vice versa: all flat while multi-source moved),
-  // re-baseline open once this hour. Tokens.xyz is SOT for live prices.
+  // re-baseline open once this hour.
   if (openM.size > 0 && live.length > 0) {
     let compared = 0;
     let nearZero = 0;
@@ -1176,13 +1218,10 @@ export async function getLiveLeaders(utcHour: string): Promise<{
       if (abs < 0.03) nearZero++;
       if (abs >= 0.05) bigDiv++;
     }
-    // Prefer txyz-sourced lives; any valid live counts
-    const txyz = live.filter((m) => m.source === "tokens.xyz");
-    const txyzRatio = live.length ? txyz.length / live.length : 0;
     const shouldRebase =
       compared >= 5 &&
       ((nearZero / compared >= 0.75 && bigDiv >= 2) ||
-        (nearZero / compared >= 0.95 && txyzRatio >= 0.5));
+        nearZero / compared >= 0.95);
     if (shouldRebase) {
       await tursoExecute(
         `DELETE FROM day_prices WHERE utc_day = ? AND phase = 'open'`,
