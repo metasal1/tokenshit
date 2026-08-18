@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import MemeStudio from "@/components/MemeStudio";
-import { PlayMatchShell } from "@/components/PlayMatchShell";
 import { pageMeta } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
@@ -12,22 +11,10 @@ export const metadata: Metadata = pageMeta({
   path: "/memes",
 });
 
+/**
+ * Full-width MemeStudio — never wrap in PlayMatchShell (max-w-lg
+ * crushed gallery + editor).
+ */
 export default function MemesPage() {
-  return (
-    <PlayMatchShell
-      title={
-        <>
-          <span className="neon-text">MEMES</span>
-        </>
-      }
-      titleAccent="studio"
-      links={[
-        { href: "/play", label: "Play", primary: true },
-        { href: "/referrals", label: "Refer" },
-        { href: "/boards", label: "Boards" },
-      ]}
-    >
-      <MemeStudio embedded />
-    </PlayMatchShell>
-  );
+  return <MemeStudio />;
 }
