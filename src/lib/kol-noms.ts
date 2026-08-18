@@ -147,3 +147,84 @@ export async function insertKolNomination(opts: {
   const id = Number(idR.rows[0]?.[0] || 0);
   return { ok: true, id, handle };
 }
+
+
+export type KolNomRow = {
+  id: number;
+  handle: string;
+  note: string | null;
+  byX: string | null;
+  byWallet: string | null;
+  ip: string | null;
+  status: string;
+  createdAt: string;
+};
+
+export async function listKolNominations(opts?: {
+  status?: string;
+  limit?: number;
+}): Promise<KolNomRow[]> {
+  await ensureKolNomSchema();
+  const limit = Math.min(Math.max(opts?.limit ?? 200, 1), 500);
+  const status = opts?.status?.trim().toLowerCase();
+  const r =
+    status && status !== "all"
+      ? await tursoExecute(
+          `SELECT id, handle, note, by_x, by_wallet, ip, status, created_at
+           FROM kol_nominations WHERE status = ?
+           ORDER BY id DESC LIMIT ?`,
+          [status, limit]
+        )
+      : await tursoExecute(
+          `SELECT id, handle, note, by_x, by_wallet, ip, status, created_at
+           FROM kol_nominations ORDER BY id DESC LIMIT ?`,
+          [limit]
+        );
+  return r.rows.map((row) => ({
+    id: Number(row[0]),
+    handle: String(row[1] || ""),
+    note: row[2] != null ? String(row[2]) : null,
+    byX: row[3] != null ? String(row[3]) : null,
+    byWallet: row[4] != null ? String(row[4]) : null,
+    ip: row[5] != null ? String(row[5]) : null,
+    status: String(row[6] || "pending"),
+    createdAt: String(row[7] || ""),
+  }));
+}
+
+export async function setKolNominationStatus(
+  id: number,
+  status: "pending" | "accepted" | "rejected" | "live"
+): Promise<{ ok: boolean; error?: string; row?: KolNomRow }> {
+  await ensureKolNomSchema();
+  if (!Number.isFinite(id) || id <= 0) {
+    return { ok: false, error: "bad id" };
+  }
+  const allowed = new Set(["pending", "accepted", "rejected", "live"]);
+  if (!allowed.has(status)) return { ok: false, error: "bad status" };
+
+  await tursoExecute(`UPDATE kol_nominations SET status = ? WHERE id = ?`, [
+    status,
+    id,
+  ]);
+  const r = await tursoExecute(
+    `SELECT id, handle, note, by_x, by_wallet, ip, status, created_at
+     FROM kol_nominations WHERE id = ? LIMIT 1`,
+    [id]
+  );
+  if (!r.rows.length) return { ok: false, error: "not found" };
+  const row = r.rows[0];
+  return {
+    ok: true,
+    row: {
+      id: Number(row[0]),
+      handle: String(row[1] || ""),
+      note: row[2] != null ? String(row[2]) : null,
+      byX: row[3] != null ? String(row[3]) : null,
+      byWallet: row[4] != null ? String(row[4]) : null,
+      ip: row[5] != null ? String(row[5]) : null,
+      status: String(row[6] || ""),
+      createdAt: String(row[7] || ""),
+    },
+  };
+}

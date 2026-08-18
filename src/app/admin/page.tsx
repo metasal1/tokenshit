@@ -32,9 +32,17 @@ interface AdminData {
     wallet: string | null;
     createdAt: string;
   }[];
+  kolNoms?: {
+    id: number;
+    handle: string;
+    note: string | null;
+    byX: string | null;
+    status: string;
+    createdAt: string;
+  }[];
 }
 
-type Tab = "users" | "voters" | "referrals";
+type Tab = "users" | "voters" | "referrals" | "kols";
 
 /**
  * Admin UI — data only loads after server allowlist (ADMIN_PRIVY_ID) accepts
@@ -48,6 +56,9 @@ export default function AdminPage() {
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("users");
   const [myId, setMyId] = useState<string | null>(null);
+  const [kolBusy, setKolBusy] = useState<number | null>(null);
+  const [kolFilter, setKolFilter] = useState<"pending" | "all" | "accepted" | "rejected" | "live">("pending");
+  const [kolRows, setKolRows] = useState<AdminData["kolNoms"]>([]);
 
   useEffect(() => {
     if (user?.id) setMyId(user.id);
@@ -86,7 +97,9 @@ export default function AdminPage() {
           (d as { error?: string }).error || `HTTP ${res.status}`
         );
       }
-      setData(await res.json());
+      const json = (await res.json()) as AdminData;
+      setData(json);
+      setKolRows(json.kolNoms || []);
     } catch (e) {
       setData(null);
       setError(e instanceof Error ? e.message : String(e));
@@ -94,6 +107,48 @@ export default function AdminPage() {
       setLoading(false);
     }
   }, [getAccessToken]);
+
+  const loadKols = useCallback(async (filter = kolFilter) => {
+    try {
+      const token = await getAccessToken();
+      if (!token) return;
+      const res = await fetch(`/api/admin/kols?status=${filter}`, {
+        headers: { Authorization: `Bearer ${token}` },
+        cache: "no-store",
+      });
+      if (!res.ok) return;
+      const j = (await res.json()) as { noms?: AdminData["kolNoms"] };
+      setKolRows(j.noms || []);
+    } catch {
+      /* */
+    }
+  }, [getAccessToken, kolFilter]);
+
+  async function actKol(id: number, action: "accept" | "reject" | "live" | "pending") {
+    setKolBusy(id);
+    try {
+      const token = await getAccessToken();
+      if (!token) throw new Error("No session");
+      const res = await fetch("/api/admin/kols", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ id, action }),
+      });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error((j as { error?: string }).error || `HTTP ${res.status}`);
+      await loadKols(kolFilter);
+      // refresh main dump counts
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "KOL action failed");
+    } finally {
+      setKolBusy(null);
+    }
+  }
+
 
   useEffect(() => {
     if (!ready || !authenticated) return;
@@ -182,6 +237,11 @@ export default function AdminPage() {
       label: `Referrals (${data?.referrals.length ?? "…"})`,
       icon: <EmojiIcon size={16}>🔗</EmojiIcon>,
     },
+    {
+      key: "kols",
+      label: `KOLs (${(kolRows || data?.kolNoms || []).filter((n) => n.status === "pending").length || (kolRows || data?.kolNoms || []).length || "…"})`,
+      icon: <EmojiIcon size={16}>🕵️</EmojiIcon>,
+    },
   ];
 
   return (
@@ -250,7 +310,10 @@ export default function AdminPage() {
           <button
             key={t.key}
             type="button"
-            onClick={() => setTab(t.key)}
+            onClick={() => {
+              setTab(t.key);
+              if (t.key === "kols") void loadKols(kolFilter);
+            }}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
               tab === t.key
                 ? "bg-neon text-black"
@@ -454,6 +517,110 @@ export default function AdminPage() {
           </div>
         </div>
       )}
+
+      {tab === "kols" && (
+        <div className="space-y-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-xs text-zinc-500 font-mono flex-1">
+              Submissions → Turso <code className="text-neon">kol_nominations</code>. Accept = shortlist · Live = on roster · Reject = no.
+            </p>
+            {(["pending", "accepted", "live", "rejected", "all"] as const).map((f) => (
+              <button
+                key={f}
+                type="button"
+                onClick={() => {
+                  setKolFilter(f);
+                  void loadKols(f);
+                }}
+                className={`rounded-full px-2.5 py-1 text-[10px] font-orbitron uppercase tracking-wide border ${
+                  kolFilter === f
+                    ? "border-neon text-neon bg-neon/10"
+                    : "border-zinc-700 text-zinc-400"
+                }`}
+              >
+                {f}
+              </button>
+            ))}
+          </div>
+          <div className="rounded-xl border border-border overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-zinc-950/80 text-zinc-500 text-xs font-orbitron uppercase">
+                <tr>
+                  <th className="text-left px-3 py-2">ID</th>
+                  <th className="text-left px-3 py-2">Handle</th>
+                  <th className="text-left px-3 py-2">By</th>
+                  <th className="text-left px-3 py-2">Note</th>
+                  <th className="text-left px-3 py-2">Status</th>
+                  <th className="text-left px-3 py-2">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(kolRows || []).length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="px-3 py-6 text-center text-zinc-600 text-xs">
+                      No nominations in this filter
+                    </td>
+                  </tr>
+                ) : (
+                  (kolRows || []).map((n) => (
+                    <tr key={n.id} className="border-t border-border hover:bg-card/80">
+                      <td className="px-3 py-2 font-mono text-xs text-zinc-500">{n.id}</td>
+                      <td className="px-3 py-2 font-mono text-xs">
+                        <a
+                          href={`https://x.com/${n.handle}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-neon hover:underline"
+                        >
+                          @{n.handle}
+                        </a>
+                      </td>
+                      <td className="px-3 py-2 font-mono text-xs text-zinc-400">
+                        {n.byX ? `@${n.byX}` : "—"}
+                      </td>
+                      <td className="px-3 py-2 text-xs text-zinc-500 max-w-[12rem] truncate" title={n.note || ""}>
+                        {n.note || "—"}
+                      </td>
+                      <td className="px-3 py-2 font-mono text-[10px] uppercase text-amber-300/90">
+                        {n.status}
+                      </td>
+                      <td className="px-3 py-2">
+                        <div className="flex flex-wrap gap-1">
+                          <button
+                            type="button"
+                            disabled={kolBusy === n.id}
+                            onClick={() => void actKol(n.id, "accept")}
+                            className="rounded-md bg-neon/90 px-2 py-1 text-[10px] font-bold text-black disabled:opacity-40"
+                          >
+                            Accept
+                          </button>
+                          <button
+                            type="button"
+                            disabled={kolBusy === n.id}
+                            onClick={() => void actKol(n.id, "live")}
+                            className="rounded-md border border-neon/40 px-2 py-1 text-[10px] text-neon disabled:opacity-40"
+                          >
+                            Live
+                          </button>
+                          <button
+                            type="button"
+                            disabled={kolBusy === n.id}
+                            onClick={() => void actKol(n.id, "reject")}
+                            className="rounded-md border border-red-800 px-2 py-1 text-[10px] text-red-300 disabled:opacity-40"
+                          >
+                            Reject
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

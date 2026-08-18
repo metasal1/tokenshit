@@ -1,6 +1,7 @@
 import { type NextRequest } from "next/server";
 import { tursoBatch } from "@/lib/turso";
 import { requirePrivy } from "@/lib/privy-server";
+import { ensureKolNomSchema } from "@/lib/kol-noms";
 
 export const dynamic = "force-dynamic";
 
@@ -68,6 +69,7 @@ export async function GET(req: NextRequest) {
     }
   }
 
+  await ensureKolNomSchema();
   const results = await tursoBatch([
     {
       sql: `SELECT email, twitter_handle, wallet_address, source, created_at
@@ -93,6 +95,11 @@ export async function GET(req: NextRequest) {
               (SELECT COUNT(*) FROM votes) as total_votes,
               (SELECT COUNT(DISTINCT device_id) FROM votes) as unique_voters,
               (SELECT COUNT(*) FROM referrals) as referrals`,
+      args: [],
+    },
+    {
+      sql: `SELECT id, handle, note, by_x, status, created_at
+            FROM kol_nominations ORDER BY id DESC LIMIT 100`,
       args: [],
     },
   ]);
@@ -129,8 +136,17 @@ export async function GET(req: NextRequest) {
       }
     : { signups: 0, totalVotes: 0, uniqueVoters: 0, referrals: 0 };
 
+  const kolNoms = (results[4]?.rows || []).map((r) => ({
+    id: Number(r[0]),
+    handle: String(r[1] || ""),
+    note: r[2] != null ? String(r[2]) : null,
+    byX: r[3] != null ? String(r[3]) : null,
+    status: String(r[4] || ""),
+    createdAt: String(r[5] || ""),
+  }));
+
   return Response.json(
-    { stats, users, voters, referrals },
+    { stats, users, voters, referrals, kolNoms },
     {
       headers: {
         "Cache-Control": "no-store",

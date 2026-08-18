@@ -92,3 +92,16 @@ e.g. ecosystem hosts, traders, builders, meme accounts — **no** Foundation imp
 - Limits: 8/day per X scout · 5/day anon IP
 - TG ping on new nom
 - **No payout on submit** — pay-on-accept later
+
+
+## Admin review
+
+| Where | What |
+|-------|------|
+| DB | Turso table `kol_nominations` |
+| TG | Ping on each new nom (signup chat) |
+| UI | https://tokenshit.com/admin → **KOLs** tab |
+| API | `GET/POST /api/admin/kols` (Privy admin allowlist) |
+
+**Actions:** Accept (shortlist) · Live (roster) · Reject  
+Statuses: `pending` → `accepted` | `rejected` | `live`
