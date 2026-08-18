@@ -104,6 +104,33 @@ export default function BrandPage() {
             </span>
           </div>
         </div>
+        <div className="rounded-xl border border-neon/40 bg-zinc-950 overflow-hidden">
+          <p className="text-[10px] uppercase tracking-widest text-zinc-500 font-mono px-4 pt-3">
+            Official SVG · cream T + green $
+          </p>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={BRAND.logo.assets.logoSvg}
+            alt="TOKEN$HIT official SVG"
+            className="w-full max-h-[360px] object-contain p-6"
+          />
+          <div className="px-4 pb-4 flex flex-wrap gap-2">
+            <a
+              href={BRAND.logo.assets.logoSvg}
+              download="tokenshit.svg"
+              className="rounded-lg bg-neon text-black text-xs font-semibold px-3 py-1.5"
+            >
+              Download SVG
+            </a>
+            <a
+              href="/tokenshit.svg"
+              download="tokenshit.svg"
+              className="rounded-lg border border-border text-zinc-300 text-xs font-mono px-3 py-1.5"
+            >
+              /tokenshit.svg
+            </a>
+          </div>
+        </div>
         <div className="rounded-xl border border-border bg-background overflow-hidden">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
@@ -115,6 +142,7 @@ export default function BrandPage() {
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {(
             [
+              ["Logo SVG", BRAND.logo.assets.logoSvg],
               ["Logo PNG", BRAND.logo.assets.logoPng],
               ["Transparent", BRAND.logo.assets.logoTransparent],
               ["Square", BRAND.logo.assets.logoSquare],
@@ -426,6 +454,7 @@ export default function BrandPage() {
         <div className="grid sm:grid-cols-3 gap-3">
           {(
             [
+              ["Logo SVG", BRAND.logo.assets.logoSvg],
               ["Logo PNG", BRAND.logo.assets.logoPng],
               ["Transparent", BRAND.logo.assets.logoTransparent],
               ["Wide", BRAND.logo.assets.logoWide],
