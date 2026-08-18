@@ -17,6 +17,7 @@ import {
   isDarkStyle,
   proxiedBlank,
   renderTokenshitMeme,
+  renderTokenshitMemeBlob,
   type MemeBox,
   type MemeTemplate,
 } from "@/lib/meme-render";
@@ -299,18 +300,26 @@ export default function MemeStudio({ embedded = false }: { embedded?: boolean })
     };
   }, [selected, texts, boxes]);
 
-  /** Exact method from memes.sal.fun — prefer cached preview dataURL */
+  /** Reliable PNG blob — prefer canvas.toBlob, then preview dataURL */
   const getMemeBlob = useCallback(async (): Promise<Blob> => {
     if (!selected) throw new Error("No meme selected");
-    const dataUrl = preview.startsWith("data:")
-      ? preview
-      : await renderTokenshitMeme(selected.blank, boxes, texts, {
-          brand: true,
-        });
-    const res = await fetch(dataUrl);
-    const blob = await res.blob();
-    if (blob.type === "image/png") return blob;
-    return new Blob([await blob.arrayBuffer()], { type: "image/png" });
+    // Fresh render is more reliable than stale preview (Safari clipboard)
+    try {
+      return await renderTokenshitMemeBlob(selected.blank, boxes, texts, {
+        brand: true,
+      });
+    } catch (e) {
+      if (preview.startsWith("data:")) {
+        const res = await fetch(preview);
+        const blob = await res.blob();
+        if (blob.size > 0) {
+          return blob.type === "image/png"
+            ? blob
+            : new Blob([await blob.arrayBuffer()], { type: "image/png" });
+        }
+      }
+      throw e;
+    }
   }, [preview, selected, boxes, texts]);
 
   const shareCaption = useCallback(() => {
@@ -365,86 +374,126 @@ export default function MemeStudio({ embedded = false }: { embedded?: boolean })
     [selected, getMemeBlob]
   );
 
-  /** Ported from memes.sal.fun download() */
+  /** Download PNG — object URL + iOS share fallback */
   const download = useCallback(async () => {
     if (!selected) return;
     setExporting(true);
+    setStatusMsg("Preparing…");
     try {
       const blob = await getMemeBlob();
+      if (!blob || blob.size < 32) throw new Error("empty image");
+      const fileName = `${selected.id}-meme.png`;
+      const file = new File([blob], fileName, { type: "image/png" });
+
+      // iOS / Android: share sheet is the reliable "download"
+      const ua = navigator.userAgent || "";
+      const mobile = /iPhone|iPad|iPod|Android/i.test(ua);
+      if (
+        mobile &&
+        typeof navigator.share === "function" &&
+        typeof navigator.canShare === "function" &&
+        navigator.canShare({ files: [file] })
+      ) {
+        try {
+          await navigator.share({ files: [file], title: selected.name });
+          setStatusMsg("Shared / saved");
+          window.setTimeout(() => setStatusMsg(""), 1800);
+          return;
+        } catch (e) {
+          if ((e as Error)?.name === "AbortError") {
+            setStatusMsg("");
+            return;
+          }
+          /* fall through to anchor download */
+        }
+      }
+
+      // Desktop + fallback: <a download>
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `${selected.id}-meme.png`;
+      a.download = fileName;
       a.type = "image/png";
       a.rel = "noopener";
+      a.style.display = "none";
       document.body.appendChild(a);
       a.click();
       a.remove();
-      window.setTimeout(() => URL.revokeObjectURL(url), 2000);
-
-      if (
-        typeof navigator !== "undefined" &&
-        typeof navigator.share === "function" &&
-        typeof navigator.canShare === "function"
-      ) {
-        const file = new File([blob], `${selected.id}-meme.png`, {
-          type: "image/png",
-        });
-        if (navigator.canShare({ files: [file] })) {
-          const ua = navigator.userAgent || "";
-          if (/iPhone|iPad|iPod|Android/i.test(ua)) {
-            try {
-              await navigator.share({
-                files: [file],
-                title: selected.name,
-              });
-            } catch {
-              /* user cancelled share */
-            }
-          }
-        }
-      }
-      setStatusMsg("Saved");
-      window.setTimeout(() => setStatusMsg(""), 1600);
+      window.setTimeout(() => URL.revokeObjectURL(url), 4000);
+      setStatusMsg("Downloaded");
+      window.setTimeout(() => setStatusMsg(""), 1800);
     } catch (e) {
       console.error(e);
-      alert("Could not save image");
+      setStatusMsg("Download failed");
+      alert(
+        e instanceof Error
+          ? `Could not save image: ${e.message}`
+          : "Could not save image"
+      );
     } finally {
       setExporting(false);
     }
   }, [selected, getMemeBlob]);
 
-  /** Ported from memes.sal.fun copyImage() */
+  /** Copy PNG to clipboard — Safari needs Promise-wrapped blob */
   const copyImage = useCallback(async () => {
     if (!selected) return;
     setExporting(true);
+    setStatusMsg("Copying…");
     try {
       const blob = await getMemeBlob();
+      if (!blob || blob.size < 32) throw new Error("empty image");
+      const png =
+        blob.type === "image/png"
+          ? blob
+          : new Blob([await blob.arrayBuffer()], { type: "image/png" });
+
       if (
         typeof ClipboardItem !== "undefined" &&
         navigator.clipboard &&
         typeof navigator.clipboard.write === "function"
       ) {
-        await navigator.clipboard.write([
-          new ClipboardItem({ "image/png": blob }),
-        ]);
+        // Safari / WebKit: value must be a Promise
+        const item = new ClipboardItem({
+          "image/png": Promise.resolve(png),
+        });
+        await navigator.clipboard.write([item]);
         setCopyMsg("Image copied");
         setCopied(true);
+        setStatusMsg("Copied ✓");
         window.setTimeout(() => {
           setCopied(false);
           setCopyMsg("Copy image");
-        }, 1600);
+          setStatusMsg("");
+        }, 1800);
         return;
       }
-      const url = URL.createObjectURL(blob);
+
+      // Fallback: open image tab / share
+      const file = new File([png], `${selected.id}-meme.png`, {
+        type: "image/png",
+      });
+      if (
+        typeof navigator.share === "function" &&
+        typeof navigator.canShare === "function" &&
+        navigator.canShare({ files: [file] })
+      ) {
+        await navigator.share({ files: [file], title: selected.name });
+        setStatusMsg("Shared");
+        window.setTimeout(() => setStatusMsg(""), 1600);
+        return;
+      }
+      const url = URL.createObjectURL(png);
       window.open(url, "_blank", "noopener,noreferrer");
       window.setTimeout(() => URL.revokeObjectURL(url), 30_000);
       setCopyMsg("Opened image");
       setCopied(true);
+      setStatusMsg("Opened — long-press to copy");
       window.setTimeout(() => {
         setCopied(false);
         setCopyMsg("Copy image");
-      }, 1600);
+        setStatusMsg("");
+      }, 2200);
     } catch (e) {
       console.error(e);
       try {
@@ -454,12 +503,14 @@ export default function MemeStudio({ embedded = false }: { embedded?: boolean })
         });
         if (navigator.share) {
           await navigator.share({ files: [file], title: selected.name });
+          setStatusMsg("Shared");
           return;
         }
       } catch {
         /* ignore */
       }
-      alert("Copy image not supported in this browser — use Download image");
+      setStatusMsg("Copy failed");
+      alert("Copy image not supported here — use Download image");
     } finally {
       setExporting(false);
     }
@@ -851,7 +902,7 @@ export default function MemeStudio({ embedded = false }: { embedded?: boolean })
                       <button
                         type="button"
                         onClick={() => void download()}
-                        disabled={exporting || !preview.startsWith("data:")}
+                        disabled={exporting}
                         className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-neon px-3 py-3 text-sm font-bold text-black hover:bg-[#5fff3a] disabled:opacity-50"
                       >
                         {exporting ? "…" : "Download image"}
@@ -859,7 +910,7 @@ export default function MemeStudio({ embedded = false }: { embedded?: boolean })
                       <button
                         type="button"
                         onClick={() => void copyImage()}
-                        disabled={exporting || !preview.startsWith("data:")}
+                        disabled={exporting}
                         className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-white/15 px-3 py-3 text-sm font-semibold hover:bg-white/10 disabled:opacity-50"
                       >
                         {copied ? copyMsg : "Copy image"}
@@ -868,13 +919,17 @@ export default function MemeStudio({ embedded = false }: { embedded?: boolean })
                     <button
                       type="button"
                       onClick={() => void shareX()}
-                      disabled={exporting || !preview.startsWith("data:")}
+                      disabled={exporting}
                       className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-sky-400/30 bg-sky-400/10 px-4 py-3 text-sm font-bold text-sky-200 hover:bg-sky-400/20 disabled:opacity-50"
                     >
                       𝕏 Share X
                     </button>
                     <p className="text-center text-[10px] text-zinc-600 pb-1">
-                      Wait for “ready to save”, then Download / Copy / Share
+                      {preview.startsWith("data:")
+                        ? "Ready · Download / Copy / Share"
+                        : imgLoading
+                          ? "Rendering preview…"
+                          : "Tap Download anytime — re-renders if needed"}
                     </p>
                   </div>
                 </div>
