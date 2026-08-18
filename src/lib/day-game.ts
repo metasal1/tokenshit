@@ -161,7 +161,7 @@ export type MajorSnap = {
 
 /**
  * Live majors with multi-source USD prices.
- * Universe/metadata: Tokens.xyz. Price truth: Jupiter → CoinGecko → Tokens.xyz fallback.
+ * Meta: Tokens.xyz. Price: Pyth → Jupiter → CG → Dex → txyz.
  */
 export async function fetchRealMajorsLive(): Promise<MajorSnap[]> {
   const { priceMajorsLive } = await import("@/lib/live-prices");
