@@ -322,6 +322,22 @@ export async function renderTokenshitMeme(
   texts: string[],
   opts?: { brand?: boolean }
 ): Promise<string> {
+  const canvas = await renderTokenshitMemeCanvas(blankUrl, boxes, texts, opts);
+  try {
+    return canvas.toDataURL("image/png");
+  } catch {
+    throw new Error(
+      "Canvas export blocked (CORS). Blank must be same-origin proxied."
+    );
+  }
+}
+
+async function renderTokenshitMemeCanvas(
+  blankUrl: string,
+  boxes: MemeBox[],
+  texts: string[],
+  opts?: { brand?: boolean }
+): Promise<HTMLCanvasElement> {
   await ensureMonotonFont();
   const src = blankSrc(blankUrl);
   const img = await loadImage(src);
@@ -336,13 +352,7 @@ export async function renderTokenshitMeme(
     drawMonotonBox(ctx, box, texts[i] || "", canvas.width, canvas.height);
   });
   if (opts?.brand !== false) drawWatermark(ctx, canvas.width, canvas.height);
-  try {
-    return canvas.toDataURL("image/png");
-  } catch (e) {
-    throw new Error(
-      "Canvas export blocked (CORS). Blank must be same-origin proxied."
-    );
-  }
+  return canvas;
 }
 
 export async function renderTokenshitMemeBlob(
@@ -351,9 +361,15 @@ export async function renderTokenshitMemeBlob(
   texts: string[],
   opts?: { brand?: boolean }
 ): Promise<Blob> {
-  const dataUrl = await renderTokenshitMeme(blankUrl, boxes, texts, opts);
+  const canvas = await renderTokenshitMemeCanvas(blankUrl, boxes, texts, opts);
+  const blob = await new Promise<Blob | null>((resolve) =>
+    canvas.toBlob((b) => resolve(b), "image/png")
+  );
+  if (blob && blob.size > 0) return blob;
+  // fallback dataURL path
+  const dataUrl = canvas.toDataURL("image/png");
   const res = await fetch(dataUrl);
-  const blob = await res.blob();
-  if (blob.type === "image/png") return blob;
-  return new Blob([await blob.arrayBuffer()], { type: "image/png" });
+  const b = await res.blob();
+  if (b.type === "image/png") return b;
+  return new Blob([await b.arrayBuffer()], { type: "image/png" });
 }
