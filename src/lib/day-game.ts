@@ -3,7 +3,6 @@
  * Round key = UTC hour `YYYY-MM-DDTHH` (stored in day_* tables as utc_day).
  */
 import { tursoExecute } from "@/lib/turso";
-import { pickWinnerWallet } from "@/lib/day-vrf";
 import { PLAY_POT_ADDRESS } from "@/lib/shit-token";
 import { rpc } from "@/lib/treasury";
 
@@ -341,7 +340,8 @@ export type PastWinner = {
   name: string;
   logo: string;
   pct: number | null;
-  winner: string | null; // null = treasury
+  winner: string | null; // wallet | SPLIT:N | null
+  winners?: Array<{ wallet: string; tickets: number; amount: number; sig?: string | null }>;
   prize: number;
   fee: number;
   pot: number;
@@ -405,6 +405,52 @@ export async function listPastWinners(
     } catch {
       vrf = null;
     }
+    let winnersList:
+      | Array<{
+          wallet: string;
+          tickets: number;
+          amount: number;
+          sig?: string | null;
+        }>
+      | undefined;
+    try {
+      const metaRaw2 = row[9] ? String(row[9]) : "";
+      if (metaRaw2) {
+        const meta2 = JSON.parse(metaRaw2) as Record<string, unknown>;
+        const raw = isHit ? meta2.hitWinners : meta2.shitWinners;
+        if (Array.isArray(raw)) {
+          winnersList = raw
+            .map((x) => {
+              const o = x as Record<string, unknown>;
+              return {
+                wallet: String(o.wallet || ""),
+                tickets: Number(o.tickets || 0),
+                amount: Number(o.amount || 0),
+                sig: o.sig != null ? String(o.sig) : null,
+              };
+            })
+            .filter((w) => w.wallet);
+        }
+        if (!winnersList?.length && vrf && typeof vrf === "object") {
+          const shares = (vrf as { shares?: unknown }).shares;
+          if (Array.isArray(shares)) {
+            winnersList = shares
+              .map((x) => {
+                const o = x as Record<string, unknown>;
+                return {
+                  wallet: String(o.wallet || ""),
+                  tickets: Number(o.tickets || 0),
+                  amount: Number(o.amount || 0),
+                  sig: null as string | null,
+                };
+              })
+              .filter((w) => w.wallet);
+          }
+        }
+      }
+    } catch {
+      /* */
+    }
     out.push({
       utcHour: hour,
       hourLabel: formatHourLabel(hour),
@@ -415,6 +461,7 @@ export async function listPastWinners(
       logo,
       pct: row[3] != null ? Number(row[3]) : null,
       winner: row[4] ? String(row[4]) : null,
+      winners: winnersList,
       prize: Number(row[5] || 0),
       fee: Number(row[6] || 0),
       pot: Number(row[7] || 0),
@@ -1404,6 +1451,12 @@ export async function settleDay(
     bag: { assetId: string; pct: number } | null;
   }): Promise<{
     winner: string | null;
+    winners: Array<{
+      wallet: string;
+      tickets: number;
+      amount: number;
+      sig: string | null;
+    }>;
     prize: number;
     fee: number;
     prizeSig: string | null;
@@ -1414,55 +1467,114 @@ export async function settleDay(
     const fee = Math.floor((opts.pot * DAY_HOUSE_FEE_BPS) / 10_000);
     let prize = Math.max(0, opts.pot - fee);
     let winner: string | null = null;
+    let winners: Array<{
+      wallet: string;
+      tickets: number;
+      amount: number;
+      sig: string | null;
+    }> = [];
     let prizeSig: string | null = null;
     let feeSig: string | null = null;
     let vrf: Record<string, unknown> | null = null;
-    let toTreasury = false;
 
     const { sendShitFromPlayPot } = await import("@/lib/treasury");
     const { PLAY_REV_ADDRESS: revWallet } = await import("@/lib/shit-token");
 
-    // Play → pot. Settle: pot → winner (75%); pot → rev (25% house).
-    // Claims treasury (SHTy) is NOT the house sink for play.
-    // IMPORTANT: never sweep "DB pot" amount if on-chain is lower / prizes unpaid.
+    // Play → pot. Settle: pot → ALL winning tickets (split) 75%; pot → rev 25%.
+    // Weight = ticket count per wallet (multi-play). No single-wallet VRF.
     if (opts.tickets.length === 0 || prize <= 0 || !opts.bag) {
-      toTreasury = false;
-      prize = 0;
-      // empty side: leave tokens in pot — do NOT sweep
       return {
         winner: null,
+        winners: [],
         prize: 0,
         fee: 0,
         prizeSig: null,
         feeSig: null,
-        vrf: { empty: true, reason: "no tickets or bag" },
+        vrf: { empty: true, reason: "no tickets or bag", mode: "split" },
         toTreasury: false,
       };
     }
 
     try {
-      const draw = await pickWinnerWallet({
-        tickets: opts.tickets,
-        label: `day:${utcDay}:${opts.side}:${opts.bag.assetId}`,
+      const counts = new Map<string, number>();
+      for (const w of opts.tickets) {
+        const key = String(w || "").trim();
+        if (!key) continue;
+        counts.set(key, (counts.get(key) || 0) + 1);
+      }
+      const totalTickets = [...counts.values()].reduce((a, b) => a + b, 0);
+      if (totalTickets <= 0) {
+        return {
+          winner: null,
+          winners: [],
+          prize: 0,
+          fee: 0,
+          prizeSig: null,
+          feeSig: null,
+          vrf: { empty: true, reason: "no valid tickets", mode: "split" },
+          toTreasury: false,
+        };
+      }
+
+      const entries = [...counts.entries()].sort((a, b) => {
+        if (b[1] !== a[1]) return b[1] - a[1];
+        return a[0].localeCompare(b[0]);
       });
-      winner = draw.winner;
+      let allocated = 0;
+      const shares: Array<{ wallet: string; tickets: number; amount: number }> =
+        [];
+      for (const [wallet, n] of entries) {
+        const amount = Math.floor((prize * n) / totalTickets);
+        shares.push({ wallet, tickets: n, amount });
+        allocated += amount;
+      }
+      let rem = prize - allocated;
+      let i = 0;
+      while (rem > 0 && shares.length) {
+        shares[i % shares.length]!.amount += 1;
+        rem -= 1;
+        i += 1;
+      }
+
       vrf = {
-        provider: draw.provider,
-        seed: draw.seed,
-        verificationHash: draw.verificationHash,
-        winnerIndex: draw.winnerIndex,
-        entriesHash: draw.entriesHash,
-        slot: draw.slot,
-        blockhash: draw.blockhash,
-        proofnetworkId: draw.proofnetworkId,
-        ticketCount: draw.tickets.length,
+        mode: "split",
+        ticketCount: totalTickets,
+        walletCount: shares.length,
+        bag: opts.bag.assetId,
+        side: opts.side,
+        shares: shares.map((s) => ({
+          wallet: s.wallet,
+          tickets: s.tickets,
+          amount: s.amount,
+        })),
       };
 
-      if (prize > 0) {
-        const paid = await sendShitFromPlayPot(winner, prize);
-        prizeSig = paid.signature;
+      for (const s of shares) {
+        if (s.amount <= 0) {
+          winners.push({ ...s, sig: null });
+          continue;
+        }
+        try {
+          const paid = await sendShitFromPlayPot(s.wallet, s.amount);
+          winners.push({ ...s, sig: paid.signature });
+          if (!prizeSig) prizeSig = paid.signature;
+        } catch (pe) {
+          winners.push({ ...s, sig: null });
+          vrf = {
+            ...(vrf || {}),
+            payError: pe instanceof Error ? pe.message : String(pe),
+            payErrorWallet: s.wallet,
+          };
+        }
       }
-      // House cut: pot → rev revenue wallet
+
+      const paidWallets = winners.filter((w) => w.amount > 0);
+      if (paidWallets.length === 1) {
+        winner = paidWallets[0]!.wallet;
+      } else if (paidWallets.length > 1) {
+        winner = `SPLIT:${paidWallets.length}`;
+      }
+
       if (fee > 0) {
         try {
           const feePaid = await sendShitFromPlayPot(revWallet, fee);
@@ -1482,17 +1594,16 @@ export async function settleDay(
         }
       }
     } catch (e) {
-      // fail → do NOT destroy pot; leave for manual retry
-      toTreasury = false;
       vrf = {
+        mode: "split",
         error: e instanceof Error ? e.message : String(e),
       };
-      // keep winner if draw succeeded before pay fail
       return {
         winner,
-        prize: winner ? prize : 0,
+        winners,
+        prize: winners.some((w) => w.sig) ? prize : 0,
         fee,
-        prizeSig: null,
+        prizeSig,
         feeSig,
         vrf,
         toTreasury: false,
@@ -1501,6 +1612,7 @@ export async function settleDay(
 
     return {
       winner,
+      winners,
       prize,
       fee,
       prizeSig,
@@ -1526,12 +1638,15 @@ export async function settleDay(
   const meta = JSON.stringify({
     hitVrf: hitRes.vrf,
     shitVrf: shitRes.vrf,
+    hitWinners: hitRes.winners,
+    shitWinners: shitRes.winners,
     hitTickets: hitTickets.length,
     shitTickets: shitTickets.length,
     moveCount: moves.length,
     priceRetries,
     boardHealth,
     force: !!opts?.force,
+    splitMode: true,
   });
 
   await tursoExecute(
