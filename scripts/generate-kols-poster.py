@@ -134,13 +134,13 @@ def make_poster(size: tuple[int, int], tag: str) -> Image.Image:
         s *= 1.12
     fs = lambda n: max(12, int(n * s))
 
-    mono_sm = load_font("Monoton-Regular.ttf", fs(42))
-    mono_lg = load_font("Monoton-Regular.ttf", fs(96))
-    mono_xl = load_font("Monoton-Regular.ttf", fs(110))
-    orb = load_font("Orbitron-Bold.ttf", fs(22))
-    orb_sm = load_font("Orbitron-Bold.ttf", fs(16))
-    inter = load_font("Inter-Bold.ttf", fs(28))
-    inter_sm = load_font("Inter-Regular.ttf", fs(22))
+    mono_sm = load_font("Monoton-Regular.ttf", fs(56))
+    mono_lg = load_font("Monoton-Regular.ttf", fs(128))
+    mono_xl = load_font("Monoton-Regular.ttf", fs(148))
+    orb = load_font("Orbitron-Bold.ttf", fs(30))
+    orb_sm = load_font("Orbitron-Bold.ttf", fs(22))
+    inter = load_font("Inter-Bold.ttf", fs(40))
+    inter_sm = load_font("Inter-Regular.ttf", fs(28))
 
     # Taller stories: start content higher in upper-middle (less empty void)
     y = int(h * (0.10 if h / w > 1.5 else 0.06))
@@ -161,7 +161,7 @@ def make_poster(size: tuple[int, int], tag: str) -> Image.Image:
     draw_glow_text(img, (x0, y), dol, f, NEON, NEON, glow_r=14)
     x0 += text_w(f, dol)
     draw_glow_text(img, (x0, y), t2, f, CREAM, GOLD, glow_r=10)
-    y += fs(70)
+    y += fs(88)
 
     # KOL$ hero
     k1, kd, k2 = "KOL", "$", ""
@@ -174,7 +174,7 @@ def make_poster(size: tuple[int, int], tag: str) -> Image.Image:
     hx = (w - tw_k - tw_d) // 2
     draw_glow_text(img, (hx, y), "KOL", f, CREAM, GOLD, glow_r=18)
     draw_glow_text(img, (hx + tw_k, y), "$", f, NEON, NEON, glow_r=22)
-    y += fs(130)
+    y += fs(160)
 
     # feature row: target skull crown
     feats = [("1f3af", "HIT"), ("1f480", "SHIT"), ("1f451", "CT")]
@@ -183,7 +183,7 @@ def make_poster(size: tuple[int, int], tag: str) -> Image.Image:
     for cp, lab in feats:
         em = load_emoji(cp)
         if em:
-            icons.append((em.resize((fs(72), fs(72)), Image.Resampling.LANCZOS), lab))
+            icons.append((em.resize((fs(96), fs(96)), Image.Resampling.LANCZOS), lab))
     if icons:
         row_w = sum(im.width for im, _ in icons) + gap * (len(icons) - 1)
         ix = (w - row_w) // 2
@@ -197,7 +197,7 @@ def make_poster(size: tuple[int, int], tag: str) -> Image.Image:
                 fill=MUTED,
             )
             ix += im.width + gap
-        y += fs(72) + fs(40)
+        y += fs(96) + fs(48)
 
     # tagline card
     pad = int(w * 0.08)
@@ -207,7 +207,7 @@ def make_poster(size: tuple[int, int], tag: str) -> Image.Image:
         "until proven otherwise.",
     ]
     sub = "Nominate CT voices  |  HIT or SHIT"
-    card_h = fs(200)
+    card_h = fs(260)
     rounded_rect(
         draw,
         (pad, card_top, w - pad, card_top + card_h),
@@ -221,7 +221,7 @@ def make_poster(size: tuple[int, int], tag: str) -> Image.Image:
         lf = inter
         lw = text_w(lf, line)
         draw.text(((w - lw) // 2, cy), line, font=lf, fill=CREAM)
-        cy += fs(40)
+        cy += fs(52)
     sw = text_w(orb_sm, sub)
     draw.text(((w - sw) // 2, cy + fs(8)), sub, font=orb_sm, fill=NEON)
 
@@ -230,8 +230,8 @@ def make_poster(size: tuple[int, int], tag: str) -> Image.Image:
     # CTA pill
     cta = "tokenshit.com/kols"
     cf = orb
-    cw = text_w(cf, cta) + fs(48)
-    ch = fs(56)
+    cw = text_w(cf, cta) + fs(64)
+    ch = fs(72)
     cx0 = (w - cw) // 2
     rounded_rect(
         draw,
