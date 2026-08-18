@@ -1,5 +1,5 @@
 /* TOKENSHIT service worker v6 — hard bust after hydration white-screens */
-const CACHE = "tokenshit-v6";
+const CACHE = "tokenshit-v7";
 const PRECACHE = [
   "/manifest.webmanifest",
   "/icons/icon-192.png",
@@ -111,7 +111,22 @@ self.addEventListener("fetch", (event) => {
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
   const raw = event.notification.data || {};
-  const target = typeof raw.url === "string" ? raw.url : "/";
+  let target = "/";
+  if (typeof raw.url === "string") {
+    // Same-origin relative paths only — block open redirects / phishing
+    try {
+      if (raw.url.startsWith("/") && !raw.url.startsWith("//")) {
+        target = raw.url;
+      } else {
+        const u = new URL(raw.url, self.location.origin);
+        if (u.origin === self.location.origin) {
+          target = u.pathname + u.search + u.hash;
+        }
+      }
+    } catch {
+      target = "/";
+    }
+  }
   event.waitUntil(
     self.clients
       .matchAll({ type: "window", includeUncontrolled: true })
@@ -122,7 +137,8 @@ self.addEventListener("notificationclick", (event) => {
             return client.focus();
           }
         }
-        if (self.clients.openWindow) return self.clients.openWindow(target);
+        if (self.clients.openWindow)
+          return self.clients.openWindow(target);
       })
   );
 });

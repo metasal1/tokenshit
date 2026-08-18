@@ -33,7 +33,7 @@ function WalletPanel({ address, twitterUsername, onClose, children }: { address:
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
-    fetch('https://viviyan-bkj12u-fast-mainnet.helius-rpc.com', {
+    fetch('/api/rpc', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -44,7 +44,7 @@ function WalletPanel({ address, twitterUsername, onClose, children }: { address:
       .then(d => setBalance((d.result?.value / 1e9).toFixed(4)))
       .catch(() => setBalance('Error'));
 
-    fetch('https://viviyan-bkj12u-fast-mainnet.helius-rpc.com', {
+    fetch('/api/rpc', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

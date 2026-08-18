@@ -1,5 +1,7 @@
 import { tursoExecute } from "@/lib/turso";
 import { ensureClaimSchema } from "@/lib/claims";
+import { getClientIp, rateLimitIp } from "@/lib/api-guard";
+import { type NextRequest } from "next/server";
 
 export const dynamic = "force-dynamic";
 
@@ -14,12 +16,27 @@ const KIND_LABEL: Record<string, string> = {
   day_shit: "SHIT pot",
 };
 
-/** GET /api/claim/recent — public glitch-toast feed (no wallets). */
-export async function GET() {
+function maskHandle(h: string | null): string | null {
+  if (!h) return null;
+  const s = h.replace(/^@/, "").replace(/^gh:/, "");
+  if (s.length <= 3) return `${s[0] || "?"}…`;
+  return `${s.slice(0, 2)}…${s.slice(-1)}`;
+}
+
+/** GET /api/claim/recent — public toast feed; handles masked, no GitHub. */
+export async function GET(req: NextRequest) {
   try {
+    const limited = await rateLimitIp({
+      ip: getClientIp(req),
+      bucket: "claim_recent",
+      limit: 120,
+      windowHours: 1,
+    });
+    if (limited) return limited;
+
     await ensureClaimSchema();
     const r = await tursoExecute(
-      `SELECT id, claim_kind, twitter, github, amount, created_at
+      `SELECT id, claim_kind, twitter, amount, created_at
        FROM shit_claims
        WHERE signature IS NOT NULL
          AND signature != ''
@@ -32,23 +49,16 @@ export async function GET() {
     const events = r.rows.map((row) => {
       const kind = String(row[1] || "");
       const twitter = row[2] ? String(row[2]).replace(/^@/, "") : null;
-      const github = row[3] ? String(row[3]).replace(/^@/, "") : null;
-      const handle = twitter || (github ? `gh:${github}` : null);
-      const avatarUrl = twitter
-        ? `https://unavatar.io/twitter/${encodeURIComponent(twitter)}`
-        : github
-          ? `https://unavatar.io/github/${encodeURIComponent(github)}`
-          : null;
+      const handle = maskHandle(twitter);
       return {
         id: Number(row[0]),
         kind,
         kindLabel: KIND_LABEL[kind] || kind,
         handle,
-        twitter,
-        github,
-        amount: Number(row[4] || 0),
-        avatarUrl,
-        createdAt: String(row[5] || ""),
+        // no raw twitter/github for public feed
+        amount: Number(row[3] || 0),
+        avatarUrl: null as string | null,
+        createdAt: String(row[4] || ""),
       };
     });
 
@@ -56,11 +66,11 @@ export async function GET() {
       { events },
       {
         headers: {
-          "Cache-Control": "public, s-maxage=10, stale-while-revalidate=20",
+          "Cache-Control": "public, s-maxage=15, stale-while-revalidate=30",
         },
       }
     );
-  } catch (e) {
-    return Response.json({ events: [], error: String(e) }, { status: 500 });
+  } catch {
+    return Response.json({ events: [] }, { status: 500 });
   }
 }

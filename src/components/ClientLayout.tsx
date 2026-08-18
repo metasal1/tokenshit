@@ -57,7 +57,7 @@ function WalletPanel({ address, twitterUsername, onClose, children }: { address:
 
   useEffect(() => {
     // SOL balance
-    fetch('https://viviyan-bkj12u-fast-mainnet.helius-rpc.com', {
+    fetch('/api/rpc', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -69,7 +69,7 @@ function WalletPanel({ address, twitterUsername, onClose, children }: { address:
       .catch(() => setBalance('Error'));
 
     // Token balances via Helius DAS
-    fetch('https://viviyan-bkj12u-fast-mainnet.helius-rpc.com', {
+    fetch('/api/rpc', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
