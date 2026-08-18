@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { EmojiIcon } from "@/components/EmojiIcon";
-import { PLAY_PRODUCT } from "@/lib/hour-product";
+import { PlayMatchShell } from "@/components/PlayMatchShell";
 import { SHIT_SYMBOL } from "@/lib/shit-token";
 
 type Asset = {
@@ -229,83 +229,60 @@ export default function HitShitBoards() {
   }, [period]);
 
   return (
-    <div className="flex flex-col pb-10 md:pb-14 lg:pb-16">
-      <header className="relative border-b border-border">
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-neon/[0.09] via-neon/[0.03] to-transparent" />
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-neon/30 to-transparent" />
-
-        <div className="relative mx-auto w-full max-w-3xl md:max-w-4xl lg:max-w-6xl px-4 sm:px-5 md:px-6 lg:px-8 pt-5 sm:pt-6 md:pt-8 pb-5 md:pb-6">
-          <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 md:gap-6">
-            <div className="text-center md:text-left min-w-0">
-              <p className="text-[10px] font-orbitron uppercase tracking-[0.22em] text-neon mb-1.5">
-                {PLAY_PRODUCT.name}
-              </p>
-              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-monoton leading-none text-white">
-                <span className="neon-text">HIT</span>
-                <span className="text-zinc-600 mx-2">/</span>
-                <span className="text-red-400">SHIT</span>
-              </h1>
-              <p className="mt-2 text-sm text-zinc-400 max-w-md mx-auto md:mx-0">
-                Boards by hour, day, and week — which bags won the pots.
-              </p>
-            </div>
-
-            <div className="flex flex-col items-center md:items-end gap-2 shrink-0">
-              <div className="inline-flex rounded-xl border border-border overflow-hidden text-xs font-orbitron uppercase tracking-wider">
-                {(
-                  [
-                    ["hour", "Hourly"],
-                    ["day", "Daily"],
-                    ["week", "Weekly"],
-                  ] as const
-                ).map(([k, lab]) => (
-                  <button
-                    key={k}
-                    type="button"
-                    onClick={() => setPeriod(k)}
-                    className={`min-h-10 px-3.5 sm:px-4 transition-colors ${
-                      period === k
-                        ? "bg-neon text-black font-bold"
-                        : "bg-zinc-950 text-zinc-500 hover:text-zinc-200"
-                    }`}
-                  >
-                    {lab}
-                  </button>
-                ))}
-              </div>
-              <div className="flex flex-wrap gap-3 text-[11px] justify-center md:justify-end">
-                <Link
-                  href={PLAY_PRODUCT.path}
-                  className="text-neon-blue hover:underline"
-                >
-                  Play
-                </Link>
-                <Link
-                  href="/winners"
-                  className="text-zinc-500 hover:text-white"
-                >
-                  Winners
-                </Link>
-                <Link href="/stats" className="text-zinc-500 hover:text-white">
-                  Stats
-                </Link>
-              </div>
-            </div>
+    <PlayMatchShell
+      title={
+        <>
+          <span className="neon-text">HIT</span>
+          <span className="text-zinc-600 mx-1">/</span>
+          <span className="text-red-400">SHIT</span>
+        </>
+      }
+      titleAccent="boards"
+      links={[
+        { href: "/play", label: "Play", primary: true },
+        { href: "/memes", label: "Memes" },
+        { href: "/referrals", label: "Refer" },
+      ]}
+    >
+      <div className="space-y-4 pb-4">
+        <div className="flex flex-col gap-2">
+          <div className="inline-flex rounded-xl border border-border overflow-hidden text-[10px] font-orbitron uppercase tracking-wider self-start">
+            {(
+              [
+                ["hour", "Hour"],
+                ["day", "Day"],
+                ["week", "Week"],
+              ] as const
+            ).map(([k, lab]) => (
+              <button
+                key={k}
+                type="button"
+                onClick={() => setPeriod(k)}
+                className={`min-h-9 px-3 transition-colors ${
+                  period === k
+                    ? "bg-neon text-black font-bold"
+                    : "bg-zinc-950 text-zinc-500 hover:text-zinc-200"
+                }`}
+              >
+                {lab}
+              </button>
+            ))}
           </div>
+          <p className="text-[11px] text-zinc-500">
+            Hourly · daily · weekly pot winners
+          </p>
         </div>
-      </header>
 
-      <div className="mx-auto w-full max-w-3xl md:max-w-4xl lg:max-w-6xl px-4 sm:px-5 md:px-6 lg:px-8 space-y-5 md:space-y-6 pt-5 md:pt-6">
         {/* Live hour */}
         {live && (live.hitting || live.shitting) && (
-          <section className="rounded-2xl border border-neon/35 bg-gradient-to-b from-neon/10 via-card to-card p-4 sm:p-5">
-            <div className="flex items-center justify-between gap-2 mb-3">
+          <section className="rounded-2xl border border-neon/35 bg-gradient-to-b from-neon/10 via-card to-card p-3.5">
+            <div className="flex items-center justify-between gap-2 mb-2.5">
               <div className="flex items-center gap-2">
                 <span className="relative flex h-2 w-2">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-neon opacity-60" />
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-neon" />
                 </span>
-                <h2 className="text-sm font-bold font-orbitron uppercase tracking-wide text-neon">
+                <h2 className="text-xs font-bold font-orbitron uppercase tracking-wide text-neon">
                   Live hour
                 </h2>
               </div>
@@ -313,10 +290,10 @@ export default function HitShitBoards() {
                 {live.hour}
               </span>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="rounded-xl border border-green-500/25 bg-green-950/25 p-3">
-                <div className="text-[10px] font-orbitron uppercase tracking-wider text-green-400/90 mb-2">
-                  HIT leader
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <div className="rounded-xl border border-green-500/25 bg-green-950/25 p-2.5">
+                <div className="text-[9px] font-orbitron uppercase tracking-wider text-green-400/90 mb-1.5">
+                  HIT
                 </div>
                 {live.hitting ? (
                   <AssetChip a={live.hitting} tone="hit" />
@@ -324,9 +301,9 @@ export default function HitShitBoards() {
                   <span className="text-zinc-600 text-sm">—</span>
                 )}
               </div>
-              <div className="rounded-xl border border-red-500/25 bg-red-950/25 p-3">
-                <div className="text-[10px] font-orbitron uppercase tracking-wider text-red-400/90 mb-2">
-                  SHIT leader
+              <div className="rounded-xl border border-red-500/25 bg-red-950/25 p-2.5">
+                <div className="text-[9px] font-orbitron uppercase tracking-wider text-red-400/90 mb-1.5">
+                  SHIT
                 </div>
                 {live.shitting ? (
                   <AssetChip a={live.shitting} tone="shit" />
@@ -345,23 +322,22 @@ export default function HitShitBoards() {
         )}
 
         {!buckets && !err && (
-          <div className="flex justify-center py-16">
-            <EmojiIcon size={32} className="animate-spin opacity-80">
+          <div className="flex justify-center py-12">
+            <EmojiIcon size={28} className="animate-spin opacity-80">
               💫
             </EmojiIcon>
           </div>
         )}
 
-        {/* Overall tops for period window */}
         {buckets && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5">
+          <div className="grid grid-cols-1 gap-3">
             <RankList
               title={
                 period === "hour"
-                  ? "Top HIT bags"
+                  ? "Top HIT"
                   : period === "day"
-                    ? "HIT · most daily wins"
-                    : "HIT · most weekly wins"
+                    ? "HIT · daily"
+                    : "HIT · weekly"
               }
               emoji="🎯"
               tone="hit"
@@ -371,10 +347,10 @@ export default function HitShitBoards() {
             <RankList
               title={
                 period === "hour"
-                  ? "Top SHIT bags"
+                  ? "Top SHIT"
                   : period === "day"
-                    ? "SHIT · most daily wins"
-                    : "SHIT · most weekly wins"
+                    ? "SHIT · daily"
+                    : "SHIT · weekly"
               }
               emoji="💀"
               tone="shit"
@@ -384,11 +360,10 @@ export default function HitShitBoards() {
           </div>
         )}
 
-        {/* Timeline buckets */}
         {buckets && buckets.length > 0 && (
           <section className="rounded-2xl border border-border bg-card overflow-hidden">
-            <div className="flex items-center justify-between px-4 sm:px-5 py-3 border-b border-border">
-              <h2 className="text-sm font-bold font-orbitron uppercase tracking-wide text-zinc-200">
+            <div className="flex items-center justify-between px-3.5 py-2.5 border-b border-border">
+              <h2 className="text-xs font-bold font-orbitron uppercase tracking-wide text-zinc-200">
                 {period === "hour"
                   ? "Each hour"
                   : period === "day"
@@ -396,50 +371,52 @@ export default function HitShitBoards() {
                     : "Each ISO week"}
               </h2>
               <span className="text-[10px] font-mono text-zinc-600">
-                {rounds} rounds scanned
+                {rounds} rounds
               </span>
             </div>
             <div className="divide-y divide-border">
               {buckets.map((b) => (
                 <div
                   key={b.key}
-                  className="grid grid-cols-1 sm:grid-cols-[minmax(0,9rem)_1fr_1fr] gap-3 px-4 sm:px-5 py-3.5 hover:bg-zinc-950/50 transition-colors"
+                  className="grid grid-cols-1 gap-2.5 px-3.5 py-3 hover:bg-zinc-950/50 transition-colors"
                 >
-                  <div className="min-w-0">
+                  <div className="min-w-0 flex items-baseline justify-between gap-2">
                     <div className="text-xs font-mono text-zinc-300 tabular-nums">
                       {b.label}
                     </div>
-                    <div className="text-[10px] text-zinc-600 font-orbitron uppercase tracking-wider mt-0.5">
-                      {b.rounds} round{b.rounds === 1 ? "" : "s"}
+                    <div className="text-[10px] text-zinc-600 font-orbitron uppercase tracking-wider">
+                      {b.rounds}r
                     </div>
                   </div>
-                  <div className="min-w-0">
-                    <div className="text-[9px] font-orbitron uppercase tracking-wider text-green-500/80 mb-1">
-                      HIT
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="min-w-0">
+                      <div className="text-[9px] font-orbitron uppercase tracking-wider text-green-500/80 mb-1">
+                        HIT
+                      </div>
+                      {b.hit ? (
+                        <AssetChip
+                          a={b.hit}
+                          tone="hit"
+                          showWins={period !== "hour"}
+                        />
+                      ) : (
+                        <span className="text-zinc-600 text-sm">—</span>
+                      )}
                     </div>
-                    {b.hit ? (
-                      <AssetChip
-                        a={b.hit}
-                        tone="hit"
-                        showWins={period !== "hour"}
-                      />
-                    ) : (
-                      <span className="text-zinc-600 text-sm">—</span>
-                    )}
-                  </div>
-                  <div className="min-w-0">
-                    <div className="text-[9px] font-orbitron uppercase tracking-wider text-red-500/80 mb-1">
-                      SHIT
+                    <div className="min-w-0">
+                      <div className="text-[9px] font-orbitron uppercase tracking-wider text-red-500/80 mb-1">
+                        SHIT
+                      </div>
+                      {b.shit ? (
+                        <AssetChip
+                          a={b.shit}
+                          tone="shit"
+                          showWins={period !== "hour"}
+                        />
+                      ) : (
+                        <span className="text-zinc-600 text-sm">—</span>
+                      )}
                     </div>
-                    {b.shit ? (
-                      <AssetChip
-                        a={b.shit}
-                        tone="shit"
-                        showWins={period !== "hour"}
-                      />
-                    ) : (
-                      <span className="text-zinc-600 text-sm">—</span>
-                    )}
                   </div>
                 </div>
               ))}
@@ -448,7 +425,7 @@ export default function HitShitBoards() {
         )}
 
         {buckets && buckets.length === 0 && (
-          <div className="rounded-2xl border border-border bg-card p-10 text-center text-sm text-zinc-500">
+          <div className="rounded-2xl border border-border bg-card p-8 text-center text-sm text-zinc-500">
             No settled hours yet.{" "}
             <Link href="/play" className="text-neon-blue hover:underline">
               Play this round
@@ -457,6 +434,6 @@ export default function HitShitBoards() {
           </div>
         )}
       </div>
-    </div>
+    </PlayMatchShell>
   );
 }
