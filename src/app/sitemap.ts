@@ -18,7 +18,8 @@ export default function sitemap(): MetadataRoute.Sitemap {
   return [
     row("/", 1, "hourly"),
     row("/play", 0.95, "hourly"),
-    row("/whales", 0.9, "hourly"),
+    row("/whales",
+  "/kols", 0.9, "hourly"),
     row("/swap", 0.88, "daily"),
     row("/claim", 0.88, "daily"),
     row("/memes", 0.8, "daily"),

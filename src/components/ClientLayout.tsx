@@ -480,7 +480,14 @@ function Layout({ children }: { children: React.ReactNode }) {
                             : "text-zinc-400 hover:text-white hover:bg-zinc-900"
                         }`}
                       >
-                        {item.label}
+                        <span className="flex w-full items-center justify-between gap-2">
+                          <span>{item.label}</span>
+                          {item.badge ? (
+                            <span className="rounded-full border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 font-orbitron text-[9px] uppercase tracking-wider text-amber-300">
+                              {item.badge}
+                            </span>
+                          ) : null}
+                        </span>
                       </Link>
                     );
                   })}
@@ -549,7 +556,14 @@ function Layout({ children }: { children: React.ReactNode }) {
                     : "text-zinc-400 hover:bg-zinc-900 hover:text-white"
                 }`}
               >
-                <span>{item.label}</span>
+                <span className="flex items-center gap-2">
+                  <span>{item.label}</span>
+                  {item.badge ? (
+                    <span className="rounded-full border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 font-orbitron text-[9px] uppercase tracking-wider text-amber-300">
+                      {item.badge}
+                    </span>
+                  ) : null}
+                </span>
                 {active && <span className="text-[10px] opacity-70">●</span>}
               </Link>
             );
