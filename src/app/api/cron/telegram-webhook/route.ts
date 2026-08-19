@@ -33,6 +33,33 @@ export async function POST(req: NextRequest) {
       { status: 503 }
     );
   }
+  let body: { resendPending?: boolean; limit?: number } = {};
+  try {
+    body = (await req.json()) as typeof body;
+  } catch {
+    /* */
+  }
+
+  if (body.resendPending) {
+    const { listKolNominations } = await import("@/lib/kol-noms");
+    const { notifyKolNominationTelegram } = await import("@/lib/telegram");
+    const pending = await listKolNominations({ status: "pending", limit: body.limit || 20 });
+    let sent = 0;
+    for (const n of pending) {
+      await notifyKolNominationTelegram({
+        id: n.id,
+        handle: n.handle,
+        followers: n.followers || 0,
+        displayName: n.displayName,
+        byX: n.byX || "unknown",
+        note: n.note,
+        avatarUrl: n.avatarUrl,
+      });
+      sent++;
+    }
+    return Response.json({ ok: true, resent: sent });
+  }
+
   const url = "https://tokenshit.com/api/telegram/webhook";
   const res = await fetch(
     `https://api.telegram.org/bot${token}/setWebhook`,
@@ -48,7 +75,6 @@ export async function POST(req: NextRequest) {
     }
   );
   const data = await res.json().catch(() => ({}));
-  // also getWebhookInfo
   const infoRes = await fetch(
     `https://api.telegram.org/bot${token}/getWebhookInfo`
   );
