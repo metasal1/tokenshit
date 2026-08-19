@@ -4,6 +4,7 @@ export const runtime = "nodejs";
 export const alt = "I love Tokenshit?";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
+export const revalidate = 600;
 
 type Props = { params: Promise<{ handle: string }> };
 
