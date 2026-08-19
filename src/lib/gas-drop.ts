@@ -42,6 +42,8 @@ export async function hasReceivedGasDrop(wallet: string): Promise<boolean> {
 export async function maybeDropPlayGas(opts: {
   wallet: string;
   twitter?: string | null;
+  /** Skip "already has SOL" soft skip — still once-per-wallet via table */
+  force?: boolean;
 }): Promise<{
   dropped: boolean;
   signature?: string;
@@ -70,8 +72,11 @@ export async function maybeDropPlayGas(opts: {
     const conn = new Connection(rpcUrl, "confirmed");
     const to = new PublicKey(wallet);
     const bal = await conn.getBalance(to);
-    // Already has ≥ starter pack of gas — don't free-SOL farm
-    if (bal >= PLAY_GAS_DROP_LAMPORTS) {
+    // Already has ≥ starter pack of gas — don't free-SOL farm (unless force love claim with near-zero)
+    if (!opts.force && bal >= PLAY_GAS_DROP_LAMPORTS) {
+      return { dropped: false, reason: "already_funded", sol: bal / 1e9 };
+    }
+    if (opts.force && bal >= PLAY_GAS_DROP_LAMPORTS) {
       return { dropped: false, reason: "already_funded", sol: bal / 1e9 };
     }
 

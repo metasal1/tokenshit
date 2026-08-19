@@ -12,6 +12,7 @@ import {
   CLAIM_X_PREMIUM,
   CLAIM_X_TWEET,
   CLAIM_X_VERIFIED,
+  PLAY_GAS_DROP_SOL,
 } from "@/lib/shit-token";
 import { getTreasuryBalances } from "@/lib/treasury";
 
@@ -25,6 +26,7 @@ const KINDS: ClaimKind[] = [
   "gh_fork",
   "email_list",
   "jup_verified",
+  "sol_gas_love",
 ];
 
 const AMOUNTS: Record<ClaimKind, number> = {
@@ -35,6 +37,7 @@ const AMOUNTS: Record<ClaimKind, number> = {
   x_follow: CLAIM_X_FOLLOW,
   email_list: CLAIM_EMAIL_LIST,
   jup_verified: CLAIM_JUP_VERIFIED,
+  sol_gas_love: PLAY_GAS_DROP_SOL,
 };
 
 /**

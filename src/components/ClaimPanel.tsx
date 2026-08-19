@@ -25,6 +25,10 @@ import {
   shitBuyUrl,
   treasurySolscanUrl,
   tweetTagIntentUrl,
+  LOVE_GAS_TWEET,
+  PLAY_GAS_DROP_SOL,
+  PLAY_GAS_STARTER_GAMES,
+  loveGasTweetIntentUrl,
 } from "@/lib/shit-token";
 import { BalanceSkeleton } from "@/components/StatLoader";
 import ShareRefButton from "@/components/ShareRefButton";
@@ -38,7 +42,8 @@ type ClaimKind =
   | "x_tweet"
   | "x_follow"
   | "email_list"
-  | "jup_verified";
+  | "jup_verified"
+  | "sol_gas_love";
 
 type ClaimPhase = null | "session" | "verify" | "send" | "done" | "error";
 
@@ -58,6 +63,7 @@ const KIND_TITLE: Record<ClaimKind, string> = {
   email_list: "Email list",
   gh_fork: "GitHub fork",
   jup_verified: "Jupiter like",
+  sol_gas_love: "Love gas (SOL)",
 };
 
 function fmt(n: number) {
@@ -152,6 +158,7 @@ export function TreasuryBalanceBadge({ className = "" }: { className?: string })
 function RewardRow({
   title,
   amount,
+  amountUnit,
   hint,
   children,
   highlight,
@@ -160,6 +167,8 @@ function RewardRow({
 }: {
   title: string;
   amount: number;
+  /** default $TOKENSHIT */
+  amountUnit?: string;
   hint: React.ReactNode;
   children: React.ReactNode;
   highlight?: boolean;
@@ -201,9 +210,19 @@ function RewardRow({
               claimed ? "text-neon/70 line-through decoration-neon/40" : "text-neon"
             }`}
           >
-            {amount.toLocaleString()}
+            {amountUnit === "SOL"
+              ? amount.toFixed(4)
+              : amountUnit === "plays"
+                ? amount.toLocaleString()
+                : amount.toLocaleString()}
           </div>
-          <div className="text-[10px] text-zinc-600 font-mono">${SHIT_SYMBOL}</div>
+          <div className="text-[10px] text-zinc-600 font-mono">
+            {amountUnit === "SOL"
+              ? "SOL gas"
+              : amountUnit === "plays"
+                ? "plays gas"
+                : `$${SHIT_SYMBOL}`}
+          </div>
         </div>
       </div>
       {claimed ? (
@@ -397,6 +416,7 @@ export default function ClaimPanel() {
   const [sig, setSig] = useState<string | null>(null);
   const [treasuryShit, setTreasuryShit] = useState<number | null>(null);
   const [tweetUrl, setTweetUrl] = useState("");
+  const [loveTweetUrl, setLoveTweetUrl] = useState("");
   const [claimedStatus, setClaimedStatus] = useState<Record<string, boolean>>(
     {}
   );
@@ -509,6 +529,10 @@ export default function ClaimPanel() {
       linkGithub();
       return;
     }
+    if (kind === "sol_gas_love" && !loveTweetUrl.trim()) {
+      setErr(`Tweet exactly: ${LOVE_GAS_TWEET} — paste the link.`);
+      return;
+    }
     if (kind === "x_tweet" && !tweetUrl.trim()) {
       setErr("Paste your tweet URL first.");
       setClaimPhase("error");
@@ -548,6 +572,9 @@ export default function ClaimPanel() {
           accessToken: token,
           ...(kind === "x_tweet" && tweetUrl.trim()
             ? { tweetUrl: tweetUrl.trim() }
+            : {}),
+          ...(kind === "sol_gas_love" && loveTweetUrl.trim()
+            ? { tweetUrl: loveTweetUrl.trim() }
             : {}),
           ...(kind === "email_list" && user?.email?.address
             ? { email: user.email.address }
@@ -614,13 +641,21 @@ export default function ClaimPanel() {
         const gas = data.gasDrop as
           | { ok?: boolean; sol?: number; games?: number }
           | undefined;
-        const gasBit =
-          gas?.ok && gas.sol
-            ? ` + ${Number(gas.sol).toFixed(4)} SOL gas (~${gas.games || 67} plays)`
-            : "";
-        setMsg(
-          `Sent ${Number(data.amount).toLocaleString()} $${SHIT_SYMBOL} to wallet.${gasBit}`
-        );
+        if (kind === "sol_gas_love" || data.unit === "SOL") {
+          setMsg(
+            `Sent ${Number(data.amount || gas?.sol || PLAY_GAS_DROP_SOL).toFixed(4)} SOL (~${
+              gas?.games || PLAY_GAS_STARTER_GAMES
+            } plays) for gas.`
+          );
+        } else {
+          const gasBit =
+            gas?.ok && gas.sol
+              ? ` + ${Number(gas.sol).toFixed(4)} SOL gas (~${gas.games || 67} plays)`
+              : "";
+          setMsg(
+            `Sent ${Number(data.amount).toLocaleString()} $${SHIT_SYMBOL} to wallet.${gasBit}`
+          );
+        }
       }
       setSig(data.signature || null);
       // Lock UI immediately
@@ -808,6 +843,58 @@ export default function ClaimPanel() {
       )}
 
       <div className="grid grid-cols-1 gap-3">
+        <RewardRow
+          highlight
+          claimed={!!claimedStatus.sol_gas_love}
+          statusLoading={statusLoading && authenticated}
+          title="I LOVE TOKENSHIT . COM"
+          amount={PLAY_GAS_STARTER_GAMES}
+          amountUnit="plays"
+          hint={
+            <>
+              First claim only · wallet ~empty of SOL. Tweet exactly{" "}
+              <span className="font-mono text-[11px] text-neon">
+                {LOVE_GAS_TWEET}
+              </span>{" "}
+              then paste the URL. Get ~{PLAY_GAS_DROP_SOL.toFixed(4)} SOL (
+              {PLAY_GAS_STARTER_GAMES} plays).
+            </>
+          }
+        >
+          <div className="grid grid-cols-1 gap-2">
+            <a
+              href={loveGasTweetIntentUrl()}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={`${BTN_OUTLINE} text-center`}
+            >
+              1. Post exact tweet
+            </a>
+            <input
+              type="url"
+              inputMode="url"
+              placeholder="Paste tweet URL"
+              value={loveTweetUrl}
+              onChange={(e) => setLoveTweetUrl(e.target.value)}
+              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-zinc-600"
+            />
+            <button
+              type="button"
+              disabled={
+                busy !== null ||
+                !!claimedStatus.sol_gas_love ||
+                !loveTweetUrl.trim()
+              }
+              onClick={() => claim("sol_gas_love")}
+              className={BTN_NEON}
+            >
+              {busy === "sol_gas_love"
+                ? phaseLabel(claimPhase)
+                : `Claim ${PLAY_GAS_DROP_SOL.toFixed(4)} SOL`}
+            </button>
+          </div>
+        </RewardRow>
+
         <RewardRow
           highlight
           claimed={!!tweetData?.onCooldown}

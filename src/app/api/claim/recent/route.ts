@@ -7,6 +7,7 @@ export const dynamic = "force-dynamic";
 
 const KIND_LABEL: Record<string, string> = {
   jup_verified: "Jupiter like",
+  sol_gas_love: "Love gas SOL",
   x_premium: "X premium",
   x_verified: "X verified",
   gh_fork: "GH fork",
