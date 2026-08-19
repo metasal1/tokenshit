@@ -643,9 +643,9 @@ export default function ClaimPanel() {
           | undefined;
         if (kind === "sol_gas_love" || data.unit === "SOL") {
           setMsg(
-            `Sent ${Number(data.amount || gas?.sol || PLAY_GAS_DROP_SOL).toFixed(4)} SOL (~${
+            `Claimed gas for ${
               gas?.games || PLAY_GAS_STARTER_GAMES
-            } plays) for gas.`
+            } plays (${Number(data.amount || gas?.sol || PLAY_GAS_DROP_SOL).toFixed(4)} SOL).`
           );
         } else {
           const gasBit =
@@ -890,7 +890,7 @@ export default function ClaimPanel() {
             >
               {busy === "sol_gas_love"
                 ? phaseLabel(claimPhase)
-                : `Claim ${PLAY_GAS_DROP_SOL.toFixed(4)} SOL`}
+                : `Claim ${PLAY_GAS_STARTER_GAMES} plays`}
             </button>
           </div>
         </RewardRow>
