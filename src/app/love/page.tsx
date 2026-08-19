@@ -23,8 +23,8 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
     ? `I LOVE TOKENSHIT — via @${referrer.handle}`
     : "I LOVE TOKENSHIT";
   const description = referrer.handle
-    ? `@${referrer.handle} loves TOKEN$HIT. Tweet it, claim gas, play.`
-    : "Tweet I LOVE TOKENSHIT, claim 67-play gas, join the bag.";
+    ? `@${referrer.handle} loves TOKEN$HIT. Tweet I LOVE TOKENSHIT and join the bag.`
+    : "Tweet I LOVE TOKENSHIT 💚 with @tokenshit_. Join the bag on Solana.";
 
   const base = pageMeta({
     title,
