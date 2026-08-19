@@ -134,5 +134,5 @@ export async function POST(req: NextRequest) {
     const h = result.row.handle;
     void prewarmKolOg(h).catch(() => {});
   }
-  return Response.json({ ok: true, row: result.row });
+  return Response.json({ ok: true, row: result.row, scoutPay: result.scoutPay });
 }

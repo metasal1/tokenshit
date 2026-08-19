@@ -19,6 +19,7 @@ export type PayoutKind =
   | "email_list"
   | "jup_verified"
   | "referral"
+  | "kol_scout"
   | "day_hit"
   | "day_shit"
   | "manual"

@@ -1,6 +1,6 @@
 /**
  * KOL nominations — community scouts suggest CT handles for /kols roster.
- * Pay-on-accept later; v1 = store + review only.
+ * Pay-on-accept: 2,500 SHIT scout if KOL ≥10k flw.
  * Require ≥10k followers via X lookup at nominate time.
  */
 import { tursoExecute } from "@/lib/turso";
@@ -353,7 +353,12 @@ export async function listKolNominations(opts?: {
 export async function setKolNominationStatus(
   id: number,
   status: "pending" | "accepted" | "rejected" | "live"
-): Promise<{ ok: boolean; error?: string; row?: KolNomRow }> {
+): Promise<{
+  ok: boolean;
+  error?: string;
+  row?: KolNomRow;
+  scoutPay?: import("@/lib/kol-scout-pay").ScoutPayResult;
+}> {
   await ensureKolNomSchema();
   if (!Number.isFinite(id) || id <= 0) {
     return { ok: false, error: "bad id" };
@@ -371,7 +376,22 @@ export async function setKolNominationStatus(
     [id]
   );
   if (!r.rows.length) return { ok: false, error: "not found" };
-  return { ok: true, row: mapRow(r.rows[0] as unknown[]) };
+  const row = mapRow(r.rows[0] as unknown[]);
+
+  let scoutPay: import("@/lib/kol-scout-pay").ScoutPayResult | undefined;
+  if (status === "accepted" || status === "live") {
+    try {
+      const { payKolScoutIfEligible } = await import("@/lib/kol-scout-pay");
+      scoutPay = await payKolScoutIfEligible(row, status);
+    } catch (e) {
+      console.error("scout pay", e);
+      scoutPay = {
+        paid: false,
+        reason: e instanceof Error ? e.message : "scout_pay_error",
+      };
+    }
+  }
+  return { ok: true, row, scoutPay };
 }
 
 

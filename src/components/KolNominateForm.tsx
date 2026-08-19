@@ -80,7 +80,7 @@ export default function KolNominateForm() {
             Nominate a KOL
           </h2>
           <p className="mt-0.5 text-[11px] leading-relaxed text-zinc-500">
-            Paste an X handle. We review — first scout credit when we go live.
+            Paste an X handle. We review — 2,500 $TOKENSHIT when accepted (KOL 10k+ flw).
             No pay on submit (anti-farm).
           </p>
         </div>
@@ -129,7 +129,7 @@ export default function KolNominateForm() {
           onClick={() => login()}
           className="text-left font-mono text-[10px] text-zinc-500 underline-offset-2 hover:text-zinc-300 hover:underline"
         >
-          Login with X to get scout credit (optional)
+          Login with X to get 2.5k scout bounty (optional)
         </button>
       )}
 
