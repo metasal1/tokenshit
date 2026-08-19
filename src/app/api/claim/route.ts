@@ -7,7 +7,11 @@ import {
   CLAIM_X_PREMIUM,
   CLAIM_X_TWEET,
   CLAIM_X_VERIFIED,
+  LOVE_GAS_TWEET,
+  PLAY_GAS_DROP_SOL,
+  PLAY_GAS_STARTER_GAMES,
   TREASURY_ADDRESS,
+  loveGasTweetIntentUrl,
 } from "@/lib/shit-token";
 import {
   checkGhFork,
@@ -16,6 +20,7 @@ import {
   checkXVerified,
   getTweetClaimCooldown,
   hasClaimed,
+  hasAnySuccessfulClaim,
   isOnEmailList,
   recordClaim,
   clearStalePendingClaims,
@@ -47,6 +52,8 @@ const AMOUNTS: Record<ClaimKind, number> = {
   x_follow: CLAIM_X_FOLLOW,
   email_list: CLAIM_EMAIL_LIST,
   jup_verified: CLAIM_JUP_VERIFIED,
+  /** SOL amount (not $TOKENSHIT) — 67 plays of gas */
+  sol_gas_love: PLAY_GAS_DROP_SOL,
 };
 
 function isKind(k: string): k is ClaimKind {
@@ -86,6 +93,10 @@ export async function GET(request: NextRequest) {
         ghFork: CLAIM_GH_FORK,
         emailList: CLAIM_EMAIL_LIST,
         jupVerified: CLAIM_JUP_VERIFIED,
+        solGasLove: PLAY_GAS_DROP_SOL,
+        solGasGames: PLAY_GAS_STARTER_GAMES,
+        loveGasTweet: LOVE_GAS_TWEET,
+        loveGasTweetIntent: loveGasTweetIntentUrl(),
         walletMustBePrivyLinkedToX: true,
       },
     });
@@ -138,19 +149,49 @@ export async function GET(request: NextRequest) {
       const like = await userLikedTokenOnVrfd({ twitter });
       detail = like;
       eligible = like.liked;
+    } else if (kind === "sol_gas_love") {
+      if (!twitter)
+        return Response.json({ error: "twitter required" }, { status: 400 });
+      const tweetUrl = sp.get("tweetUrl");
+      const prior = await hasAnySuccessfulClaim({ twitter, wallet });
+      const { hasReceivedGasDrop } = await import("@/lib/gas-drop");
+      const gasDone = wallet ? await hasReceivedGasDrop(wallet) : false;
+      let tweetOk = false;
+      let tweetDetail: Record<string, unknown> = {};
+      if (tweetUrl) {
+        const tw = await checkXTweetTag(twitter, tweetUrl);
+        const { isExactLoveGasTweet } = await import("@/lib/love-gas-tweet");
+        tweetOk = !!(tw.ok && tw.found && tw.text && isExactLoveGasTweet(tw.text));
+        tweetDetail = { ...tw, exactLove: tweetOk };
+      }
+      detail = {
+        priorClaim: prior,
+        gasDone,
+        tweet: tweetDetail,
+        requiredText: LOVE_GAS_TWEET,
+        intent: loveGasTweetIntentUrl(),
+        games: PLAY_GAS_STARTER_GAMES,
+        sol: PLAY_GAS_DROP_SOL,
+      };
+      eligible = !prior && !gasDone && (!tweetUrl || tweetOk);
     }
 
     const claimed = await hasClaimed(kind, { twitter, github, wallet });
     const bal = await getTreasuryBalances().catch(() => null);
     const amount = AMOUNTS[kind];
+    const canClaim =
+      kind === "sol_gas_love"
+        ? eligible && !claimed
+        : eligible && !claimed && (bal?.shit ?? 0) >= amount;
 
     return Response.json({
       kind,
       amount,
       eligible,
       claimed,
-      canClaim: eligible && !claimed && (bal?.shit ?? 0) >= amount,
+      canClaim,
       treasuryShit: bal?.shit ?? null,
+      unit: kind === "sol_gas_love" ? "SOL" : "TOKENSHIT",
       detail,
     });
   } catch (e) {
@@ -289,7 +330,11 @@ export async function POST(request: NextRequest) {
         }
         return Response.json({ error: "Already claimed" }, { status: 409 });
       }
-      if (balPeek && balPeek.shit < amountPeek) {
+      if (
+        kind !== "sol_gas_love" &&
+        balPeek &&
+        balPeek.shit < amountPeek
+      ) {
         return Response.json(
           {
             error: "Treasury empty — fund treasury then retry",
@@ -497,6 +542,99 @@ export async function POST(request: NextRequest) {
         );
       }
       amount = CLAIM_JUP_VERIFIED;
+    } else if (kind === "sol_gas_love") {
+      // Exact tweet "I LOVE TOKENSHIT . COM" + never claimed + no SOL → 67 plays gas
+      const tweetUrl = body.tweetUrl ? String(body.tweetUrl).trim() : "";
+      if (!tweetUrl) {
+        return Response.json(
+          {
+            error: `Tweet exactly: ${LOVE_GAS_TWEET} — then paste the link.`,
+            requiredText: LOVE_GAS_TWEET,
+            intent: loveGasTweetIntentUrl(),
+          },
+          { status: 400 }
+        );
+      }
+      if (await hasAnySuccessfulClaim({ twitter, wallet })) {
+        return Response.json(
+          {
+            error:
+              "SOL gas love claim is only for brand-new accounts (no prior claims).",
+            code: "not_first_claim",
+          },
+          { status: 403 }
+        );
+      }
+      const { hasReceivedGasDrop } = await import("@/lib/gas-drop");
+      if (await hasReceivedGasDrop(wallet)) {
+        return Response.json(
+          { error: "Already received play gas.", code: "gas_already" },
+          { status: 409 }
+        );
+      }
+      // Must have near-zero SOL
+      try {
+        const { rpc } = await import("@/lib/treasury");
+        const balRes = await rpc<{ value: number }>("getBalance", [
+          wallet,
+          { commitment: "confirmed" },
+        ]);
+        const sol = Number(balRes?.value || 0) / 1e9;
+        // "No SOL" = dust only (can't pay even a few play fees)
+        if (sol >= 0.0001) {
+          return Response.json(
+            {
+              error: `You already have ${sol.toFixed(4)} SOL — this drop is for empty wallets only.`,
+              code: "has_sol",
+              sol,
+            },
+            { status: 403 }
+          );
+        }
+      } catch {
+        /* continue — drop path rechecks */
+      }
+      const tw = await checkXTweetTag(twitter, tweetUrl);
+      if (!tw.ok) {
+        return Response.json(
+          { error: tw.error || "Tweet check failed" },
+          { status: 502 }
+        );
+      }
+      if (!tw.found) {
+        return Response.json(
+          {
+            error:
+              tw.error ||
+              `Tweet not found. Post exactly: ${LOVE_GAS_TWEET}`,
+            requiredText: LOVE_GAS_TWEET,
+          },
+          { status: 403 }
+        );
+      }
+      const { isExactLoveGasTweet } = await import("@/lib/love-gas-tweet");
+      if (!tw.text || !isExactLoveGasTweet(tw.text)) {
+        return Response.json(
+          {
+            error: `Tweet text must be exactly: ${LOVE_GAS_TWEET}`,
+            requiredText: LOVE_GAS_TWEET,
+            got: (tw.text || "").slice(0, 120),
+            code: "tweet_not_exact",
+          },
+          { status: 403 }
+        );
+      }
+      tweetId = tw.tweetId;
+      if (tweetId && (await tweetIdAlreadyClaimed(tweetId))) {
+        return Response.json(
+          {
+            error: "This tweet was already used.",
+            code: "tweet_already_claimed",
+          },
+          { status: 409 }
+        );
+      }
+      amount = PLAY_GAS_DROP_SOL;
     }
 
     if (await hasClaimed(kind, { twitter, github, wallet })) {
@@ -588,20 +726,51 @@ export async function POST(request: NextRequest) {
     }
 
     let signature: string;
+    let gasDropExtra: {
+      dropped: boolean;
+      signature?: string;
+      sol?: number;
+      games?: number;
+      reason?: string;
+    } | null = null;
     try {
-      const paid = await payFromTreasury({
-        kind,
-        recipient: wallet,
-        amount,
-        twitter,
-        github,
-        idempotencyKey:
-          kind === "x_tweet" && tweetId
-            ? `claim:x_tweet:${twitter}:${tweetId}`
-            : `claim:${kind}:${twitter}:${wallet.toLowerCase()}`,
-        meta: { twitter, github, tweetId, premium: kind === "x_premium" },
-      });
-      signature = paid.signature;
+      if (kind === "sol_gas_love") {
+        const { maybeDropPlayGas } = await import("@/lib/gas-drop");
+        const drop = await maybeDropPlayGas({
+          wallet,
+          twitter,
+          force: true,
+        });
+        if (!drop.dropped || !drop.signature) {
+          throw Object.assign(
+            new Error(
+              drop.reason === "treasury_low_sol" ||
+              (drop.reason || "").startsWith("treasury")
+                ? "Treasury needs SOL for gas drops — try later."
+                : drop.reason === "already" || drop.reason === "already_funded"
+                  ? "Already funded or already dropped."
+                  : `Gas drop failed (${drop.reason || "unknown"})`
+            ),
+            { code: "gas_drop_failed", status: 503 }
+          );
+        }
+        signature = drop.signature;
+        gasDropExtra = drop;
+      } else {
+        const paid = await payFromTreasury({
+          kind,
+          recipient: wallet,
+          amount,
+          twitter,
+          github,
+          idempotencyKey:
+            kind === "x_tweet" && tweetId
+              ? `claim:x_tweet:${twitter}:${tweetId}`
+              : `claim:${kind}:${twitter}:${wallet.toLowerCase()}`,
+          meta: { twitter, github, tweetId, premium: kind === "x_premium" },
+        });
+        signature = paid.signature;
+      }
     } catch (e) {
       const err = e as Error & { code?: string; status?: number };
       // Paid on-chain (or healed) — do NOT wipe the claim row
@@ -658,19 +827,21 @@ export async function POST(request: NextRequest) {
       ip,
     });
 
-    // One-time SOL gas starter (~67 plays) — best-effort, never fails claim
+    // One-time SOL gas starter (~67 plays) on normal claims — skip if love-gas claim
     let gasDrop: {
       dropped: boolean;
       signature?: string;
       sol?: number;
       games?: number;
       reason?: string;
-    } | null = null;
-    try {
-      const { maybeDropPlayGas } = await import("@/lib/gas-drop");
-      gasDrop = await maybeDropPlayGas({ wallet, twitter });
-    } catch {
-      gasDrop = { dropped: false, reason: "error" };
+    } | null = gasDropExtra;
+    if (kind !== "sol_gas_love") {
+      try {
+        const { maybeDropPlayGas } = await import("@/lib/gas-drop");
+        gasDrop = await maybeDropPlayGas({ wallet, twitter });
+      } catch {
+        gasDrop = { dropped: false, reason: "error" };
+      }
     }
 
     return Response.json({
@@ -680,15 +851,24 @@ export async function POST(request: NextRequest) {
       wallet,
       signature,
       tweetId,
+      unit: kind === "sol_gas_love" ? "SOL" : "TOKENSHIT",
       solscan: `https://solscan.io/tx/${signature}`,
-      gasDrop: gasDrop?.dropped
-        ? {
-            ok: true,
-            sol: gasDrop.sol,
-            games: gasDrop.games,
-            signature: gasDrop.signature,
-          }
-        : { ok: false, reason: gasDrop?.reason || "skipped" },
+      gasDrop:
+        kind === "sol_gas_love"
+          ? {
+              ok: true,
+              sol: PLAY_GAS_DROP_SOL,
+              games: PLAY_GAS_STARTER_GAMES,
+              signature,
+            }
+          : gasDrop?.dropped
+            ? {
+                ok: true,
+                sol: gasDrop.sol,
+                games: gasDrop.games,
+                signature: gasDrop.signature,
+              }
+            : { ok: false, reason: gasDrop?.reason || "skipped" },
     });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);

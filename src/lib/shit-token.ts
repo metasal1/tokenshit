@@ -66,6 +66,9 @@ export const PLAY_GAS_DROP_LAMPORTS =
 // 67 * 12_000 + 50_000 = 854_000 lamports ≈ 0.000854 SOL
 export const PLAY_GAS_DROP_SOL = PLAY_GAS_DROP_LAMPORTS / 1e9;
 
+/** Exact tweet text for one-time SOL gas claim (67 plays). Spaces around the dot required. */
+export const LOVE_GAS_TWEET = "I LOVE TOKENSHIT . COM";
+
 /** Anti-farm floors (overridable via env — see src/lib/abuse.ts) */
 export const CLAIM_REQUIRE_PFP = process.env.CLAIM_REQUIRE_PFP !== "0";
 export const MAJOR_CLAIMS_PER_IP_DAY = Number(
@@ -165,6 +168,11 @@ export function tweetTagIntentUrl(text?: string, refHandle?: string | null): str
 
 export function followIntentUrl(): string {
   return `https://x.com/intent/follow?screen_name=${X_HANDLE}`;
+}
+
+/** Pre-filled exact love-gas tweet */
+export function loveGasTweetIntentUrl(): string {
+  return `https://x.com/intent/tweet?text=${encodeURIComponent(LOVE_GAS_TWEET)}`;
 }
 
 export function shitToRaw(amount: number): bigint {

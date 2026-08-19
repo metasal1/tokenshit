@@ -7,7 +7,8 @@ export type ClaimKind =
   | "x_tweet"
   | "x_follow"
   | "email_list"
-  | "jup_verified";
+  | "jup_verified"
+  | "sol_gas_love";
 
 /** Tweet claim cooldown + max tweet age */
 export const TWEET_CLAIM_COOLDOWN_MS = 24 * 60 * 60 * 1000;
@@ -281,6 +282,36 @@ export async function getTweetClaimCooldown(opts: {
     nextClaimAt: new Date(nextMs).toISOString(),
     msRemaining: remaining,
   };
+}
+
+
+/** Any successful claim for this identity (excludes pending). */
+export async function hasAnySuccessfulClaim(opts: {
+  twitter?: string | null;
+  wallet?: string | null;
+}): Promise<boolean> {
+  await ensureClaimSchema();
+  const tw = (opts.twitter || "").replace(/^@/, "").trim().toLowerCase();
+  const w = (opts.wallet || "").trim();
+  if (tw) {
+    const r = await tursoExecute(
+      `SELECT id FROM shit_claims
+       WHERE lower(twitter) = ? AND signature != 'pending' AND signature != ''
+       LIMIT 1`,
+      [tw]
+    );
+    if (r.rows[0]) return true;
+  }
+  if (w) {
+    const r = await tursoExecute(
+      `SELECT id FROM shit_claims
+       WHERE lower(wallet) = lower(?) AND signature != 'pending' AND signature != ''
+       LIMIT 1`,
+      [w]
+    );
+    if (r.rows[0]) return true;
+  }
+  return false;
 }
 
 export async function tweetIdAlreadyClaimed(
