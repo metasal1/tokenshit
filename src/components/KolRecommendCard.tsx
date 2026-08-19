@@ -27,6 +27,7 @@ export default function KolRecommendCard() {
   const [lookup, setLookup] = useState<LookupOk | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
+  const [hp, setHp] = useState("");
 
   const twitter =
     user?.twitter?.username?.replace(/^@/, "").toLowerCase() || null;
@@ -71,6 +72,10 @@ export default function KolRecommendCard() {
   const doSubmit = useCallback(async () => {
     setErr(null);
     setMsg(null);
+    if (!authenticated || !twitter) {
+      setErr("Sign in with X to submit a KOL");
+      return;
+    }
     if (!lookup?.meetsMin) {
       setErr(`KOL needs ${MIN_KOL_FOLLOWERS.toLocaleString()}+ followers`);
       return;
@@ -91,6 +96,7 @@ export default function KolRecommendCard() {
           byX: twitter || undefined,
           wallet: wallet || undefined,
           source: "claim",
+          ...(hp ? { website: hp } : {}),
         }),
       });
       const j = await res.json().catch(() => ({}));
@@ -110,10 +116,10 @@ export default function KolRecommendCard() {
     } finally {
       setBusy(null);
     }
-  }, [lookup, note, twitter, wallet, authenticated, getAccessToken]);
+  }, [lookup, note, twitter, wallet, authenticated, getAccessToken, hp]);
 
   return (
-    <div className="rounded-xl border border-neon/35 bg-neon/[0.04] p-3.5 sm:p-4 space-y-3">
+    <div className="relative rounded-xl border border-neon/35 bg-neon/[0.04] p-3.5 sm:p-4 space-y-3">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <h3 className="font-semibold text-sm sm:text-base text-white flex items-center gap-1.5">
@@ -212,14 +218,31 @@ export default function KolRecommendCard() {
           />
           <button
             type="button"
-            disabled={busy !== null}
+            disabled={busy !== null || !authenticated || !twitter}
             onClick={() => void doSubmit()}
             className="w-full min-h-11 rounded-lg bg-neon text-black text-sm font-bold hover:brightness-110 disabled:opacity-50 active:scale-[0.98]"
           >
             {busy === "submit"
               ? "Submitting…"
-              : `Submit @${lookup.handle} for review`}
+              : !authenticated || !twitter
+                ? "Sign in with X to submit"
+                : `Submit @${lookup.handle} for review`}
           </button>
+          <p className="text-[10px] text-zinc-600 leading-snug">
+            X login · 100+ followers · 5 noms/day · KOLs need 10k+ flw · admin
+            review only (no auto-pay)
+          </p>
+          {/* honeypot — hidden from humans */}
+          <input
+            type="text"
+            name="website"
+            autoComplete="off"
+            tabIndex={-1}
+            aria-hidden
+            className="absolute -left-[9999px] h-0 w-0 opacity-0"
+            value={hp}
+            onChange={(e) => setHp(e.target.value)}
+          />
         </>
       )}
 
