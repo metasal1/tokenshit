@@ -121,6 +121,14 @@ function LoginButton() {
   const [showMenu, setShowMenu] = useState(false);
   const [pwa, setPwa] = useState(false);
   useEffect(() => setPwa(isStandalonePwa()), []);
+  useEffect(() => {
+    const open = () => {
+      setShowMenu(false);
+      setShowWallet(true);
+    };
+    window.addEventListener("tokenshit:open-wallet", open);
+    return () => window.removeEventListener("tokenshit:open-wallet", open);
+  }, []);
 
   if (!ready) return null;
 

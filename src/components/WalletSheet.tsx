@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { EmojiIcon } from "@/components/EmojiIcon";
 import ShareRefButton from "@/components/ShareRefButton";
@@ -115,18 +116,23 @@ export default function WalletSheet({
   const lowSol = bal != null && bal.sol < 0.01;
   const canPlay = bal != null && bal.shit >= 1000;
 
-  // Escape closes
+  // Escape closes + lock body scroll (sheet is portaled to body)
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
     };
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prev;
+    };
   }, [onClose]);
 
-  return (
+  const sheet = (
     <div
-      className="fixed inset-0 z-[100] flex items-end justify-center bg-black/70 backdrop-blur-sm sm:items-start sm:pt-20"
+      className="fixed inset-0 z-[200] flex items-end justify-center bg-black/75 backdrop-blur-sm sm:items-center sm:p-4"
       onClick={onClose}
       role="presentation"
     >
@@ -325,4 +331,7 @@ export default function WalletSheet({
       </div>
     </div>
   );
+
+  if (typeof document === "undefined") return null;
+  return createPortal(sheet, document.body);
 }
