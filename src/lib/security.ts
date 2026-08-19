@@ -17,6 +17,31 @@ export const BLACKLISTED_WALLETS = new Set<string>([
   "G3C9diRjUCjMzohqe3uKcLwgXTxSAySAtBBipfoKpX7h",
   "FKjgf7tTDQ8iQLNn1MrXtSa3QdrbQk1FYRjqcYSjYD4Q",
   "4N3fZSA3peeBUx8ryypfrSoXsqUjfaFdzLrgseJW3Rjt",
+  // 2026-08-19 bangdayak45731 × gamaa.id claim farm ring
+  "4dDHAHJyQhzUgdF1a9nrPoEDPqNuwfF5jiaUJgQTFuU8",
+  "62P7GjJfaXiYL1Zt7Xs6BmqCKiTVTWZnNLPhwZVsShb5",
+  "6BWjmLZYgEYy1sSTtPmZa4ZuszgRDbJCrrJUa64Cxt7L",
+  "6QDduAsg8e6JNKxMDbVyVKLM9pw1AkwAW1jMrgT1bWM8",
+  "6rURmdkXDsDxbsJujRWNLPQSeXTwGNNmGRVUoS2a1aHH",
+  "6tdHsASYwc7rwpK92nAdvyYqQsLyPqgW1CLcbYDPy69w",
+  "7GugoqYrs2vkYVD3jE9YN3ZqyAkG3kHjtMitCeSwq3WH",
+  "8EJWfcpZskAhAXpCeuVEbnJUSvU5KdXsRmSKx3AMQ57Z",
+  "94aNe6yjZuWWVxuKb872Va7s5jfeJQXhbyPDvFq9Ko5s",
+  "9DggRZhYZpi8jTZvDAn6Wa2a5oyU5jA29ryfXESbDyDf",
+  "BPbQGNHYaoeDg7ikW3561JpAzPCd2fbVr5aGcrqUDxPF",
+  "DDZYbijzBv1BhCJu2V1xrZRcjFme3yF8Rtb6rvHXLtWS",
+  "DNQcubFEZ78fbKKNNd1fstd2ibG6qXLbhKy6VxDdDxC1",
+  "DzDVo13e33NjtCnR7BZ5YRXHYvz6gX36XLyJPxSvAQwD",
+  "DzRGqTe63cUfJoXE7YYtSTFCAPmHZg3Rc7ig1yh6BLZi",
+  "ER5WAoQjAhfknDbCf2rWeCziMpa9NjhTmP7BMtLtnmeo",
+  "Efa7aYKYM1jFvGH688FQC1z89riimQNCNzLZw4iD9QrF",
+  "F6zbaHAPYCiZLjxnDzW2AGBNq8BUW7YUaTkJYoxDtF22",
+  "FJYDdxV59YirG87iaxqJ6FYsPyNTaSb1kwkufPERebfi",
+  "GHHRrkVW6nJwydxePs93fue6iTioZmKgwHQsVpk2gxC9",
+  "GomDeLCCgkQ2gA121FX17Ro1FARAA5pb1T7kgwhvJcrK",
+  "H34RK8gNNiPhW4Ffh8gfrqevPMaaz4sxAqwV8vHrThY2",
+  "FNxL4x4969zfzCSKCmk5fbpKwkWjYwfQFt4vwwxR4kQR",
+
 ]);
 
 const BLACKLIST_PREFIXES: string[] = [
