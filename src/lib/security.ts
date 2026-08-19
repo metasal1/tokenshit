@@ -79,6 +79,64 @@ export function assertNotBlacklisted(wallet: string): Response | null {
   return null;
 }
 
+/** X handles blocked from referral payouts / farm rings */
+export const BLACKLISTED_TWITTER = new Set(
+  [
+    "bangdayak45731",
+  ].map((h) => h.toLowerCase())
+);
+
+export function loadEnvTwitterBlacklist() {
+  const raw = process.env.TWITTER_HANDLE_BLACKLIST || "";
+  for (const part of raw.split(",")) {
+    const h = part.trim().replace(/^@/, "").toLowerCase();
+    if (h) BLACKLISTED_TWITTER.add(h);
+  }
+}
+
+export function isBlacklistedTwitter(
+  handle: string | null | undefined
+): boolean {
+  loadEnvTwitterBlacklist();
+  if (!handle) return false;
+  return BLACKLISTED_TWITTER.has(handle.replace(/^@/, "").trim().toLowerCase());
+}
+
+/** Email domains blocked at signup + email claim */
+export const BLACKLISTED_EMAIL_DOMAINS = new Set(
+  [
+    "gamaa.id",
+  ].map((d) => d.toLowerCase())
+);
+
+export function loadEnvEmailDomainBlacklist() {
+  const raw = process.env.EMAIL_DOMAIN_BLACKLIST || "";
+  for (const part of raw.split(",")) {
+    const d = part.trim().toLowerCase().replace(/^@/, "");
+    if (d) BLACKLISTED_EMAIL_DOMAINS.add(d);
+  }
+}
+
+export function isBlacklistedEmailDomain(
+  email: string | null | undefined
+): boolean {
+  loadEnvEmailDomainBlacklist();
+  if (!email || !email.includes("@")) return false;
+  const host = email.split("@").pop()?.toLowerCase().trim() || "";
+  if (!host) return true;
+  if (BLACKLISTED_EMAIL_DOMAINS.has(host)) return true;
+  // subdomains e.g. mail.gamaa.id
+  for (const d of BLACKLISTED_EMAIL_DOMAINS) {
+    if (host === d || host.endsWith("." + d)) return true;
+  }
+  return false;
+}
+
+/** GitHub fork claim — off after farm (set CLAIM_GH_FORK_ENABLED=1 to re-enable) */
+export function isGhForkClaimEnabled(): boolean {
+  return process.env.CLAIM_GH_FORK_ENABLED === "1";
+}
+
 /**
  * Global kill switch for ANY treasury token send.
  * CLAIMS_ENABLED=0 or TREASURY_SENDS_ENABLED=0 or REFERRAL_PAYOUTS_ENABLED=0

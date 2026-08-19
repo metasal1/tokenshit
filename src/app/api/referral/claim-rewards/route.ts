@@ -3,7 +3,7 @@ import { tursoExecute } from "@/lib/turso";
 import { REFERRAL_REWARD_SHIT } from "@/lib/shit-token";
 import { payFromTreasury } from "@/lib/treasury-ledger";
 import { requirePrivy } from "@/lib/privy-server";
-import { assertNotBlacklisted } from "@/lib/security";
+import { assertNotBlacklisted, isBlacklistedTwitter } from "@/lib/security";
 import {
   getClientIp,
   gateClaimIp,
@@ -69,6 +69,18 @@ export async function POST(request: NextRequest) {
 
     const blocked = assertNotBlacklisted(wallet);
     if (blocked) return blocked;
+
+    if (isBlacklistedTwitter(twitter)) {
+      return Response.json(
+        {
+          error: "This account cannot claim referral rewards.",
+          code: "referrer_blocked",
+          paid: 0,
+          amount: 0,
+        },
+        { status: 403 }
+      );
+    }
 
     await tursoExecute(
       `CREATE TABLE IF NOT EXISTS referral_rewards (

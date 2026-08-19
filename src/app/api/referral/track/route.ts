@@ -2,7 +2,7 @@ import { type NextRequest } from "next/server";
 import { tursoExecute } from "@/lib/turso";
 import { REFERRAL_REWARD_SHIT } from "@/lib/shit-token";
 import { requirePrivy } from "@/lib/privy-server";
-import { assertNotBlacklisted } from "@/lib/security";
+import { assertNotBlacklisted, isBlacklistedTwitter } from "@/lib/security";
 
 export const dynamic = "force-dynamic";
 
@@ -59,6 +59,16 @@ export async function POST(request: NextRequest) {
       return Response.json(
         { error: "Cannot refer yourself, degen" },
         { status: 400 }
+      );
+    }
+
+    if (isBlacklistedTwitter(referrerTwitter)) {
+      return Response.json(
+        {
+          error: "Invalid referral link",
+          code: "referrer_blocked",
+        },
+        { status: 403 }
       );
     }
 
