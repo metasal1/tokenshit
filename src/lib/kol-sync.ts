@@ -128,7 +128,7 @@ export async function upsertListMemberAsLive(m: ListMember): Promise<{
   return { handle, action: "insert" };
 }
 
-/** Hit card endpoint so memory/CF cache fills (non-blocking friendly). */
+/** Bake OG into memory cache (direct call — no self-HTTP / CF loop). */
 export async function prewarmKolOg(handle: string): Promise<{
   handle: string;
   ok: boolean;
@@ -137,32 +137,25 @@ export async function prewarmKolOg(handle: string): Promise<{
   cache?: string | null;
 }> {
   const h = handle.replace(/^@/, "").toLowerCase();
-  const site = (process.env.SITE_URL || "https://tokenshit.com").replace(
-    /\/$/,
-    ""
-  );
-  const url = `${site}/api/kols/card/${encodeURIComponent(h)}?prewarm=1`;
   const t0 = Date.now();
   try {
-    const res = await fetch(url, {
-      headers: { "User-Agent": "TokenShit-KolPrewarm/1.0" },
-      cache: "no-store",
-    });
-    // drain body so CF finishes
-    await res.arrayBuffer().catch(() => null);
+    const { getKolOgPngResponse } = await import("@/lib/kol-og-cache");
+    const res = await getKolOgPngResponse(h);
+    const buf = await res.arrayBuffer();
+    const ok = res.ok && buf.byteLength > 64;
     return {
       handle: h,
-      ok: res.ok,
+      ok,
       ms: Date.now() - t0,
       status: res.status,
-      cache: res.headers.get("x-kol-og-cache"),
+      cache: res.headers.get("x-kol-og-cache") || (ok ? "baked" : "empty"),
     };
   } catch (e) {
     return {
       handle: h,
       ok: false,
       ms: Date.now() - t0,
-      cache: String(e).slice(0, 80),
+      cache: String(e).slice(0, 120),
     };
   }
 }
