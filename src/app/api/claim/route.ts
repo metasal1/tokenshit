@@ -99,6 +99,7 @@ export async function GET(request: NextRequest) {
         loveGasTweet: LOVE_GAS_TWEET,
         loveGasTweetIntent: loveGasTweetIntentUrl(),
         walletMustBePrivyLinkedToX: true,
+        xCompulsoryForAllClaims: true,
       },
     });
   }

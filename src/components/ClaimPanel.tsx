@@ -741,12 +741,11 @@ export default function ClaimPanel() {
       </div>
 
       <p className="text-[11px] sm:text-xs text-zinc-500 leading-snug rounded-lg border border-border/60 bg-zinc-950/40 px-3 py-2">
-        <span className="text-zinc-300 font-medium">Rules:</span> X login
-        required · PFP · 100+ followers · pay to Privy wallet linked to that X ·
-        verified {CLAIM_X_VERIFIED.toLocaleString()} / premium{" "}
-          {CLAIM_X_PREMIUM.toLocaleString()} / GH fork{" "}
-          {CLAIM_GH_FORK.toLocaleString()} · tweet every 24h · 1 major
-        claim per IP per day
+        <span className="text-zinc-300 font-medium">Rules:</span>{" "}
+        <span className="text-neon font-semibold">X required for every claim</span>
+        {" "}
+        · PFP · 100+ followers · Privy wallet linked to that X · no disposable
+        email · tweet every 24h · 1 major claim / IP / day
       </p>
 
       <div className="flex flex-wrap items-center gap-2 text-xs">
