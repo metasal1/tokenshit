@@ -23,7 +23,7 @@ export default function KolLoveCard({
   const ogSrc = useMemo(() => {
     const h = encodeURIComponent(handle.replace(/^@/, ""));
     // Next serves opengraph-image at this path; bust lightly
-    return `/kols/${h}/opengraph-image?v=3`;
+    return `/kols/${h}/opengraph-image?v=4`;
   }, [handle]);
 
   const pageUrl = useMemo(() => {
@@ -197,8 +197,10 @@ export default function KolLoveCard({
         </a>
       </div>
 
-      <p className="text-center font-mono text-sm text-[#fff8e7]/90">
+      <p className="text-center font-mono text-sm text-[#fff8e7]/90 flex items-center justify-center gap-2">
+        <EmojiIcon size={18}>💚</EmojiIcon>
         “{KOL_OG_QUOTE}”
+        <EmojiIcon size={18}>💩</EmojiIcon>
       </p>
 
       <div className="grid grid-cols-3 gap-2">

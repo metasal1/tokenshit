@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import KolLoveCard from "@/components/KolLoveCard";
+import { EmojiIcon } from "@/components/EmojiIcon";
 import { normalizeKolHandle } from "@/lib/kol-noms";
 import { fetchXUserPublic } from "@/lib/x-data";
 import { KOL_OG_QUOTE } from "@/lib/kol-og-quote";
@@ -77,15 +78,19 @@ export default async function KolHandlePage({ params }: Props) {
   return (
     <main className="mx-auto w-full max-w-2xl px-4 py-8 sm:py-12">
       <div className="mb-6 text-center">
-        <p className="font-orbitron text-[10px] uppercase tracking-[0.25em] text-zinc-500">
+        <p className="font-orbitron text-[10px] uppercase tracking-[0.25em] text-zinc-500 flex items-center justify-center gap-1.5">
+          <EmojiIcon size={14}>💩</EmojiIcon>
           KOL card
+          <EmojiIcon size={14}>💚</EmojiIcon>
         </p>
         <h1 className="mt-2 font-monoton text-3xl leading-none tracking-wide sm:text-4xl">
           <span className="neon-text">KOL</span>
           <span className="neon-dollar">$</span>
         </h1>
-        <p className="mt-2 text-sm text-zinc-400">
+        <p className="mt-2 text-sm text-zinc-400 flex items-center justify-center gap-1.5 flex-wrap">
+          <EmojiIcon size={16}>🔥</EmojiIcon>
           Shareable love card · copy or download
+          <EmojiIcon size={16}>✨</EmojiIcon>
         </p>
       </div>
 
