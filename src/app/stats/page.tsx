@@ -5,18 +5,38 @@ import type { Metadata } from "next";
 import StatsCategoryGrid from "@/components/StatsCategoryGrid";
 import { EmojiIcon } from "@/components/EmojiIcon";
 import { pageMeta } from "@/lib/seo";
-import ShareRefButton from "@/components/ShareRefButton";
-import { REFERRAL_REWARD_SHIT } from "@/lib/shit-token";
+import StatsShareButtons from "@/components/StatsShareButtons";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 60;
 
-export const metadata: Metadata = pageMeta({
+const base = pageMeta({
   title: "Statistics",
-  description: "Votes, visitors, share/referral network, leaderboards — the numbers behind the shit.",
+  description: "Votes, visitors, leaderboards — the numbers behind the shit.",
   path: "/stats",
   og: "stats",
 });
+
+export const metadata: Metadata = {
+  ...base,
+  openGraph: {
+    ...base.openGraph,
+    images: [
+      {
+        url: "https://tokenshit.com/stats/opengraph-image?v=1",
+        width: 1200,
+        height: 630,
+        type: "image/png",
+        alt: "TOKEN$HIT Stats",
+      },
+    ],
+  },
+  twitter: {
+    ...base.twitter,
+    card: "summary_large_image",
+    images: ["https://tokenshit.com/stats/opengraph-image?v=1"],
+  },
+};
 
 type Meta = { name: string; symbol: string; logo?: string };
 
@@ -40,13 +60,7 @@ async function getStats() {
     todayDevices,
     topHit,
     topShit,
-    votesByDay,
-    totalRefs,
-    uniqueSharers,
-    todayRefs,
-    paidRewards,
-    paidAmount,
-    topSharers,
+    votesByDay
   ] = await Promise.all([
     safeTurso("SELECT COUNT(*) FROM votes", []),
     safeTurso("SELECT COUNT(DISTINCT device_id) FROM votes", []),
@@ -66,36 +80,7 @@ async function getStats() {
     safeTurso(
       "SELECT voted_at, vote, COUNT(*) as cnt FROM votes GROUP BY voted_at, vote ORDER BY voted_at DESC LIMIT 40",
       []
-    ),
-    // Share / referral network
-    safeTurso("SELECT COUNT(*) FROM referrals", []),
-    safeTurso(
-      "SELECT COUNT(DISTINCT lower(referrer_twitter)) FROM referrals",
-      []
-    ),
-    safeTurso(
-      "SELECT COUNT(*) FROM referrals WHERE date(created_at) = date('now')",
-      []
-    ),
-    safeTurso(
-      `SELECT COUNT(*) FROM referral_rewards
-       WHERE signature IS NOT NULL AND signature != '' AND signature != 'pending'`,
-      []
-    ),
-    safeTurso(
-      `SELECT COALESCE(SUM(amount), 0) FROM referral_rewards
-       WHERE signature IS NOT NULL AND signature != '' AND signature != 'pending'`,
-      []
-    ),
-    safeTurso(
-      `SELECT lower(referrer_twitter) AS h, COUNT(*) AS c
-       FROM referrals
-       WHERE referrer_twitter IS NOT NULL AND trim(referrer_twitter) != ''
-       GROUP BY lower(referrer_twitter)
-       ORDER BY c DESC
-       LIMIT 15`,
-      []
-    ),
+    )
   ]);
 
   const allIds = [
@@ -160,18 +145,7 @@ async function getStats() {
     }),
     dailyVotes: Object.entries(dailyVotes)
       .map(([day, v]) => ({ day, ...v }))
-      .sort((a, b) => (a.day < b.day ? 1 : -1)),
-    share: {
-      totalRefs: Number(totalRefs.rows[0]?.[0] ?? 0),
-      uniqueSharers: Number(uniqueSharers.rows[0]?.[0] ?? 0),
-      todayRefs: Number(todayRefs.rows[0]?.[0] ?? 0),
-      paidRewards: Number(paidRewards.rows[0]?.[0] ?? 0),
-      paidAmount: Number(paidAmount.rows[0]?.[0] ?? 0),
-      topSharers: topSharers.rows.map((r) => ({
-        handle: String(r[0] || "").replace(/^@/, ""),
-        count: Number(r[1] || 0),
-      })).filter((x) => x.handle),
-    },
+      .sort((a, b) => (a.day < b.day ? 1 : -1))
   };
 }
 
@@ -312,32 +286,39 @@ export default async function StatsPage() {
                 </span>
               </h1>
               <p className="mt-2 text-sm md:text-[15px] text-zinc-400 max-w-md mx-auto md:mx-0 leading-relaxed">
-                Votes, visitors, shares & referrals — the numbers behind the shit.
+                The numbers behind the shit — votes, visitors, boards.
               </p>
             </div>
 
-            <nav
-              className="flex flex-wrap justify-center md:justify-end gap-2 shrink-0"
-              aria-label="Stats shortcuts"
-            >
-              {(
-                [
-                  { href: "/play", label: "Play", emoji: "🎯" },
-                  { href: "/referrals", label: "Share", emoji: "🔗" },
-                  { href: "/winners", label: "Winners", emoji: "🏆" },
-                  { href: "/whales", label: "Whales", emoji: "🐋" },
-                ] as const
-              ).map((q) => (
-                <Link
-                  key={q.href}
-                  href={q.href}
-                  className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-card/80 hover:border-neon/40 hover:bg-card px-3 py-2 text-[11px] font-orbitron uppercase tracking-wider text-zinc-300 transition-colors"
-                >
-                  <EmojiIcon size={14}>{q.emoji}</EmojiIcon>
-                  {q.label}
-                </Link>
-              ))}
-            </nav>
+            <div className="flex flex-col items-center md:items-end gap-3 shrink-0">
+              <StatsShareButtons
+                totalVotes={stats.totalVotes}
+                uniqueDevices={stats.uniqueDevices}
+                todayVotes={stats.todayVotes}
+              />
+              <nav
+                className="flex flex-wrap justify-center md:justify-end gap-2"
+                aria-label="Stats shortcuts"
+              >
+                {(
+                  [
+                    { href: "/play", label: "Play", emoji: "🎯" },
+                    { href: "/winners", label: "Winners", emoji: "🏆" },
+                    { href: "/#vote", label: "Vote", emoji: "🗳️" },
+                    { href: "/whales", label: "Whales", emoji: "🐋" },
+                  ] as const
+                ).map((q) => (
+                  <Link
+                    key={q.href}
+                    href={q.href}
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-card/80 hover:border-neon/40 hover:bg-card px-3 py-2 text-[11px] font-orbitron uppercase tracking-wider text-zinc-300 transition-colors"
+                  >
+                    <EmojiIcon size={14}>{q.emoji}</EmojiIcon>
+                    {q.label}
+                  </Link>
+                ))}
+              </nav>
+            </div>
           </div>
         </div>
       </header>
@@ -372,176 +353,6 @@ export default async function StatsPage() {
         </div>
 
         <StatsCategoryGrid />
-
-        {/* Share / referral network */}
-        <section className="space-y-3 sm:space-y-4">
-          <div className="flex flex-wrap items-end justify-between gap-3">
-            <div>
-              <p className="text-[10px] font-orbitron uppercase tracking-[0.2em] text-neon mb-1">
-                Growth loop
-              </p>
-              <h2 className="text-lg sm:text-xl font-bold font-orbitron uppercase tracking-wide text-white flex items-center gap-2">
-                <EmojiIcon size={22}>🔗</EmojiIcon>
-                Share stats
-              </h2>
-              <p className="mt-1 text-xs text-zinc-500 max-w-lg">
-                Ref links tracked on signup ·{" "}
-                {REFERRAL_REWARD_SHIT.toLocaleString()} $TOKENSHIT per qualified
-                paid referral
-              </p>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <Link
-                href="/referrals"
-                className="rounded-xl border border-neon/40 bg-neon/10 px-3 py-2 text-[11px] font-orbitron uppercase tracking-wider text-neon hover:bg-neon/15"
-              >
-                Open referrals
-              </Link>
-              <ShareRefButton path="/" variant="compact" />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
-            <StatCard
-              label="Total shares"
-              value={stats.share.totalRefs}
-              sub="ref signups tracked"
-              emoji="🔗"
-              accent="neon"
-            />
-            <StatCard
-              label="Sharers"
-              value={stats.share.uniqueSharers}
-              sub="unique X accounts"
-              emoji="📣"
-              accent="amber"
-            />
-            <StatCard
-              label="Shares today"
-              value={stats.share.todayRefs}
-              sub="UTC day"
-              emoji="⚡"
-              accent="green"
-            />
-            <StatCard
-              label="Paid outs"
-              value={stats.share.paidRewards}
-              sub="referral claims settled"
-              emoji="💸"
-              accent="amber"
-            />
-            <StatCard
-              label="Paid $TOKENSHIT"
-              value={Math.round(stats.share.paidAmount).toLocaleString()}
-              sub="sum of referral rewards"
-              emoji="💰"
-              accent="neon"
-            />
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5">
-            <section className="rounded-2xl border border-neon/30 bg-card overflow-hidden flex flex-col">
-              <div className="flex items-center justify-between px-4 sm:px-5 py-3 border-b border-border bg-neon/5 shrink-0">
-                <div className="flex items-center gap-2">
-                  <EmojiIcon size={18}>🏆</EmojiIcon>
-                  <h3 className="text-sm font-bold font-orbitron uppercase tracking-wide text-neon">
-                    Top sharers
-                  </h3>
-                </div>
-                <span className="text-[10px] font-orbitron uppercase tracking-wider text-zinc-600">
-                  by refs
-                </span>
-              </div>
-              <div className="divide-y divide-border flex-1">
-                {stats.share.topSharers.length === 0 ? (
-                  <div className="px-4 py-8 text-center text-zinc-500 text-sm">
-                    No referrals yet — share your link
-                  </div>
-                ) : (
-                  stats.share.topSharers.map((s, i) => (
-                    <div
-                      key={s.handle}
-                      className="flex items-center gap-3 px-4 py-3 hover:bg-neon/5 transition-colors"
-                    >
-                      <span className="text-sm font-bold text-zinc-600 w-6 text-center font-mono tabular-nums">
-                        {i + 1}
-                      </span>
-                      <a
-                        href={`https://x.com/${encodeURIComponent(s.handle)}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex-1 min-w-0 font-mono text-sm text-white hover:text-neon truncate"
-                      >
-                        @{s.handle}
-                      </a>
-                      <div className="font-mono font-bold tabular-nums text-neon">
-                        {s.count.toLocaleString()}
-                        <span className="text-[10px] text-zinc-500 ml-1 font-normal">
-                          refs
-                        </span>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            </section>
-
-            <section className="rounded-2xl border border-border bg-card p-4 sm:p-5 flex flex-col justify-between gap-4">
-              <div>
-                <h3 className="text-sm font-bold font-orbitron uppercase tracking-wide text-zinc-200 flex items-center gap-2">
-                  <EmojiIcon size={18}>📤</EmojiIcon>
-                  Your turn
-                </h3>
-                <p className="mt-2 text-sm text-zinc-400 leading-relaxed">
-                  Share TOKEN$HIT with your X. Friends join → you stack{" "}
-                  <span className="text-neon font-mono font-semibold">
-                    {REFERRAL_REWARD_SHIT.toLocaleString()}
-                  </span>{" "}
-                  $TOKENSHIT per paid ref. Quality gates apply (X + PFP +
-                  followers).
-                </p>
-                <ul className="mt-3 space-y-1.5 text-xs text-zinc-500 font-mono">
-                  <li>
-                    · network size{" "}
-                    <span className="text-zinc-300">
-                      {stats.share.totalRefs.toLocaleString()}
-                    </span>
-                  </li>
-                  <li>
-                    · avg refs / sharer{" "}
-                    <span className="text-zinc-300">
-                      {stats.share.uniqueSharers > 0
-                        ? (
-                            stats.share.totalRefs / stats.share.uniqueSharers
-                          ).toFixed(1)
-                        : "—"}
-                    </span>
-                  </li>
-                  <li>
-                    · paid rate{" "}
-                    <span className="text-zinc-300">
-                      {stats.share.totalRefs > 0
-                        ? `${(
-                            (100 * stats.share.paidRewards) /
-                            stats.share.totalRefs
-                          ).toFixed(1)}%`
-                        : "—"}
-                    </span>
-                  </li>
-                </ul>
-              </div>
-              <div className="flex flex-col sm:flex-row gap-2">
-                <ShareRefButton path="/" variant="inline" />
-                <Link
-                  href="/referrals"
-                  className="inline-flex items-center justify-center min-h-11 rounded-xl border border-zinc-600 px-4 text-xs font-semibold text-zinc-200 hover:border-neon"
-                >
-                  Referral dashboard
-                </Link>
-              </div>
-            </section>
-          </div>
-        </section>
 
         {/* Leaders */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5 lg:gap-6">
