@@ -30,7 +30,7 @@ function BrandDrop({ pack }: { pack: "hit" | "shit" }) {
     const pool =
       pack === "hit"
         ? ["🎯", "🎯", "✨", "🟩"]
-        : ["💩", "💩", "💀", "🗑️"];
+        : ["💀", "💀", "💀", "🗑️"];
     setParts(
       Array.from({ length: 26 }, (_, i) => ({
         id: i,
@@ -135,7 +135,7 @@ function ResultBar({
         >
           {shits} · {total ? `${shitPct.toFixed(0)}%` : "—"} SHIT{" "}
           <span className="emoji ml-0.5" aria-hidden>
-            💩
+            💀
           </span>
         </span>
       </div>
@@ -536,7 +536,7 @@ export default function VoteButtons({
           >
             {voting && pressing === "shit" ? (
               <EmojiIcon size={40} className="animate-pulse opacity-80">
-                💩
+                💀
               </EmojiIcon>
             ) : (
               <EmojiIcon
@@ -544,7 +544,7 @@ export default function VoteButtons({
                 className="drop-shadow-[0_0_12px_rgba(239,68,68,0.6)]"
                 label="SHIT"
               >
-                💩
+                💀
               </EmojiIcon>
             )}
             <span className="text-base sm:text-lg tracking-tight text-red-400">
@@ -587,7 +587,7 @@ export default function VoteButtons({
                   ) : (
                     <>
                       <span className="emoji" aria-hidden>
-                        💩
+                        💀
                       </span>{" "}
                       SHIT
                     </>
