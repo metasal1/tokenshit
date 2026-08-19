@@ -5,7 +5,7 @@ import { usePrivy } from "@privy-io/react-auth";
 import { useWallets } from "@privy-io/react-auth/solana";
 import { pickSolanaAddress } from "@/lib/privy-identity";
 import { EmojiIcon } from "@/components/EmojiIcon";
-import { MIN_KOL_FOLLOWERS } from "@/lib/shit-token";
+import { KOL_SCOUT_REWARD_SHIT, MIN_KOL_FOLLOWERS } from "@/lib/shit-token";
 
 type LookupOk = {
   ok: true;
@@ -119,21 +119,37 @@ export default function KolRecommendCard() {
   }, [lookup, note, twitter, wallet, authenticated, getAccessToken, hp]);
 
   return (
-    <div className="relative rounded-xl border border-neon/35 bg-neon/[0.04] p-3.5 sm:p-4 space-y-3">
+    <div className="relative rounded-2xl border-2 border-neon/50 bg-gradient-to-b from-neon/10 to-card p-4 sm:p-5 space-y-3.5 shadow-[0_0_32px_rgba(57,255,20,0.08)]">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <h3 className="font-semibold text-sm sm:text-base text-white flex items-center gap-1.5">
-            <EmojiIcon size={18}>📢</EmojiIcon>
-            Recommend a KOL
+          <p className="font-orbitron text-[10px] uppercase tracking-[0.2em] text-neon mb-1">
+            Paid scout bounty
+          </p>
+          <h3 className="font-semibold text-base sm:text-lg text-white flex items-center gap-1.5 flex-wrap">
+            <EmojiIcon size={20}>🔍</EmojiIcon>
+            Nominate a KOL
+            <span className="rounded-full bg-neon px-2 py-0.5 text-[11px] font-mono font-bold text-black">
+              +{KOL_SCOUT_REWARD_SHIT.toLocaleString()}
+            </span>
           </h3>
-          <p className="text-xs text-zinc-500 mt-1 leading-snug">
-            Drop their X handle or profile link. We look them up — need{" "}
-            <span className="text-neon font-mono">
+          <p className="text-xs text-zinc-400 mt-1.5 leading-snug">
+            Paste their X. Need{" "}
+            <span className="text-neon font-mono font-semibold">
               {MIN_KOL_FOLLOWERS.toLocaleString()}+
             </span>{" "}
-            followers. Metasal reviews before they go live.
+            followers. When Metasal accepts, you get{" "}
+            <span className="text-neon font-semibold">
+              {KOL_SCOUT_REWARD_SHIT.toLocaleString()} $TOKENSHIT
+            </span>
+            .
           </p>
         </div>
+        <a
+          href="/kols"
+          className="shrink-0 text-[10px] font-orbitron uppercase tracking-wide text-zinc-500 hover:text-neon"
+        >
+          Roster →
+        </a>
       </div>
 
       <div className="flex flex-col sm:flex-row gap-2">
@@ -225,12 +241,12 @@ export default function KolRecommendCard() {
             {busy === "submit"
               ? "Submitting…"
               : !authenticated || !twitter
-                ? "Sign in with X to submit"
-                : `Submit @${lookup.handle} for review`}
+                ? "Sign in with X to earn 2.5K"
+                : `Submit @${lookup.handle} · earn ${KOL_SCOUT_REWARD_SHIT.toLocaleString()}`}
           </button>
-          <p className="text-[10px] text-zinc-600 leading-snug">
-            X login · 250+ followers · 5 noms/day · KOLs need 10k+ flw · admin
-            review only (no auto-pay)
+          <p className="text-[10px] text-zinc-500 leading-snug">
+            X login · your profile 250+ flw · 5 noms/day · KOL needs{" "}
+            {MIN_KOL_FOLLOWERS.toLocaleString()}+ · paid on accept
           </p>
           {/* honeypot — hidden from humans */}
           <input

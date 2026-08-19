@@ -224,6 +224,20 @@ export default function HeaderTicker() {
       ),
     },
     {
+      key: "scout",
+      node: (
+        <Link
+          href="/kols"
+          className="inline-flex items-center gap-1.5 hover:text-neon transition-colors"
+          title="Nominate KOLs · earn 2,500 $TOKENSHIT when accepted"
+        >
+          <span className="text-zinc-500">SCOUT</span>
+          <span className="text-neon font-semibold">2.5K</span>
+          <span className="text-zinc-600">KOL bounty</span>
+        </Link>
+      ),
+    },
+    {
       key: "tokens",
       node: (
         <Link

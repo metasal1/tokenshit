@@ -86,9 +86,9 @@ export default function ClaimPage() {
               {(
                 [
                   { href: "/swap", label: "Buy", emoji: "💵" },
+                  { href: "/kols", label: "Scout 2.5K", emoji: "🔍" },
                   { href: "/play", label: "Play", emoji: "🎯" },
                   { href: "/referrals", label: "Referrals", emoji: "🔗" },
-                  { href: "/boards", label: "Boards", emoji: "📊" },
                 ] as const
               ).map((q) => (
                 <Link
