@@ -845,7 +845,7 @@ export default function ClaimPanel() {
           highlight
           claimed={!!claimedStatus.sol_gas_love}
           statusLoading={statusLoading && authenticated}
-          title="I LOVE TOKENSHIT . COM"
+          title="I LOVE TOKENSHIT.COM @tokenshit_"
           amount={PLAY_GAS_STARTER_GAMES}
           amountUnit="plays"
           hint={
