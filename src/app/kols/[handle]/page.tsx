@@ -35,7 +35,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       ? `${name} (@${handle}, ${followers.toLocaleString()} followers) on TOKEN$HIT. ${KOL_OG_QUOTE}`
       : `${name} (@${handle}) on TOKEN$HIT. ${KOL_OG_QUOTE}`;
   const path = `/kols/${handle}`;
-  // OG image via file convention opengraph-image.tsx
+  const og = `https://tokenshit.com/api/kols/card/${handle}?v=7`;
   return {
     title,
     description,
@@ -43,15 +43,25 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     openGraph: {
       title,
       description,
-      url: path,
-      type: "profile",
+      url: `https://tokenshit.com${path}`,
+      type: "website",
       siteName: "TOKEN$HIT",
+      images: [
+        {
+          url: og,
+          width: 1200,
+          height: 630,
+          type: "image/png",
+          alt: title,
+        },
+      ],
     },
     twitter: {
       card: "summary_large_image",
       title,
       description,
       creator: "@Tokenshit_",
+      images: [og],
     },
   };
 }
