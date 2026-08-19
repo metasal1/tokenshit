@@ -39,6 +39,10 @@ interface AdminData {
     byX: string | null;
     status: string;
     createdAt: string;
+    followers?: number | null;
+    displayName?: string | null;
+    avatarUrl?: string | null;
+    source?: string | null;
   }[];
 }
 
@@ -598,6 +602,7 @@ export default function AdminPage() {
                 <tr>
                   <th className="text-left px-3 py-2">ID</th>
                   <th className="text-left px-3 py-2">Handle</th>
+                  <th className="text-left px-3 py-2">Followers</th>
                   <th className="text-left px-3 py-2">By</th>
                   <th className="text-left px-3 py-2">Note</th>
                   <th className="text-left px-3 py-2">Status</th>
@@ -607,7 +612,7 @@ export default function AdminPage() {
               <tbody>
                 {(kolRows || []).length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="px-3 py-6 text-center text-zinc-600 text-xs">
+                    <td colSpan={7} className="px-3 py-6 text-center text-zinc-600 text-xs">
                       No nominations in this filter
                     </td>
                   </tr>
@@ -624,9 +629,20 @@ export default function AdminPage() {
                         >
                           @{n.handle}
                         </a>
+                        {n.displayName ? (
+                          <div className="text-[10px] text-zinc-500 truncate max-w-[9rem]">
+                            {n.displayName}
+                          </div>
+                        ) : null}
+                      </td>
+                      <td className="px-3 py-2 font-mono text-xs text-neon tabular-nums">
+                        {n.followers != null ? Number(n.followers).toLocaleString() : "—"}
                       </td>
                       <td className="px-3 py-2 font-mono text-xs text-zinc-400">
                         {n.byX ? `@${n.byX}` : "—"}
+                        {n.source ? (
+                          <div className="text-[9px] text-zinc-600">{n.source}</div>
+                        ) : null}
                       </td>
                       <td className="px-3 py-2 text-xs text-zinc-500 max-w-[12rem] truncate" title={n.note || ""}>
                         {n.note || "—"}

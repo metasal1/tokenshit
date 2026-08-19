@@ -34,6 +34,7 @@ import { BalanceSkeleton } from "@/components/StatLoader";
 import ShareRefButton from "@/components/ShareRefButton";
 import { pickSolanaAddress } from "@/lib/privy-identity";
 import { EmojiIcon } from "@/components/EmojiIcon";
+import KolRecommendCard from "@/components/KolRecommendCard";
 
 type ClaimKind =
   | "x_verified"
@@ -839,6 +840,8 @@ export default function ClaimPanel() {
           )}
         </div>
       )}
+
+      <KolRecommendCard />
 
       <div className="grid grid-cols-1 gap-3">
         <RewardRow
