@@ -75,7 +75,7 @@ export async function getKolOgPngResponse(
   // 1) memory
   const mem = memGet(key);
   if (mem) {
-    return new Response(mem, {
+    return new Response(new Blob([mem], { type: "image/png" }), {
       status: 200,
       headers: {
         "Content-Type": "image/png",
@@ -95,7 +95,10 @@ export async function getKolOgPngResponse(
       headers.set("Cache-Control", CACHE_HEADER);
       headers.set("X-Kol-Og-Cache", "cf");
       headers.set("Content-Type", "image/png");
-      return new Response(ab, { status: 200, headers });
+      return new Response(new Blob([ab], { type: "image/png" }), {
+        status: 200,
+        headers,
+      });
     }
   }
 
@@ -104,7 +107,7 @@ export async function getKolOgPngResponse(
   const buf = new Uint8Array(await img.arrayBuffer());
   if (buf.byteLength > 64) memSet(key, buf);
 
-  const res = new Response(buf, {
+  const res = new Response(new Blob([buf], { type: "image/png" }), {
     status: 200,
     headers: {
       "Content-Type": "image/png",
