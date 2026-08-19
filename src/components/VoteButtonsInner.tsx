@@ -13,7 +13,7 @@ import { HIT_CURSOR, SHIT_CURSOR } from "@/lib/cursors";
 
 /** Noto Color Emoji packs — HIT = green/win energy, SHIT = dump/chaos */
 const HIT_EMOJIS = ["🎯", "🚀", "💎", "🔥", "✨", "🟩", "🤑", "💪", "🏆", "⚡"];
-const SHIT_EMOJIS = ["💩", "💀", "🗑️", "🔻", "😭", "🤡", "📉", "☠️", "🧻", "🤢"];
+const SHIT_EMOJIS = ["💀", "💀", "🗑️", "🔻", "😭", "🤡", "📉", "☠️", "🧻", "🤢"];
 
 function EmojiDrop({
   emoji,

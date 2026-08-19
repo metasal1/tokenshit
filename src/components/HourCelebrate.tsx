@@ -59,8 +59,8 @@ function EmojiRain({ pack }: { pack: "hit" | "shit" | "both" }) {
       pack === "hit"
         ? ["🎯", "✨", "🟩", "🎯"]
         : pack === "shit"
-          ? ["💀", "💩", "🗑️", "💀"]
-          : ["🎯", "💀", "✨", "💩", "🟩"];
+          ? ["💀", "💀", "🗑️", "💀"]
+          : ["🎯", "💀", "✨", "💀", "🟩"];
     return Array.from({ length: 28 }, (_, i) => ({
       id: i,
       left: Math.random() * 100,
