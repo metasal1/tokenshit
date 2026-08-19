@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""KOL court posters — brand emoji pack + Monoton/Orbitron. Never bare system emoji."""
+"""KOL scout posters — polished brand pack (Monoton/Orbitron + emoji assets)."""
 from __future__ import annotations
 
 import hashlib
+import math
 import random
 import shutil
 import urllib.request
@@ -16,6 +17,8 @@ EMOJI_DIR = BRAND / "emoji"
 FONTS = BRAND / "fonts"
 OUT = ROOT / "public" / "posters"
 OUT.mkdir(parents=True, exist_ok=True)
+CACHE = Path("/Volumes/PRO-G40/MacHome-Offload/dotfiles/hermes/cache/images")
+CACHE.mkdir(parents=True, exist_ok=True)
 
 BG = (10, 10, 15)
 CREAM = (255, 248, 231)
@@ -24,46 +27,59 @@ GOLD = (240, 192, 64)
 MUTED = (161, 161, 170)
 DIM = (82, 82, 91)
 CARD = (18, 18, 26)
-AMBER = (251, 191, 36)
+CARD2 = (24, 24, 34)
+LINE = (42, 42, 58)
 
 SCATTER = [
-    "1f3af", "1f480", "1f4a9", "1f525", "1f4b0", "1f389", "1f680",
-    "2728", "2b50", "1f3c6", "1f49a", "2705", "1f449", "1f4af",
-    "1f31f", "1f48e", "1f911", "1f451", "1f440", "1f575", "1f50d",
+    "1f3af",
+    "1f480",
+    "1f4a9",
+    "1f525",
+    "1f4b0",
+    "1f389",
+    "1f680",
+    "2728",
+    "2b50",
+    "1f3c6",
+    "1f49a",
+    "2705",
+    "1f4af",
+    "1f31f",
+    "1f48e",
+    "1f451",
+    "1f440",
+    "1f50d",
 ]
 
 
 def load_font(name: str, size: int) -> ImageFont.FreeTypeFont:
-    return ImageFont.truetype(str(FONTS / name), size)
+    return ImageFont.truetype(str(FONTS / name), max(8, size))
 
 
-def text_w(font: ImageFont.ImageFont, text: str) -> int:
-    # getlength = advance width (avoids Monoton $ bbox side-bearing blowouts)
+def tw(font: ImageFont.ImageFont, text: str) -> int:
     if hasattr(font, "getlength"):
         return int(font.getlength(text))
     bb = font.getbbox(text)
     return int(bb[2] - bb[0])
 
 
-def text_h(font: ImageFont.ImageFont, text: str) -> int:
+def th(font: ImageFont.ImageFont, text: str = "Ag") -> int:
     bb = font.getbbox(text)
     return int(bb[3] - bb[1])
 
 
 def load_emoji(cp: str) -> Image.Image | None:
     local = EMOJI_DIR / f"tw-{cp}.png"
-    if local.exists():
-        return Image.open(local).convert("RGBA")
     aliases = {
         "1f3af": "target-512.png",
         "1f480": "skull-512.png",
         "1f525": "fire-512.png",
         "2728": "sparkles-512.png",
         "1f3c6": "trophy-512.png",
+        "1f4a9": "poop-512.png",
     }
-    if cp in aliases:
-        p = EMOJI_DIR / aliases[cp]
-        if p.exists():
+    for p in (local, EMOJI_DIR / aliases.get(cp, "")):
+        if p and p.exists() and p.stat().st_size > 200:
             return Image.open(p).convert("RGBA")
     dest = EMOJI_DIR / f"tw-{cp}.png"
     url = f"https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/{cp}.png"
@@ -74,239 +90,435 @@ def load_emoji(cp: str) -> Image.Image | None:
         return None
 
 
-def paste_rgba(base: Image.Image, im: Image.Image, xy: tuple[int, int]) -> None:
-    base.alpha_composite(im, xy)
+def paste_rgba(
+    base: Image.Image,
+    overlay: Image.Image,
+    x: int,
+    y: int,
+    *,
+    opacity: float = 1.0,
+    rotate: int = 0,
+    size: int | None = None,
+    center: bool = True,
+) -> None:
+    im = overlay.copy()
+    if size:
+        im = im.resize((size, size), Image.Resampling.LANCZOS)
+    if rotate:
+        im = im.rotate(rotate, expand=True, resample=Image.Resampling.BICUBIC)
+    if opacity < 1:
+        a = im.split()[-1].point(lambda p: int(p * opacity))
+        im.putalpha(a)
+    if center:
+        px, py = int(x - im.width / 2), int(y - im.height / 2)
+    else:
+        px, py = int(x), int(y)
+    base.alpha_composite(im, (max(0, px), max(0, py)))
 
 
-def draw_glow_text(img: Image.Image, xy, text, font, fill, glow, glow_r=12):
-    layer = Image.new("RGBA", img.size, (0, 0, 0, 0))
-    d = ImageDraw.Draw(layer)
-    x, y = xy
-    for r in range(glow_r, 0, -2):
-        a = int(40 * (r / glow_r))
-        d.text((x, y), text, font=font, fill=(*glow, a))
-    blurred = layer.filter(ImageFilter.GaussianBlur(radius=glow_r // 2 + 2))
-    img.alpha_composite(blurred)
-    ImageDraw.Draw(img).text((x, y), text, font=font, fill=fill)
-
-
-def scatter_emojis(img: Image.Image, seed: str, n: int = 28) -> None:
-    rng = random.Random(int(hashlib.sha256(seed.encode()).hexdigest()[:8], 16))
+def radial_glow(
+    img: Image.Image,
+    cx: float,
+    cy: float,
+    radius: float,
+    color: tuple[int, int, int],
+    alpha: int = 70,
+) -> None:
     w, h = img.size
-    for _ in range(n):
-        cp = rng.choice(SCATTER)
-        em = load_emoji(cp)
-        if not em:
-            continue
-        sz = rng.randint(int(w * 0.04), int(w * 0.09))
-        em = em.resize((sz, sz), Image.Resampling.LANCZOS)
-        # avoid center card
-        for _try in range(20):
-            x = rng.randint(0, w - sz)
-            y = rng.randint(0, h - sz)
-            cx, cy = x + sz // 2, y + sz // 2
-            # keep top hero + center card clean
-            if cy < h * 0.52 and abs(cx - w // 2) < w * 0.38:
-                continue
-            if h * 0.42 < cy < h * 0.78 and abs(cx - w // 2) < w * 0.42:
-                continue
-            break
-        else:
-            continue
-        # fade
-        a = em.split()[3].point(lambda p: int(p * rng.uniform(0.35, 0.85)))
-        em.putalpha(a)
-        paste_rgba(img, em, (x, y))
+    layer = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    # cheap radial via blurred ellipse
+    d = ImageDraw.Draw(layer)
+    r = int(radius)
+    d.ellipse(
+        [cx - r, cy - r, cx + r, cy + r],
+        fill=(*color, alpha),
+    )
+    layer = layer.filter(ImageFilter.GaussianBlur(radius=max(20, r // 3)))
+    img.alpha_composite(layer)
 
 
-def rounded_rect(draw, box, r, fill, outline=None, width=2):
+def glow_text(
+    base: Image.Image,
+    xy: tuple[int, int],
+    text: str,
+    font: ImageFont.FreeTypeFont,
+    fill: tuple[int, int, int],
+    glow: tuple[int, int, int],
+    *,
+    anchor: str = "mm",
+    strength: int = 5,
+) -> None:
+    layer = Image.new("RGBA", base.size, (0, 0, 0, 0))
+    ld = ImageDraw.Draw(layer)
+    for dx, dy in [(-4, 0), (4, 0), (0, -4), (0, 4), (-3, -3), (3, 3), (0, 0)]:
+        ld.text(
+            (xy[0] + dx, xy[1] + dy),
+            text,
+            font=font,
+            fill=(*glow, 150),
+            anchor=anchor,
+        )
+    layer = layer.filter(ImageFilter.GaussianBlur(strength))
+    base.alpha_composite(layer)
+    ImageDraw.Draw(base).text(xy, text, font=font, fill=(*fill, 255), anchor=anchor)
+
+
+def draw_wordmark(base: Image.Image, cx: int, cy: int, size: int) -> None:
+    f = load_font("Monoton-Regular.ttf", size)
+    t1, dol, t2 = "TOKEN", "$", "HIT"
+    total = tw(f, t1) + tw(f, dol) + tw(f, t2)
+    x = cx - total // 2
+    # TOKEN
+    glow_text(base, (x + tw(f, t1) // 2, cy), t1, f, CREAM, GOLD, anchor="mm", strength=4)
+    x += tw(f, t1)
+    glow_text(base, (x + tw(f, dol) // 2, cy), dol, f, NEON, NEON, anchor="mm", strength=6)
+    x += tw(f, dol)
+    glow_text(base, (x + tw(f, t2) // 2, cy), t2, f, CREAM, GOLD, anchor="mm", strength=4)
+
+
+def rounded(draw: ImageDraw.ImageDraw, box, r, fill=None, outline=None, width=2):
     draw.rounded_rectangle(box, radius=r, fill=fill, outline=outline, width=width)
+
+
+def scatter(
+    base: Image.Image,
+    seed: str,
+    clear: tuple[int, int, int, int],
+    n: int = 18,
+) -> None:
+    rnd = random.Random(int(hashlib.sha256(seed.encode()).hexdigest()[:8], 16))
+    w, h = base.size
+    icons = [im for cp in SCATTER if (im := load_emoji(cp)) is not None]
+    if not icons:
+        return
+    cx0, cy0, cx1, cy1 = clear
+    for i in range(n):
+        for _ in range(50):
+            x = rnd.randint(int(w * 0.04), int(w * 0.96))
+            y = rnd.randint(int(h * 0.04), int(h * 0.96))
+            if cx0 < x < cx1 and cy0 < y < cy1:
+                continue
+            size = rnd.randint(int(min(w, h) * 0.035), int(min(w, h) * 0.07))
+            rot = rnd.randint(-22, 22)
+            op = rnd.uniform(0.28, 0.62)
+            paste_rgba(base, icons[i % len(icons)], x, y, opacity=op, rotate=rot, size=size)
+            break
+
+
+def chip(
+    base: Image.Image,
+    cx: int,
+    cy: int,
+    w: int,
+    h: int,
+    emoji_cp: str,
+    label: str,
+    sub: str,
+) -> None:
+    draw = ImageDraw.Draw(base)
+    r = h // 4
+    rounded(
+        draw,
+        (cx - w // 2, cy - h // 2, cx + w // 2, cy + h // 2),
+        r,
+        fill=(*CARD2, 245),
+        outline=(*LINE, 255),
+        width=max(2, h // 40),
+    )
+    # top neon hairline
+    draw.rounded_rectangle(
+        (cx - w // 2 + 4, cy - h // 2 + 3, cx + w // 2 - 4, cy - h // 2 + max(4, h // 28)),
+        radius=2,
+        fill=(*NEON, 90),
+    )
+    em = load_emoji(emoji_cp)
+    if em:
+        paste_rgba(base, em, cx, cy - h // 6, size=int(h * 0.36))
+    lf = load_font("Orbitron-Bold.ttf", max(12, h // 6))
+    sf = load_font("Orbitron-Bold.ttf", max(10, h // 9))
+    glow_text(base, (cx, cy + h // 8), label, lf, CREAM, GOLD, anchor="mm", strength=2)
+    ImageDraw.Draw(base).text((cx, cy + h // 3), sub, font=sf, fill=(*MUTED, 255), anchor="mm")
 
 
 def make_poster(size: tuple[int, int], tag: str) -> Image.Image:
     w, h = size
     img = Image.new("RGBA", (w, h), (*BG, 255))
-    scatter_emojis(img, f"kols-{tag}-{w}x{h}", n=14 if w >= 1000 else 10)
+    aspect = h / max(w, 1)
+    tall = aspect >= 1.55
+    wide = aspect <= 0.58
+    s = w / 1080.0
+    if tall:
+        s *= 1.02
+    if wide:
+        s *= 0.62
+
+    def fs(n: float) -> int:
+        return max(9, int(n * s))
+
+    # atmosphere
+    radial_glow(img, w * 0.5, h * 0.22, w * 0.55, GOLD, alpha=38)
+    radial_glow(img, w * 0.5, h * 0.55, w * 0.7, NEON, alpha=28)
+    radial_glow(img, w * 0.15, h * 0.85, w * 0.35, (185, 77, 255), alpha=18)
+    radial_glow(img, w * 0.85, h * 0.12, w * 0.3, NEON, alpha=16)
+
+    # content safe zone (keep scatter out)
+    if wide:
+        clear = (int(w * 0.08), int(h * 0.06), int(w * 0.92), int(h * 0.92))
+    else:
+        clear = (int(w * 0.1), int(h * 0.08), int(w * 0.9), int(h * 0.88))
+    scatter(img, f"kol-scout-{tag}-{w}x{h}", clear, n=12 if wide else 16)
+
+    # subtle vignette
+    vig = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    vd = ImageDraw.Draw(vig)
+    for i in range(40):
+        a = int(6 * (i / 40))
+        vd.rectangle([i, i, w - 1 - i, h - 1 - i], outline=(0, 0, 0, a))
+    img.alpha_composite(vig)
+
     draw = ImageDraw.Draw(img)
 
-    # scale
-    s = w / 1080
-    aspect = h / max(w, 1)
-    tall = aspect >= 1.6
-    wide = aspect <= 0.6  # 1200x630 etc
-    if tall:
-        s *= 1.08
-    if wide:
-        # keep stack on one short canvas — smaller type + tighter gaps
-        s *= 0.55
-    fs = lambda n: max(10, int(n * s))
+    # vertical stack from center of gravity
+    # Build mid stack into a group and center it for tall canvases
+    # --- top lockup ---
+    y = int(h * (0.07 if not wide else 0.06))
 
-    mono_sm = load_font("Monoton-Regular.ttf", fs(72))
-    mono_lg = load_font("Monoton-Regular.ttf", fs(168))
-    mono_xl = load_font("Monoton-Regular.ttf", fs(210))
-    orb = load_font("Orbitron-Bold.ttf", fs(42))
-    orb_sm = load_font("Orbitron-Bold.ttf", fs(28))
-    inter = load_font("Inter-Bold.ttf", fs(68))
-    inter_sm = load_font("Inter-Regular.ttf", fs(36))
+    # small poop brand tick
+    poop = load_emoji("1f4a9")
+    if poop and not wide:
+        paste_rgba(img, poop, w // 2, y + fs(10), size=fs(36), opacity=0.9)
+        y += fs(48)
+    elif wide:
+        y += fs(4)
 
-    # Taller stories: start content higher in upper-middle (less empty void)
-    if wide:
-        y = int(h * 0.04)
-    elif tall:
-        y = int(h * 0.05)
-    else:
-        y = int(h * 0.04)
+    draw_wordmark(img, w // 2, y + fs(22), fs(44 if not wide else 36))
+    y += fs(58 if not wide else 48)
+
+    # thin divider
+    dw = int(w * 0.22)
+    draw.rounded_rectangle(
+        (w // 2 - dw // 2, y, w // 2 + dw // 2, y + max(2, fs(3))),
+        radius=2,
+        fill=(*NEON, 120),
+    )
+    y += fs(28 if not wide else 18)
 
     # eyebrow
+    orb_xs = load_font("Orbitron-Bold.ttf", fs(22 if not wide else 16))
     eye = "BECOME A KOL SCOUT"
-    ew = text_w(orb_sm, eye)
-    draw.text(((w - ew) // 2, y), eye, font=orb_sm, fill=MUTED)
-    y += fs(36)
+    glow_text(img, (w // 2, y + fs(12)), eye, orb_xs, MUTED, DIM, anchor="mm", strength=1)
+    y += fs(40 if not wide else 28)
 
-    # TOKEN$HIT lockup
-    t1, dol, t2 = "TOKEN", "$", "HIT"
-    f = mono_sm
-    total = text_w(f, t1) + text_w(f, dol) + text_w(f, t2)
-    x0 = (w - total) // 2
-    draw_glow_text(img, (x0, y), t1, f, CREAM, GOLD, glow_r=10)
-    x0 += text_w(f, t1)
-    draw_glow_text(img, (x0, y), dol, f, NEON, NEON, glow_r=14)
-    x0 += text_w(f, dol)
-    draw_glow_text(img, (x0, y), t2, f, CREAM, GOLD, glow_r=10)
-    y += fs(100)
+    # hero SCOUT
+    hero_sz = fs(148 if tall else (120 if not wide else 72))
+    # fit check
+    while tw(load_font("Monoton-Regular.ttf", hero_sz), "SCOUT") > w * 0.88 and hero_sz > 40:
+        hero_sz = int(hero_sz * 0.92)
+    hero_f = load_font("Monoton-Regular.ttf", hero_sz)
+    glow_text(
+        img,
+        (w // 2, y + hero_sz // 2),
+        "SCOUT",
+        hero_f,
+        CREAM,
+        GOLD,
+        anchor="mm",
+        strength=8,
+    )
+    y += hero_sz + fs(8)
 
-    # SCOUT hero — cream SCOUT + optional neon accent
-    f = mono_xl if h / w < 1.4 else mono_lg
-    if h >= 1300 and w <= 1200:
-        f = mono_xl
-    # slightly smaller if needed to fit "SCOUT"
-    if text_w(f, "SCOUT") > w * 0.9:
-        f = mono_lg
-    hero = "SCOUT"
-    total = text_w(f, hero)
-    hx = (w - total) // 2
-    draw_glow_text(img, (hx, y), hero, f, CREAM, GOLD, glow_r=20)
-    y += fs(200)
-    # sub-hero KOL$ line
-    f2 = mono_sm
-    parts = [("KOL", CREAM, GOLD), ("$", NEON, NEON)]
-    total2 = sum(text_w(f2, t_) for t_, _, _ in parts) - fs(6)
-    hx2 = (w - total2) // 2
-    for i, (t_, fill, glow) in enumerate(parts):
-        draw_glow_text(img, (hx2, y), t_, f2, fill, glow, glow_r=12)
-        hx2 += text_w(f2, t_) - fs(6)
-    y += fs(90)
+    # KOL$ micro lockup under hero
+    ksz = fs(40 if not wide else 26)
+    kf = load_font("Monoton-Regular.ttf", ksz)
+    k1, kd, k2 = "KOL", "$", ""
+    # just KOL$
+    kt = tw(kf, "KOL") + tw(kf, "$")
+    kx = w // 2 - kt // 2
+    glow_text(img, (kx + tw(kf, "KOL") // 2, y + ksz // 2), "KOL", kf, CREAM, GOLD, anchor="mm", strength=3)
+    glow_text(
+        img,
+        (kx + tw(kf, "KOL") + tw(kf, "$") // 2, y + ksz // 2),
+        "$",
+        kf,
+        NEON,
+        NEON,
+        anchor="mm",
+        strength=4,
+    )
+    y += ksz + fs(28 if not wide else 16)
 
-    # feature row: target skull crown
-    feats = [("1f50d", "FIND"), ("1f4b0", "2.5K"), ("1f451", "KOL")]
-    gap = fs(28)
-    icons = []
-    for cp, lab in feats:
-        em = load_emoji(cp)
-        if em:
-            icons.append((em.resize((fs(110), fs(110)), Image.Resampling.LANCZOS), lab))
-    if icons:
-        row_w = sum(im.width for im, _ in icons) + gap * (len(icons) - 1)
-        ix = (w - row_w) // 2
-        for im, lab in icons:
-            paste_rgba(img, im, (ix, y))
-            lw = text_w(orb_sm, lab)
-            draw.text(
-                (ix + (im.width - lw) // 2, y + im.height + fs(6)),
-                lab,
-                font=orb_sm,
-                fill=MUTED,
+    # bounty pill
+    pill_h = fs(64 if not wide else 40)
+    pill_txt = "2,500  $TOKENSHIT"
+    pf = load_font("Orbitron-Bold.ttf", fs(26 if not wide else 16))
+    pill_w = tw(pf, pill_txt) + fs(72)
+    px0 = w // 2 - pill_w // 2
+    # outer glow
+    glow_layer = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    gd = ImageDraw.Draw(glow_layer)
+    gd.rounded_rectangle(
+        (px0 - 6, y - 4, px0 + pill_w + 6, y + pill_h + 4),
+        radius=pill_h // 2 + 4,
+        fill=(*NEON, 50),
+    )
+    glow_layer = glow_layer.filter(ImageFilter.GaussianBlur(10))
+    img.alpha_composite(glow_layer)
+    draw = ImageDraw.Draw(img)
+    rounded(
+        draw,
+        (px0, y, px0 + pill_w, y + pill_h),
+        pill_h // 2,
+        fill=(*NEON, 255),
+    )
+    # money emoji left of text inside pill
+    money = load_emoji("1f4b0")
+    if money:
+        paste_rgba(img, money, px0 + fs(28), y + pill_h // 2, size=fs(28 if not wide else 18))
+    ImageDraw.Draw(img).text(
+        (w // 2 + fs(8), y + pill_h // 2),
+        pill_txt,
+        font=pf,
+        fill=(0, 0, 0, 255),
+        anchor="mm",
+    )
+    y += pill_h + fs(18 if not wide else 10)
+
+    # when line
+    when_f = load_font("Orbitron-Bold.ttf", fs(18 if not wide else 13))
+    when = "WHEN YOUR 10K+ KOL GETS ACCEPTED"
+    ImageDraw.Draw(img).text(
+        (w // 2, y + fs(10)),
+        when,
+        font=when_f,
+        fill=(*MUTED, 255),
+        anchor="mm",
+    )
+    y += fs(36 if not wide else 24)
+
+    # main glass card
+    pad = int(w * (0.09 if not wide else 0.06))
+    card_h = fs(200 if not wide else 120)
+    if tall:
+        card_h = fs(220)
+    rounded(
+        draw,
+        (pad, y, w - pad, y + card_h),
+        fs(24),
+        fill=(*CARD, 235),
+        outline=(*NEON, 70),
+        width=max(2, fs(2)),
+    )
+    # inner top highlight
+    draw.rounded_rectangle(
+        (pad + fs(8), y + fs(6), w - pad - fs(8), y + fs(10)),
+        radius=2,
+        fill=(*CREAM, 25),
+    )
+
+    line1 = "Spot CT voices."
+    line2 = "Get paid when they land."
+    if wide:
+        lf = load_font("Inter-Bold.ttf", fs(28))
+        cy = y + card_h // 2 - fs(16)
+        for line in (line1, line2):
+            ImageDraw.Draw(img).text(
+                (w // 2, cy), line, font=lf, fill=(*CREAM, 255), anchor="mm"
             )
-            ix += im.width + gap
-        y += fs(110) + fs(56)
+            cy += fs(32)
+    else:
+        lf = load_font("Inter-Bold.ttf", fs(44 if tall else 40))
+        cy = y + fs(52)
+        for line in (line1, line2):
+            ImageDraw.Draw(img).text(
+                (w // 2, cy), line, font=lf, fill=(*CREAM, 255), anchor="mm"
+            )
+            cy += fs(56)
+        # small supporting
+        sf = load_font("Orbitron-Bold.ttf", fs(18))
+        ImageDraw.Draw(img).text(
+            (w // 2, y + card_h - fs(36)),
+            "HIT · SHIT  ·  COURT COMING",
+            font=sf,
+            fill=(*DIM, 255),
+            anchor="mm",
+        )
+    y += card_h + fs(32 if not wide else 18)
 
-    # tagline card
-    pad = int(w * 0.08)
-    card_top = y + fs(10)
-    lines = [
-        "Spot CT voices.",
-        "Get paid when they land.",
-    ]
-    sub = "10k+ accepted  →  2,500 $TOKENSHIT"
-    card_h = fs(200) if wide else fs(340)
-    rounded_rect(
-        draw,
-        (pad, card_top, w - pad, card_top + card_h),
-        fs(28),
-        (*CARD, 240),
-        outline=(*NEON, 80),
-        width=max(2, fs(3)),
-    )
-    cy = card_top + fs(40)
-    for line in lines:
-        lf = inter
-        lw = text_w(lf, line)
-        draw.text(((w - lw) // 2, cy), line, font=lf, fill=CREAM)
-        cy += fs(40) if wide else fs(72)
-    sw = text_w(orb_sm, sub)
-    draw.text(((w - sw) // 2, cy + fs(8)), sub, font=orb_sm, fill=NEON)
+    # three chips
+    if not wide:
+        chip_w = int((w - pad * 2 - fs(24)) / 3)
+        chip_h = fs(150 if tall else 136)
+        gap = fs(12)
+        total = chip_w * 3 + gap * 2
+        x0 = (w - total) // 2 + chip_w // 2
+        specs = [
+            ("1f50d", "FIND", "CT handles"),
+            ("1f4b0", "2.5K", "scout pay"),
+            ("1f451", "LAND", "10k+ KOLs"),
+        ]
+        for i, (cp, lab, sub) in enumerate(specs):
+            chip(img, x0 + i * (chip_w + gap), y + chip_h // 2, chip_w, chip_h, cp, lab, sub)
+        y += chip_h + fs(36)
+    else:
+        # compact horizontal labels
+        specs = [("1f50d", "FIND"), ("1f4b0", "2.5K"), ("1f451", "LAND")]
+        gap = fs(40)
+        icons = []
+        for cp, lab in specs:
+            em = load_emoji(cp)
+            if em:
+                icons.append((em, lab))
+        if icons:
+            row_w = sum(fs(70) for _ in icons) + gap * (len(icons) - 1)
+            ix = w // 2 - row_w // 2
+            of = load_font("Orbitron-Bold.ttf", fs(14))
+            for em, lab in icons:
+                paste_rgba(img, em, ix + fs(28), y + fs(16), size=fs(36), opacity=0.95)
+                ImageDraw.Draw(img).text(
+                    (ix + fs(28), y + fs(48)), lab, font=of, fill=(*MUTED, 255), anchor="mm"
+                )
+                ix += fs(70) + gap
+            y += fs(70)
 
-    y = card_top + card_h + fs(36)
-
-    # CTA pill
+    # CTA
     cta = "tokenshit.com/kols"
-    cf = orb
-    cw = text_w(cf, cta) + fs(80)
-    ch = fs(88)
-    cx0 = (w - cw) // 2
-    rounded_rect(
-        draw,
-        (cx0, y, cx0 + cw, y + ch),
-        ch // 2,
-        (*NEON, 255),
+    cf = load_font("Orbitron-Bold.ttf", fs(28 if not wide else 18))
+    cta_w = tw(cf, cta) + fs(64)
+    cta_h = fs(72 if not wide else 44)
+    # keep CTA on canvas
+    if y + cta_h > h - fs(70):
+        y = h - fs(70) - cta_h
+    cx0 = w // 2 - cta_w // 2
+    # soft shadow
+    sh = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    ImageDraw.Draw(sh).rounded_rectangle(
+        (cx0, y + fs(4), cx0 + cta_w, y + cta_h + fs(4)),
+        radius=cta_h // 2,
+        fill=(0, 0, 0, 100),
     )
-    # black text on neon
-    draw.text(
-        (cx0 + (cw - text_w(cf, cta)) // 2, y + (ch - text_h(cf, cta)) // 2 - fs(2)),
+    sh = sh.filter(ImageFilter.GaussianBlur(6))
+    img.alpha_composite(sh)
+    draw = ImageDraw.Draw(img)
+    rounded(draw, (cx0, y, cx0 + cta_w, y + cta_h), cta_h // 2, fill=(*NEON, 255))
+    ImageDraw.Draw(img).text(
+        (w // 2, y + cta_h // 2),
         cta,
         font=cf,
-        fill=(0, 0, 0),
+        fill=(0, 0, 0, 255),
+        anchor="mm",
     )
-    y += ch + fs(28)
+    y += cta_h + fs(22)
 
     # footer
-    foot = "FIND  ·  NOMINATE  ·  CASH OUT"
-    if not wide:
-        fw = text_w(orb_sm, foot)
-        draw.text(((w - fw) // 2, min(y, h - fs(50))), foot, font=orb_sm, fill=DIM)
-
-    # bottom brand strip safe
-    url2 = "tokenshit.com/kols  ·  SCOUT BOUNTY"
-    u2w = text_w(orb_sm, url2)
-    draw.text(((w - u2w) // 2, h - fs(42)), url2, font=orb_sm, fill=DIM)
-
-    # Center content vertically on very tall canvases (avoid empty bottom half)
-    if tall:
-        # find non-bg bounding content (approx upper 70%)
-        # shift scatter stays; only nudge mid stack by redrawing is heavy —
-        # paste a slight vertical bias: crop empty bottom and pad top equally
-        px = img.load()
-        bg = BG
-        # find last non-near-bg row above footer zone
-        last = h - fs(80)
-        for yy in range(h - fs(100), int(h * 0.35), -1):
-            row_has = False
-            for xx in range(0, w, 8):
-                c = px[xx, yy]
-                if abs(c[0]-bg[0])>12 or abs(c[1]-bg[1])>12 or abs(c[2]-bg[2])>12:
-                    row_has = True
-                    break
-            if row_has:
-                last = yy
-                break
-        # if content ends early, add more scatter lower third only
-        if last < h * 0.62:
-            scatter_emojis(img, f"kols-fill-{tag}-{w}x{h}", n=18)
-            # re-draw footer on top
-            draw = ImageDraw.Draw(img)
-            fw = text_w(orb_sm, foot)
-            draw.text(((w - fw) // 2, h - fs(70)), foot, font=orb_sm, fill=DIM)
-            draw.text(((w - u2w) // 2, h - fs(42)), url2, font=orb_sm, fill=DIM)
+    if y < h - fs(50):
+        ff = load_font("Orbitron-Bold.ttf", fs(16 if not wide else 12))
+        ImageDraw.Draw(img).text(
+            (w // 2, h - fs(36)),
+            "FIND  ·  NOMINATE  ·  CASH OUT",
+            font=ff,
+            fill=(*DIM, 255),
+            anchor="mm",
+        )
 
     return img.convert("RGB")
 
@@ -317,49 +529,47 @@ def save(img: Image.Image, name: str, brand: str | None = None) -> Path:
     if brand:
         b = BRAND / brand
         shutil.copy(path, b)
-        print("brand", b, img.size)
-    print("wrote", path, img.size, path.stat().st_size)
+        print("brand", b.name, img.size)
+    print("wrote", path.name, img.size, path.stat().st_size)
     return path
 
 
-def main():
-    cache = Path("/Volumes/PRO-G40/MacHome-Offload/dotfiles/hermes/cache/images")
-    cache.mkdir(parents=True, exist_ok=True)
-
-    # Match jup-like / hit-shit campaign sizes
-    # 1) 4:5 feed poster 1080x1350
+def main() -> None:
     p45 = make_poster((1080, 1350), "45")
     save(p45, "kols-1080x1350.png", brand="kols-poster.png")
     save(p45, "kols-poster.png")
-    p45_2 = p45.resize((2160, 2700), Image.Resampling.LANCZOS)
-    save(p45_2, "kols-poster@2x.png", brand="kols-poster@2x.png")
+    save(
+        p45.resize((2160, 2700), Image.Resampling.LANCZOS),
+        "kols-poster@2x.png",
+        brand="kols-poster@2x.png",
+    )
 
-    # 2) Full story 1080x1920
     pst = make_poster((1080, 1920), "story")
     save(pst, "kols-story.png")
     save(pst, "kols-1080x1920.png")
 
-    # 3) Square 1080 + 1200
     psq = make_poster((1080, 1080), "square")
     save(psq, "kols-1080.png")
     psq12 = make_poster((1200, 1200), "square12")
     save(psq12, "kols-1200.png")
 
-    # 4) OG / X banner 1200x630
     pog = make_poster((1200, 630), "og")
     save(pog, "kols-1200x630.png", brand="kols-banner.png")
     save(pog, "kols-og.png", brand="kols-og.png")
-    pog2 = pog.resize((2400, 1260), Image.Resampling.LANCZOS)
-    save(pog2, "kols-banner@2x.png", brand="kols-banner@2x.png")
+    save(
+        pog.resize((2400, 1260), Image.Resampling.LANCZOS),
+        "kols-banner@2x.png",
+        brand="kols-banner@2x.png",
+    )
 
     for src, dst in [
-        (OUT / "kols-1080x1350.png", cache / "kols-poster.png"),
-        (OUT / "kols-story.png", cache / "kols-story.png"),
-        (OUT / "kols-1200.png", cache / "kols-square.png"),
-        (OUT / "kols-1200x630.png", cache / "kols-banner.png"),
+        (OUT / "kols-1080x1350.png", CACHE / "kols-poster.png"),
+        (OUT / "kols-story.png", CACHE / "kols-story.png"),
+        (OUT / "kols-1200.png", CACHE / "kols-square.png"),
+        (OUT / "kols-1200x630.png", CACHE / "kols-banner.png"),
     ]:
         shutil.copy(src, dst)
-        print("cache", dst, Image.open(src).size)
+        print("cache", dst.name)
 
 
 if __name__ == "__main__":
