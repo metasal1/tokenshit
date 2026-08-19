@@ -642,3 +642,74 @@ textarea,
   0% { opacity: 1; transform: translateY(0); }
   100% { opacity: 0; transform: translateY(-18px); }
 }
+
+
+/* Wallet bottom sheet */
+@keyframes wallet-sheet-up {
+  from {
+    transform: translateY(110%);
+    opacity: 0.85;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+@keyframes wallet-sheet-down {
+  from {
+    transform: translateY(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateY(110%);
+    opacity: 0.85;
+  }
+}
+@keyframes wallet-backdrop-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes wallet-backdrop-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+@keyframes wallet-sheet-pop {
+  from {
+    transform: translateY(16px) scale(0.96);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+@keyframes wallet-sheet-pop-out {
+  from {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+  to {
+    transform: translateY(12px) scale(0.97);
+    opacity: 0;
+  }
+}
+.wallet-backdrop-in {
+  animation: wallet-backdrop-in 0.22s ease-out forwards;
+}
+.wallet-backdrop-out {
+  animation: wallet-backdrop-out 0.2s ease-in forwards;
+}
+.wallet-sheet-in {
+  animation: wallet-sheet-up 0.34s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+.wallet-sheet-out {
+  animation: wallet-sheet-down 0.26s cubic-bezier(0.4, 0, 1, 1) forwards;
+}
+@media (min-width: 640px) {
+  .wallet-sheet-in {
+    animation: wallet-sheet-pop 0.28s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  }
+  .wallet-sheet-out {
+    animation: wallet-sheet-pop-out 0.2s ease-in forwards;
+  }
+}
