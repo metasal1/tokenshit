@@ -610,9 +610,18 @@ export default function ClaimPanel() {
         return;
       }
       setClaimPhase("done");
-      setMsg(
-        `Sent ${Number(data.amount).toLocaleString()} $${SHIT_SYMBOL} to wallet.`
-      );
+      {
+        const gas = data.gasDrop as
+          | { ok?: boolean; sol?: number; games?: number }
+          | undefined;
+        const gasBit =
+          gas?.ok && gas.sol
+            ? ` + ${Number(gas.sol).toFixed(4)} SOL gas (~${gas.games || 67} plays)`
+            : "";
+        setMsg(
+          `Sent ${Number(data.amount).toLocaleString()} $${SHIT_SYMBOL} to wallet.${gasBit}`
+        );
+      }
       setSig(data.signature || null);
       // Lock UI immediately
       setClaimedStatus((s) => ({ ...s, [kind]: true }));
