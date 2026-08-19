@@ -75,7 +75,7 @@ export const PLAY_GAS_DROP_SOL = PLAY_GAS_DROP_LAMPORTS / 1e9;
 /** Min X followers to nominate a KOL */
 export const MIN_KOL_FOLLOWERS = 10_000;
 
-export const LOVE_GAS_TWEET = "I LOVE TOKENSHIT.COM @tokenshit_";
+export const LOVE_GAS_TWEET = "DO YOU LOVE TOKENSHIT.COM @tokenshit_ 💩💚";
 
 /** Anti-farm floors (overridable via env — see src/lib/abuse.ts) */
 export const CLAIM_REQUIRE_PFP = process.env.CLAIM_REQUIRE_PFP !== "0";

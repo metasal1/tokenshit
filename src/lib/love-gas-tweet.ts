@@ -16,13 +16,26 @@ export function canonicalizeLoveTweet(text: string): string {
   );
 }
 
+/** Compare without emoji so 💩💚 optional / order-tolerant */
+function stripEmoji(s: string): string {
+  return s
+    .replace(/\p{Extended_Pictographic}/gu, "")
+    .replace(/[\uFE0F\u200D]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 export function isExactLoveGasTweet(text: string): boolean {
   const got = canonicalizeLoveTweet(text);
   const want = canonicalizeLoveTweet(LOVE_GAS_TWEET);
   if (got === want) return true;
-  // tolerate trailing punctuation X sometimes adds
+  // tolerate trailing punctuation
   const got2 = got.replace(/[.!?]+$/g, "").trim();
-  return got2 === want;
+  if (got2 === want) return true;
+  // core text match (emoji optional on either side)
+  const g = stripEmoji(got2);
+  const w = stripEmoji(want);
+  return g === w && g.includes("DO YOU LOVE TOKENSHIT");
 }
 
 export { LOVE_GAS_TWEET };

@@ -36,8 +36,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       : `${name} (@${handle}) on TOKEN$HIT. ${KOL_OG_QUOTE}`;
   const path = `/kols/${handle}`;
   // Absolute URLs — no default.png. Prefer file OG route + API fallback.
-  const ogPrimary = `https://tokenshit.com/kols/${handle}/opengraph-image?v=9`;
-  const ogApi = `https://tokenshit.com/api/kols/card/${handle}?v=9`;
+  const ogPrimary = `https://tokenshit.com/kols/${handle}/opengraph-image?v=10`;
+  const ogApi = `https://tokenshit.com/api/kols/card/${handle}?v=10`;
   return {
     title,
     description,
