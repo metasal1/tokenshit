@@ -265,7 +265,7 @@ export async function renderLoveOg(ref?: string | null): Promise<ImageResponse> 
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={sparkles} width={28} height={28} alt="" />
               ) : null}
-              LOVE DROP · 67 PLAYS GAS
+              EVERY TOKEN IS SHIT UNTIL PROVEN OTHERWISE
             </div>
             <div
               style={{
@@ -311,7 +311,7 @@ export async function renderLoveOg(ref?: string | null): Promise<ImageResponse> 
                   marginTop: 8,
                 }}
               >
-                Tweet it. Claim gas. Play $HIT OF THE DAY.
+                Tweet it. Share the love. Join the bag.
               </div>
             )}
           </div>
