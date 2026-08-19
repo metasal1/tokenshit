@@ -20,6 +20,7 @@ import {
   getClientIp as getClientIpFromGuard,
   isUnreliableIp,
 } from "@/lib/api-guard";
+import { isBlacklistedEmailDomain } from "@/lib/security";
 import {
   ABUSE_MIN_FOLLOWERS_CLAIM,
   ABUSE_MIN_FOLLOWERS_REFERRAL,
@@ -124,6 +125,7 @@ export function isDisposableEmail(email: string): boolean {
   const host = email.split("@")[1]?.toLowerCase().trim();
   if (!host) return true;
   if (DISPOSABLE.has(host)) return true;
+  if (isBlacklistedEmailDomain(email)) return true;
   return (
     host.endsWith(".tk") ||
     host.includes("tempmail") ||

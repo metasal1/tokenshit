@@ -523,10 +523,9 @@ export default function ClaimPanel() {
       return;
     }
 
-    if (kind === "gh_fork" && !github) {
-      setErr("Link GitHub first (Privy popup), then claim the fork.");
+    if (kind === "gh_fork") {
+      setErr("GitHub fork claim is disabled.");
       setClaimPhase("error");
-      linkGithub();
       return;
     }
     if (kind === "sol_gas_love" && !loveTweetUrl.trim()) {
@@ -1098,68 +1097,8 @@ export default function ClaimPanel() {
           </button>
         </RewardRow>
 
-        <RewardRow
-          claimed={!!claimedStatus.gh_fork}
-          statusLoading={statusLoading && authenticated}
-          title="GitHub fork"
-          amount={CLAIM_GH_FORK}
-          hint={
-            <>
-              100k · X required · Link GitHub · Fork{" "}
-              <a
-                href="https://github.com/solana-foundation/tokens"
-                className="text-neon-blue break-all"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                solana-foundation/tokens
-              </a>
-            </>
-          }
-        >
-          {!authenticated ? (
-            <button type="button" onClick={() => safeLogin()} className={BTN_LIGHT}>
-              Login with X
-            </button>
-          ) : !github ? (
-            <div className="space-y-2">
-              <p className="text-[11px] text-amber-300/90 leading-snug">
-                Link GitHub to the same Privy account for the fork claim.
-              </p>
-              <button
-                type="button"
-                disabled={busy !== null}
-                onClick={() => {
-                  setErr(null);
-                  try {
-                    linkGithub();
-                  } catch (e) {
-                    setErr(
-                      e instanceof Error
-                        ? e.message
-                        : "Could not open GitHub link."
-                    );
-                    setClaimPhase("error");
-                  }
-                }}
-                className={BTN_NEON}
-              >
-                Link GitHub account
-              </button>
-            </div>
-          ) : (
-            <button
-              type="button"
-              disabled={busy !== null || !!claimedStatus.gh_fork}
-              onClick={() => claim("gh_fork")}
-              className={BTN_LIGHT}
-            >
-              {busy === "gh_fork"
-                ? "Claiming…"
-                : `Claim fork as gh/${github}`}
-            </button>
-          )}
-        </RewardRow>
+        {/* GitHub fork claim disabled (farm) */}
+
       </div>
 
       {treasuryShit != null && treasuryShit < CLAIM_X_TWEET && (

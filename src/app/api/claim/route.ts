@@ -30,7 +30,7 @@ import {
 import { getTreasuryBalances, getPlayPotBalances } from "@/lib/treasury";
 import { payFromTreasury } from "@/lib/treasury-ledger";
 import { requirePrivy } from "@/lib/privy-server";
-import { assertNotBlacklisted } from "@/lib/security";
+import { assertNotBlacklisted, isGhForkClaimEnabled } from "@/lib/security";
 import {
   getClientIp,
   gateClaimIp,
@@ -91,6 +91,7 @@ export async function GET(request: NextRequest) {
         verified: CLAIM_X_VERIFIED,
         premium: CLAIM_X_PREMIUM,
         ghFork: CLAIM_GH_FORK,
+        ghForkEnabled: isGhForkClaimEnabled(),
         emailList: CLAIM_EMAIL_LIST,
         jupVerified: CLAIM_JUP_VERIFIED,
         solGasLove: PLAY_GAS_DROP_SOL,
@@ -115,11 +116,16 @@ export async function GET(request: NextRequest) {
       if (kind === "x_premium") eligible = x.ok && x.premium;
       else eligible = x.ok && x.verified && !x.premium;
     } else if (kind === "gh_fork") {
-      if (!github)
-        return Response.json({ error: "github required" }, { status: 400 });
-      const g = await checkGhFork(github);
-      detail = g;
-      eligible = g.ok && g.forked;
+      if (!isGhForkClaimEnabled()) {
+        detail = { disabled: true, code: "gh_fork_disabled" };
+        eligible = false;
+      } else {
+        if (!github)
+          return Response.json({ error: "github required" }, { status: 400 });
+        const g = await checkGhFork(github);
+        detail = g;
+        eligible = g.ok && g.forked;
+      }
     } else if (kind === "x_tweet") {
       if (!twitter)
         return Response.json({ error: "twitter required" }, { status: 400 });
@@ -426,6 +432,15 @@ export async function POST(request: NextRequest) {
         amount = CLAIM_X_VERIFIED;
       }
     } else if (kind === "gh_fork") {
+      if (!isGhForkClaimEnabled()) {
+        return Response.json(
+          {
+            error: "GitHub fork claim is disabled.",
+            code: "gh_fork_disabled",
+          },
+          { status: 403 }
+        );
+      }
       if (!github)
         return Response.json(
           { error: "Link GitHub to your Privy account first" },
