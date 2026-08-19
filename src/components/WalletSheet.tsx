@@ -3,15 +3,8 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
-import { EmojiIcon } from "@/components/EmojiIcon";
 import ShareRefButton from "@/components/ShareRefButton";
 import { SHIT_MINT, SHIT_SYMBOL } from "@/lib/shit-token";
-
-export interface UserVoteRow {
-  assetId: string;
-  vote: string;
-  date: string;
-}
 
 type Balances = {
   sol: number;
@@ -52,7 +45,6 @@ export default function WalletSheet({
 }: Props) {
   const [bal, setBal] = useState<Balances | null>(null);
   const [loadingBal, setLoadingBal] = useState(true);
-  const [userVotes, setUserVotes] = useState<UserVoteRow[]>([]);
   const [totalUserVotes, setTotalUserVotes] = useState(0);
   const [loadingVotes, setLoadingVotes] = useState(true);
   const [copied, setCopied] = useState(false);
@@ -94,8 +86,13 @@ export default function WalletSheet({
       .then((r) => r.json())
       .then((d) => {
         if (!alive) return;
-        setUserVotes(d.votes || []);
-        setTotalUserVotes(d.total || 0);
+        setTotalUserVotes(
+          typeof d.total === "number"
+            ? d.total
+            : Array.isArray(d.votes)
+              ? d.votes.length
+              : 0
+        );
       })
       .catch(() => {})
       .finally(() => {
@@ -265,55 +262,13 @@ export default function WalletSheet({
           <p className="truncate font-mono text-[10px] text-zinc-400">{SHIT_MINT}</p>
         </button>
 
-        {/* Votes */}
+        {/* Vote count only — never dump full history in wallet */}
         {twitterUsername && (
-          <div className="mb-3 border-t border-zinc-800 pt-3">
-            <p className="mb-2 text-xs font-medium text-zinc-500">
-              Your votes{" "}
-              {totalUserVotes > 0 && (
-                <span className="text-zinc-600">({totalUserVotes})</span>
-              )}
-            </p>
-            {loadingVotes ? (
-              <p className="py-2 text-center text-xs text-zinc-600">Loading…</p>
-            ) : userVotes.length === 0 ? (
-              <p className="py-2 text-center text-xs text-zinc-600">No votes yet</p>
-            ) : (
-              <div className="max-h-[140px] space-y-1 overflow-y-auto">
-                {userVotes.map((v, i) => (
-                  <Link
-                    key={`${v.assetId}-${i}`}
-                    href={`/token/${v.assetId}`}
-                    onClick={onClose}
-                    className="flex items-center gap-2 rounded-lg bg-zinc-900/80 px-2.5 py-2 hover:bg-zinc-800"
-                  >
-                    <span
-                      className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold ${
-                        v.vote === "hit"
-                          ? "bg-green-500/15 text-green-400"
-                          : "bg-red-500/15 text-red-400"
-                      }`}
-                    >
-                      {v.vote === "hit" ? (
-                        <span className="inline-flex items-center gap-0.5">
-                          <EmojiIcon size={12}>🎯</EmojiIcon> HIT
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-0.5">
-                          <EmojiIcon size={12}>💩</EmojiIcon> SHIT
-                        </span>
-                      )}
-                    </span>
-                    <span className="min-w-0 flex-1 truncate font-mono text-xs text-zinc-300">
-                      {v.assetId.length > 16
-                        ? `${v.assetId.slice(0, 8)}…${v.assetId.slice(-4)}`
-                        : v.assetId}
-                    </span>
-                    <span className="shrink-0 text-[10px] text-zinc-600">{v.date}</span>
-                  </Link>
-                ))}
-              </div>
-            )}
+          <div className="mb-3 flex items-center justify-between border-t border-zinc-800 pt-3 text-xs text-zinc-500">
+            <span>Votes cast</span>
+            <span className="font-mono font-bold tabular-nums text-zinc-300">
+              {loadingVotes ? "…" : totalUserVotes.toLocaleString()}
+            </span>
           </div>
         )}
 

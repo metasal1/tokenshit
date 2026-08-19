@@ -143,7 +143,7 @@ function LoginButton() {
         : "Connected";
 
     return (
-      <div className="relative">
+      <div className="relative z-[80]">
         <button
           onClick={() => setShowMenu(!showMenu)}
           className="text-xs px-3 py-1.5 rounded-md border border-zinc-700 text-zinc-300 hover:text-white hover:border-zinc-500 transition-colors"
@@ -152,7 +152,14 @@ function LoginButton() {
         </button>
 
         {showMenu && (
-          <div className="absolute right-0 top-full mt-1 bg-zinc-900 border border-zinc-700 rounded-lg shadow-xl z-50 min-w-[160px]">
+          <>
+          <button
+            type="button"
+            className="fixed inset-0 z-[85] cursor-default"
+            aria-label="Close account menu"
+            onClick={() => setShowMenu(false)}
+          />
+          <div className="absolute right-0 top-full mt-1 z-[90] min-w-[160px] rounded-lg border border-zinc-700 bg-zinc-900 shadow-2xl shadow-black/80">
             {walletAddress && (
               <button
                 onClick={() => {
@@ -198,6 +205,7 @@ function LoginButton() {
               Log out
             </button>
           </div>
+          </>
         )}
 
         {showWallet && walletAddress && (
@@ -230,7 +238,7 @@ function Layout({ children }: { children: React.ReactNode }) {
 
   const nav = (
     <CanvasHeaderFx>
-    <nav className="sticky top-0 z-50 border-b border-border bg-background/95 backdrop-blur-xl pt-[env(safe-area-inset-top,0px)]">
+    <nav className="sticky top-0 z-[70] border-b border-border bg-background/95 backdrop-blur-xl pt-[env(safe-area-inset-top,0px)]">
       <HeaderTicker />
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-2 px-3 sm:px-4 py-2.5 sm:py-3">
         <Link href="/" className="flex items-center group shrink-0" aria-label="TOKEN$HIT home">
