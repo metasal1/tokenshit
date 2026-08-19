@@ -51,6 +51,21 @@ export const CLAIM_EMAIL_LIST = 2_500;
 /** $TOKENSHIT per referral */
 export const REFERRAL_REWARD_SHIT = 1_000;
 
+/**
+ * One-time SOL gas starter so new users can play without buying SOL.
+ * Sized for N play tickets at ~PLAY_FEE_LAMPORTS_EST each (+ small buffer).
+ * Metasal: 67 games.
+ */
+export const PLAY_GAS_STARTER_GAMES = 67;
+/** Live play fees ~11k lamports; pad to 12k for CU variance */
+export const PLAY_FEE_LAMPORTS_EST = 12_000;
+/** Buffer so wallet isn't dusted to unusable */
+export const PLAY_GAS_DROP_BUFFER_LAMPORTS = 50_000;
+export const PLAY_GAS_DROP_LAMPORTS =
+  PLAY_GAS_STARTER_GAMES * PLAY_FEE_LAMPORTS_EST + PLAY_GAS_DROP_BUFFER_LAMPORTS;
+// 67 * 12_000 + 50_000 = 854_000 lamports ≈ 0.000854 SOL
+export const PLAY_GAS_DROP_SOL = PLAY_GAS_DROP_LAMPORTS / 1e9;
+
 /** Anti-farm floors (overridable via env — see src/lib/abuse.ts) */
 export const CLAIM_REQUIRE_PFP = process.env.CLAIM_REQUIRE_PFP !== "0";
 export const MAJOR_CLAIMS_PER_IP_DAY = Number(

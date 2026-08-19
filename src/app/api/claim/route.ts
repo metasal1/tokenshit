@@ -658,6 +658,21 @@ export async function POST(request: NextRequest) {
       ip,
     });
 
+    // One-time SOL gas starter (~67 plays) — best-effort, never fails claim
+    let gasDrop: {
+      dropped: boolean;
+      signature?: string;
+      sol?: number;
+      games?: number;
+      reason?: string;
+    } | null = null;
+    try {
+      const { maybeDropPlayGas } = await import("@/lib/gas-drop");
+      gasDrop = await maybeDropPlayGas({ wallet, twitter });
+    } catch {
+      gasDrop = { dropped: false, reason: "error" };
+    }
+
     return Response.json({
       ok: true,
       kind,
@@ -666,6 +681,14 @@ export async function POST(request: NextRequest) {
       signature,
       tweetId,
       solscan: `https://solscan.io/tx/${signature}`,
+      gasDrop: gasDrop?.dropped
+        ? {
+            ok: true,
+            sol: gasDrop.sol,
+            games: gasDrop.games,
+            signature: gasDrop.signature,
+          }
+        : { ok: false, reason: gasDrop?.reason || "skipped" },
     });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
