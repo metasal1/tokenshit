@@ -1,73 +1,18 @@
 import { type NextRequest } from "next/server";
 import { tursoBatch } from "@/lib/turso";
-import { requirePrivy } from "@/lib/privy-server";
+import { requireAdmin } from "@/lib/admin-auth";
 import { ensureKolNomSchema } from "@/lib/kol-noms";
 
 export const dynamic = "force-dynamic";
 
-/** Normalize did:privy:xxx ↔ xxx for allowlist compare */
-function normPrivyId(id: string): string {
-  const s = id.trim().toLowerCase();
-  return s.startsWith("did:privy:") ? s.slice("did:privy:".length) : s;
-}
-
-function adminAllowlist(): string[] {
-  return (process.env.ADMIN_PRIVY_ID || "")
-    .split(",")
-    .map((s) => normPrivyId(s))
-    .filter(Boolean);
-}
-
-function isAdminPrivy(privyId: string): boolean {
-  const adminIds = adminAllowlist();
-  if (adminIds.length === 0) return false;
-  return adminIds.includes(normPrivyId(privyId));
-}
-
 /**
  * Admin dump — fail closed.
- * Auth: Privy token whose sub is in ADMIN_PRIVY_ID (comma-separated).
+ * Auth: ADMIN_PRIVY_ID and/or X handles (default @tokenshit_ + @metasal).
  * Optional: x-cron-secret / Bearer CRON_SECRET for automation.
  */
 export async function GET(req: NextRequest) {
-  const allow = adminAllowlist();
-  const cronSecret =
-    process.env.CRON_SECRET ||
-    process.env.TREASURY_DROP_SECRET ||
-    process.env.HERMES_CRON_SECRET ||
-    "";
-
-  const authHeader = req.headers.get("authorization") || "";
-  const bearer = authHeader.toLowerCase().startsWith("bearer ")
-    ? authHeader.slice(7).trim()
-    : "";
-  const headerSecret =
-    req.headers.get("x-cron-secret") ||
-    req.headers.get("x-admin-secret") ||
-    "";
-
-  // Cron path (exact secret match only — never treat Privy JWT as cron)
-  if (cronSecret && (bearer === cronSecret || headerSecret === cronSecret)) {
-    // ok — cron
-  } else {
-    if (allow.length === 0) {
-      return Response.json(
-        { error: "Admin not configured (ADMIN_PRIVY_ID)" },
-        { status: 503 }
-      );
-    }
-    const auth = await requirePrivy(req, {});
-    if (!auth.ok) return auth.res;
-    if (!isAdminPrivy(auth.id.privyId)) {
-      return Response.json(
-        {
-          error: "Forbidden — Privy id not on allowlist",
-          yourId: auth.id.privyId,
-        },
-        { status: 403 }
-      );
-    }
-  }
+  const gate = await requireAdmin(req);
+  if (!gate.ok) return gate.res;
 
   const results = await tursoBatch([
     {

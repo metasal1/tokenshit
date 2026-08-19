@@ -1,5 +1,5 @@
 import { type NextRequest } from "next/server";
-import { requirePrivy } from "@/lib/privy-server";
+import { requireAdmin } from "@/lib/admin-auth";
 import {
   ensureKolNomSchema,
   listKolNominations,
@@ -8,69 +8,6 @@ import {
 import { prewarmKolOg } from "@/lib/kol-sync";
 
 export const dynamic = "force-dynamic";
-
-function normPrivyId(id: string): string {
-  const s = id.trim().toLowerCase();
-  return s.startsWith("did:privy:") ? s.slice("did:privy:".length) : s;
-}
-
-function adminAllowlist(): string[] {
-  return (process.env.ADMIN_PRIVY_ID || "")
-    .split(",")
-    .map((s) => normPrivyId(s))
-    .filter(Boolean);
-}
-
-function isAdminPrivy(privyId: string): boolean {
-  const adminIds = adminAllowlist();
-  if (adminIds.length === 0) return false;
-  return adminIds.includes(normPrivyId(privyId));
-}
-
-async function requireAdmin(req: NextRequest) {
-  const allow = adminAllowlist();
-  const cronSecret =
-    process.env.CRON_SECRET ||
-    process.env.TREASURY_DROP_SECRET ||
-    process.env.HERMES_CRON_SECRET ||
-    "";
-  const authHeader = req.headers.get("authorization") || "";
-  const bearer = authHeader.toLowerCase().startsWith("bearer ")
-    ? authHeader.slice(7).trim()
-    : "";
-  const headerSecret =
-    req.headers.get("x-cron-secret") ||
-    req.headers.get("x-admin-secret") ||
-    "";
-
-  if (cronSecret && (bearer === cronSecret || headerSecret === cronSecret)) {
-    return { ok: true as const };
-  }
-  if (allow.length === 0) {
-    return {
-      ok: false as const,
-      res: Response.json(
-        { error: "Admin not configured (ADMIN_PRIVY_ID)" },
-        { status: 503 }
-      ),
-    };
-  }
-  const auth = await requirePrivy(req, {});
-  if (!auth.ok) return { ok: false as const, res: auth.res };
-  if (!isAdminPrivy(auth.id.privyId)) {
-    return {
-      ok: false as const,
-      res: Response.json(
-        {
-          error: "Forbidden — Privy id not on allowlist",
-          yourId: auth.id.privyId,
-        },
-        { status: 403 }
-      ),
-    };
-  }
-  return { ok: true as const };
-}
 
 /** GET /api/admin/kols?status=pending|accepted|rejected|live|all */
 export async function GET(req: NextRequest) {
