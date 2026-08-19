@@ -229,7 +229,7 @@ export default function KolRecommendCard() {
                 : `Submit @${lookup.handle} for review`}
           </button>
           <p className="text-[10px] text-zinc-600 leading-snug">
-            X login · 100+ followers · 5 noms/day · KOLs need 10k+ flw · admin
+            X login · 250+ followers · 5 noms/day · KOLs need 10k+ flw · admin
             review only (no auto-pay)
           </p>
           {/* honeypot — hidden from humans */}

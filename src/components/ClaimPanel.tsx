@@ -745,7 +745,7 @@ export default function ClaimPanel() {
         <span className="text-zinc-300 font-medium">Rules:</span>{" "}
         <span className="text-neon font-semibold">X required for every claim</span>
         {" "}
-        · PFP · 100+ followers · Privy wallet linked to that X · no disposable
+        · PFP · 250+ followers · Privy wallet linked to that X · no disposable
         email · tweet every 24h · 1 major claim / IP / day
       </p>
 
@@ -985,7 +985,7 @@ export default function ClaimPanel() {
             statusLoading={statusLoading && authenticated}
             title="X Premium (blue)"
             amount={CLAIM_X_PREMIUM}
-            hint="X Premium · 100+ followers · PFP · 1 major/IP/day · exclusive vs verified"
+            hint="X Premium · 250+ followers · PFP · 1 major/IP/day · exclusive vs verified"
           >
             <button
               type="button"
@@ -1010,7 +1010,7 @@ export default function ClaimPanel() {
             statusLoading={statusLoading && authenticated}
             title="X verified"
             amount={CLAIM_X_VERIFIED}
-            hint="Non-Premium check only · 100+ followers · PFP · exclusive vs premium"
+            hint="Non-Premium check only · 250+ followers · PFP · exclusive vs premium"
           >
             <button
               type="button"
@@ -1050,7 +1050,7 @@ export default function ClaimPanel() {
               </a>
               , sign in with the <strong className="text-zinc-300">same X</strong>,{" "}
               <strong className="text-zinc-300">like</strong> $TOKENSHIT, then
-              claim · 100+ followers · PFP
+              claim · 250+ followers · PFP
             </>
           }
         >
