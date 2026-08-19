@@ -24,7 +24,8 @@ export type OgKey =
   | "terms"
   | "privacy"
   | "day"
-  | "hour";
+  | "hour"
+  | "love";
 
 export function ogUrl(key: OgKey | string = "default"): string {
   const k = key.replace(/^\//, "").replace(/\//g, "-") || "default";

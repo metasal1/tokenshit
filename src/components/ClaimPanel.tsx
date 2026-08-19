@@ -853,7 +853,7 @@ export default function ClaimPanel() {
           highlight
           claimed={!!claimedStatus.sol_gas_love}
           statusLoading={statusLoading && authenticated}
-          title="DO YOU LOVE TOKENSHIT.COM @tokenshit_ 💩💚"
+          title="I LOVE TOKENSHIT 💚 → tokenshit.com/love"
           amount={PLAY_GAS_STARTER_GAMES}
           amountUnit="plays"
           hint={
@@ -869,7 +869,7 @@ export default function ClaimPanel() {
         >
           <div className="grid grid-cols-1 gap-2">
             <a
-              href={loveGasTweetIntentUrl()}
+              href={loveGasTweetIntentUrl(twitter)}
               target="_blank"
               rel="noopener noreferrer"
               className={`${BTN_OUTLINE} text-center`}

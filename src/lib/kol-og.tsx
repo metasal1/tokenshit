@@ -129,12 +129,12 @@ export async function renderKolLoveOg(rawHandle: string): Promise<ImageResponse>
         : String(kol.followers || "—");
 
   const scatter = [
-    { src: KOL_OG_ASSETS.poop, x: 40, y: 140, s: 42 },
+    { src: KOL_OG_ASSETS.heart, x: 40, y: 140, s: 42 },
     { src: KOL_OG_ASSETS.fire, x: 1100, y: 130, s: 44 },
     { src: KOL_OG_ASSETS.target, x: 70, y: 480, s: 40 },
     { src: KOL_OG_ASSETS.sparkles, x: 1080, y: 470, s: 42 },
     { src: KOL_OG_ASSETS.heart, x: 160, y: 560, s: 36 },
-    { src: KOL_OG_ASSETS.poop, x: 1000, y: 560, s: 36 },
+    { src: KOL_OG_ASSETS.heart, x: 1000, y: 560, s: 36 },
     { src: KOL_OG_ASSETS.fire, x: 200, y: 120, s: 32 },
     { src: KOL_OG_ASSETS.sparkles, x: 980, y: 200, s: 34 },
   ];
@@ -261,7 +261,7 @@ export async function renderKolLoveOg(rawHandle: string): Promise<ImageResponse>
           </div>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src={KOL_OG_ASSETS.poop}
+            src={KOL_OG_ASSETS.heart}
             width={36}
             height={36}
             style={{ width: 36, height: 36, marginLeft: 8 }}
@@ -311,7 +311,7 @@ export async function renderKolLoveOg(rawHandle: string): Promise<ImageResponse>
             ) : (
               // eslint-disable-next-line @next/next/no-img-element
               <img
-                src={KOL_OG_ASSETS.poop}
+                src={KOL_OG_ASSETS.heart}
                 width={88}
                 height={88}
                 style={{ width: 88, height: 88 }}

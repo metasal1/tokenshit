@@ -42,7 +42,7 @@ export default async function Image() {
     loadInter(),
     counts(),
   ]);
-  const poop = KOL_OG_ASSETS.poop;
+  const mark = KOL_OG_ASSETS.sparkles;
   const target = KOL_OG_ASSETS.target;
   const fire = KOL_OG_ASSETS.fire;
 
@@ -88,9 +88,9 @@ export default async function Image() {
 
         {/* brand */}
         <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-          {poop ? (
+          {mark ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={poop} width={44} height={44} alt="" />
+            <img src={mark} width={44} height={44} alt="" />
           ) : null}
           <div
             style={{

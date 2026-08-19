@@ -71,7 +71,7 @@ export async function getKolOgPngResponse(
     return new Response("bad handle", { status: 400 });
   }
 
-  const key = `kol-og:v10:${handle}`;
+  const key = `kol-og:v11:${handle}`;
   const cacheUrl =
     requestUrl ||
     `https://tokenshit.com/api/kols/card/${encodeURIComponent(handle)}?k=${key}`;

@@ -33,7 +33,7 @@ export default function KolLoveCard({
   const h = handle.replace(/^@/, "");
 
   const cardApi = useMemo(
-    () => `/api/kols/card/${encodeURIComponent(h)}?v=10`,
+    () => `/api/kols/card/${encodeURIComponent(h)}?v=11`,
     [h]
   );
 
@@ -45,7 +45,7 @@ export default function KolLoveCard({
   }, [h]);
 
   const shareText = useMemo(
-    () => `${KOL_OG_QUOTE}\n\n@${h} on @Tokenshit_ 💩\n\n${pageUrl}`,
+    () => `${KOL_OG_QUOTE}\n\n@${h} on @Tokenshit_\n\n${pageUrl}`,
     [h, pageUrl]
   );
 
@@ -58,7 +58,7 @@ export default function KolLoveCard({
   const tgShareUrl = useMemo(() => {
     const u = new URL("https://t.me/share/url");
     u.searchParams.set("url", pageUrl);
-    u.searchParams.set("text", `${KOL_OG_QUOTE}\n\n@${h} on @Tokenshit_ 💩`);
+    u.searchParams.set("text", `${KOL_OG_QUOTE}\n\n@${h} on @Tokenshit_`);
     return u.toString();
   }, [h, pageUrl]);
 
@@ -225,7 +225,7 @@ export default function KolLoveCard({
                 <span className="neon-dollar">$</span>
                 <span className="neon-text">HIT</span>
               </span>
-              <EmojiIcon size={18}>💩</EmojiIcon>
+              <EmojiIcon size={18}>💚</EmojiIcon>
               <span className="ml-auto font-orbitron text-[9px] uppercase tracking-wider text-zinc-600">
                 KOL card
               </span>
@@ -307,7 +307,7 @@ export default function KolLoveCard({
       <p className="flex items-center justify-center gap-2 text-center font-mono text-sm text-[#fff8e7]/90">
         <EmojiIcon size={18}>💚</EmojiIcon>
         “{KOL_OG_QUOTE}”
-        <EmojiIcon size={18}>💩</EmojiIcon>
+        <EmojiIcon size={18}>💚</EmojiIcon>
       </p>
 
       <div className="grid grid-cols-2 gap-2">
