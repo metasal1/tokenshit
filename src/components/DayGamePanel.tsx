@@ -488,7 +488,7 @@ export default function DayGamePanel({
     // Double-tap / double-click within 380ms → play immediately
     const now = Date.now();
     const prev = lastBagTap.current;
-    if (prev && prev.id === bag.assetId && now - prev.t < 380) {
+    if (prev && prev.id === bag.assetId && now - prev.t < 450) {
       lastBagTap.current = null;
       void play(bag);
       return;
@@ -669,7 +669,7 @@ export default function DayGamePanel({
       {showTip && (
         <div className="flex shrink-0 items-center gap-2 border-x border-border bg-neon/10 px-3 py-2 text-[11px] leading-snug text-zinc-200">
           <span className="min-w-0 flex-1">
-            <b className="text-neon">Play:</b> UP or DOWN → tap bag → Lock.{" "}
+            <b className="text-neon">Play:</b> UP/DOWN · double-tap bag to lock.{" "}
             {PLAY_STAKE.toLocaleString()} ${SHIT_SYMBOL}/ticket · winners split
             pot.
           </span>
@@ -746,6 +746,11 @@ export default function DayGamePanel({
                   type="button"
                   disabled={busy}
                   onClick={() => pickBag(m)}
+                  onDoubleClick={(e) => {
+                    e.preventDefault();
+                    sfx.unlock();
+                    void play(m);
+                  }}
                   title="Double-tap to play"
                   className={`relative flex flex-col items-center gap-0.5 rounded-2xl border p-2 transition active:scale-[0.97] disabled:opacity-50 ${
                     on
