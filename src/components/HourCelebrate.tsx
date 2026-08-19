@@ -1,5 +1,6 @@
 "use client";
 
+import { PLAY_PRODUCT } from "@/lib/hour-product";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { EmojiIcon } from "@/components/EmojiIcon";
@@ -277,7 +278,7 @@ export default function HourCelebrate({
     const hit = payload.hit;
     const shit = payload.shit;
     const lines = [
-      `$HIT OF THE DAY just settled on @Tokenshit_`,
+      `${PLAY_PRODUCT.tweetName} just settled on @Tokenshit_`,
       ``,
       `🎯 HIT ${sym(hit.symbol)} ${fmtPct(hit.pct)} → ${who(hit.winner, hit.prize)}${prizeBit(hit.winner, hit.prize)}`,
       `💀 SHIT ${sym(shit.symbol)} ${fmtPct(shit.pct)} → ${who(shit.winner, shit.prize)}${prizeBit(shit.winner, shit.prize)}`,

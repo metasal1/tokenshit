@@ -1,12 +1,13 @@
 /**
- * Product brand: $HIT OF THE DAY
- * Public play surface at /play (hourly rounds under the hood).
- * Wording rule: product always "$HIT" — never bare "SHIT" as the product name.
+ * Product brand: $HIT OF THE DAY (in-app)
+ * Tweets / X copy: SH!T OF THE DAY (reads as SHIT, not $HIT)
  * Game sides remain HIT / SHIT (mechanics).
  */
 export const PLAY_PRODUCT = {
-  /** Full product name */
+  /** Full product name (UI) */
   name: "$HIT OF THE DAY",
+  /** X / tweet / share product name */
+  tweetName: "SH!T OF THE DAY",
   /** Display without ticker $ for Monoton split if needed */
   nameDisplay: "HIT OF THE DAY",
   /** Short nav label */

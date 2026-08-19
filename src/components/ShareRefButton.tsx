@@ -86,7 +86,7 @@ export default function ShareRefButton({
   async function shareNative() {
     if (!link) return;
     setErr(null);
-    const text = `Judge bags on TokenShit — every token is shit until proven otherwise.\n${link}`;
+    const text = `Judge bags on TokenShit — every token is SH!T until proven otherwise.\n${link}`;
     if (typeof navigator !== "undefined" && navigator.share) {
       try {
         await navigator.share({
@@ -104,7 +104,7 @@ export default function ShareRefButton({
 
   function tweet() {
     if (!link) return;
-    const text = `Just judged bags on @${X_HANDLE} 💚\n\nJoin via my link — I get ${REFERRAL_REWARD_SHIT.toLocaleString()} $${SHIT_SYMBOL} if you sign up.\n\n${link}`;
+    const text = `Just judged bags on @${X_HANDLE} · SH!T OF THE DAY 💚\n\nJoin via my link — I get ${REFERRAL_REWARD_SHIT.toLocaleString()} $${SHIT_SYMBOL} if you sign up.\n\n${link}`;
     window.open(
       `https://x.com/intent/tweet?text=${encodeURIComponent(text)}`,
       "_blank",

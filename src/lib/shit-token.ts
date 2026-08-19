@@ -170,7 +170,7 @@ export function tweetTagIntentUrl(text?: string, refHandle?: string | null): str
       : "https://tokenshit.com";
   const body =
     text ||
-    `Just judged bags on @${X_HANDLE} — every token is shit until proven otherwise.\n\n${ref}`;
+    `Just judged bags on @${X_HANDLE} — every token is SH!T until proven otherwise.\n\n${ref}`;
   return `https://x.com/intent/tweet?text=${encodeURIComponent(body)}`;
 }
 
