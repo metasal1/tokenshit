@@ -33,7 +33,7 @@ export default async function KolsPage() {
           {approved.length > 0
             ? `${approved.length} approved`
             : "Nominations open"}
-          <EmojiIcon size={14}>💩</EmojiIcon>
+          <EmojiIcon size={14}>💚</EmojiIcon>
         </p>
         <h1 className="mt-2 font-monoton text-4xl leading-none tracking-wide sm:text-5xl">
           <span className="neon-text">KOL</span>

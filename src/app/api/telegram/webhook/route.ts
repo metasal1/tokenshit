@@ -97,7 +97,7 @@ export async function POST(req: NextRequest) {
 
   let payNote = "";
   if (scoutPay?.paid) {
-    payNote = ` · scout +${scoutPay.amount.toLocaleString()} 💩`;
+    payNote = ` · scout +${scoutPay.amount.toLocaleString()} 💚`;
   } else if (
     scoutPay &&
     !scoutPay.paid &&

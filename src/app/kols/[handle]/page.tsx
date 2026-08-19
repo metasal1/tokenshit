@@ -100,7 +100,7 @@ export default async function KolHandlePage({ params }: Props) {
     <main className="mx-auto w-full max-w-2xl px-4 py-8 sm:py-12">
       <div className="mb-6 text-center">
         <p className="font-orbitron text-[10px] uppercase tracking-[0.25em] text-zinc-500 flex items-center justify-center gap-1.5">
-          <EmojiIcon size={14}>💩</EmojiIcon>
+          <EmojiIcon size={14}>💚</EmojiIcon>
           KOL card
           <EmojiIcon size={14}>💚</EmojiIcon>
         </p>

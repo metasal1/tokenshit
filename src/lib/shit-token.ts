@@ -75,7 +75,7 @@ export const PLAY_GAS_DROP_SOL = PLAY_GAS_DROP_LAMPORTS / 1e9;
 /** Min X followers to nominate a KOL */
 export const MIN_KOL_FOLLOWERS = 10_000;
 
-export const LOVE_GAS_TWEET = "DO YOU LOVE TOKENSHIT.COM @tokenshit_ 💩💚";
+export const LOVE_GAS_TWEET = "I LOVE TOKENSHIT 💚 @tokenshit_ https://tokenshit.com/love";
 
 /** Anti-farm floors (overridable via env — see src/lib/abuse.ts) */
 export const CLAIM_REQUIRE_PFP = process.env.CLAIM_REQUIRE_PFP !== "0";
@@ -179,8 +179,15 @@ export function followIntentUrl(): string {
 }
 
 /** Pre-filled exact love-gas tweet */
-export function loveGasTweetIntentUrl(): string {
-  return `https://x.com/intent/tweet?text=${encodeURIComponent(LOVE_GAS_TWEET)}`;
+export function loveGasTweetIntentUrl(refHandle?: string | null): string {
+  const base = "https://tokenshit.com/love";
+  const h = (refHandle || "").replace(/^@/, "").trim().toLowerCase();
+  const link = h && /^[a-z0-9_]{1,15}$/.test(h) ? `${base}?ref=${encodeURIComponent(h)}` : base;
+  // Exact claim text uses bare /love; intent can include ?ref= for attribution (matcher strips query)
+  const text = h
+    ? `I LOVE TOKENSHIT 💚 @tokenshit_ ${link}`
+    : LOVE_GAS_TWEET;
+  return `https://x.com/intent/tweet?text=${encodeURIComponent(text)}`;
 }
 
 export function shitToRaw(amount: number): bigint {
