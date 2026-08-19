@@ -438,10 +438,6 @@ export async function renderKolLoveOg(rawHandle: string): Promise<ImageResponse>
     {
       ...KOL_OG_SIZE,
       fonts: fonts.length ? fonts : undefined,
-      headers: {
-        "Cache-Control":
-          "public, max-age=120, s-maxage=300, stale-while-revalidate=600",
-      },
     }
   );
 }
