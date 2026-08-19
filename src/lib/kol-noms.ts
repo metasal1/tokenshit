@@ -373,3 +373,32 @@ export async function setKolNominationStatus(
   if (!r.rows.length) return { ok: false, error: "not found" };
   return { ok: true, row: mapRow(r.rows[0] as unknown[]) };
 }
+
+
+/** Deduped approved roster (accepted + live). Prefer live over accepted. */
+export async function listApprovedKols(limit = 200): Promise<KolNomRow[]> {
+  await ensureKolNomSchema();
+  const lim = Math.min(Math.max(limit, 1), 500);
+  const r = await tursoExecute(
+    `SELECT ${SELECT_COLS}
+     FROM kol_nominations
+     WHERE status IN ('accepted', 'live')
+     ORDER BY
+       CASE status WHEN 'live' THEN 0 ELSE 1 END,
+       COALESCE(followers, 0) DESC,
+       id DESC
+     LIMIT ?`,
+    [lim]
+  );
+  const rows = r.rows.map((row) => mapRow(row as unknown[]));
+  // one card per handle
+  const seen = new Set<string>();
+  const out: KolNomRow[] = [];
+  for (const row of rows) {
+    const h = row.handle.toLowerCase();
+    if (seen.has(h)) continue;
+    seen.add(h);
+    out.push(row);
+  }
+  return out;
+}
