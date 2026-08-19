@@ -50,6 +50,28 @@ export default function KolLoveCard({
     return `https://tokenshit.com/kols/${handle}`;
   }, [handle]);
 
+  const shareText = useMemo(() => {
+    const h = handle.replace(/^@/, "");
+    // Tag the KOL + brand; no hashtags per product rules
+    return `I love Tokenshit?\n\n@${h} on @Tokenshit_\n\n${pageUrl}`;
+  }, [handle, pageUrl]);
+
+  const xShareUrl = useMemo(() => {
+    const u = new URL("https://x.com/intent/tweet");
+    u.searchParams.set("text", shareText);
+    return u.toString();
+  }, [shareText]);
+
+  const tgShareUrl = useMemo(() => {
+    const u = new URL("https://t.me/share/url");
+    u.searchParams.set("url", pageUrl);
+    u.searchParams.set(
+      "text",
+      `I love Tokenshit?\n\n@${handle.replace(/^@/, "")} on @Tokenshit_`
+    );
+    return u.toString();
+  }, [handle, pageUrl]);
+
   // Fun loader tick
   useEffect(() => {
     if (!loading) return;
@@ -300,6 +322,27 @@ export default function KolLoveCard({
         <EmojiIcon size={18}>💩</EmojiIcon>
       </p>
 
+      <div className="grid grid-cols-2 gap-2">
+        <a
+          href={xShareUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="min-h-11 inline-flex items-center justify-center gap-2 rounded-xl bg-sky-500 text-white text-xs font-bold hover:bg-sky-400 active:scale-[0.98]"
+        >
+          <span className="font-sans font-black text-sm">𝕏</span>
+          Share on X
+        </a>
+        <a
+          href={tgShareUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="min-h-11 inline-flex items-center justify-center gap-2 rounded-xl bg-[#2AABEE] text-white text-xs font-bold hover:brightness-110 active:scale-[0.98]"
+        >
+          <EmojiIcon size={16}>✈️</EmojiIcon>
+          Telegram
+        </a>
+      </div>
+
       <div className="grid grid-cols-3 gap-2">
         <button
           type="button"
@@ -330,7 +373,7 @@ export default function KolLoveCard({
         <p className="text-center font-mono text-xs text-neon">{msg}</p>
       ) : (
         <p className="text-center text-[11px] text-zinc-600">
-          Share the link — OG shows this card
+          Shares tag @{handle.replace(/^@/, "")} + @Tokenshit_ · OG card attached via link
         </p>
       )}
 
