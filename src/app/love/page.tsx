@@ -4,7 +4,7 @@ import { EmojiIcon } from "@/components/EmojiIcon";
 import { pageMeta } from "@/lib/seo";
 import { LOVE_GAS_TWEET, loveGasTweetIntentUrl } from "@/lib/shit-token";
 import { loadLoveReferrer } from "@/lib/love-og";
-import { getLoveOgPngResponse } from "@/lib/love-og-cache";
+import { prewarmLoveOg } from "@/lib/love-og-cache";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -17,8 +17,8 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
   const referrer = await loadLoveReferrer(ref);
   const og =
     referrer.handle
-      ? `https://tokenshit.com/api/love/og?ref=${encodeURIComponent(referrer.handle)}&v=4`
-      : "https://tokenshit.com/love/opengraph-image?v=4";
+      ? `https://tokenshit.com/api/love/og?ref=${encodeURIComponent(referrer.handle)}&v=5`
+      : "https://tokenshit.com/love/opengraph-image?v=5";
 
   const title = referrer.handle
     ? `I LOVE TOKENSHIT — via @${referrer.handle}`
@@ -34,8 +34,8 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
     og: "default",
   });
 
-  // Populate edge/memory cache so crawlers hit warm PNG (don't await)
-  void getLoveOgPngResponse(referrer.handle).catch(() => {});
+  // Don't await in metadata (slows FB HTML fetch). Bg bake via image route.
+  void prewarmLoveOg(referrer.handle).catch(() => false);
 
   return {
     ...base,
@@ -70,6 +70,10 @@ export default async function LovePage({ searchParams }: Props) {
   const sp = await searchParams;
   const ref = (sp.ref || "").replace(/^@/, "").trim().toLowerCase();
   const referrer = await loadLoveReferrer(ref);
+  // Human opened /love?ref= — bake personalized OG before they hit Share
+  if (referrer.handle) {
+    void prewarmLoveOg(referrer.handle).catch(() => false);
+  }
   const intent = loveGasTweetIntentUrl(referrer.handle);
   const avatar =
     referrer.pfp ||
