@@ -18,7 +18,15 @@ import {
 } from "@/lib/day-game";
 import { requirePrivy } from "@/lib/privy-server";
 import { isSolanaAddress, getClientIp, rateLimitIp } from "@/lib/api-guard";
-import { SHIT_MINT, TREASURY_ADDRESS, PLAY_POT_ADDRESS } from "@/lib/shit-token";
+import {
+  SHIT_MINT,
+  TREASURY_ADDRESS,
+  PLAY_POT_ADDRESS,
+  PLAY_SEED_HOUR_AMOUNT,
+  PLAY_SEED_DAY_CAP,
+  PLAY_SEED_ENABLED,
+} from "@/lib/shit-token";
+import { getHourSeed } from "@/lib/play-seed";
 import { priceAssetById } from "@/lib/live-prices";
 
 export const dynamic = "force-dynamic";
@@ -35,12 +43,13 @@ export async function GET(request: NextRequest) {
     const walletQ =
       request.nextUrl.searchParams.get("wallet")?.trim() || "";
 
-    const [round, stakes, majors, leaders, heat] = await Promise.all([
+    const [round, stakes, majors, leaders, heat, hourSeed] = await Promise.all([
       getRound(hour),
       listStakes(hour),
       fetchRealMajorsLive().catch(() => []),
       getLiveLeaders(hour).catch(() => null),
       getTicketHeat(hour).catch(() => new Map()),
+      getHourSeed(hour).catch(() => ({ amount: 0, signature: null, status: null })),
     ]);
 
     const hitCount = stakes.filter((s) => s.side === "hit").length;
@@ -90,6 +99,14 @@ export async function GET(request: NextRequest) {
       treasury: TREASURY_ADDRESS,
       pot: PLAY_POT_ADDRESS,
       mint: SHIT_MINT,
+      houseSpark: {
+        enabled: PLAY_SEED_ENABLED,
+        hourAmount: PLAY_SEED_HOUR_AMOUNT,
+        dayCap: PLAY_SEED_DAY_CAP,
+        seeded: Number(hourSeed.amount || 0),
+        status: hourSeed.status,
+        signature: hourSeed.signature,
+      },
       round,
       stats: {
         hitStakes: hitCount,
