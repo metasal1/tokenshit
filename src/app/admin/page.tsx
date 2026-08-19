@@ -49,7 +49,7 @@ interface AdminData {
 type Tab = "users" | "voters" | "referrals" | "kols";
 
 /**
- * Admin UI — data only loads after server allowlist (ADMIN_PRIVY_ID) accepts
+ * Admin UI — allowlist: ADMIN_PRIVY_ID and/or X @tokenshit_ / @metasal (ADMIN_TWITTER)
  * the Privy token. No client-side Twitter-handle gate.
  */
 export default function AdminPage() {
@@ -95,11 +95,11 @@ export default function AdminPage() {
         const d = await res.json().catch(() => ({}));
         throw new Error(
           (d as { error?: string }).error ||
-            "Forbidden — your Privy id is not in ADMIN_PRIVY_ID"
+            "Forbidden — login with @tokenshit_ / @metasal X, or ADMIN_PRIVY_ID"
         );
       }
       if (res.status === 503) {
-        throw new Error("Admin not configured (set ADMIN_PRIVY_ID secret)");
+        throw new Error("Admin not configured (ADMIN_PRIVY_ID / ADMIN_TWITTER)");
       }
       if (res.status === 401) {
         const d = await res.json().catch(() => ({}));
