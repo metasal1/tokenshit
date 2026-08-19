@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { EmojiIcon } from "@/components/EmojiIcon";
 import { KOL_OG_QUOTE } from "@/lib/kol-og-quote";
 
@@ -11,6 +11,15 @@ type Props = {
   avatarUrl?: string | null;
 };
 
+const LOAD_LINES = [
+  "Summoning PFP…",
+  "Sprinkling brand emojis…",
+  "Neon-locking TOKEN$HIT…",
+  "Asking if they love Tokenshit…",
+  "Printing shitpost OG…",
+  "Almost legendary…",
+];
+
 export default function KolLoveCard({
   handle,
   name,
@@ -19,11 +28,19 @@ export default function KolLoveCard({
 }: Props) {
   const [busy, setBusy] = useState<"copy" | "dl" | null>(null);
   const [msg, setMsg] = useState("");
+  const [imgUrl, setImgUrl] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState<string | null>(null);
+  const [lineIdx, setLineIdx] = useState(0);
 
-  const ogSrc = useMemo(() => {
+  const cardApi = useMemo(() => {
     const h = encodeURIComponent(handle.replace(/^@/, ""));
-    // Next serves opengraph-image at this path; bust lightly
-    return `/kols/${h}/opengraph-image?v=6`;
+    return `/api/kols/card/${h}?v=7`;
+  }, [handle]);
+
+  const ogPath = useMemo(() => {
+    const h = encodeURIComponent(handle.replace(/^@/, ""));
+    return `/kols/${h}/opengraph-image?v=7`;
   }, [handle]);
 
   const pageUrl = useMemo(() => {
@@ -33,15 +50,68 @@ export default function KolLoveCard({
     return `https://tokenshit.com/kols/${handle}`;
   }, [handle]);
 
+  // Fun loader tick
+  useEffect(() => {
+    if (!loading) return;
+    const t = window.setInterval(() => {
+      setLineIdx((i) => (i + 1) % LOAD_LINES.length);
+    }, 900);
+    return () => window.clearInterval(t);
+  }, [loading]);
+
+  // Generate / fetch card as blob (shows loader while OG renders)
+  useEffect(() => {
+    let dead = false;
+    let objectUrl: string | null = null;
+    setLoading(true);
+    setErr(null);
+    setImgUrl(null);
+
+    (async () => {
+      try {
+        // Prefer API card route; fallback opengraph-image
+        let res = await fetch(cardApi, { cache: "no-store" });
+        if (!res.ok) {
+          res = await fetch(ogPath, { cache: "no-store" });
+        }
+        if (!res.ok) throw new Error(`Card failed (${res.status})`);
+        const blob = await res.blob();
+        if (blob.size < 64) throw new Error("Empty card");
+        objectUrl = URL.createObjectURL(blob);
+        if (dead) {
+          URL.revokeObjectURL(objectUrl);
+          return;
+        }
+        setImgUrl(objectUrl);
+        setLoading(false);
+      } catch (e) {
+        if (!dead) {
+          setErr(e instanceof Error ? e.message : "Could not generate card");
+          setLoading(false);
+        }
+      }
+    })();
+
+    return () => {
+      dead = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [cardApi, ogPath]);
+
   const getBlob = useCallback(async () => {
-    const res = await fetch(ogSrc, { cache: "no-store" });
+    if (imgUrl) {
+      const r = await fetch(imgUrl);
+      const b = await r.blob();
+      if (b.size >= 64) return b;
+    }
+    const res = await fetch(cardApi, { cache: "no-store" });
     if (!res.ok) throw new Error(`Image ${res.status}`);
     const blob = await res.blob();
     if (blob.size < 64) throw new Error("empty image");
     return blob.type === "image/png"
       ? blob
       : new Blob([await blob.arrayBuffer()], { type: "image/png" });
-  }, [ogSrc]);
+  }, [imgUrl, cardApi]);
 
   const download = useCallback(async () => {
     setBusy("dl");
@@ -92,14 +162,12 @@ export default function KolLoveCard({
         navigator.clipboard &&
         typeof navigator.clipboard.write === "function"
       ) {
-        const item = new ClipboardItem({
-          "image/png": Promise.resolve(blob),
-        });
-        await navigator.clipboard.write([item]);
+        await navigator.clipboard.write([
+          new ClipboardItem({ "image/png": Promise.resolve(blob) }),
+        ]);
         setMsg("Image copied ✓");
         return;
       }
-      // fallback share
       const file = new File([blob], `tokenshit-kol-${handle}.png`, {
         type: "image/png",
       });
@@ -145,39 +213,68 @@ export default function KolLoveCard({
 
   return (
     <div className="mx-auto w-full max-w-lg space-y-4">
-      <div className="overflow-hidden rounded-2xl border border-neon/30 bg-zinc-950 shadow-[0_0_40px_rgba(57,255,20,0.08)]">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={ogSrc}
-          alt={`@${handle} — ${KOL_OG_QUOTE}`}
-          width={1200}
-          height={630}
-          className="h-auto w-full bg-background"
-          // allow long-press save on mobile
-          draggable
-        />
+      {/* Card preview 1200/630 aspect */}
+      <div className="relative overflow-hidden rounded-2xl border border-neon/30 bg-zinc-950 shadow-[0_0_40px_rgba(57,255,20,0.08)] aspect-[1200/630]">
+        {imgUrl && !loading ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={imgUrl}
+            alt={`@${handle} — ${KOL_OG_QUOTE}`}
+            className="absolute inset-0 h-full w-full object-cover"
+            draggable
+          />
+        ) : (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-[#0a0a0f] px-6">
+            <div className="flex items-center gap-2 animate-pulse">
+              <EmojiIcon size={36}>💩</EmojiIcon>
+              <EmojiIcon size={32}>🔥</EmojiIcon>
+              <EmojiIcon size={36}>💚</EmojiIcon>
+              <EmojiIcon size={32}>✨</EmojiIcon>
+            </div>
+            <p className="font-monoton text-2xl tracking-wide">
+              <span className="neon-text">KOL</span>
+              <span className="neon-dollar">$</span>
+            </p>
+            <p className="font-mono text-xs text-neon animate-pulse text-center">
+              {err ? err : LOAD_LINES[lineIdx]}
+            </p>
+            {!err && (
+              <div className="mt-1 h-1.5 w-44 overflow-hidden rounded-full bg-zinc-800">
+                <div className="h-full w-2/3 animate-pulse rounded-full bg-neon shadow-[0_0_12px_#39ff14]" />
+              </div>
+            )}
+            {err && (
+              <button
+                type="button"
+                onClick={() => {
+                  setLoading(true);
+                  setErr(null);
+                  // remount effect via query bump
+                  window.location.reload();
+                }}
+                className="mt-2 rounded-lg border border-neon/40 px-3 py-1.5 text-xs text-neon"
+              >
+                Retry
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="flex items-center gap-3 px-1">
-        {avatarSrc ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={avatarSrc}
-            alt=""
-            className="h-12 w-12 rounded-full border border-neon/40 bg-zinc-900 object-cover"
-            referrerPolicy="no-referrer"
-            onError={(e) => {
-              const el = e.currentTarget;
-              if (!el.src.includes("unavatar.io")) {
-                el.src = `https://unavatar.io/twitter/${encodeURIComponent(handle)}`;
-              }
-            }}
-          />
-        ) : (
-          <div className="flex h-12 w-12 items-center justify-center rounded-full border border-neon/40 bg-zinc-900 text-neon">
-            ?
-          </div>
-        )}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={avatarSrc}
+          alt=""
+          className="h-12 w-12 rounded-full border border-neon/40 bg-zinc-900 object-cover"
+          referrerPolicy="no-referrer"
+          onError={(e) => {
+            const el = e.currentTarget;
+            if (!el.src.includes("unavatar.io")) {
+              el.src = `https://unavatar.io/twitter/${encodeURIComponent(handle)}`;
+            }
+          }}
+        />
         <div className="min-w-0 flex-1">
           <div className="truncate font-semibold text-white">
             {name || `@${handle}`}
@@ -197,7 +294,7 @@ export default function KolLoveCard({
         </a>
       </div>
 
-      <p className="text-center font-mono text-sm text-[#fff8e7]/90 flex items-center justify-center gap-2">
+      <p className="flex items-center justify-center gap-2 text-center font-mono text-sm text-[#fff8e7]/90">
         <EmojiIcon size={18}>💚</EmojiIcon>
         “{KOL_OG_QUOTE}”
         <EmojiIcon size={18}>💩</EmojiIcon>
@@ -206,7 +303,7 @@ export default function KolLoveCard({
       <div className="grid grid-cols-3 gap-2">
         <button
           type="button"
-          disabled={busy !== null}
+          disabled={busy !== null || loading || !imgUrl}
           onClick={() => void copyImage()}
           className="min-h-11 rounded-xl bg-neon text-black text-xs font-bold disabled:opacity-50 active:scale-[0.98]"
         >
@@ -214,7 +311,7 @@ export default function KolLoveCard({
         </button>
         <button
           type="button"
-          disabled={busy !== null}
+          disabled={busy !== null || loading || !imgUrl}
           onClick={() => void download()}
           className="min-h-11 rounded-xl border border-neon/50 text-neon text-xs font-bold disabled:opacity-50 active:scale-[0.98]"
         >
@@ -230,10 +327,10 @@ export default function KolLoveCard({
       </div>
 
       {msg ? (
-        <p className="text-center text-xs text-neon font-mono">{msg}</p>
+        <p className="text-center font-mono text-xs text-neon">{msg}</p>
       ) : (
         <p className="text-center text-[11px] text-zinc-600">
-          Share the link — OG shows their PFP + quote
+          Share the link — OG shows this card
         </p>
       )}
 
