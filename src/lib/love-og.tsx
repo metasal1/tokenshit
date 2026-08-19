@@ -124,12 +124,32 @@ export async function loadLoveReferrer(raw?: string | null) {
   }
 }
 
+
+/** OG-only: never block on X API / PFP bytes — Satori fetches unavatar URL. */
+export function loadLoveReferrerForOg(raw?: string | null) {
+  const h = (raw || "").replace(/^@/, "").trim().toLowerCase();
+  if (!h || !/^[a-z0-9_]{1,15}$/.test(h)) {
+    return {
+      handle: null as string | null,
+      name: null as string | null,
+      pfpUrl: null as string | null,
+      pfpData: null as string | null,
+    };
+  }
+  const cached = REF_MEM.get(h);
+  return {
+    handle: h,
+    name: cached?.name || h,
+    // absolute URL — next/og fetches in parallel with fonts (no base64 round-trip)
+    pfpUrl: `https://unavatar.io/twitter/${encodeURIComponent(h)}`,
+    pfpData: cached?.pfp || null,
+  };
+}
+
 export async function renderLoveOg(ref?: string | null): Promise<ImageResponse> {
-  const [refUser, monoton, inter] = await Promise.all([
-    loadLoveReferrer(ref),
-    loadMonoton(),
-    loadInter(),
-  ]);
+  // Fonts only — profile is sync (handle + unavatar URL). Keeps cold OG under crawler timeouts.
+  const refUser = loadLoveReferrerForOg(ref);
+  const [monoton, inter] = await Promise.all([loadMonoton(), loadInter()]);
 
   const fonts: {
     name: string;
@@ -240,10 +260,10 @@ export async function renderLoveOg(ref?: string | null): Promise<ImageResponse> 
                 boxShadow: `0 0 40px ${GREEN}66`,
               }}
             >
-              {refUser.pfp ? (
+              {refUser.pfpData || refUser.pfpUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
-                  src={refUser.pfp}
+                  src={refUser.pfpData || refUser.pfpUrl || ""}
                   width={200}
                   height={200}
                   alt=""
@@ -257,12 +277,12 @@ export async function renderLoveOg(ref?: string | null): Promise<ImageResponse> 
                     height: "100%",
                     alignItems: "center",
                     justifyContent: "center",
-                    fontSize: 72,
+                    fontSize: 64,
                     color: GREEN,
                     fontFamily: "Monoton",
                   }}
                 >
-                  💚
+                  {(refUser.handle || "T")[0].toUpperCase()}
                 </div>
               )}
             </div>
