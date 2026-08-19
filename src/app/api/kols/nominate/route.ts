@@ -5,7 +5,7 @@ import {
   normalizeKolHandle,
   MIN_KOL_FOLLOWERS,
 } from "@/lib/kol-noms";
-import { sendTelegramMessage, escapeHtml } from "@/lib/telegram";
+import { notifyKolNominationTelegram } from "@/lib/telegram";
 import { getClientIp, rateLimitIp } from "@/lib/api-guard";
 import { requirePrivy } from "@/lib/privy-server";
 import {
@@ -326,23 +326,17 @@ export async function POST(request: NextRequest) {
         followers: look.followers,
       }).catch(() => {});
 
-      const fl = look.followers.toLocaleString();
-      const text = [
-        `KOL nom`,
-        `→ @${escapeHtml(result.handle)} · ${escapeHtml(fl)} flw`,
-        look.displayName
-          ? `name: ${escapeHtml(look.displayName.slice(0, 40))}`
-          : "",
-        `by @${escapeHtml(byX)}`,
-        note ? `note: ${escapeHtml(String(note).slice(0, 120))}` : "",
-        `id ${result.id}`,
-        `admin: https://tokenshit.com/admin?tab=kols`,
-      ]
-        .filter(Boolean)
-        .join("\n");
       void Promise.race([
-        sendTelegramMessage(text),
-        new Promise((r) => setTimeout(r, 2500)),
+        notifyKolNominationTelegram({
+          id: Number(result.id),
+          handle: result.handle,
+          followers: look.followers,
+          displayName: look.displayName,
+          byX,
+          note: note ? String(note) : null,
+          avatarUrl: look.avatarUrl,
+        }),
+        new Promise((r) => setTimeout(r, 3500)),
       ]).catch(() => {});
     }
 
