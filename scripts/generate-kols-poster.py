@@ -158,7 +158,7 @@ def make_poster(size: tuple[int, int], tag: str) -> Image.Image:
         y = int(h * 0.04)
 
     # eyebrow
-    eye = "COMING SOON  |  NOMINATIONS OPEN"
+    eye = "LIVE ROSTER  |  NOMINATE  |  2.5K SCOUT"
     ew = text_w(orb_sm, eye)
     draw.text(((w - ew) // 2, y), eye, font=orb_sm, fill=MUTED)
     y += fs(36)
@@ -220,7 +220,7 @@ def make_poster(size: tuple[int, int], tag: str) -> Image.Image:
         "Every KOL is shit",
         "until proven otherwise.",
     ]
-    sub = "Nominate CT voices  |  HIT or SHIT"
+    sub = "10k+ KOL accepted  =  2,500 $TOKENSHIT"
     card_h = fs(200) if wide else fs(340)
     rounded_rect(
         draw,
@@ -263,13 +263,13 @@ def make_poster(size: tuple[int, int], tag: str) -> Image.Image:
     y += ch + fs(28)
 
     # footer
-    foot = "SCOUT  |  NOMINATE  |  RATE"
+    foot = "SCOUT 2.5K  |  NOMINATE  |  HIT OR SHIT"
     if not wide:
         fw = text_w(orb_sm, foot)
         draw.text(((w - fw) // 2, min(y, h - fs(50))), foot, font=orb_sm, fill=DIM)
 
     # bottom brand strip safe
-    url2 = "TOKEN$HIT  |  CT KOL COURT"
+    url2 = "TOKEN$HIT  |  tokenshit.com/kols"
     u2w = text_w(orb_sm, url2)
     draw.text(((w - u2w) // 2, h - fs(42)), url2, font=orb_sm, fill=DIM)
 
