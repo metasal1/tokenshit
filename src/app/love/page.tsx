@@ -4,6 +4,7 @@ import { EmojiIcon } from "@/components/EmojiIcon";
 import { pageMeta } from "@/lib/seo";
 import { LOVE_GAS_TWEET, loveGasTweetIntentUrl } from "@/lib/shit-token";
 import { loadLoveReferrer } from "@/lib/love-og";
+import { getLoveOgPngResponse } from "@/lib/love-og-cache";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -16,15 +17,15 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
   const referrer = await loadLoveReferrer(ref);
   const og =
     referrer.handle
-      ? `https://tokenshit.com/api/love/og?ref=${encodeURIComponent(referrer.handle)}&v=3`
-      : "https://tokenshit.com/love/opengraph-image?v=3";
+      ? `https://tokenshit.com/api/love/og?ref=${encodeURIComponent(referrer.handle)}&v=4`
+      : "https://tokenshit.com/love/opengraph-image?v=4";
 
   const title = referrer.handle
     ? `I LOVE TOKENSHIT — via @${referrer.handle}`
     : "I LOVE TOKENSHIT";
   const description = referrer.handle
-    ? `@${referrer.handle} loves TOKEN$HIT. Tweet I LOVE TOKENSHIT and join the bag.`
-    : "Tweet I LOVE TOKENSHIT 💚 with @tokenshit_. Join the bag on Solana.";
+    ? `@${referrer.handle} says I LOVE TOKENSHIT on TOKEN$HIT — every token is shit until proven otherwise. Join the bag on Solana.`
+    : "I LOVE TOKENSHIT 💚 — every token is shit until proven otherwise. Tweet @tokenshit_ and join the bag on Solana.";
 
   const base = pageMeta({
     title,
@@ -32,6 +33,9 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
     path: referrer.handle ? `/love?ref=${referrer.handle}` : "/love",
     og: "default",
   });
+
+  // Populate edge/memory cache so crawlers hit warm PNG (don't await)
+  void getLoveOgPngResponse(referrer.handle).catch(() => {});
 
   return {
     ...base,
