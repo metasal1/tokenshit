@@ -227,6 +227,7 @@ export default function DayGamePanel({
   const [soundOn, setSoundOn] = useState(true);
   const [justPlayed, setJustPlayed] = useState(false);
   const prevPots = useRef<{ hit: number; shit: number } | null>(null);
+  const lastBagTap = useRef<{ id: string; t: number } | null>(null);
 
   const load = useCallback(() => {
     const w = wallet ? `?wallet=${encodeURIComponent(wallet)}` : "";
@@ -479,9 +480,20 @@ export default function DayGamePanel({
   function pickBag(m: Major | SearchHit | Leader) {
     sfx.unlock();
     sfx.tap();
-    setSelected(toMajor(m));
+    const bag = toMajor(m);
+    setSelected(bag);
     setErr(null);
     setMsg(null);
+
+    // Double-tap / double-click within 380ms → play immediately
+    const now = Date.now();
+    const prev = lastBagTap.current;
+    if (prev && prev.id === bag.assetId && now - prev.t < 380) {
+      lastBagTap.current = null;
+      void play(bag);
+      return;
+    }
+    lastBagTap.current = { id: bag.assetId, t: now };
   }
 
   function setSideSafe(next: "hit" | "shit") {
@@ -734,6 +746,7 @@ export default function DayGamePanel({
                   type="button"
                   disabled={busy}
                   onClick={() => pickBag(m)}
+                  title="Double-tap to play"
                   className={`relative flex flex-col items-center gap-0.5 rounded-2xl border p-2 transition active:scale-[0.97] disabled:opacity-50 ${
                     on
                       ? side === "hit"
@@ -816,7 +829,7 @@ export default function DayGamePanel({
             </div>
           </div>
         ) : (
-          <p className="text-center text-xs text-zinc-500">Tap a bag to play</p>
+          <p className="text-center text-xs text-zinc-500">Tap bag · double-tap to play</p>
         )}
 
         {(err || msg || phase) && (
