@@ -23,7 +23,7 @@ export default function KolLoveCard({
   const ogSrc = useMemo(() => {
     const h = encodeURIComponent(handle.replace(/^@/, ""));
     // Next serves opengraph-image at this path; bust lightly
-    return `/kols/${h}/opengraph-image?v=1`;
+    return `/kols/${h}/opengraph-image?v=3`;
   }, [handle]);
 
   const pageUrl = useMemo(() => {
@@ -130,6 +130,10 @@ export default function KolLoveCard({
     }
   }, [pageUrl]);
 
+  const avatarSrc =
+    avatarUrl?.replace("_normal", "_400x400").replace("_bigger", "_400x400") ||
+    `https://unavatar.io/twitter/${encodeURIComponent(handle)}`;
+
   const flw =
     followers != null && followers > 0
       ? followers >= 1_000_000
@@ -155,13 +159,19 @@ export default function KolLoveCard({
       </div>
 
       <div className="flex items-center gap-3 px-1">
-        {avatarUrl ? (
+        {avatarSrc ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            src={avatarUrl.replace("_normal", "_bigger")}
+            src={avatarSrc}
             alt=""
-            className="h-12 w-12 rounded-full border border-neon/40"
+            className="h-12 w-12 rounded-full border border-neon/40 bg-zinc-900 object-cover"
             referrerPolicy="no-referrer"
+            onError={(e) => {
+              const el = e.currentTarget;
+              if (!el.src.includes("unavatar.io")) {
+                el.src = `https://unavatar.io/twitter/${encodeURIComponent(handle)}`;
+              }
+            }}
           />
         ) : (
           <div className="flex h-12 w-12 items-center justify-center rounded-full border border-neon/40 bg-zinc-900 text-neon">
