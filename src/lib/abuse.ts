@@ -21,6 +21,7 @@ import {
   isUnreliableIp,
 } from "@/lib/api-guard";
 import { isBlacklistedEmailDomain } from "@/lib/security";
+import { DISPOSABLE_EMAIL_DOMAINS } from "@/lib/disposable-email-domains";
 import {
   ABUSE_MIN_FOLLOWERS_CLAIM,
   ABUSE_MIN_FOLLOWERS_REFERRAL,
@@ -44,35 +45,6 @@ export const CLAIM_PER_IP_DAY = (() => {
 
 const SOFT = process.env.ABUSE_SOFT_MODE === "1";
 
-const DISPOSABLE = new Set(
-  [
-    "mailinator.com",
-    "guerrillamail.com",
-    "guerrillamail.net",
-    "sharklasers.com",
-    "grr.la",
-    "tempmail.com",
-    "temp-mail.org",
-    "temp-mail.io",
-    "10minutemail.com",
-    "10minemail.com",
-    "yopmail.com",
-    "trashmail.com",
-    "throwaway.email",
-    "getnada.com",
-    "nada.ltd",
-    "discard.email",
-    "mailnesia.com",
-    "maildrop.cc",
-    "fakeinbox.com",
-    "trashmail.me",
-    "emailondeck.com",
-    "mintemail.com",
-    "mytemp.email",
-    "tempail.com",
-    "dispostable.com",
-  ].map((h) => h.toLowerCase())
-);
 
 export type GateResult = {
   ok: boolean;
@@ -124,12 +96,27 @@ export function getClientIp(req: {
 export function isDisposableEmail(email: string): boolean {
   const host = email.split("@")[1]?.toLowerCase().trim();
   if (!host) return true;
-  if (DISPOSABLE.has(host)) return true;
   if (isBlacklistedEmailDomain(email)) return true;
+  if (DISPOSABLE_EMAIL_DOMAINS.has(host)) return true;
+  // parent domain match (sub.mailinator.com → mailinator.com)
+  const parts = host.split(".");
+  if (parts.length >= 3) {
+    const parent = parts.slice(1).join(".");
+    if (DISPOSABLE_EMAIL_DOMAINS.has(parent)) return true;
+    if (parts.length >= 4) {
+      const parent2 = parts.slice(2).join(".");
+      if (DISPOSABLE_EMAIL_DOMAINS.has(parent2)) return true;
+    }
+  }
   return (
     host.endsWith(".tk") ||
+    host.endsWith(".ml") ||
+    host.endsWith(".ga") ||
+    host.endsWith(".cf") ||
     host.includes("tempmail") ||
-    host.includes("throwaway")
+    host.includes("throwaway") ||
+    host.includes("mailinator") ||
+    host.includes("guerrillamail")
   );
 }
 
