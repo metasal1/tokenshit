@@ -35,11 +35,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       ? `${name} (@${handle}, ${followers.toLocaleString()} followers) on TOKEN$HIT. ${KOL_OG_QUOTE}`
       : `${name} (@${handle}) on TOKEN$HIT. ${KOL_OG_QUOTE}`;
   const path = `/kols/${handle}`;
-  const og = `https://tokenshit.com/api/kols/card/${handle}?v=7`;
+  // Absolute URLs — no default.png. Prefer file OG route + API fallback.
+  const ogPrimary = `https://tokenshit.com/kols/${handle}/opengraph-image?v=8`;
+  const ogApi = `https://tokenshit.com/api/kols/card/${handle}?v=8`;
   return {
     title,
     description,
-    alternates: { canonical: path },
+    alternates: { canonical: `https://tokenshit.com${path}` },
     openGraph: {
       title,
       description,
@@ -48,7 +50,15 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       siteName: "TOKEN$HIT",
       images: [
         {
-          url: og,
+          url: ogPrimary,
+          secureUrl: ogPrimary,
+          width: 1200,
+          height: 630,
+          type: "image/png",
+          alt: title,
+        },
+        {
+          url: ogApi,
           width: 1200,
           height: 630,
           type: "image/png",
@@ -61,7 +71,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       title,
       description,
       creator: "@Tokenshit_",
-      images: [og],
+      site: "@Tokenshit_",
+      images: [ogPrimary, ogApi],
     },
   };
 }
