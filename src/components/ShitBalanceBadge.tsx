@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { usePrivy } from "@privy-io/react-auth";
 import { useWallets } from "@privy-io/react-auth/solana";
-import Link from "next/link";
 import { SHIT_SYMBOL } from "@/lib/shit-token";
 import { BalanceSkeleton } from "@/components/StatLoader";
 
@@ -91,10 +90,13 @@ export default function ShitBalanceBadge({
   }
 
   return (
-    <Link
-      href="/claim"
+    <button
+      type="button"
+      onClick={() => {
+        window.dispatchEvent(new CustomEvent("tokenshit:open-wallet"));
+      }}
       className={`inline-flex items-center gap-1 text-xs px-2 py-1.5 min-h-9 rounded-md border border-neon/30 bg-neon/5 text-zinc-200 hover:border-neon hover:text-white transition-colors font-mono ${className}`}
-      title={`Your $${SHIT_SYMBOL} balance`}
+      title={`Your $${SHIT_SYMBOL} · open wallet`}
     >
       <span className="text-neon font-semibold">$</span>
       {loading && bal == null ? (
@@ -104,6 +106,6 @@ export default function ShitBalanceBadge({
           {fmt(bal ?? 0)}
         </span>
       )}
-    </Link>
+    </button>
   );
 }
