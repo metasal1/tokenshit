@@ -13,6 +13,16 @@ const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36";
 
 async function toRgbaPngDataUrl(buf: Buffer, size?: number): Promise<string | null> {
+  // Fast path: jpeg/png under 400kb — Satori accepts both; skip sharp
+  const isPng = buf[0] === 0x89 && buf[1] === 0x50;
+  const isJpeg = buf[0] === 0xff && buf[1] === 0xd8;
+  if ((isPng || isJpeg) && buf.length < 400_000 && !size) {
+    return `data:${isPng ? "image/png" : "image/jpeg"};base64,${buf.toString("base64")}`;
+  }
+  if ((isPng || isJpeg) && buf.length < 250_000) {
+    // still ok without resize for OG
+    return `data:${isPng ? "image/png" : "image/jpeg"};base64,${buf.toString("base64")}`;
+  }
   try {
     const sharp = (await import("sharp")).default;
     let pipe = sharp(buf).ensureAlpha();
@@ -20,16 +30,16 @@ async function toRgbaPngDataUrl(buf: Buffer, size?: number): Promise<string | nu
     const out = await pipe.png().toBuffer();
     return `data:image/png;base64,${out.toString("base64")}`;
   } catch {
-    if (buf[0] === 0x89 && buf[1] === 0x50)
-      return `data:image/png;base64,${buf.toString("base64")}`;
-    if (buf[0] === 0xff && buf[1] === 0xd8)
-      return `data:image/jpeg;base64,${buf.toString("base64")}`;
+    if (isPng) return `data:image/png;base64,${buf.toString("base64")}`;
+    if (isJpeg) return `data:image/jpeg;base64,${buf.toString("base64")}`;
     return null;
   }
 }
 
-async function fetchBuf(url: string): Promise<Buffer | null> {
+async function fetchBuf(url: string, ms = 2500): Promise<Buffer | null> {
   try {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), ms);
     const res = await fetch(url, {
       headers: {
         "User-Agent": UA,
@@ -37,8 +47,10 @@ async function fetchBuf(url: string): Promise<Buffer | null> {
         Referer: "https://x.com/",
       },
       redirect: "follow",
-      next: { revalidate: 3600 },
+      signal: ctrl.signal,
+      next: { revalidate: 86400 },
     });
+    clearTimeout(timer);
     if (!res.ok) return null;
     const buf = Buffer.from(await res.arrayBuffer());
     if (buf.length < 32 || buf.length > 5_000_000) return null;
@@ -57,15 +69,12 @@ function pfpCandidates(profileImageUrl: string | undefined | null, handle: strin
     const base = u.split("?")[0];
     out.push(
       base.replace(/_normal\./i, "_400x400.").replace(/_bigger\./i, "_400x400."),
-      base.replace(/_normal\./i, "_200x200.").replace(/_bigger\./i, "_200x200."),
       base
     );
   }
   const h = handle.replace(/^@/, "");
-  out.push(
-    `https://unavatar.io/twitter/${encodeURIComponent(h)}?fallback=false`,
-    `https://unavatar.io/x/${encodeURIComponent(h)}?fallback=false`
-  );
+  // single proxy fallback (avoid 4 sequential slow fails)
+  out.push(`https://unavatar.io/twitter/${encodeURIComponent(h)}?fallback=false`);
   return [...new Set(out.filter(Boolean))];
 }
 
@@ -78,7 +87,7 @@ export async function loadKolForOg(raw: string) {
     for (const c of pfpCandidates(x.ok ? x.profileImageUrl : null, h)) {
       const buf = await fetchBuf(c);
       if (!buf) continue;
-      pfp = await toRgbaPngDataUrl(buf, 400);
+      pfp = await toRgbaPngDataUrl(buf);
       if (pfp) break;
     }
     if (!x.ok) return { handle: h, name: h, followers: 0, pfp, verified: false };

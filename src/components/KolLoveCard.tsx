@@ -11,14 +11,12 @@ type Props = {
   avatarUrl?: string | null;
 };
 
-const LOAD_LINES = [
-  "Summoning PFP…",
-  "Sprinkling brand emojis…",
-  "Neon-locking TOKEN$HIT…",
-  "Asking if they love Tokenshit…",
-  "Printing shitpost OG…",
-  "Almost legendary…",
-];
+function fmtFollowers(n: number | null | undefined): string {
+  if (n == null || !Number.isFinite(n) || n <= 0) return "—";
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
+  return n.toLocaleString();
+}
 
 export default function KolLoveCard({
   handle,
@@ -28,33 +26,28 @@ export default function KolLoveCard({
 }: Props) {
   const [busy, setBusy] = useState<"copy" | "dl" | null>(null);
   const [msg, setMsg] = useState("");
-  const [imgUrl, setImgUrl] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [err, setErr] = useState<string | null>(null);
-  const [lineIdx, setLineIdx] = useState(0);
+  const [pngUrl, setPngUrl] = useState<string | null>(null);
+  const [pngReady, setPngReady] = useState(false);
+  const [pngErr, setPngErr] = useState(false);
 
-  const cardApi = useMemo(() => {
-    const h = encodeURIComponent(handle.replace(/^@/, ""));
-    return `/api/kols/card/${h}?v=7`;
-  }, [handle]);
+  const h = handle.replace(/^@/, "");
 
-  const ogPath = useMemo(() => {
-    const h = encodeURIComponent(handle.replace(/^@/, ""));
-    return `/kols/${h}/opengraph-image?v=7`;
-  }, [handle]);
+  const cardApi = useMemo(
+    () => `/api/kols/card/${encodeURIComponent(h)}?v=8`,
+    [h]
+  );
 
   const pageUrl = useMemo(() => {
     if (typeof window !== "undefined") {
-      return `${window.location.origin}/kols/${handle}`;
+      return `${window.location.origin}/kols/${h}`;
     }
-    return `https://tokenshit.com/kols/${handle}`;
-  }, [handle]);
+    return `https://tokenshit.com/kols/${h}`;
+  }, [h]);
 
-  const shareText = useMemo(() => {
-    const h = handle.replace(/^@/, "");
-    // Tag the KOL + brand; no hashtags per product rules
-    return `I love Tokenshit?\n\n@${h} on @Tokenshit_\n\n${pageUrl}`;
-  }, [handle, pageUrl]);
+  const shareText = useMemo(
+    () => `I love Tokenshit?\n\n@${h} on @Tokenshit_\n\n${pageUrl}`,
+    [h, pageUrl]
+  );
 
   const xShareUrl = useMemo(() => {
     const u = new URL("https://x.com/intent/tweet");
@@ -65,52 +58,42 @@ export default function KolLoveCard({
   const tgShareUrl = useMemo(() => {
     const u = new URL("https://t.me/share/url");
     u.searchParams.set("url", pageUrl);
-    u.searchParams.set(
-      "text",
-      `I love Tokenshit?\n\n@${handle.replace(/^@/, "")} on @Tokenshit_`
-    );
+    u.searchParams.set("text", `I love Tokenshit?\n\n@${h} on @Tokenshit_`);
     return u.toString();
-  }, [handle, pageUrl]);
+  }, [h, pageUrl]);
 
-  // Fun loader tick
-  useEffect(() => {
-    if (!loading) return;
-    const t = window.setInterval(() => {
-      setLineIdx((i) => (i + 1) % LOAD_LINES.length);
-    }, 900);
-    return () => window.clearInterval(t);
-  }, [loading]);
+  const avatarSrc =
+    avatarUrl
+      ?.replace("_normal", "_400x400")
+      .replace("_bigger", "_400x400") ||
+    `https://unavatar.io/twitter/${encodeURIComponent(h)}`;
 
-  // Generate / fetch card as blob (shows loader while OG renders)
+  // Prefetch PNG in background (uses CDN/memory cache after first hit)
   useEffect(() => {
     let dead = false;
     let objectUrl: string | null = null;
-    setLoading(true);
-    setErr(null);
-    setImgUrl(null);
+    setPngReady(false);
+    setPngErr(false);
+    setPngUrl(null);
 
     (async () => {
       try {
-        // Prefer API card route; fallback opengraph-image
-        let res = await fetch(cardApi, { cache: "no-store" });
-        if (!res.ok) {
-          res = await fetch(ogPath, { cache: "no-store" });
-        }
-        if (!res.ok) throw new Error(`Card failed (${res.status})`);
+        const res = await fetch(cardApi, {
+          // allow browser HTTP cache — second visit is instant
+          cache: "force-cache",
+        });
+        if (!res.ok) throw new Error(String(res.status));
         const blob = await res.blob();
-        if (blob.size < 64) throw new Error("Empty card");
+        if (blob.size < 64) throw new Error("empty");
         objectUrl = URL.createObjectURL(blob);
         if (dead) {
           URL.revokeObjectURL(objectUrl);
           return;
         }
-        setImgUrl(objectUrl);
-        setLoading(false);
-      } catch (e) {
-        if (!dead) {
-          setErr(e instanceof Error ? e.message : "Could not generate card");
-          setLoading(false);
-        }
+        setPngUrl(objectUrl);
+        setPngReady(true);
+      } catch {
+        if (!dead) setPngErr(true);
       }
     })();
 
@@ -118,29 +101,29 @@ export default function KolLoveCard({
       dead = true;
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [cardApi, ogPath]);
+  }, [cardApi]);
 
   const getBlob = useCallback(async () => {
-    if (imgUrl) {
-      const r = await fetch(imgUrl);
+    if (pngUrl) {
+      const r = await fetch(pngUrl);
       const b = await r.blob();
       if (b.size >= 64) return b;
     }
-    const res = await fetch(cardApi, { cache: "no-store" });
+    const res = await fetch(cardApi, { cache: "force-cache" });
     if (!res.ok) throw new Error(`Image ${res.status}`);
     const blob = await res.blob();
     if (blob.size < 64) throw new Error("empty image");
     return blob.type === "image/png"
       ? blob
       : new Blob([await blob.arrayBuffer()], { type: "image/png" });
-  }, [imgUrl, cardApi]);
+  }, [pngUrl, cardApi]);
 
   const download = useCallback(async () => {
     setBusy("dl");
-    setMsg("Preparing…");
+    setMsg(pngReady ? "Saving…" : "Generating PNG…");
     try {
       const blob = await getBlob();
-      const file = new File([blob], `tokenshit-kol-${handle}.png`, {
+      const file = new File([blob], `tokenshit-kol-${h}.png`, {
         type: "image/png",
       });
       if (
@@ -150,8 +133,8 @@ export default function KolLoveCard({
       ) {
         await navigator.share({
           files: [file],
-          title: `@${handle} — ${KOL_OG_QUOTE}`,
-          text: `${KOL_OG_QUOTE} — @${handle} on TOKEN$HIT`,
+          title: `@${h} — ${KOL_OG_QUOTE}`,
+          text: shareText,
           url: pageUrl,
         });
         setMsg("Shared ✓");
@@ -160,7 +143,7 @@ export default function KolLoveCard({
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `tokenshit-kol-${handle}.png`;
+      a.download = `tokenshit-kol-${h}.png`;
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -172,11 +155,11 @@ export default function KolLoveCard({
       setBusy(null);
       window.setTimeout(() => setMsg(""), 2000);
     }
-  }, [getBlob, handle, pageUrl]);
+  }, [getBlob, h, pageUrl, shareText, pngReady]);
 
   const copyImage = useCallback(async () => {
     setBusy("copy");
-    setMsg("Copying…");
+    setMsg(pngReady ? "Copying…" : "Generating PNG…");
     try {
       const blob = await getBlob();
       if (
@@ -190,7 +173,7 @@ export default function KolLoveCard({
         setMsg("Image copied ✓");
         return;
       }
-      const file = new File([blob], `tokenshit-kol-${handle}.png`, {
+      const file = new File([blob], `tokenshit-kol-${h}.png`, {
         type: "image/png",
       });
       if (
@@ -208,7 +191,7 @@ export default function KolLoveCard({
       setBusy(null);
       window.setTimeout(() => setMsg(""), 2200);
     }
-  }, [getBlob, handle, pageUrl]);
+  }, [getBlob, h, pageUrl, pngReady]);
 
   const copyLink = useCallback(async () => {
     try {
@@ -220,65 +203,76 @@ export default function KolLoveCard({
     }
   }, [pageUrl]);
 
-  const avatarSrc =
-    avatarUrl?.replace("_normal", "_400x400").replace("_bigger", "_400x400") ||
-    `https://unavatar.io/twitter/${encodeURIComponent(handle)}`;
-
-  const flw =
-    followers != null && followers > 0
-      ? followers >= 1_000_000
-        ? `${(followers / 1_000_000).toFixed(1)}M`
-        : followers >= 1_000
-          ? `${(followers / 1_000).toFixed(1)}K`
-          : followers.toLocaleString()
-      : null;
-
   return (
     <div className="mx-auto w-full max-w-lg space-y-4">
-      {/* Card preview 1200/630 aspect */}
-      <div className="relative overflow-hidden rounded-2xl border border-neon/30 bg-zinc-950 shadow-[0_0_40px_rgba(57,255,20,0.08)] aspect-[1200/630]">
-        {imgUrl && !loading ? (
+      {/* Instant CSS card (no wait) — OG PNG loads behind for export */}
+      <div className="relative overflow-hidden rounded-2xl border border-neon/30 bg-[#0a0a0f] shadow-[0_0_40px_rgba(57,255,20,0.08)] aspect-[1200/630]">
+        {/* If PNG ready, prefer it (matches share exactly) */}
+        {pngReady && pngUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            src={imgUrl}
-            alt={`@${handle} — ${KOL_OG_QUOTE}`}
+            src={pngUrl}
+            alt={`@${h} — ${KOL_OG_QUOTE}`}
             className="absolute inset-0 h-full w-full object-cover"
             draggable
           />
         ) : (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-[#0a0a0f] px-6">
-            <div className="flex items-center gap-2 animate-pulse">
-              <EmojiIcon size={36}>💩</EmojiIcon>
-              <EmojiIcon size={32}>🔥</EmojiIcon>
-              <EmojiIcon size={36}>💚</EmojiIcon>
-              <EmojiIcon size={32}>✨</EmojiIcon>
+          <div className="absolute inset-0 flex flex-col p-4 sm:p-5">
+            {/* brand row */}
+            <div className="flex items-center gap-2 mb-3">
+              <span className="font-monoton text-lg sm:text-xl tracking-wide">
+                <span className="neon-text">TOKEN</span>
+                <span className="neon-dollar">$</span>
+                <span className="neon-text">HIT</span>
+              </span>
+              <EmojiIcon size={18}>💩</EmojiIcon>
+              <span className="ml-auto font-orbitron text-[9px] uppercase tracking-wider text-zinc-600">
+                KOL card
+              </span>
             </div>
-            <p className="font-monoton text-2xl tracking-wide">
-              <span className="neon-text">KOL</span>
-              <span className="neon-dollar">$</span>
-            </p>
-            <p className="font-mono text-xs text-neon animate-pulse text-center">
-              {err ? err : LOAD_LINES[lineIdx]}
-            </p>
-            {!err && (
-              <div className="mt-1 h-1.5 w-44 overflow-hidden rounded-full bg-zinc-800">
-                <div className="h-full w-2/3 animate-pulse rounded-full bg-neon shadow-[0_0_12px_#39ff14]" />
-              </div>
-            )}
-            {err && (
-              <button
-                type="button"
-                onClick={() => {
-                  setLoading(true);
-                  setErr(null);
-                  // remount effect via query bump
-                  window.location.reload();
+            <div className="flex flex-1 items-center gap-3 sm:gap-4 min-h-0">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={avatarSrc}
+                alt=""
+                className="h-20 w-20 sm:h-24 sm:w-24 rounded-full border-[3px] border-neon object-cover bg-zinc-900 shadow-[0_0_24px_rgba(57,255,20,0.35)] shrink-0"
+                referrerPolicy="no-referrer"
+                onError={(e) => {
+                  const el = e.currentTarget;
+                  if (!el.src.includes("unavatar.io")) {
+                    el.src = `https://unavatar.io/twitter/${encodeURIComponent(h)}`;
+                  }
                 }}
-                className="mt-2 rounded-lg border border-neon/40 px-3 py-1.5 text-xs text-neon"
-              >
-                Retry
-              </button>
-            )}
+              />
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-1.5 mb-1">
+                  <EmojiIcon size={16}>💚</EmojiIcon>
+                  <EmojiIcon size={14}>🔥</EmojiIcon>
+                </div>
+                <p className="text-[#fff8e7] font-bold text-base sm:text-lg leading-snug">
+                  “{KOL_OG_QUOTE}”
+                </p>
+                <p className="mt-2 font-mono text-neon text-sm font-bold truncate">
+                  @{h}
+                </p>
+                <p className="text-zinc-500 text-xs font-mono">
+                  {name && name.toLowerCase() !== h.toLowerCase()
+                    ? `${name} · `
+                    : ""}
+                  {fmtFollowers(followers)} flw
+                </p>
+              </div>
+            </div>
+            <div className="mt-2 flex items-center justify-between border-t border-zinc-800 pt-2">
+              <span className="text-[10px] text-zinc-600 font-mono truncate">
+                Every KOL is shit until proven otherwise
+              </span>
+              {!pngErr && (
+                <span className="text-[9px] text-zinc-600 font-orbitron uppercase tracking-wide animate-pulse shrink-0 ml-2">
+                  PNG…
+                </span>
+              )}
+            </div>
           </div>
         )}
       </div>
@@ -290,24 +284,18 @@ export default function KolLoveCard({
           alt=""
           className="h-12 w-12 rounded-full border border-neon/40 bg-zinc-900 object-cover"
           referrerPolicy="no-referrer"
-          onError={(e) => {
-            const el = e.currentTarget;
-            if (!el.src.includes("unavatar.io")) {
-              el.src = `https://unavatar.io/twitter/${encodeURIComponent(handle)}`;
-            }
-          }}
         />
         <div className="min-w-0 flex-1">
           <div className="truncate font-semibold text-white">
-            {name || `@${handle}`}
+            {name || `@${h}`}
           </div>
           <div className="font-mono text-xs text-zinc-500">
-            @{handle}
-            {flw ? ` · ${flw} flw` : ""}
+            @{h}
+            {followers != null ? ` · ${fmtFollowers(followers)} flw` : ""}
           </div>
         </div>
         <a
-          href={`https://x.com/${handle}`}
+          href={`https://x.com/${h}`}
           target="_blank"
           rel="noopener noreferrer"
           className="rounded-lg border border-zinc-700 px-2.5 py-1.5 text-[11px] text-zinc-300 hover:border-neon"
@@ -346,7 +334,6 @@ export default function KolLoveCard({
             aria-hidden
             className="shrink-0"
           >
-            {/* Official-style Telegram paper-plane mark */}
             <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.45 4.476-1.458z" />
           </svg>
           Telegram
@@ -356,7 +343,7 @@ export default function KolLoveCard({
       <div className="grid grid-cols-3 gap-2">
         <button
           type="button"
-          disabled={busy !== null || loading || !imgUrl}
+          disabled={busy !== null}
           onClick={() => void copyImage()}
           className="min-h-11 rounded-xl bg-neon text-black text-xs font-bold disabled:opacity-50 active:scale-[0.98]"
         >
@@ -364,7 +351,7 @@ export default function KolLoveCard({
         </button>
         <button
           type="button"
-          disabled={busy !== null || loading || !imgUrl}
+          disabled={busy !== null}
           onClick={() => void download()}
           className="min-h-11 rounded-xl border border-neon/50 text-neon text-xs font-bold disabled:opacity-50 active:scale-[0.98]"
         >
@@ -383,7 +370,8 @@ export default function KolLoveCard({
         <p className="text-center font-mono text-xs text-neon">{msg}</p>
       ) : (
         <p className="text-center text-[11px] text-zinc-600">
-          Shares tag @{handle.replace(/^@/, "")} + @Tokenshit_ · OG card attached via link
+          Card shows instantly · PNG caches for share/copy
+          {pngReady ? " · ready" : pngErr ? " · PNG slow/fail" : " · baking PNG…"}
         </p>
       )}
 
