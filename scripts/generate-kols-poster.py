@@ -327,17 +327,25 @@ def make_poster(size: tuple[int, int], tag: str) -> Image.Image:
     )
     y += hero_sz + fs(8)
 
-    # KOL$ micro lockup under hero
-    ksz = fs(40 if not wide else 26)
+    # KOL$ micro lockup under hero (extra gap — Monoton $ side bearings collide)
+    ksz = fs(36 if not wide else 24)
     kf = load_font("Monoton-Regular.ttf", ksz)
-    k1, kd, k2 = "KOL", "$", ""
-    # just KOL$
-    kt = tw(kf, "KOL") + tw(kf, "$")
+    gap = fs(14)
+    kt = tw(kf, "KOL") + gap + tw(kf, "$")
     kx = w // 2 - kt // 2
-    glow_text(img, (kx + tw(kf, "KOL") // 2, y + ksz // 2), "KOL", kf, CREAM, GOLD, anchor="mm", strength=3)
     glow_text(
         img,
-        (kx + tw(kf, "KOL") + tw(kf, "$") // 2, y + ksz // 2),
+        (kx + tw(kf, "KOL") // 2, y + ksz // 2),
+        "KOL",
+        kf,
+        CREAM,
+        GOLD,
+        anchor="mm",
+        strength=3,
+    )
+    glow_text(
+        img,
+        (kx + tw(kf, "KOL") + gap + tw(kf, "$") // 2, y + ksz // 2),
         "$",
         kf,
         NEON,
@@ -345,7 +353,7 @@ def make_poster(size: tuple[int, int], tag: str) -> Image.Image:
         anchor="mm",
         strength=4,
     )
-    y += ksz + fs(28 if not wide else 16)
+    y += ksz + fs(24 if not wide else 14)
 
     # bounty pill
     pill_h = fs(64 if not wide else 40)
@@ -437,7 +445,7 @@ def make_poster(size: tuple[int, int], tag: str) -> Image.Image:
         sf = load_font("Orbitron-Bold.ttf", fs(18))
         ImageDraw.Draw(img).text(
             (w // 2, y + card_h - fs(36)),
-            "HIT · SHIT  ·  COURT COMING",
+            "HIT  /  SHIT   ·   COURT SOON",
             font=sf,
             fill=(*DIM, 255),
             anchor="mm",
@@ -458,7 +466,7 @@ def make_poster(size: tuple[int, int], tag: str) -> Image.Image:
         ]
         for i, (cp, lab, sub) in enumerate(specs):
             chip(img, x0 + i * (chip_w + gap), y + chip_h // 2, chip_w, chip_h, cp, lab, sub)
-        y += chip_h + fs(36)
+        y += chip_h + fs(28)
     else:
         # compact horizontal labels
         specs = [("1f50d", "FIND"), ("1f4b0", "2.5K"), ("1f451", "LAND")]
@@ -485,7 +493,12 @@ def make_poster(size: tuple[int, int], tag: str) -> Image.Image:
     cf = load_font("Orbitron-Bold.ttf", fs(28 if not wide else 18))
     cta_w = tw(cf, cta) + fs(64)
     cta_h = fs(72 if not wide else 44)
-    # keep CTA on canvas
+    # Prefer snug under chips; avoid huge bottom void on 4:5
+    if not wide and not tall:
+        y = min(y, int(h * 0.82) - cta_h)
+    if tall:
+        # lift CTA into lower-middle rather than near footer
+        y = min(y, int(h * 0.78) - cta_h)
     if y + cta_h > h - fs(70):
         y = h - fs(70) - cta_h
     cx0 = w // 2 - cta_w // 2
@@ -514,11 +527,17 @@ def make_poster(size: tuple[int, int], tag: str) -> Image.Image:
         ff = load_font("Orbitron-Bold.ttf", fs(16 if not wide else 12))
         ImageDraw.Draw(img).text(
             (w // 2, h - fs(36)),
-            "FIND  ·  NOMINATE  ·  CASH OUT",
+            "FIND   ·   NOMINATE   ·   CASH OUT",
             font=ff,
-            fill=(*DIM, 255),
+            fill=(*MUTED, 255),
             anchor="mm",
         )
+
+    # fill empty lower third lightly (tall only) without covering CTA
+    if tall:
+        lower_clear = (int(w * 0.12), int(h * 0.72), int(w * 0.88), int(h * 0.88))
+        # inverse: scatter only outside that CTA band... use bottom band
+        scatter(img, f"kol-bottom-{tag}-{w}x{h}", (int(w*0.25), int(h*0.55), int(w*0.75), int(h*0.78)), n=8)
 
     return img.convert("RGB")
 
