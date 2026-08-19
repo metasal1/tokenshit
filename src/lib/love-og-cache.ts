@@ -1,4 +1,5 @@
 import { renderLoveOg } from "@/lib/love-og";
+import { getCloudflareContext } from "@opennextjs/cloudflare";
 
 const MEM = new Map<string, { at: number; buf: ArrayBuffer }>();
 const MEM_TTL_MS = 12 * 60 * 60 * 1000;
@@ -91,23 +92,40 @@ function getStaticFallback(): ArrayBuffer {
 /** In-flight bakes so we don't stampede the same ref */
 const baking = new Set<string>();
 
+function scheduleBackground(task: Promise<unknown>) {
+  try {
+    const ctx = getCloudflareContext().ctx as {
+      waitUntil?: (p: Promise<unknown>) => void;
+    };
+    if (typeof ctx?.waitUntil === "function") {
+      ctx.waitUntil(task);
+      return;
+    }
+  } catch {
+    /* not on CF / no request context */
+  }
+  void task;
+}
+
 function bakeInBackground(ref: string, key: string, cacheReq: Request) {
   if (baking.has(key)) return;
   baking.add(key);
-  void (async () => {
-    try {
-      const img = await renderLoveOg(ref || null);
-      const buf = await img.arrayBuffer();
-      if (buf.byteLength > 64) {
-        memSet(key, buf);
-        void cfCachePut(cacheReq, pngResponse(buf, "bg"));
+  scheduleBackground(
+    (async () => {
+      try {
+        const img = await renderLoveOg(ref || null);
+        const buf = await img.arrayBuffer();
+        if (buf.byteLength > 64) {
+          memSet(key, buf);
+          await cfCachePut(cacheReq, pngResponse(buf, "bg"));
+        }
+      } catch (e) {
+        console.error("love-og bake", ref, e);
+      } finally {
+        baking.delete(key);
       }
-    } catch (e) {
-      console.error("love-og bake", ref, e);
-    } finally {
-      baking.delete(key);
-    }
-  })();
+    })()
+  );
 }
 
 /**
