@@ -602,6 +602,7 @@ export default function AdminPage() {
                 <tr>
                   <th className="text-left px-3 py-2">ID</th>
                   <th className="text-left px-3 py-2">Handle</th>
+                  <th className="text-left px-3 py-2">Card link</th>
                   <th className="text-left px-3 py-2">Followers</th>
                   <th className="text-left px-3 py-2">By</th>
                   <th className="text-left px-3 py-2">Note</th>
@@ -612,7 +613,7 @@ export default function AdminPage() {
               <tbody>
                 {(kolRows || []).length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="px-3 py-6 text-center text-zinc-600 text-xs">
+                    <td colSpan={8} className="px-3 py-6 text-center text-zinc-600 text-xs">
                       No nominations in this filter
                     </td>
                   </tr>
@@ -635,6 +636,40 @@ export default function AdminPage() {
                           </div>
                         ) : null}
                       </td>
+                      <td className="px-3 py-2 font-mono text-[11px]">
+                        <div className="flex flex-col gap-1 min-w-[9rem]">
+                          <a
+                            href={`/kols/${encodeURIComponent(n.handle)}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-sky-400 hover:underline break-all"
+                            title={`https://tokenshit.com/kols/${n.handle}`}
+                          >
+                            /kols/{n.handle}
+                          </a>
+                          <button
+                            type="button"
+                            className="text-left text-[10px] text-zinc-500 hover:text-neon"
+                            onClick={() => {
+                              const url = `https://tokenshit.com/kols/${n.handle}`;
+                              void navigator.clipboard.writeText(url).then(
+                                () => setError(null),
+                                () => setError("Copy failed")
+                              );
+                              // brief inline feedback via error slot is noisy — use status on button
+                              const el = document.getElementById(`kol-copy-${n.id}`);
+                              if (el) {
+                                el.textContent = "Copied ✓";
+                                window.setTimeout(() => {
+                                  el.textContent = "Copy deep link";
+                                }, 1500);
+                              }
+                            }}
+                          >
+                            <span id={`kol-copy-${n.id}`}>Copy deep link</span>
+                          </button>
+                        </div>
+                      </td>
                       <td className="px-3 py-2 font-mono text-xs text-neon tabular-nums">
                         {n.followers != null ? Number(n.followers).toLocaleString() : "—"}
                       </td>
@@ -652,6 +687,14 @@ export default function AdminPage() {
                       </td>
                       <td className="px-3 py-2">
                         <div className="flex flex-wrap gap-1">
+                          <a
+                            href={`/kols/${encodeURIComponent(n.handle)}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="rounded-md border border-sky-700/60 px-2 py-1 text-[10px] text-sky-300 hover:border-sky-400"
+                          >
+                            Open card
+                          </a>
                           <button
                             type="button"
                             disabled={kolBusy === n.id}
