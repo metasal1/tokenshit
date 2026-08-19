@@ -23,7 +23,7 @@ export default function KolLoveCard({
   const ogSrc = useMemo(() => {
     const h = encodeURIComponent(handle.replace(/^@/, ""));
     // Next serves opengraph-image at this path; bust lightly
-    return `/kols/${h}/opengraph-image?v=4`;
+    return `/kols/${h}/opengraph-image?v=5`;
   }, [handle]);
 
   const pageUrl = useMemo(() => {
