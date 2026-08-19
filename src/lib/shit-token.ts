@@ -51,6 +51,11 @@ export const CLAIM_EMAIL_LIST = 2_500;
 /** $TOKENSHIT per referral */
 export const REFERRAL_REWARD_SHIT = 1_000;
 
+/** Scout bounty when a 10k+ KOL nom is accepted/live */
+export const KOL_SCOUT_REWARD_SHIT = Number(
+  process.env.KOL_SCOUT_REWARD_SHIT || 2_500
+);
+
 /**
  * One-time SOL gas starter so new users can play without buying SOL.
  * Sized for N play tickets at ~PLAY_FEE_LAMPORTS_EST each (+ small buffer).

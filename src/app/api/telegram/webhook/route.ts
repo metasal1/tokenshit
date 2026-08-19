@@ -84,6 +84,7 @@ export async function POST(req: NextRequest) {
   }
 
   const row = result.row;
+  const scoutPay = result.scoutPay;
   const who = cq.from?.username
     ? `@${cq.from.username}`
     : `id:${cq.from?.id || "?"}`;
@@ -94,18 +95,46 @@ export async function POST(req: NextRequest) {
         ? "🟢 live"
         : "✅ approved";
 
-  await answerTelegramCallback(cq.id, `${statusEmoji} @${row.handle}`);
+  let payNote = "";
+  if (scoutPay?.paid) {
+    payNote = ` · scout +${scoutPay.amount.toLocaleString()} 💩`;
+  } else if (
+    scoutPay &&
+    !scoutPay.paid &&
+    scoutPay.reason !== "status_not_accept" &&
+    scoutPay.reason !== "already_paid" &&
+    scoutPay.reason !== "no_scout"
+  ) {
+    payNote = ` · scout pay: ${scoutPay.reason}`;
+  }
+
+  await answerTelegramCallback(
+    cq.id,
+    `${statusEmoji} @${row.handle}${payNote ? " (scout paid)" : ""}`.slice(0, 200)
+  );
 
   const chatId = cq.message?.chat?.id;
   const msgId = cq.message?.message_id;
   if (chatId != null && msgId != null) {
     const h = row.handle;
+    const payLine =
+      scoutPay?.paid
+        ? `scout pay: <b>+${scoutPay.amount.toLocaleString()}</b> → @${escapeHtml(scoutPay.scoutX)} <a href="https://solscan.io/tx/${escapeHtml(scoutPay.signature)}">tx</a>`
+        : scoutPay && !scoutPay.paid && scoutPay.reason === "no_wallet"
+          ? `scout pay: waiting — @${escapeHtml(row.byX || "?")} needs a linked wallet/claim first`
+          : scoutPay && !scoutPay.paid && scoutPay.reason === "already_paid"
+            ? `scout pay: already paid`
+            : scoutPay && !scoutPay.paid
+              ? `scout pay skipped: ${escapeHtml(scoutPay.reason)}`
+              : "";
     const text = [
       `<b>KOL nomination</b> · ${statusEmoji}`,
       `→ <a href="https://x.com/${escapeHtml(h)}">@${escapeHtml(h)}</a>`,
       row.followers != null
         ? `followers: <b>${Number(row.followers).toLocaleString()}</b>`
         : "",
+      row.byX ? `nominator: @${escapeHtml(row.byX)}` : "",
+      payLine,
       `by moderator ${escapeHtml(who)}`,
       `id <code>${row.id}</code>`,
       `<a href="https://tokenshit.com/kols/${encodeURIComponent(h)}">card</a> · <a href="https://tokenshit.com/admin?tab=kols">admin</a>`,
