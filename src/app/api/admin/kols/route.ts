@@ -5,6 +5,7 @@ import {
   listKolNominations,
   setKolNominationStatus,
 } from "@/lib/kol-noms";
+import { prewarmKolOg } from "@/lib/kol-sync";
 
 export const dynamic = "force-dynamic";
 
@@ -124,6 +125,14 @@ export async function POST(req: NextRequest) {
   const result = await setKolNominationStatus(id, status);
   if (!result.ok) {
     return Response.json({ error: result.error || "failed" }, { status: 400 });
+  }
+  // When approved → bake OG in background so /kols/{handle} + shares are fast
+  if (
+    (status === "accepted" || status === "live") &&
+    result.row?.handle
+  ) {
+    const h = result.row.handle;
+    void prewarmKolOg(h).catch(() => {});
   }
   return Response.json({ ok: true, row: result.row });
 }
