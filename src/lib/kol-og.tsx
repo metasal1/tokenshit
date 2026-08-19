@@ -13,6 +13,7 @@ import {
 import { fetchXUserPublic } from "@/lib/x-data";
 import { normalizeKolHandle } from "@/lib/kol-noms";
 import { KOL_OG_QUOTE } from "@/lib/kol-og-quote";
+import { KOL_OG_ASSETS } from "@/lib/kol-og-assets";
 
 export { KOL_OG_QUOTE };
 export const KOL_OG_SIZE = OG_SIZE;
@@ -133,19 +134,15 @@ async function loadBrandKit(): Promise<{
   sparkles: string | null;
   logo: string | null;
 }> {
-  // Prefer large RGBA assets (512) — tiny tw-* are palette mode and break Satori
-  // og/ = pre-converted RGBA PNGs (Satori-safe)
-  const [poop, heart, fire, target, sparkles, logo] = await Promise.all([
-    loadAssetDataUrl("brand/emoji/og/tw-1f4a9.png", 128),
-    loadAssetDataUrl("brand/emoji/og/tw-1f49a.png", 128),
-    loadAssetDataUrl("brand/emoji/og/fire-512.png", 128),
-    loadAssetDataUrl("brand/emoji/og/target-512.png", 128),
-    loadAssetDataUrl("brand/emoji/og/sparkles-512.png", 128),
-    loadAssetDataUrl("icon.png", 96).then(
-      async (d) => d || loadAssetDataUrl("apple-icon.png", 96)
-    ),
-  ]);
-  return { poop, heart, fire, target, sparkles, logo };
+  // Inlined RGBA PNGs — no CDN fetch on the worker
+  return {
+    poop: KOL_OG_ASSETS.poop,
+    heart: KOL_OG_ASSETS.heart,
+    fire: KOL_OG_ASSETS.fire,
+    target: KOL_OG_ASSETS.target,
+    sparkles: KOL_OG_ASSETS.sparkles,
+    logo: KOL_OG_ASSETS.logo,
+  };
 }
 
 export async function loadKolForOg(raw: string): Promise<{
