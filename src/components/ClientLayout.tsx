@@ -30,6 +30,7 @@ import { isStandalonePwa } from '@/lib/pwa-auth';
 import { TREASURY_ADDRESS, treasurySolscanUrl } from '@/lib/shit-token';
 import { getPrivyConfig } from '@/lib/privy-config';
 import { pickSolanaAddress } from '@/lib/privy-identity';
+import WalletSheet from '@/components/WalletSheet';
 import {
   MOBILE_DOCK,
   SITE_NAV,
@@ -46,195 +47,6 @@ function navLinkClass(active: boolean, accent?: NavItem["accent"]) {
   return "text-zinc-400 hover:text-foreground";
 }
 
-interface TokenBalance {
-  mint: string;
-  symbol: string;
-  name: string;
-  amount: number;
-  decimals: number;
-  uiAmount: string;
-  logoURI?: string;
-}
-
-interface UserVote {
-  assetId: string;
-  vote: string;
-  date: string;
-}
-
-function WalletPanel({ address, twitterUsername, onClose, children }: { address: string; twitterUsername?: string; onClose: () => void; children?: React.ReactNode }) {
-  const [balance, setBalance] = useState<string | null>(null);
-  const [tokens, setTokens] = useState<TokenBalance[]>([]);
-  const [loadingTokens, setLoadingTokens] = useState(true);
-  const [userVotes, setUserVotes] = useState<UserVote[]>([]);
-  const [totalUserVotes, setTotalUserVotes] = useState(0);
-  const [loadingVotes, setLoadingVotes] = useState(true);
-  const [copied, setCopied] = useState(false);
-
-  useEffect(() => {
-    // SOL balance
-    fetch('/api/rpc', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        jsonrpc: '2.0', id: 1, method: 'getBalance', params: [address],
-      }),
-    })
-      .then(r => r.json())
-      .then(d => setBalance((d.result?.value / 1e9).toFixed(4)))
-      .catch(() => setBalance('Error'));
-
-    // Token balances via Helius DAS
-    fetch('/api/rpc', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        jsonrpc: '2.0', id: 2, method: 'getAssetsByOwner',
-        params: { ownerAddress: address, displayOptions: { showFungible: true, showNativeBalance: false } },
-      }),
-    })
-      .then(r => r.json())
-      .then(d => {
-        const items = d.result?.items || [];
-        const fungible: TokenBalance[] = items
-          .filter((item: any) => item.interface === 'FungibleToken' || item.interface === 'FungibleAsset')
-          .map((item: any) => {
-            const info = item.token_info || {};
-            const decimals = info.decimals || 0;
-            const rawAmount = info.balance || 0;
-            const uiAmount = (rawAmount / Math.pow(10, decimals));
-            return {
-              mint: item.id,
-              symbol: info.symbol || item.content?.metadata?.symbol || '???',
-              name: item.content?.metadata?.name || info.symbol || 'Unknown',
-              amount: rawAmount,
-              decimals,
-              uiAmount: uiAmount > 1 ? uiAmount.toLocaleString(undefined, { maximumFractionDigits: 2 }) : uiAmount.toFixed(Math.min(decimals, 6)),
-              logoURI: item.content?.links?.image || item.content?.files?.[0]?.uri,
-            };
-          })
-          .filter((t: TokenBalance) => t.amount > 0)
-          .sort((a: TokenBalance, b: TokenBalance) => b.amount - a.amount);
-        setTokens(fungible);
-      })
-      .catch(() => {})
-      .finally(() => setLoadingTokens(false));
-
-    // User vote history
-    if (twitterUsername) {
-      fetch(`/api/user-votes?username=${encodeURIComponent(twitterUsername)}`)
-        .then(r => r.json())
-        .then(d => {
-          setUserVotes(d.votes || []);
-          setTotalUserVotes(d.total || 0);
-        })
-        .catch(() => {})
-        .finally(() => setLoadingVotes(false));
-    } else {
-      setLoadingVotes(false);
-    }
-  }, [address, twitterUsername]);
-
-  const copyAddress = useCallback(() => {
-    navigator.clipboard.writeText(address);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  }, [address]);
-
-  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(address)}&bgcolor=18181b&color=ffffff`;
-
-  return (
-    <div className="fixed inset-0 z-[100] flex items-start justify-center pt-16 sm:pt-24 bg-black/60 backdrop-blur-sm" onClick={onClose}>
-      <div
-        className="bg-zinc-900 border border-zinc-700 rounded-xl p-5 max-w-sm w-full mx-4 shadow-2xl max-h-[80vh] overflow-y-auto"
-        onClick={e => e.stopPropagation()}
-      >
-        <div className="flex justify-between items-center mb-3">
-          <h3 className="text-white font-semibold text-lg">Your Wallet</h3>
-          <button onClick={onClose} className="text-zinc-400 hover:text-white text-xl">&times;</button>
-        </div>
-
-        {/* QR + Address row */}
-        <div className="flex gap-3 items-start mb-4">
-          <img src={qrUrl} alt="Wallet QR" className="rounded-lg shrink-0" width={100} height={100} />
-          <div className="flex-1 min-w-0">
-            <p className="text-xs text-zinc-500 mb-1">Solana Address</p>
-            <button
-              onClick={copyAddress}
-              className="w-full text-left text-[10px] text-zinc-300 bg-zinc-800 rounded-md px-2 py-1.5 font-mono break-all hover:bg-zinc-700 transition-colors leading-tight"
-            >
-              {address}
-              <span className="ml-1 text-zinc-500">{copied ? "ok" : "copy"}</span>
-            </button>
-            <div className="mt-2">
-              <p className="text-xs text-zinc-500">SOL Balance</p>
-              <p className="text-xl font-bold text-white">
-                {balance === null ? '...' : `◎ ${balance}`}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Token Balances */}
-        <div>
-          <p className="text-xs text-zinc-500 mb-2 font-medium">Token Balances</p>
-          {loadingTokens ? (
-            <p className="text-xs text-zinc-600 text-center py-3">Loading tokens...</p>
-          ) : tokens.length === 0 ? (
-            <p className="text-xs text-zinc-600 text-center py-3">No tokens found</p>
-          ) : (
-            <div className="space-y-1.5 max-h-[200px] overflow-y-auto">
-              {tokens.map(t => (
-                <div key={t.mint} className="flex items-center gap-2 bg-zinc-800/50 rounded-lg px-3 py-2">
-                  {t.logoURI ? (
-                    <img src={t.logoURI} alt="" className="w-6 h-6 rounded-full shrink-0" onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-                  ) : (
-                    <div className="w-6 h-6 rounded-full bg-zinc-700 shrink-0 flex items-center justify-center text-[8px] text-zinc-400">{t.symbol[0]}</div>
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs text-white font-medium truncate">{t.symbol}</p>
-                    <p className="text-[10px] text-zinc-500 truncate">{t.name}</p>
-                  </div>
-                  <p className="text-xs text-zinc-300 font-mono shrink-0">{t.uiAmount}</p>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Vote History */}
-        {twitterUsername && (
-          <div className="mt-4 pt-4 border-t border-zinc-800">
-            <p className="text-xs text-zinc-500 mb-2 font-medium">
-              Your Votes {totalUserVotes > 0 && <span className="text-zinc-600">({totalUserVotes} total)</span>}
-            </p>
-            {loadingVotes ? (
-              <p className="text-xs text-zinc-600 text-center py-3">Loading votes...</p>
-            ) : userVotes.length === 0 ? (
-              <p className="text-xs text-zinc-600 text-center py-3">No votes yet</p>
-            ) : (
-              <div className="space-y-1.5 max-h-[150px] overflow-y-auto">
-                {userVotes.map((v, i) => (
-                  <a
-                    key={i}
-                    href={`/token/${v.assetId}`}
-                    className="flex items-center gap-2 bg-zinc-800/50 rounded-lg px-3 py-2 hover:bg-zinc-700/50 transition-colors"
-                  >
-                    <span className="text-base">{v.vote === 'hit' ? '🎯' : '💩'}</span>
-                    <span className="text-xs text-zinc-300 font-mono truncate flex-1">{v.assetId.slice(0, 8)}...{v.assetId.slice(-4)}</span>
-                    <span className="text-[10px] text-zinc-600 shrink-0">{v.date}</span>
-                  </a>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {children}
-      </div>
-    </div>
-  );
-}
 
 function ReferralTracker() {
   const { authenticated, user, getAccessToken } = usePrivy();
@@ -381,13 +193,11 @@ function LoginButton() {
         )}
 
         {showWallet && walletAddress && (
-          <WalletPanel
+          <WalletSheet
             address={walletAddress}
             twitterUsername={twitterHandle || undefined}
             onClose={() => setShowWallet(false)}
-          >
-            <ReferralButton twitterUsername={twitterHandle || undefined} />
-          </WalletPanel>
+          />
         )}
       </div>
     );
