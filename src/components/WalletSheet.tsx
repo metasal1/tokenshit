@@ -48,6 +48,8 @@ export default function WalletSheet({
   const [totalUserVotes, setTotalUserVotes] = useState(0);
   const [loadingVotes, setLoadingVotes] = useState(true);
   const [copied, setCopied] = useState(false);
+  const [entered, setEntered] = useState(false);
+  const [exiting, setExiting] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -113,10 +115,23 @@ export default function WalletSheet({
   const lowSol = bal != null && bal.sol < 0.01;
   const canPlay = bal != null && bal.shit >= 1000;
 
+  // Enter animation next frame
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setEntered(true));
+    return () => cancelAnimationFrame(id);
+  }, []);
+
+  const requestClose = useCallback(() => {
+    if (exiting) return;
+    setExiting(true);
+    setEntered(false);
+    window.setTimeout(() => onClose(), 260);
+  }, [exiting, onClose]);
+
   // Escape closes + lock body scroll (sheet is portaled to body)
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") requestClose();
     };
     window.addEventListener("keydown", onKey);
     const prev = document.body.style.overflow;
@@ -125,28 +140,40 @@ export default function WalletSheet({
       window.removeEventListener("keydown", onKey);
       document.body.style.overflow = prev;
     };
-  }, [onClose]);
+  }, [requestClose]);
 
   const sheet = (
     <div
-      className="fixed inset-0 z-[200] flex items-end justify-center bg-black/75 backdrop-blur-sm sm:items-center sm:p-4"
-      onClick={onClose}
+      className={`fixed inset-0 z-[200] flex items-end justify-center bg-black/75 backdrop-blur-sm sm:items-center sm:p-4 ${
+        exiting ? "wallet-backdrop-out" : entered ? "wallet-backdrop-in" : "opacity-0"
+      }`}
+      onClick={requestClose}
       role="presentation"
     >
       <div
-        className="max-h-[min(88vh,640px)] w-full max-w-md overflow-y-auto overscroll-contain rounded-t-2xl border border-zinc-700/80 bg-zinc-950 p-4 shadow-2xl sm:mx-4 sm:mb-8 sm:rounded-2xl sm:p-5"
+        className={`max-h-[min(88vh,640px)] w-full max-w-md overflow-y-auto overscroll-contain rounded-t-2xl border border-zinc-700/80 bg-zinc-950 p-4 shadow-2xl will-change-transform sm:mx-4 sm:rounded-2xl sm:p-5 ${
+          exiting
+            ? "wallet-sheet-out"
+            : entered
+              ? "wallet-sheet-in"
+              : "translate-y-full opacity-0 sm:translate-y-3"
+        }`}
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
         aria-label="Your wallet"
       >
+        {/* drag affordance */}
+        <div className="mb-2 flex justify-center sm:hidden" aria-hidden>
+          <span className="h-1 w-10 rounded-full bg-zinc-700" />
+        </div>
         <div className="mb-3 flex items-center justify-between gap-2">
           <h3 className="font-orbitron text-sm font-bold uppercase tracking-wide text-white">
             Your wallet
           </h3>
           <button
             type="button"
-            onClick={onClose}
+            onClick={requestClose}
             className="flex h-9 w-9 items-center justify-center rounded-lg text-zinc-400 hover:bg-zinc-800 hover:text-white"
             aria-label="Close"
           >
