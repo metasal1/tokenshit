@@ -35,6 +35,7 @@ import ShareRefButton from "@/components/ShareRefButton";
 import { pickSolanaAddress } from "@/lib/privy-identity";
 import { EmojiIcon } from "@/components/EmojiIcon";
 import KolRecommendCard from "@/components/KolRecommendCard";
+import ScoutPromoBanner from "@/components/ScoutPromoBanner";
 
 type ClaimKind =
   | "x_verified"
@@ -841,7 +842,11 @@ export default function ClaimPanel() {
         </div>
       )}
 
-      <KolRecommendCard />
+
+      <div id="claim-panel-scout" className="space-y-3">
+        <ScoutPromoBanner variant="strip" />
+        <KolRecommendCard />
+      </div>
 
       <div className="grid grid-cols-1 gap-3">
         <RewardRow

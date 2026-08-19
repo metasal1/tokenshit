@@ -257,7 +257,14 @@ function Layout({ children }: { children: React.ReactNode }) {
                   active ? "bg-white/5" : "hover:bg-white/[0.03]"
                 }`}
               >
-                {item.label}
+                <span className="inline-flex items-center gap-1">
+                  {item.label}
+                  {item.badge ? (
+                    <span className="rounded-full border border-neon/50 bg-neon/15 px-1.5 py-0.5 font-orbitron text-[8px] uppercase tracking-wider text-neon">
+                      {item.badge}
+                    </span>
+                  ) : null}
+                </span>
               </Link>
             );
           })}
@@ -454,7 +461,14 @@ function Layout({ children }: { children: React.ReactNode }) {
                   }`}
                   aria-hidden
                 />
-                {item.label}
+                <span className="relative">
+                  {item.label}
+                  {item.badge ? (
+                    <span className="absolute -top-2 -right-3 rounded-full bg-neon px-1 text-[7px] font-bold text-black leading-none py-0.5">
+                      {item.badge}
+                    </span>
+                  ) : null}
+                </span>
               </Link>
             );
           })}

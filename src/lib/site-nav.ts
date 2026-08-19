@@ -1,24 +1,26 @@
-/** Shared site nav — single source of truth for header + mobile. */
+export type NavAccent = "neon" | "amber" | "sky" | undefined;
 
 export type NavItem = {
   href: string;
   label: string;
-  /** Show in desktop primary strip */
   primary?: boolean;
-  /** Emphasize (Play / Claim) */
-  accent?: "neon" | "amber" | null;
-  match?: "exact" | "prefix";
-  /** Optional badge in menus */
+  accent?: NavAccent;
+  match?: "prefix" | "exact";
   badge?: string;
+  emoji?: string;
 };
 
-/**
- * Primary CTA order (Metasal): Play · Claim · Memes · Refer
- * More: Boards · KOLs · Buy · Stats · Winners · Whales
- */
 export const SITE_NAV: NavItem[] = [
   { href: "/play", label: "Play", primary: true, accent: "neon", match: "prefix" },
   { href: "/claim", label: "Claim", primary: true, accent: "amber", match: "prefix" },
+  {
+    href: "/kols",
+    label: "Scout",
+    primary: true,
+    accent: "neon",
+    match: "prefix",
+    badge: "2.5K",
+  },
   { href: "/memes", label: "Memes", primary: true, match: "prefix" },
   {
     href: "/referrals",
@@ -27,24 +29,17 @@ export const SITE_NAV: NavItem[] = [
     match: "prefix",
   },
   { href: "/boards", label: "Boards", primary: false, match: "prefix" },
-  {
-    href: "/kols",
-    label: "KOLs",
-    primary: false,
-    match: "prefix",
-    badge: "Soon",
-  },
   { href: "/swap", label: "Buy", primary: false, match: "prefix" },
   { href: "/stats", label: "Stats", primary: false, match: "prefix" },
   { href: "/winners", label: "Winners", primary: false, match: "prefix" },
   { href: "/whales", label: "Whales", primary: false, match: "prefix" },
 ];
 
-/** Mobile bottom dock — same CTA order */
+/** Mobile bottom dock */
 export const MOBILE_DOCK: NavItem[] = [
   { href: "/play", label: "Play", accent: "neon" },
   { href: "/claim", label: "Claim", accent: "amber" },
-  { href: "/memes", label: "Memes" },
+  { href: "/kols", label: "Scout", accent: "neon", badge: "2.5K" },
   { href: "/referrals", label: "Refer" },
 ];
 

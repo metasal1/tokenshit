@@ -7,6 +7,7 @@ import ShareRefButton from "@/components/ShareRefButton";
 import HomePlayTeaser from "@/components/HomePlayTeaser";
 import CopyableAddress from "@/components/CopyableAddress";
 import Link from "next/link";
+import ScoutPromoBanner from "@/components/ScoutPromoBanner";
 import type { Metadata } from "next";
 import { EmojiIcon } from "@/components/EmojiIcon";
 import { pageMeta } from "@/lib/seo";
@@ -36,10 +37,10 @@ export const metadata: Metadata = {
 const QUICK = [
   { href: "/play", label: "Play", emoji: "🎯" },
   { href: "/claim", label: "Claim", emoji: "🎁" },
+  { href: "/kols", label: "Scout", emoji: "🔍" },
   { href: "/memes", label: "Memes", emoji: "🎨" },
   { href: "/referrals", label: "Refer", emoji: "🔗" },
   { href: "/boards", label: "Boards", emoji: "📊" },
-  { href: "/whales", label: "Whales", emoji: "🐋" },
 ] as const;
 
 export default function Home() {
@@ -115,19 +116,31 @@ export default function Home() {
           className="grid grid-cols-3 md:grid-cols-6 gap-2 md:gap-2.5 lg:gap-3"
           aria-label="Quick links"
         >
-          {QUICK.map((q) => (
+          {QUICK.map((q) => {
+            const scout = q.href === "/kols";
+            return (
             <Link
               key={q.href}
               href={q.href}
-              className="flex flex-col md:flex-row items-center justify-center gap-1 md:gap-2 min-h-[4rem] md:min-h-[3.5rem] lg:min-h-[3.25rem] rounded-xl border border-border bg-card/80 hover:border-neon/40 hover:bg-card hover:shadow-[0_0_24px_rgba(57,255,20,0.08)] transition-all px-1.5 md:px-2 lg:px-3 active:scale-[0.98]"
+              className={`flex flex-col md:flex-row items-center justify-center gap-1 md:gap-2 min-h-[4rem] md:min-h-[3.5rem] lg:min-h-[3.25rem] rounded-xl border bg-card/80 hover:bg-card hover:shadow-[0_0_24px_rgba(57,255,20,0.08)] transition-all px-1.5 md:px-2 lg:px-3 active:scale-[0.98] ${
+                scout
+                  ? "border-neon/60 bg-neon/10 shadow-[0_0_20px_rgba(57,255,20,0.12)]"
+                  : "border-border hover:border-neon/40"
+              }`}
             >
               <EmojiIcon size={20}>{q.emoji}</EmojiIcon>
-              <span className="text-[10px] md:text-[11px] lg:text-xs font-orbitron uppercase tracking-wider text-zinc-300 text-center">
+              <span className={`text-[10px] md:text-[11px] lg:text-xs font-orbitron uppercase tracking-wider text-center ${
+                scout ? "text-neon font-bold" : "text-zinc-300"
+              }`}>
                 {q.label}
+                {scout ? " · 2.5K" : ""}
               </span>
             </Link>
-          ))}
+            );
+          })}
         </nav>
+
+        <ScoutPromoBanner variant="card" />
 
         {/* Treasury + share — split from md (iPad) */}
         <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-3 md:gap-4 md:items-center">
