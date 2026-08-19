@@ -559,7 +559,7 @@ export async function POST(request: NextRequest) {
       }
       amount = CLAIM_JUP_VERIFIED;
     } else if (kind === "sol_gas_love") {
-      // Exact tweet "I LOVE TOKENSHIT . COM" + never claimed + no SOL → 67 plays gas
+      // Exact tweet "I LOVE TOKENSHIT.COM @tokenshit_" + never claimed + no SOL → 67 plays gas
       const tweetUrl = body.tweetUrl ? String(body.tweetUrl).trim() : "";
       if (!tweetUrl) {
         return Response.json(
