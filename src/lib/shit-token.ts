@@ -71,6 +71,20 @@ export const PLAY_GAS_DROP_LAMPORTS =
 // 67 * 12_000 + 50_000 = 854_000 lamports ≈ 0.000854 SOL
 export const PLAY_GAS_DROP_SOL = PLAY_GAS_DROP_LAMPORTS / 1e9;
 
+/**
+ * House spark for play pot — $2.4/day budget (~90k SHIT @ ~$0.0000256).
+ * Smooth: ~3,750 SHIT/hour, day cap 90,000.
+ */
+export const PLAY_SEED_ENABLED = process.env.PLAY_SEED_ENABLED !== "0";
+export const PLAY_SEED_HOUR_AMOUNT = Number(
+  process.env.PLAY_SEED_HOUR_AMOUNT || 3_750
+);
+export const PLAY_SEED_DAY_CAP = Number(process.env.PLAY_SEED_DAY_CAP || 90_000);
+/** Only top up when pot (hit+shit DB) is below this */
+export const PLAY_SEED_FLOOR = Number(
+  process.env.PLAY_SEED_FLOOR || PLAY_SEED_HOUR_AMOUNT
+);
+
 /** Exact tweet text for one-time SOL gas claim (67 plays). Spaces around the dot required. */
 /** Min X followers to nominate a KOL */
 export const MIN_KOL_FOLLOWERS = 10_000;

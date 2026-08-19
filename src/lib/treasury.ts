@@ -246,7 +246,8 @@ async function waitForSig(
  */
 export async function sendShitFromTreasury(
   recipient: string,
-  amountWhole: number
+  amountWhole: number,
+  opts?: { memo?: string }
 ): Promise<{ signature: string; amount: number }> {
   return sendShitFromPayer({
     label: "Treasury",
@@ -256,6 +257,7 @@ export async function sendShitFromTreasury(
     applyTreasuryGates: true,
     // if claims treasury SOL is dust, pot can sponsor gas
     allowPlayPotFeePayer: true,
+    memo: opts?.memo,
   });
 }
 

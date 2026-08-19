@@ -66,6 +66,14 @@ type DayStatus = {
   nextCloseAt: string;
   stakeAmount: number;
   multiTicket?: boolean;
+  houseSpark?: {
+    enabled?: boolean;
+    hourAmount?: number;
+    dayCap?: number;
+    seeded?: number;
+    status?: string | null;
+    signature?: string | null;
+  };
   round: { hitPot: number; shitPot: number; status: string } | null;
   stats: {
     hitStakes: number;
@@ -842,6 +850,9 @@ export default function DayGamePanel({
                 {myOnSelected ? ` · you ×${myOnSelected}` : ""}
                 {" · pot "}
                 {fmt(potForSide)}
+                {status?.houseSpark?.seeded
+                  ? ` · spark ${fmt(status.houseSpark.seeded)}`
+                  : ""}
               </p>
             </div>
           </div>
@@ -878,7 +889,11 @@ export default function DayGamePanel({
         </button>
 
         <p className="text-center font-mono text-[9px] text-zinc-600">
-          Split pot · 25% house ·{" "}
+          Split pot · 25% house
+          {status?.houseSpark?.enabled
+            ? ` · house spark ${fmt(status.houseSpark.hourAmount || 3750)}/hr`
+            : ""}
+          {" · "}
           <Link href={HOUR_PRODUCT.winnersPath} className="text-zinc-400">
             winners
           </Link>

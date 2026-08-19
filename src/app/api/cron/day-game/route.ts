@@ -7,6 +7,7 @@ import {
   DAY_GAME_ENABLED,
 } from "@/lib/day-game";
 import { sendTelegramMessage, escapeHtml } from "@/lib/telegram";
+import { seedPlayHour } from "@/lib/play-seed";
 
 export const dynamic = "force-dynamic";
 
@@ -57,7 +58,19 @@ export async function POST(request: NextRequest) {
 
     if (action === "open") {
       const n = await snapshotPrices(day, "open");
-      return Response.json({ ok: true, action: "open", hour: day, assets: n });
+      let seed: unknown = null;
+      try {
+        seed = await seedPlayHour(day);
+      } catch (e) {
+        seed = { ok: false, reason: e instanceof Error ? e.message : String(e) };
+      }
+      return Response.json({
+        ok: true,
+        action: "open",
+        hour: day,
+        assets: n,
+        seed,
+      });
     }
     if (action === "close") {
       const n = await snapshotPrices(day, "close");
@@ -144,11 +157,22 @@ export async function POST(request: NextRequest) {
         }
       }
       const openN = await snapshotPrices(nowHour, "open");
+      // House spark into bag (smooth ~3.75k/hr, 90k/day cap)
+      let seed: unknown = null;
+      try {
+        seed = await seedPlayHour(nowHour);
+      } catch (e) {
+        seed = {
+          ok: false,
+          reason: e instanceof Error ? e.message : String(e),
+        };
+      }
       return Response.json({
         ok: true,
         cadence: "hourly",
         open: { hour: nowHour, assets: openN },
         settle: settled,
+        seed,
       });
     }
 
