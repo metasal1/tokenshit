@@ -67,6 +67,9 @@ export const PLAY_GAS_DROP_LAMPORTS =
 export const PLAY_GAS_DROP_SOL = PLAY_GAS_DROP_LAMPORTS / 1e9;
 
 /** Exact tweet text for one-time SOL gas claim (67 plays). Spaces around the dot required. */
+/** Min X followers to nominate a KOL */
+export const MIN_KOL_FOLLOWERS = 10_000;
+
 export const LOVE_GAS_TWEET = "I LOVE TOKENSHIT.COM @tokenshit_";
 
 /** Anti-farm floors (overridable via env — see src/lib/abuse.ts) */
