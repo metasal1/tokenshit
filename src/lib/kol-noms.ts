@@ -206,7 +206,7 @@ export async function insertKolNomination(opts: {
     }
   }
 
-  // Soft rate: max 8 pending per day per scout or IP
+  // Soft rate: max 5 pending per day per scout; IP anon max 3
   const dayKey = new Date().toISOString().slice(0, 10);
   if (byX) {
     const c = await tursoExecute(
@@ -216,10 +216,10 @@ export async function insertKolNomination(opts: {
          AND status = 'pending'`,
       [byX, dayKey]
     );
-    if (Number(c.rows[0]?.[0] || 0) >= 8) {
+    if (Number(c.rows[0]?.[0] || 0) >= 5) {
       return {
         ok: false,
-        error: "Daily nomination limit (8). Try tomorrow.",
+        error: "Daily nomination limit (5). Try tomorrow.",
         code: "rate_scout",
       };
     }
@@ -229,13 +229,39 @@ export async function insertKolNomination(opts: {
        WHERE ip = ? AND date(created_at) = date(?) AND status = 'pending'`,
       [ip, dayKey]
     );
-    if (Number(c.rows[0]?.[0] || 0) >= 5) {
+    if (Number(c.rows[0]?.[0] || 0) >= 3) {
       return {
         ok: false,
-        error: "Daily limit reached. Login with X for more.",
+        error: "Daily limit reached. Login with X required.",
         code: "rate_ip",
       };
     }
+  }
+
+  // Require scout X (API also enforces)
+  if (!byX) {
+    return {
+      ok: false,
+      error: "Sign in with X to nominate",
+      code: "x_required",
+    };
+  }
+
+  // Global: max 3 pending rows for same handle (stops mass-spam same KOL)
+  const pendingSame = await tursoExecute(
+    `SELECT COUNT(*) FROM kol_nominations WHERE handle = ? AND status = 'pending'`,
+    [handle]
+  );
+  if (Number(pendingSame.rows[0]?.[0] || 0) >= 3) {
+    return {
+      ok: true,
+      id: 0,
+      handle,
+      already: true,
+      followers: followers ?? undefined,
+      displayName,
+      avatarUrl,
+    };
   }
 
   await tursoExecute(
