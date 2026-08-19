@@ -95,6 +95,9 @@ export function assertNotBlacklisted(wallet: string): Response | null {
 export const BLACKLISTED_TWITTER = new Set(
   [
     "bangdayak45731",
+    "subarjdo",
+    "sheorhemxpg",
+    "jatimmah9578402",
   ].map((h) => h.toLowerCase())
 );
 
