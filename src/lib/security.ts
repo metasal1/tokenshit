@@ -18,6 +18,8 @@ export const BLACKLISTED_WALLETS = new Set<string>([
   "FKjgf7tTDQ8iQLNn1MrXtSa3QdrbQk1FYRjqcYSjYD4Q",
   "4N3fZSA3peeBUx8ryypfrSoXsqUjfaFdzLrgseJW3Rjt",
   // 2026-08-19 bangdayak45731 × gamaa.id claim farm ring
+  "3cNts2RwzjrARa7JRtpzsfaT8uLHXKMsXnyrTftvvHNW",
+  "BteyCThS7ZcDTJ5vnhMUBgxGQsQGsJ9eSmhdBouc77RA",
   "4dDHAHJyQhzUgdF1a9nrPoEDPqNuwfF5jiaUJgQTFuU8",
   "62P7GjJfaXiYL1Zt7Xs6BmqCKiTVTWZnNLPhwZVsShb5",
   "6BWjmLZYgEYy1sSTtPmZa4ZuszgRDbJCrrJUa64Cxt7L",
