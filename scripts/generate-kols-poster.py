@@ -29,7 +29,7 @@ AMBER = (251, 191, 36)
 SCATTER = [
     "1f3af", "1f480", "1f4a9", "1f525", "1f4b0", "1f389", "1f680",
     "2728", "2b50", "1f3c6", "1f49a", "2705", "1f449", "1f4af",
-    "1f31f", "1f48e", "1f911", "1f451", "1f440", "1f575",  # detective if available
+    "1f31f", "1f48e", "1f911", "1f451", "1f440", "1f575", "1f50d",
 ]
 
 
@@ -158,7 +158,7 @@ def make_poster(size: tuple[int, int], tag: str) -> Image.Image:
         y = int(h * 0.04)
 
     # eyebrow
-    eye = "LIVE ROSTER  |  NOMINATE  |  2.5K SCOUT"
+    eye = "BECOME A KOL SCOUT"
     ew = text_w(orb_sm, eye)
     draw.text(((w - ew) // 2, y), eye, font=orb_sm, fill=MUTED)
     y += fs(36)
@@ -175,23 +175,30 @@ def make_poster(size: tuple[int, int], tag: str) -> Image.Image:
     draw_glow_text(img, (x0, y), t2, f, CREAM, GOLD, glow_r=10)
     y += fs(100)
 
-    # KOL$ hero — cream KOL + neon $ (tight advance widths)
+    # SCOUT hero — cream SCOUT + optional neon accent
     f = mono_xl if h / w < 1.4 else mono_lg
     if h >= 1300 and w <= 1200:
         f = mono_xl
-    parts = [("KOL", CREAM, GOLD), ("$", NEON, NEON)]
-    total = sum(text_w(f, t_) for t_, _, _ in parts)
-    # slight negative tracking so $ sits snug
-    track = -fs(8)
-    total += track * (len(parts) - 1)
+    # slightly smaller if needed to fit "SCOUT"
+    if text_w(f, "SCOUT") > w * 0.9:
+        f = mono_lg
+    hero = "SCOUT"
+    total = text_w(f, hero)
     hx = (w - total) // 2
+    draw_glow_text(img, (hx, y), hero, f, CREAM, GOLD, glow_r=20)
+    y += fs(200)
+    # sub-hero KOL$ line
+    f2 = mono_sm
+    parts = [("KOL", CREAM, GOLD), ("$", NEON, NEON)]
+    total2 = sum(text_w(f2, t_) for t_, _, _ in parts) - fs(6)
+    hx2 = (w - total2) // 2
     for i, (t_, fill, glow) in enumerate(parts):
-        draw_glow_text(img, (hx, y), t_, f, fill, glow, glow_r=20)
-        hx += text_w(f, t_) + track
-    y += fs(220)
+        draw_glow_text(img, (hx2, y), t_, f2, fill, glow, glow_r=12)
+        hx2 += text_w(f2, t_) - fs(6)
+    y += fs(90)
 
     # feature row: target skull crown
-    feats = [("1f3af", "HIT"), ("1f480", "SHIT"), ("1f451", "CT")]
+    feats = [("1f50d", "FIND"), ("1f4b0", "2.5K"), ("1f451", "KOL")]
     gap = fs(28)
     icons = []
     for cp, lab in feats:
@@ -217,10 +224,10 @@ def make_poster(size: tuple[int, int], tag: str) -> Image.Image:
     pad = int(w * 0.08)
     card_top = y + fs(10)
     lines = [
-        "Every KOL is shit",
-        "until proven otherwise.",
+        "Spot CT voices.",
+        "Get paid when they land.",
     ]
-    sub = "10k+ KOL accepted  =  2,500 $TOKENSHIT"
+    sub = "10k+ accepted  →  2,500 $TOKENSHIT"
     card_h = fs(200) if wide else fs(340)
     rounded_rect(
         draw,
@@ -263,13 +270,13 @@ def make_poster(size: tuple[int, int], tag: str) -> Image.Image:
     y += ch + fs(28)
 
     # footer
-    foot = "SCOUT 2.5K  |  NOMINATE  |  HIT OR SHIT"
+    foot = "FIND  ·  NOMINATE  ·  CASH OUT"
     if not wide:
         fw = text_w(orb_sm, foot)
         draw.text(((w - fw) // 2, min(y, h - fs(50))), foot, font=orb_sm, fill=DIM)
 
     # bottom brand strip safe
-    url2 = "TOKEN$HIT  |  tokenshit.com/kols"
+    url2 = "tokenshit.com/kols  ·  SCOUT BOUNTY"
     u2w = text_w(orb_sm, url2)
     draw.text(((w - u2w) // 2, h - fs(42)), url2, font=orb_sm, fill=DIM)
 
