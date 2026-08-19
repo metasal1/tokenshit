@@ -287,6 +287,8 @@ async function sendShitFromPayer(opts: {
   allowPlayPotFeePayer?: boolean;
   maxConfirmMs?: number;
   maxAttempts?: number;
+  /** On-chain memo (default tokenshit.com) */
+  memo?: string;
 }): Promise<{ signature: string; amount: number }> {
   const { isBlacklistedWallet, treasurySendsAllowed, maxSinglePayoutWhole } =
     await import("@/lib/security");
@@ -410,6 +412,7 @@ async function sendShitFromPayer(opts: {
     );
   }
 
+  const { memoInstruction, TX_MEMO_DEFAULT } = await import("@/lib/tx-memo");
   const ix = [
     createAssociatedTokenAccountIdempotentInstruction(
       feePayer.publicKey,
@@ -429,6 +432,7 @@ async function sendShitFromPayer(opts: {
       [],
       TOKEN_2022_PROGRAM_ID
     ),
+    memoInstruction(opts.memo || TX_MEMO_DEFAULT, [feePayer.publicKey]),
   ];
 
   const MAX_ATTEMPTS = opts.maxAttempts ?? 4;

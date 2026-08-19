@@ -46,6 +46,8 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     const wallet = String(body.wallet || "").trim();
+    const memoSide = String(body.side || "").trim();
+    const memoSymbol = String(body.symbol || body.assetId || "").trim();
     if (!isSolanaAddress(wallet)) {
       return Response.json({ error: "invalid wallet" }, { status: 400 });
     }
@@ -88,6 +90,7 @@ export async function POST(request: Request) {
       SystemProgram,
       ComputeBudgetProgram,
     } = await import("@solana/web3.js");
+    const { memoInstruction, playMemo } = await import("@/lib/tx-memo");
     const {
       createTransferCheckedInstruction,
       getAssociatedTokenAddress,
@@ -119,7 +122,7 @@ export async function POST(request: Request) {
     }>("getLatestBlockhash", [{ commitment: "confirmed" }]);
 
     const ixs = [
-      ComputeBudgetProgram.setComputeUnitLimit({ units: 120_000 }),
+      ComputeBudgetProgram.setComputeUnitLimit({ units: 140_000 }),
       ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 50_000 }),
       createAssociatedTokenAccountIdempotentInstruction(
         owner,
@@ -138,6 +141,7 @@ export async function POST(request: Request) {
         [],
         TOKEN_2022_PROGRAM_ID
       ),
+      memoInstruction(playMemo(memoSide, memoSymbol), [owner]),
     ];
 
     // silence unused import if tree-shaken weirdly
@@ -163,6 +167,7 @@ export async function POST(request: Request) {
       pot: PLAY_POT_ADDRESS,
       blockhash: latest.value.blockhash,
       lastValidBlockHeight: latest.value.lastValidBlockHeight,
+      memo: playMemo(memoSide, memoSymbol),
     });
   } catch (e) {
     return Response.json(

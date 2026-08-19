@@ -138,11 +138,19 @@ function fmtCountdown(ms: number) {
   return `${String(mm).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
 }
 
-async function fetchTransferTx(wallet: string): Promise<string> {
+async function fetchTransferTx(
+  wallet: string,
+  opts?: { side?: string; symbol?: string; assetId?: string }
+): Promise<string> {
   const res = await fetch("/api/day/build-transfer", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ wallet }),
+    body: JSON.stringify({
+      wallet,
+      side: opts?.side,
+      symbol: opts?.symbol,
+      assetId: opts?.assetId,
+    }),
   });
   const data = await res.json();
   if (!res.ok || !data.transaction) {
@@ -406,7 +414,11 @@ export default function DayGamePanel({
       }
 
       setPhase("Building…");
-      const rawTx = await fetchTransferTx(wallet);
+      const rawTx = await fetchTransferTx(wallet, {
+        side,
+        symbol: pick.symbol,
+        assetId: pick.assetId,
+      });
       const txBytes = b64ToBytes(rawTx);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const walletObj =

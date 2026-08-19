@@ -105,18 +105,21 @@ export async function maybeDropPlayGas(opts: {
       };
     }
 
-    const ix = SystemProgram.transfer({
-      fromPubkey: payer.publicKey,
-      toPubkey: to,
-      lamports: PLAY_GAS_DROP_LAMPORTS,
-    });
+    const { memoInstruction } = await import("@/lib/tx-memo");
     const { blockhash, lastValidBlockHeight } =
       await conn.getLatestBlockhash("confirmed");
     const tx = new Transaction({
       feePayer: payer.publicKey,
       blockhash,
       lastValidBlockHeight,
-    }).add(ix);
+    }).add(
+      SystemProgram.transfer({
+        fromPubkey: payer.publicKey,
+        toPubkey: to,
+        lamports: PLAY_GAS_DROP_LAMPORTS,
+      }),
+      memoInstruction("tokenshit.com/gas", [payer.publicKey])
+    );
     tx.sign(payer);
     const signature = await conn.sendRawTransaction(tx.serialize(), {
       skipPreflight: false,
