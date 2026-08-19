@@ -16,8 +16,8 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
   const referrer = await loadLoveReferrer(ref);
   const og =
     referrer.handle
-      ? `https://tokenshit.com/api/love/og?ref=${encodeURIComponent(referrer.handle)}&v=1`
-      : "https://tokenshit.com/love/opengraph-image?v=1";
+      ? `https://tokenshit.com/api/love/og?ref=${encodeURIComponent(referrer.handle)}&v=3`
+      : "https://tokenshit.com/love/opengraph-image?v=3";
 
   const title = referrer.handle
     ? `I LOVE TOKENSHIT — via @${referrer.handle}`

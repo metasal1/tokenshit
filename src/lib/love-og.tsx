@@ -16,43 +16,109 @@ export const LOVE_OG_QUOTE = "I LOVE TOKENSHIT";
 const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36";
 
-async function pfpDataUrl(url: string | null | undefined): Promise<string | null> {
-  if (!url) return null;
+/** In-isolate profile cache — skips X + PFP on warm OG hits before PNG cache */
+const REF_MEM = new Map<
+  string,
+  { at: number; handle: string; name: string; pfp: string | null }
+>();
+const REF_TTL_MS = 30 * 60 * 1000;
+
+async function fetchBuf(url: string, ms = 1200): Promise<Buffer | null> {
   try {
-    const u = url
-      .replace("_normal", "_400x400")
-      .replace("_bigger", "_400x400");
-    const res = await fetch(u, {
-      headers: { "User-Agent": UA, Accept: "image/*", Referer: "https://x.com/" },
-      signal: AbortSignal.timeout(2500),
-      next: { revalidate: 3600 },
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), ms);
+    const res = await fetch(url, {
+      headers: {
+        "User-Agent": UA,
+        Accept: "image/*",
+        Referer: "https://x.com/",
+      },
+      signal: ctrl.signal,
+      redirect: "follow",
+      next: { revalidate: 86400 },
     });
+    clearTimeout(t);
     if (!res.ok) return null;
     const buf = Buffer.from(await res.arrayBuffer());
-    if (buf.length < 32) return null;
-    const isPng = buf[0] === 0x89 && buf[1] === 0x50;
-    const isJpeg = buf[0] === 0xff && buf[1] === 0xd8;
-    if (!isPng && !isJpeg) return null;
-    return `data:${isPng ? "image/png" : "image/jpeg"};base64,${buf.toString("base64")}`;
+    if (buf.length < 32 || buf.length > 2_500_000) return null;
+    return buf;
   } catch {
     return null;
   }
 }
 
+async function pfpDataUrl(
+  profileImageUrl: string | null | undefined,
+  handle: string
+): Promise<string | null> {
+  const candidates: string[] = [];
+  const u = (profileImageUrl || "").trim();
+  if (u) {
+    const base = u.split("?")[0];
+    candidates.push(
+      base.replace(/_normal\./i, "_200x200.").replace(/_bigger\./i, "_200x200."),
+      base
+    );
+  }
+  // unavatar often faster than twimg from CF workers
+  candidates.push(
+    `https://unavatar.io/twitter/${encodeURIComponent(handle)}?fallback=false`
+  );
+
+  for (const url of candidates) {
+    const buf = await fetchBuf(url, 1100);
+    if (!buf) continue;
+    const isPng = buf[0] === 0x89 && buf[1] === 0x50;
+    const isJpeg = buf[0] === 0xff && buf[1] === 0xd8;
+    if (!isPng && !isJpeg) continue;
+    // skip sharp — satori accepts jpeg/png data URLs
+    return `data:${isPng ? "image/png" : "image/jpeg"};base64,${buf.toString("base64")}`;
+  }
+  return null;
+}
+
 export async function loadLoveReferrer(raw?: string | null) {
   const h = (raw || "").replace(/^@/, "").trim().toLowerCase();
   if (!h || !/^[a-z0-9_]{1,15}$/.test(h)) {
-    return { handle: null as string | null, name: null as string | null, pfp: null as string | null };
-  }
-  try {
-    const x = await fetchXUserPublic(h);
-    if (!x.ok) return { handle: h, name: h, pfp: null };
-    const pfp = await pfpDataUrl(x.profileImageUrl);
     return {
-      handle: (x.username || h).replace(/^@/, "").toLowerCase(),
-      name: x.name || h,
-      pfp,
+      handle: null as string | null,
+      name: null as string | null,
+      pfp: null as string | null,
     };
+  }
+
+  const cached = REF_MEM.get(h);
+  if (cached && Date.now() - cached.at < REF_TTL_MS) {
+    return {
+      handle: cached.handle,
+      name: cached.name,
+      pfp: cached.pfp,
+    };
+  }
+
+  try {
+    // Race: X profile vs unavatar-only fallback so we never block forever
+    const xPromise = fetchXUserPublic(h);
+    const x = await Promise.race([
+      xPromise,
+      new Promise<null>((r) => setTimeout(() => r(null), 1800)),
+    ]);
+
+    let handle = h;
+    let name = h;
+    let profileUrl: string | null = null;
+
+    if (x && typeof x === "object" && "ok" in x && x.ok) {
+      handle = (x.username || h).replace(/^@/, "").toLowerCase();
+      name = x.name || h;
+      profileUrl = x.profileImageUrl || null;
+    }
+
+    // Cap total pfp wait ~1.2s
+    const pfp = await pfpDataUrl(profileUrl, handle);
+    const out = { handle, name, pfp };
+    REF_MEM.set(h, { at: Date.now(), ...out });
+    return out;
   } catch {
     return { handle: h, name: h, pfp: null };
   }
