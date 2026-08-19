@@ -33,7 +33,7 @@ export default function KolLoveCard({
   const h = handle.replace(/^@/, "");
 
   const cardApi = useMemo(
-    () => `/api/kols/card/${encodeURIComponent(h)}?v=8`,
+    () => `/api/kols/card/${encodeURIComponent(h)}?v=10`,
     [h]
   );
 
@@ -45,7 +45,7 @@ export default function KolLoveCard({
   }, [h]);
 
   const shareText = useMemo(
-    () => `I love Tokenshit?\n\n@${h} on @Tokenshit_\n\n${pageUrl}`,
+    () => `${KOL_OG_QUOTE}\n\n@${h} on @Tokenshit_ 💩\n\n${pageUrl}`,
     [h, pageUrl]
   );
 
@@ -58,7 +58,7 @@ export default function KolLoveCard({
   const tgShareUrl = useMemo(() => {
     const u = new URL("https://t.me/share/url");
     u.searchParams.set("url", pageUrl);
-    u.searchParams.set("text", `I love Tokenshit?\n\n@${h} on @Tokenshit_`);
+    u.searchParams.set("text", `${KOL_OG_QUOTE}\n\n@${h} on @Tokenshit_ 💩`);
     return u.toString();
   }, [h, pageUrl]);
 
