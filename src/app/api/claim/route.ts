@@ -494,7 +494,7 @@ export async function POST(request: NextRequest) {
           {
             error:
               t.error ||
-              "No recent tweet from you tagging @Tokenshit_ found. Post a fresh tweet (<24h), paste the link, claim.",
+              "No tweet with @Tokenshit_ + mint CA found. Post fresh (<24h) including the CA, paste link, claim.",
           },
           { status: 403 }
         );

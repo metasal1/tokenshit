@@ -1116,12 +1116,18 @@ async function tweetFromOfficial(tweetId: string): Promise<{
   };
 }
 
+/** 24h tweet claim: must tag @Tokenshit_ (or tokenshit.com) AND include mint CA */
 function tagsOk(text: string): boolean {
-  return (
-    /@tokenshit_/i.test(text) ||
-    /tokenshit\.com/i.test(text) ||
-    /\$?TOKENSHIT/i.test(text)
-  );
+  const t = text || "";
+  const hasTag =
+    /@tokenshit_/i.test(t) ||
+    /tokenshit\.com/i.test(t) ||
+    /\$?TOKENSHIT/i.test(t);
+  // full mint or trailing "shit" vanity suffix (case-insensitive)
+  const hasCa =
+    /fEbiuDdZZ1QaWYpJFPqk23ZkaRnAyHg4aivhrCTshit/i.test(t) ||
+    /\bCA\s*[:=]?\s*fEbiuDdZZ1QaWYpJFPqk23ZkaRnAyHg4aivhrCTshit\b/i.test(t);
+  return hasTag && hasCa;
 }
 
 export async function checkXTweetByUrl(
@@ -1187,7 +1193,7 @@ export async function checkXTweetByUrl(
     return {
       ok: false,
       found: false,
-      error: "Tweet must tag @Tokenshit_ (or link tokenshit.com).",
+      error: "Tweet must tag @Tokenshit_ and include the mint CA (fEbiu…CTshit).",
     };
   }
 
@@ -1294,7 +1300,7 @@ export async function checkXTweetTag(
           ok: true,
           found: false,
           error:
-            "No recent tweet tagging @Tokenshit_ found. Paste your tweet URL.",
+            "No recent tweet with @Tokenshit_ + mint CA found. Paste your tweet URL.",
         };
       }
     } catch {

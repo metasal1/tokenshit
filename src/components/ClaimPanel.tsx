@@ -977,8 +977,9 @@ export default function ClaimPanel() {
                 rel="noopener noreferrer"
               >
                 @{X_HANDLE}
-              </a>
-              . Claim once every 24h.
+              </a>{" "}
+              <b className="text-zinc-300">and the mint CA</b>. Claim once every
+              24h.
               {tweetData?.onCooldown && tweetData.nextClaimAt ? (
                 <span className="block mt-1 font-mono text-zinc-500">
                   Next after {new Date(tweetData.nextClaimAt).toLocaleString()}
@@ -994,8 +995,11 @@ export default function ClaimPanel() {
               rel="noopener noreferrer"
               className={`${BTN_OUTLINE} text-center`}
             >
-              1. Post tweet
+              1. Post tweet (+ CA)
             </a>
+            <p className="font-mono text-[10px] text-zinc-500 break-all">
+              CA {SHIT_MINT}
+            </p>
             <input
               type="url"
               inputMode="url"
