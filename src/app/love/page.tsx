@@ -4,7 +4,6 @@ import { EmojiIcon } from "@/components/EmojiIcon";
 import { pageMeta } from "@/lib/seo";
 import { LOVE_GAS_TWEET, loveGasTweetIntentUrl } from "@/lib/shit-token";
 import { loadLoveReferrer } from "@/lib/love-og";
-import { prewarmLoveOg } from "@/lib/love-og-cache";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -15,27 +14,20 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
   const sp = await searchParams;
   const ref = (sp.ref || "").replace(/^@/, "").trim().toLowerCase();
   const referrer = await loadLoveReferrer(ref);
-  const og =
-    referrer.handle
-      ? `https://tokenshit.com/api/love/og?ref=${encodeURIComponent(referrer.handle)}&v=5`
-      : "https://tokenshit.com/love/opengraph-image?v=5";
-
   const title = referrer.handle
     ? `I LOVE TOKENSHIT — via @${referrer.handle}`
     : "I LOVE TOKENSHIT";
   const description = referrer.handle
-    ? `@${referrer.handle} says I LOVE TOKENSHIT on TOKEN$HIT — every token is shit until proven otherwise. Join the bag on Solana.`
-    : "I LOVE TOKENSHIT 💚 — every token is shit until proven otherwise. Tweet @tokenshit_ and join the bag on Solana.";
+    ? `@${referrer.handle} says I LOVE TOKENSHIT on TOKEN$HIT — every token is SH!T until proven otherwise. Join the bag on Solana.`
+    : "I LOVE TOKENSHIT — every token is SH!T until proven otherwise. Tweet @tokenshit_ and join the bag on Solana.";
 
+  // Static brand OG only — never dynamic Satori (crawler timeouts)
   const base = pageMeta({
     title,
     description,
     path: referrer.handle ? `/love?ref=${referrer.handle}` : "/love",
-    og: "default",
+    og: "love",
   });
-
-  // Don't await in metadata (slows FB HTML fetch). Bg bake via image route.
-  void prewarmLoveOg(referrer.handle).catch(() => false);
 
   return {
     ...base,
@@ -46,22 +38,12 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
       url: referrer.handle
         ? `https://tokenshit.com/love?ref=${referrer.handle}`
         : "https://tokenshit.com/love",
-      images: [
-        {
-          url: og,
-          width: 1200,
-          height: 630,
-          type: "image/png",
-          alt: title,
-        },
-      ],
     },
     twitter: {
       ...base.twitter,
       card: "summary_large_image",
       title,
       description,
-      images: [og],
     },
   };
 }
@@ -70,10 +52,6 @@ export default async function LovePage({ searchParams }: Props) {
   const sp = await searchParams;
   const ref = (sp.ref || "").replace(/^@/, "").trim().toLowerCase();
   const referrer = await loadLoveReferrer(ref);
-  // Human opened /love?ref= — bake personalized OG before they hit Share
-  if (referrer.handle) {
-    void prewarmLoveOg(referrer.handle).catch(() => false);
-  }
   const intent = loveGasTweetIntentUrl(referrer.handle);
   const avatar =
     referrer.pfp ||
