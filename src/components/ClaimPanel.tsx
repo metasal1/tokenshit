@@ -13,7 +13,6 @@ import {
   CLAIM_X_PREMIUM,
   CLAIM_X_TWEET,
   CLAIM_X_VERIFIED,
-  PLAY_POT_ADDRESS,
   SHIT_MINT,
   SHIT_MINT_SOLANA_URI,
   SHIT_SYMBOL,
@@ -21,9 +20,6 @@ import {
   X_HANDLE,
   X_URL,
   followIntentUrl,
-  mintSolscanUrl,
-  playPotPortfolioUrl,
-  shitBuyUrl,
   treasurySolscanUrl,
   tweetTagIntentUrl,
   tweetClaimBody,
@@ -33,11 +29,8 @@ import {
   loveGasTweetIntentUrl,
 } from "@/lib/shit-token";
 import { BalanceSkeleton } from "@/components/StatLoader";
-import ShareRefButton from "@/components/ShareRefButton";
 import { pickSolanaAddress } from "@/lib/privy-identity";
 import { EmojiIcon } from "@/components/EmojiIcon";
-import KolRecommendCard from "@/components/KolRecommendCard";
-import ScoutPromoBanner from "@/components/ScoutPromoBanner";
 
 type ClaimKind =
   | "x_verified"
@@ -781,30 +774,17 @@ export default function ClaimPanel() {
     >
       <div className="flex items-center justify-between gap-2 sticky top-0 z-10 -mx-3.5 sm:mx-0 px-3.5 sm:px-0 py-2 sm:py-0 bg-card/95 sm:bg-transparent backdrop-blur sm:backdrop-blur-none border-b border-border/50 sm:border-0">
         <div className="min-w-0">
-          <h2 className="text-base sm:text-lg font-bold text-foreground truncate">
-            Claim ${SHIT_SYMBOL}
+          <h2 className="text-base font-bold text-foreground truncate">
+            Your claims
           </h2>
-          <p className="text-[11px] sm:text-xs text-zinc-500 truncate">
-            One-time drops ·{" "}
-            <a
-              className="text-neon-blue"
-              href={mintSolscanUrl()}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              {SHIT_MINT.slice(0, 4)}…{SHIT_MINT.slice(-4)}
-            </a>
-          </p>
+          <p className="text-[11px] text-zinc-500">Login · tweet · follow · more</p>
         </div>
         <TreasuryBalanceBadge className="shrink-0" />
       </div>
 
-      <p className="text-[11px] sm:text-xs text-zinc-500 leading-snug rounded-lg border border-border/60 bg-zinc-950/40 px-3 py-2">
-        <span className="text-zinc-300 font-medium">Rules:</span>{" "}
-        <span className="text-neon font-semibold">X required for every claim</span>
-        {" "}
-        · PFP · 250+ followers · Privy wallet linked to that X · no disposable
-        email · tweet every 24h · 1 major claim / IP / day
+      <p className="text-[11px] text-zinc-500 leading-snug">
+        <span className="text-neon font-semibold">X required</span>
+        {" "}· PFP · 250+ followers · tweet every 24h
       </p>
 
       <div className="flex flex-wrap items-center gap-2 text-xs">
@@ -888,81 +868,12 @@ export default function ClaimPanel() {
               tx {sig.slice(0, 12)}…{sig.slice(-8)}
             </a>
           )}
-          {msg && (
-            <div className="rounded-xl border border-neon/30 bg-neon/5 p-3 space-y-2">
-              <p className="text-xs text-zinc-400">
-                Flex the claim — share your ref so friends earn you 2k $
-                {SHIT_SYMBOL}
-              </p>
-              <ShareRefButton
-                path="/"
-                variant="inline"
-                handle={twitter || undefined}
-              />
-            </div>
-          )}
+          
         </div>
       )}
 
 
-      <div id="claim-panel-scout" className="space-y-3">
-        <ScoutPromoBanner variant="strip" />
-        <KolRecommendCard />
-      </div>
-
       <div className="grid grid-cols-1 gap-3">
-        <RewardRow
-          highlight
-          claimed={!!claimedStatus.sol_gas_love}
-          statusLoading={statusLoading && authenticated}
-          title="I LOVE TOKENSHIT 💚 → tokenshit.com/love"
-          amount={PLAY_GAS_STARTER_GAMES}
-          amountUnit="plays"
-          hint={
-            <>
-              First claim only · wallet ~empty of SOL. Tweet exactly{" "}
-              <span className="font-mono text-[11px] text-neon">
-                {LOVE_GAS_TWEET}
-              </span>{" "}
-              then paste the URL. Get ~{PLAY_GAS_DROP_SOL.toFixed(4)} SOL (
-              {PLAY_GAS_STARTER_GAMES} plays).
-            </>
-          }
-        >
-          <div className="grid grid-cols-1 gap-2">
-            <a
-              href={loveGasTweetIntentUrl(twitter)}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={`${BTN_OUTLINE} text-center`}
-            >
-              1. Post exact tweet
-            </a>
-            <input
-              type="url"
-              inputMode="url"
-              placeholder="Paste tweet URL"
-              value={loveTweetUrl}
-              onChange={(e) => setLoveTweetUrl(e.target.value)}
-              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-zinc-600"
-            />
-            <button
-              type="button"
-              disabled={
-                busy !== null ||
-                !!claimedStatus.sol_gas_love ||
-                !loveTweetUrl.trim()
-              }
-              onClick={() => claim("sol_gas_love")}
-              className={BTN_NEON}
-            >
-              {busy === "sol_gas_love"
-                ? phaseLabel(claimPhase)
-                : `Claim ${PLAY_GAS_STARTER_GAMES} plays`}
-            </button>
-          </div>
-        </RewardRow>
-
         <RewardRow
           highlight
           claimed={!!tweetData?.onCooldown}
@@ -982,19 +893,18 @@ export default function ClaimPanel() {
           }
         >
           <div className="grid grid-cols-1 gap-2">
-            <div className="rounded-lg border border-neon/30 bg-neon/5 p-3 text-xs">
-              <div className="font-mono text-neon break-all mb-1">{SHIT_MINT_SOLANA_URI}</div>
-              <div className="text-[10px] text-zinc-400">Must be in your tweet (with @Tokenshit_ or tokenshit.com)</div>
+            <div className="flex flex-wrap items-center gap-2 text-[11px]">
               <button
                 type="button"
                 onClick={() => {
                   const body = tweetClaimBody(twitter || undefined);
-                  navigator.clipboard.writeText(body);
+                  void navigator.clipboard.writeText(body);
                 }}
-                className="mt-2 text-[10px] underline text-neon hover:text-white"
+                className="underline text-neon hover:text-white"
               >
-                Copy exact tweet text
+                Copy tweet text
               </button>
+              <span className="text-zinc-600 font-mono truncate max-w-[min(100%,14rem)]">{SHIT_MINT_SOLANA_URI}</span>
             </div>
 
             <a
@@ -1003,7 +913,7 @@ export default function ClaimPanel() {
               rel="noopener noreferrer"
               className={`${BTN_OUTLINE} text-center font-semibold`}
             >
-              1. Tweet the CA on X
+              1. Tweet + CA
             </a>
 
             <input
@@ -1027,154 +937,206 @@ export default function ClaimPanel() {
           </div>
         </RewardRow>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <RewardRow
-            claimed={!!claimedStatus.x_follow}
-            statusLoading={statusLoading && authenticated}
-            title={`Follow @${X_HANDLE}`}
-            amount={CLAIM_X_FOLLOW}
-            hint="Follow on X, then claim once."
-          >
-            <div className="grid grid-cols-1 gap-2">
-              <a
-                href={followIntentUrl()}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={`${BTN_OUTLINE} text-center`}
-              >
-                Follow
-              </a>
-              <button
-                type="button"
-                disabled={busy !== null || !!claimedStatus.x_follow}
-                onClick={() => claim("x_follow")}
-                className={BTN_SKY}
-              >
-                {busy === "x_follow" ? "Claiming…" : "Claim follow"}
-              </button>
-            </div>
-          </RewardRow>
-
-          <RewardRow
-            claimed={!!claimedStatus.x_premium || !!claimedStatus.x_verified}
-            statusLoading={statusLoading && authenticated}
-            title="X Premium (blue)"
-            amount={CLAIM_X_PREMIUM}
-            hint="X Premium · 250+ followers · PFP · 1 major/IP/day · exclusive vs verified"
-          >
-            <button
-              type="button"
-              disabled={
-                busy !== null ||
-                !!claimedStatus.x_premium ||
-                !!claimedStatus.x_verified
-              }
-              onClick={() => claim("x_premium")}
-              className={BTN_SKY}
-            >
-              {busy === "x_premium"
-                ? "Claiming…"
-                : authenticated
-                  ? `Claim premium ${CLAIM_X_PREMIUM.toLocaleString()}`
-                  : "Login with X"}
-            </button>
-          </RewardRow>
-
-          <RewardRow
-            claimed={!!claimedStatus.x_verified || !!claimedStatus.x_premium}
-            statusLoading={statusLoading && authenticated}
-            title="X verified"
-            amount={CLAIM_X_VERIFIED}
-            hint="Non-Premium check only · 250+ followers · PFP · exclusive vs premium"
-          >
-            <button
-              type="button"
-              disabled={
-                busy !== null ||
-                !!claimedStatus.x_verified ||
-                !!claimedStatus.x_premium
-              }
-              onClick={() => claim("x_verified")}
-              className={BTN_SKY}
-            >
-              {busy === "x_verified"
-                ? "Claiming…"
-                : authenticated
-                  ? `Claim verified ${CLAIM_X_VERIFIED.toLocaleString()}`
-                  : "Login with X"}
-            </button>
-          </RewardRow>
-        </div>
-
         <RewardRow
-          claimed={!!claimedStatus.jup_verified}
+          claimed={!!claimedStatus.x_follow}
           statusLoading={statusLoading && authenticated}
-          title="Like on Jupiter"
-          amount={CLAIM_JUP_VERIFIED}
-          highlight
-          hint={
-            <>
-              Open{" "}
-              <a
-                href={`https://verified.jup.ag/dashboard/${SHIT_MINT}`}
-                className="text-neon-blue break-all"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                Jupiter VRFD
-              </a>
-              , sign in with the <strong className="text-zinc-300">same X</strong>,{" "}
-              <strong className="text-zinc-300">like</strong> $TOKENSHIT, then
-              claim · 250+ followers · PFP
-            </>
-          }
+          title={`Follow @${X_HANDLE}`}
+          amount={CLAIM_X_FOLLOW}
+          hint="Follow on X, then claim once."
         >
-          <div className="space-y-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <a
-              href={`https://verified.jup.ag/dashboard/${SHIT_MINT}`}
+              href={followIntentUrl()}
               target="_blank"
               rel="noopener noreferrer"
-              className={BTN_OUTLINE + " inline-flex items-center justify-center"}
+              className={`${BTN_OUTLINE} text-center`}
             >
-              1. Like on Jupiter ↗
+              Follow
             </a>
             <button
               type="button"
-              disabled={busy !== null || !!claimedStatus.jup_verified}
-              onClick={() => claim("jup_verified")}
-              className={BTN_NEON}
+              disabled={busy !== null || !!claimedStatus.x_follow}
+              onClick={() => claim("x_follow")}
+              className={BTN_SKY}
             >
-              {busy === "jup_verified"
-                ? "Checking like…"
-                : authenticated
-                  ? `2. Claim ${CLAIM_JUP_VERIFIED.toLocaleString()}`
-                  : "Login with X"}
+              {busy === "x_follow" ? "Claiming…" : "Claim follow"}
             </button>
           </div>
         </RewardRow>
 
-        <RewardRow
-          claimed={!!claimedStatus.email_list}
-          statusLoading={statusLoading && authenticated}
-          title="Join the list"
-          amount={CLAIM_EMAIL_LIST}
-          hint="One-time email list claim (same X / wallet)."
-        >
-          <button
-            type="button"
-            disabled={busy !== null || !!claimedStatus.email_list}
-            onClick={() => claim("email_list")}
-            className={BTN_NEON}
-          >
-            {busy === "email_list"
-              ? "Claiming…"
-              : authenticated
-                ? `Claim list ${CLAIM_EMAIL_LIST.toLocaleString()}`
-                : "Login with X"}
-          </button>
-        </RewardRow>
+        <details className="rounded-xl border border-border/70 bg-zinc-950/30 group">
+          <summary className="cursor-pointer list-none px-3.5 py-3 text-sm font-semibold text-zinc-300 flex items-center justify-between gap-2">
+            <span>More rewards</span>
+            <span className="text-[10px] font-orbitron uppercase tracking-wider text-zinc-500 group-open:text-neon">
+              Show
+            </span>
+          </summary>
+          <div className="px-2 pb-3 space-y-3">
+            <RewardRow
+              claimed={!!claimedStatus.sol_gas_love}
+              statusLoading={statusLoading && authenticated}
+              title="Love gas (SOL starter)"
+              amount={PLAY_GAS_STARTER_GAMES}
+              amountUnit="plays"
+              hint={
+                <>
+                  First claim · tweet exact{" "}
+                  <span className="font-mono text-[10px] text-neon">{LOVE_GAS_TWEET}</span>
+                </>
+              }
+            >
+              <div className="grid grid-cols-1 gap-2">
+                <a
+                  href={loveGasTweetIntentUrl(twitter)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`${BTN_OUTLINE} text-center`}
+                >
+                  1. Post love tweet
+                </a>
+                <input
+                  type="url"
+                  inputMode="url"
+                  placeholder="Paste tweet URL"
+                  value={loveTweetUrl}
+                  onChange={(e) => setLoveTweetUrl(e.target.value)}
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-zinc-600"
+                />
+                <button
+                  type="button"
+                  disabled={
+                    busy !== null ||
+                    !!claimedStatus.sol_gas_love ||
+                    !loveTweetUrl.trim()
+                  }
+                  onClick={() => claim("sol_gas_love")}
+                  className={BTN_NEON}
+                >
+                  {busy === "sol_gas_love"
+                    ? phaseLabel(claimPhase)
+                    : `Claim ${PLAY_GAS_STARTER_GAMES} plays`}
+                </button>
+              </div>
+            </RewardRow>
 
-        {/* GitHub fork claim disabled (farm) */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <RewardRow
+                claimed={!!claimedStatus.x_premium || !!claimedStatus.x_verified}
+                statusLoading={statusLoading && authenticated}
+                title="X Premium"
+                amount={CLAIM_X_PREMIUM}
+                hint="Blue check · exclusive vs verified"
+              >
+                <button
+                  type="button"
+                  disabled={
+                    busy !== null ||
+                    !!claimedStatus.x_premium ||
+                    !!claimedStatus.x_verified
+                  }
+                  onClick={() => claim("x_premium")}
+                  className={BTN_SKY}
+                >
+                  {busy === "x_premium"
+                    ? "Claiming…"
+                    : authenticated
+                      ? `Claim ${CLAIM_X_PREMIUM.toLocaleString()}`
+                      : "Login with X"}
+                </button>
+              </RewardRow>
+
+              <RewardRow
+                claimed={!!claimedStatus.x_verified || !!claimedStatus.x_premium}
+                statusLoading={statusLoading && authenticated}
+                title="X verified"
+                amount={CLAIM_X_VERIFIED}
+                hint="Non-premium verified only"
+              >
+                <button
+                  type="button"
+                  disabled={
+                    busy !== null ||
+                    !!claimedStatus.x_verified ||
+                    !!claimedStatus.x_premium
+                  }
+                  onClick={() => claim("x_verified")}
+                  className={BTN_SKY}
+                >
+                  {busy === "x_verified"
+                    ? "Claiming…"
+                    : authenticated
+                      ? `Claim ${CLAIM_X_VERIFIED.toLocaleString()}`
+                      : "Login with X"}
+                </button>
+              </RewardRow>
+            </div>
+
+            <RewardRow
+              claimed={!!claimedStatus.jup_verified}
+              statusLoading={statusLoading && authenticated}
+              title="Like on Jupiter"
+              amount={CLAIM_JUP_VERIFIED}
+              hint={
+                <>
+                  Like $TOKENSHIT on{" "}
+                  <a
+                    href={`https://verified.jup.ag/dashboard/${SHIT_MINT}`}
+                    className="text-neon-blue"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Jupiter VRFD
+                  </a>{" "}
+                  with the same X
+                </>
+              }
+            >
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <a
+                  href={`https://verified.jup.ag/dashboard/${SHIT_MINT}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={BTN_OUTLINE + " inline-flex items-center justify-center"}
+                >
+                  Open Jupiter
+                </a>
+                <button
+                  type="button"
+                  disabled={busy !== null || !!claimedStatus.jup_verified}
+                  onClick={() => claim("jup_verified")}
+                  className={BTN_NEON}
+                >
+                  {busy === "jup_verified"
+                    ? "Checking…"
+                    : authenticated
+                      ? `Claim ${CLAIM_JUP_VERIFIED.toLocaleString()}`
+                      : "Login"}
+                </button>
+              </div>
+            </RewardRow>
+
+            <RewardRow
+              claimed={!!claimedStatus.email_list}
+              statusLoading={statusLoading && authenticated}
+              title="Join the list"
+              amount={CLAIM_EMAIL_LIST}
+              hint="One-time email list claim"
+            >
+              <button
+                type="button"
+                disabled={busy !== null || !!claimedStatus.email_list}
+                onClick={() => claim("email_list")}
+                className={BTN_NEON}
+              >
+                {busy === "email_list"
+                  ? "Claiming…"
+                  : authenticated
+                    ? `Claim ${CLAIM_EMAIL_LIST.toLocaleString()}`
+                    : "Login with X"}
+              </button>
+            </RewardRow>
+          </div>
+        </details>
 
       </div>
 
@@ -1193,33 +1155,13 @@ export default function ClaimPanel() {
         </p>
       )}
 
-      <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 text-xs pt-1">
-        <a
-          href={shitBuyUrl()}
-          className="text-neon-blue hover:underline min-h-9 inline-flex items-center"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Buy ${SHIT_SYMBOL} on Jupiter ↗
-        </a>
-        <a
-          href={treasurySolscanUrl()}
-          className="text-zinc-500 hover:text-zinc-300 min-h-9 inline-flex items-center"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Treasury on sol.new ↗
-        </a>
-        <a
-          href={playPotPortfolioUrl()}
-          className="text-amber-500/80 hover:text-amber-300 min-h-9 inline-flex items-center font-mono"
-          target="_blank"
-          rel="noopener noreferrer"
-          title={PLAY_POT_ADDRESS}
-        >
-          Play pot on sol.new ↗
-        </a>
-      </div>
+      <p className="text-[11px] text-zinc-600 pt-1">
+        <a href="/kols" className="text-neon hover:underline">Scout KOLs 2.5K</a>
+        {" · "}
+        <a href="/swap" className="text-zinc-400 hover:text-neon">Buy</a>
+        {" · "}
+        <a href="/play" className="text-zinc-400 hover:text-neon">Play</a>
+      </p>
 
       {/* Always-on-screen claim status */}
       <ClaimStatusBar
