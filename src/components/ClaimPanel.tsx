@@ -15,6 +15,7 @@ import {
   CLAIM_X_VERIFIED,
   PLAY_POT_ADDRESS,
   SHIT_MINT,
+  SHIT_MINT_SOLANA_URI,
   SHIT_SYMBOL,
   TREASURY_ADDRESS,
   X_HANDLE,
@@ -25,6 +26,7 @@ import {
   shitBuyUrl,
   treasurySolscanUrl,
   tweetTagIntentUrl,
+  tweetClaimBody,
   LOVE_GAS_TWEET,
   PLAY_GAS_DROP_SOL,
   PLAY_GAS_STARTER_GAMES,
@@ -969,17 +971,8 @@ export default function ClaimPanel() {
           amount={CLAIM_X_TWEET}
           hint={
             <>
-              Fresh tweet (under 24h) tagging{" "}
-              <a
-                href={X_URL}
-                className="text-neon-blue"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                @{X_HANDLE}
-              </a>{" "}
-              <b className="text-zinc-300">and solana:CA</b>. Claim once every
-              24h.
+              Tweet <b>must</b> include <span className="font-mono text-neon">@Tokenshit_</span> <b>AND</b> the line<br/>
+              <span className="font-mono text-xs break-all">solana:fEbiuDdZZ1QaWYpJFPqk23ZkaRnAyHg4aivhrCTshit</span>
               {tweetData?.onCooldown && tweetData.nextClaimAt ? (
                 <span className="block mt-1 font-mono text-zinc-500">
                   Next after {new Date(tweetData.nextClaimAt).toLocaleString()}
@@ -989,21 +982,34 @@ export default function ClaimPanel() {
           }
         >
           <div className="grid grid-cols-1 gap-2">
+            <div className="rounded-lg border border-neon/30 bg-neon/5 p-3 text-xs">
+              <div className="font-mono text-neon break-all mb-1">{SHIT_MINT_SOLANA_URI}</div>
+              <div className="text-[10px] text-zinc-400">Must be in your tweet (with @Tokenshit_ or tokenshit.com)</div>
+              <button
+                type="button"
+                onClick={() => {
+                  const body = tweetClaimBody(twitter || undefined);
+                  navigator.clipboard.writeText(body);
+                }}
+                className="mt-2 text-[10px] underline text-neon hover:text-white"
+              >
+                Copy exact tweet text
+              </button>
+            </div>
+
             <a
               href={tweetTagIntentUrl(undefined, twitter)}
               target="_blank"
               rel="noopener noreferrer"
-              className={`${BTN_OUTLINE} text-center`}
+              className={`${BTN_OUTLINE} text-center font-semibold`}
             >
-              1. Post tweet (+ CA)
+              1. Tweet the CA on X
             </a>
-            <p className="font-mono text-[10px] text-zinc-500 break-all">
-              solana:{SHIT_MINT}
-            </p>
+
             <input
               type="url"
               inputMode="url"
-              placeholder="Paste tweet URL (required, under 24h old)"
+              placeholder="Paste your tweet URL (must be &lt;24h old)"
               value={tweetUrl}
               onChange={(e) => setTweetUrl(e.target.value)}
               className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-zinc-600"
@@ -1016,7 +1022,7 @@ export default function ClaimPanel() {
             >
               {busy === "x_tweet"
                 ? phaseLabel(claimPhase).replace("…", "") || "Claiming"
-                : "2. Claim tweet"}
+                : "2. Claim (needs CA in tweet)"}
             </button>
           </div>
         </RewardRow>
