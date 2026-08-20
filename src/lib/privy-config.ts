@@ -57,7 +57,8 @@ export function getPrivyConfig(opts?: { oauthRedirectUrl?: string }) {
         createOnLogin: "off" as const,
       },
       solana: {
-        createOnLogin: "users-without-wallets" as const,
+        // Always ensure a Solana embedded wallet (X+GH-only users were stuck)
+        createOnLogin: "all-users" as const,
       },
     },
     externalWallets: {
