@@ -1123,10 +1123,10 @@ function tagsOk(text: string): boolean {
     /@tokenshit_/i.test(t) ||
     /tokenshit\.com/i.test(t) ||
     /\$?TOKENSHIT/i.test(t);
-  // full mint or trailing "shit" vanity suffix (case-insensitive)
+  // prefer solana:<mint>; bare mint still OK
   const hasCa =
-    /fEbiuDdZZ1QaWYpJFPqk23ZkaRnAyHg4aivhrCTshit/i.test(t) ||
-    /\bCA\s*[:=]?\s*fEbiuDdZZ1QaWYpJFPqk23ZkaRnAyHg4aivhrCTshit\b/i.test(t);
+    /solana:fEbiuDdZZ1QaWYpJFPqk23ZkaRnAyHg4aivhrCTshit/i.test(t) ||
+    /fEbiuDdZZ1QaWYpJFPqk23ZkaRnAyHg4aivhrCTshit/i.test(t);
   return hasTag && hasCa;
 }
 
@@ -1193,7 +1193,7 @@ export async function checkXTweetByUrl(
     return {
       ok: false,
       found: false,
-      error: "Tweet must tag @Tokenshit_ and include the mint CA (fEbiu…CTshit).",
+      error: "Tweet must tag @Tokenshit_ and include solana:fEbiu…CTshit (mint CA).",
     };
   }
 

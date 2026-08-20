@@ -978,7 +978,7 @@ export default function ClaimPanel() {
               >
                 @{X_HANDLE}
               </a>{" "}
-              <b className="text-zinc-300">and the mint CA</b>. Claim once every
+              <b className="text-zinc-300">and solana:CA</b>. Claim once every
               24h.
               {tweetData?.onCooldown && tweetData.nextClaimAt ? (
                 <span className="block mt-1 font-mono text-zinc-500">
@@ -998,7 +998,7 @@ export default function ClaimPanel() {
               1. Post tweet (+ CA)
             </a>
             <p className="font-mono text-[10px] text-zinc-500 break-all">
-              CA {SHIT_MINT}
+              solana:{SHIT_MINT}
             </p>
             <input
               type="url"
