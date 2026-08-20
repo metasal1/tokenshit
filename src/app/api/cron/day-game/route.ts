@@ -5,11 +5,51 @@ import {
   snapshotPrices,
   utcHourString,
   DAY_GAME_ENABLED,
+  getHourPlayStats,
+  getRound,
 } from "@/lib/day-game";
 import { sendTelegramMessage, escapeHtml } from "@/lib/telegram";
 import { seedPlayHour } from "@/lib/play-seed";
 
 export const dynamic = "force-dynamic";
+
+function playStatsLine(s: {
+  plays: number;
+  players: number;
+  hitPlays: number;
+  shitPlays: number;
+}): string {
+  return (
+    `👥 <b>${s.players}</b> player${s.players === 1 ? "" : "s"} · ` +
+    `<b>${s.plays}</b> play${s.plays === 1 ? "" : "s"}` +
+    ` (UP ${s.hitPlays} / DOWN ${s.shitPlays})`
+  );
+}
+
+async function hourReportExtras(hour: string): Promise<string[]> {
+  const lines: string[] = [];
+  try {
+    const stats = await getHourPlayStats(hour);
+    lines.push(playStatsLine(stats));
+  } catch {
+    /* ignore */
+  }
+  try {
+    const round = await getRound(hour);
+    if (round) {
+      const pot = Number(round.hitPot || 0) + Number(round.shitPot || 0);
+      if (pot > 0) {
+        lines.push(
+          `🎒 pot <b>${Math.round(pot).toLocaleString()}</b> $TOKENSHIT ` +
+            `(UP ${Math.round(Number(round.hitPot || 0)).toLocaleString()} / DOWN ${Math.round(Number(round.shitPot || 0)).toLocaleString()})`
+        );
+      }
+    }
+  } catch {
+    /* ignore */
+  }
+  return lines;
+}
 
 function authorize(request: NextRequest): boolean {
   const secret =
@@ -91,9 +131,11 @@ export async function POST(request: NextRequest) {
           force?: boolean;
         };
         try {
+          const extras = await hourReportExtras(day);
           await sendTelegramMessage(
             [
               `<b>$HIT OF THE DAY</b> · ${force ? "retry " : ""}${escapeHtml(day)}`,
+              ...extras,
               r.hitBag
                 ? `HIT: <code>${escapeHtml(r.hitBag.assetId)}</code> ${r.hitBag.pct.toFixed(2)}%`
                 : "HIT bag: —",
@@ -135,8 +177,10 @@ export async function POST(request: NextRequest) {
           shit?: { winner: string | null; prize: number; fee: number; prizeSig?: string | null };
         };
         try {
+          const extras = await hourReportExtras(prev);
           const lines = [
             `🎬 <b>$HIT OF THE DAY</b> · finalize · ${escapeHtml(prev)}`,
+            ...extras,
             r.hitBag
               ? `🎯 HIT <code>${escapeHtml(r.hitBag.assetId)}</code> ${r.hitBag.pct.toFixed(2)}%`
               : "🎯 HIT bag: —",
