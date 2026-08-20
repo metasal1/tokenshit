@@ -1,10 +1,6 @@
 /**
  * Digital Asset Links for TWA / Seeker (Android).
  * GET /.well-known/assetlinks.json
- *
- * After first keystore + APK, replace REPLACE_AFTER_KEYSTORE_BUILD with:
- *   keytool -list -v -keystore dapp-store/android.keystore | grep SHA256
- * Then redeploy so Bubblewrap validation + install association succeed.
  */
 export const dynamic = "force-static";
 
@@ -14,7 +10,9 @@ const BODY = [
     target: {
       namespace: "android_app",
       package_name: "com.tokenshit.app",
-      sha256_cert_fingerprints: ["REPLACE_AFTER_KEYSTORE_BUILD"],
+      sha256_cert_fingerprints: [
+        "9E:A2:08:5F:1B:6E:91:F8:99:D3:1B:BC:90:58:86:5A:F7:17:C8:06:19:4D:24:76:D3:4D:82:06:B5:EA:04:F4",
+      ],
     },
   },
 ];

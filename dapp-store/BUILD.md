@@ -1,6 +1,15 @@
 # TOKEN$HIT dApp Store / TWA (Seeker)
 
-Scaffold only — first APK not built until keystore + Metasal GO.
+Keys + APK ready (2026-08-20).
+
+| | |
+|--|--|
+| Publisher | `TStig6qpXQNXy49dWHWr5AziyrBDzmSLPXAe4kv49F7` |
+| Alt wallet | `ts2JsqrDR6KctVKp5JBh54CW6zrF8ACYMwtEtqbTpWM` |
+| Keypairs | `~/.credentials/tokenshit-dapp-publisher.json` |
+| Keystore | `dapp-store/android.keystore` (gitignored) |
+| APK | `dapp-store/media/tokenshit.apk` |
+
 
 ## Identity (planned)
 
