@@ -15,7 +15,7 @@ export const SITE_NAV: NavItem[] = [
   { href: "/claim", label: "Claim", primary: true, accent: "amber", match: "prefix" },
   {
     href: "/kols",
-    label: "Scout",
+    label: "KOLs",
     primary: true,
     accent: "neon",
     match: "prefix",
@@ -39,7 +39,7 @@ export const SITE_NAV: NavItem[] = [
 export const MOBILE_DOCK: NavItem[] = [
   { href: "/play", label: "Play", accent: "neon" },
   { href: "/claim", label: "Claim", accent: "amber" },
-  { href: "/kols", label: "Scout", accent: "neon", badge: "2.5K" },
+  { href: "/kols", label: "KOLs", accent: "neon", badge: "2.5K" },
   { href: "/referrals", label: "Refer" },
 ];
 

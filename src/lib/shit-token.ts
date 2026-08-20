@@ -197,6 +197,14 @@ export function tweetTagIntentUrl(text?: string, refHandle?: string | null): str
   return `https://x.com/intent/tweet?text=${encodeURIComponent(body)}`;
 }
 
+
+export function tweetCABody(): string {
+  return `CA for $TOKENSHIT: ${SHIT_MINT_SOLANA_URI}\n\n@Tokenshit_ https://tokenshit.com`;
+}
+
+export function tweetCAIntentUrl(): string {
+  return `https://x.com/intent/tweet?text=${encodeURIComponent(tweetCABody())}`;
+}
 export function followIntentUrl(): string {
   return `https://x.com/intent/follow?screen_name=${X_HANDLE}`;
 }

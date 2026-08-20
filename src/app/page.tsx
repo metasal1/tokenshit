@@ -11,7 +11,7 @@ import ScoutPromoBanner from "@/components/ScoutPromoBanner";
 import type { Metadata } from "next";
 import { EmojiIcon } from "@/components/EmojiIcon";
 import { pageMeta } from "@/lib/seo";
-import { SHIT_MINT, SHIT_SYMBOL } from "@/lib/shit-token";
+import { SHIT_MINT, SHIT_SYMBOL, tweetCAIntentUrl } from "@/lib/shit-token";
 
 /**
  * Home breakpoints
@@ -70,9 +70,17 @@ export default function Home() {
             <div className="w-full md:w-[min(22rem,46%)] lg:w-[min(28rem,42%)] space-y-2.5 md:space-y-3 shrink-0 mx-auto md:mx-0">
               <CopyableAddress
                 address={SHIT_MINT}
-                label={`$${SHIT_SYMBOL} CA`}
+                label={`${SHIT_SYMBOL} CA`}
                 explorer={`https://solscan.io/token/${SHIT_MINT}`}
               />
+              <a
+                href={tweetCAIntentUrl()}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[10px] underline text-neon hover:text-white mt-1 inline-block"
+              >
+                Tweet the CA →
+              </a>
               <div className="relative z-[60]">
                 <SearchBar big />
               </div>
