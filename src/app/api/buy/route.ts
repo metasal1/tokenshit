@@ -196,8 +196,8 @@ export async function POST(request: NextRequest) {
       (body.feeBps != null && Number(body.feeBps) > 0);
 
     const feeAccount = useFee ? body.feeAccount || SHIT_FEE_ATA : null;
-    // Prefer versioned, then legacy (Privy prepare is picky)
-    for (const legacy of [false, true]) {
+    // Prefer legacy first so we can strip CloseAccount before Privy sponsor
+    for (const legacy of [true, false]) {
       const built = await buildSwap({
         quoteResponse,
         userPublicKey,

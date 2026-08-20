@@ -9,11 +9,8 @@ import {
 import { pickSolanaAddress } from "@/lib/privy-identity";
 import { useSafeLogin } from "@/hooks/useSafeLogin";
 import { SHIT_SYMBOL } from "@/lib/shit-token";
-import {
-  b64ToBytes,
-  encodeSigBs58,
-  friendlySolanaSendError,
-} from "@/lib/solana-send";
+import { friendlySolanaSendError } from "@/lib/solana-send";
+import { sendSponsoredSolanaTx } from "@/lib/sponsor-send";
 import { BalanceSkeleton } from "@/components/StatLoader";
 import { EmojiIcon } from "@/components/EmojiIcon";
 import Link from "next/link";
@@ -137,7 +134,6 @@ export default function WithdrawPanel({
         throw new Error(data.error || "Could not build withdraw");
       }
 
-      const txBytes = b64ToBytes(data.transaction as string);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const walletObj =
         (wallets as any[])?.find((w) => w?.address === from) ||
@@ -145,36 +141,16 @@ export default function WithdrawPanel({
       if (!walletObj) throw new Error("No wallet object");
 
       const desc = `Withdraw ${amt} ${symbol} → ${dest.slice(0, 4)}…${dest.slice(-4)}`;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      let result: any;
-      try {
-        result = await signAndSendTransaction({
-          transaction: txBytes,
-          wallet: walletObj,
-          chain: "solana:mainnet",
-          options: {
-            sponsor: true,
-            uiOptions: { showWalletUIs: false, description: desc },
-          },
-        });
-      } catch {
-        result = await signAndSendTransaction({
-          transaction: txBytes,
-          wallet: walletObj,
-          chain: "solana:mainnet",
-          options: {
-            sponsor: true,
-            uiOptions: { showWalletUIs: true, description: desc },
-          },
-        });
-      }
-
-      let signature: string | null = null;
-      if (result?.signature instanceof Uint8Array) {
-        signature = encodeSigBs58(result.signature);
-      } else if (typeof result?.signature === "string") {
-        signature = result.signature;
-      }
+      const { signature } = await sendSponsoredSolanaTx({
+        transaction: data.transaction as string,
+        wallet: walletObj,
+        walletAddress: from,
+        signAndSendTransaction,
+        description: desc,
+        kind: "withdraw",
+        solBalance: null,
+        allowSelfPayFallback: true,
+      });
       if (!signature) throw new Error("No signature from wallet");
       setSig(signature);
       setAmount("");

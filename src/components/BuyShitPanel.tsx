@@ -12,13 +12,8 @@ import {
 import { jupiterBuyUrlWithFee } from "@/lib/buy-fee";
 import { SHIT_SYMBOL } from "@/lib/shit-token";
 import { BalanceSkeleton } from "@/components/StatLoader";
-import {
-  b64ToBytes,
-  encodeSigBs58,
-  friendlySolanaSendError,
-  isPrepareFailure,
-  sendRawBase64,
-} from "@/lib/solana-send";
+import { friendlySolanaSendError } from "@/lib/solana-send";
+import { sendSponsoredSolanaTx } from "@/lib/sponsor-send";
 import { pickSolanaAddress } from "@/lib/privy-identity";
 
 function SolanaFundingBootstrap() {
@@ -228,52 +223,17 @@ export default function BuyShitPanel() {
       }
 
       const raw = sData.swapTransaction as string;
-      const txBytes = b64ToBytes(raw);
-
-      let signature: string | null = null;
-      try {
-        try {
-          const result = await signAndSendTransaction({
-            transaction: txBytes,
-            wallet: walletObj,
-            chain: "solana:mainnet",
-            options: {
-              sponsor: true,
-              uiOptions: {
-                showWalletUIs: true,
-                description: "Network fees sponsored by TOKEN$HIT",
-              },
-            },
-          });
-          const sigBytes = result?.signature;
-          if (sigBytes instanceof Uint8Array) signature = encodeSigBs58(sigBytes);
-          else if (typeof result?.signature === "string")
-            signature = result.signature;
-        } catch {
-          const result = await signAndSendTransaction({
-            transaction: txBytes,
-            wallet: walletObj,
-            chain: "solana:mainnet",
-            options: { uiOptions: { showWalletUIs: true } },
-          });
-          const sigBytes = result?.signature;
-          if (sigBytes instanceof Uint8Array) signature = encodeSigBs58(sigBytes);
-          else if (typeof result?.signature === "string")
-            signature = result.signature;
-        }
-      } catch (e) {
-        if (!isPrepareFailure(e)) throw e;
-        const signed = await signTransaction({
-          transaction: txBytes,
-          wallet: walletObj,
-          chain: "solana:mainnet",
-          options: { uiOptions: { showWalletUIs: true } },
-        });
-        if (!(signed?.signedTransaction instanceof Uint8Array)) throw e;
-        signature = await sendRawBase64(signed.signedTransaction, {
-          skipPreflight: true,
-        });
-      }
+      const { signature } = await sendSponsoredSolanaTx({
+        transaction: raw,
+        wallet: walletObj,
+        walletAddress: walletAddress!,
+        signAndSendTransaction,
+        signTransaction,
+        description: "Network fees sponsored by TOKEN$HIT",
+        kind: "buy",
+        solBalance: null,
+        allowSelfPayFallback: true,
+      });
 
       setSig(signature);
       setMsg(`Bought $${SHIT_SYMBOL}`);
