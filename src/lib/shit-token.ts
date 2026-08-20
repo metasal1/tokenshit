@@ -175,16 +175,23 @@ export function mintSolscanUrl(): string {
 }
 
 /** Intent URL: compose tweet tagging @Tokenshit_ (+ optional ref link) */
-export function tweetTagIntentUrl(text?: string, refHandle?: string | null): string {
+/** Default 24h tweet-claim copy — must tag @Tokenshit_ and include mint CA */
+export function tweetClaimBody(refHandle?: string | null): string {
   const ref =
     refHandle && refHandle.replace(/^@/, "").trim()
       ? `https://tokenshit.com/?ref=${encodeURIComponent(
           refHandle.replace(/^@/, "").toLowerCase()
         )}`
       : "https://tokenshit.com";
-  const body =
-    text ||
-    `Just judged bags on @${X_HANDLE} — every token is SH!T until proven otherwise.\n\n${ref}`;
+  return (
+    `Just judged bags on @${X_HANDLE} — every token is SH!T until proven otherwise.\n\n` +
+    `CA: ${SHIT_MINT}\n\n` +
+    ref
+  );
+}
+
+export function tweetTagIntentUrl(text?: string, refHandle?: string | null): string {
+  const body = text || tweetClaimBody(refHandle);
   return `https://x.com/intent/tweet?text=${encodeURIComponent(body)}`;
 }
 
