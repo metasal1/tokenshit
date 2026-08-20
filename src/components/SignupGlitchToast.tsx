@@ -129,7 +129,7 @@ export default function SignupGlitchToast() {
   return (
     <div
       className={`signup-glitch-toast fixed z-[140] pointer-events-none transition-all duration-200 ${
-        visible ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-2"
+        visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2 sm:-translate-y-2 sm:translate-y-0"
       }`}
       role="status"
       aria-live="polite"

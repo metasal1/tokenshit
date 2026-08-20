@@ -21,8 +21,6 @@ import SignupGlitchToast from '@/components/SignupGlitchToast';
 import BetaScrollBanner from '@/components/BetaScrollBanner';
 import InAppBrowserBanner from '@/components/InAppBrowserBanner';
 import ClaimGlitchToast from '@/components/ClaimGlitchToast';
-import SonnerToaster from '@/components/SonnerToaster';
-import FirstVisitToasts from '@/components/FirstVisitToasts';
 import SettlementWitness from '@/components/SettlementWitness';
 import SafeLoginButton from '@/components/SafeLoginButton';
 import PwaLoginSheetHost from '@/components/PwaLoginSheetHost';
@@ -422,8 +420,6 @@ function Layout({ children }: { children: React.ReactNode }) {
       <SolanaFundingBootstrap />
       <SettlementWitness />
       <ReferralTracker />
-      <SonnerToaster />
-      <FirstVisitToasts />
       <ClaimGlitchToast />
       <SignupGlitchToast />
       <EmailSignupModal />
