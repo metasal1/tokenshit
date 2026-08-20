@@ -986,6 +986,39 @@ export async function ensureOpenSnapForAsset(
 }
 
 /** Per-wallet ticket counts this hour (multi-play). */
+
+/** Plays = stake rows; players = unique wallets for the hour. */
+export async function getHourPlayStats(utcHour: string): Promise<{
+  plays: number;
+  players: number;
+  hitPlays: number;
+  shitPlays: number;
+  hitPlayers: number;
+  shitPlayers: number;
+}> {
+  await ensureDayGameSchema();
+  const r = await tursoExecute(
+    `SELECT
+       COUNT(*) as plays,
+       COUNT(DISTINCT wallet) as players,
+       SUM(CASE WHEN side = 'hit' THEN 1 ELSE 0 END) as hit_plays,
+       SUM(CASE WHEN side = 'shit' THEN 1 ELSE 0 END) as shit_plays,
+       COUNT(DISTINCT CASE WHEN side = 'hit' THEN wallet END) as hit_players,
+       COUNT(DISTINCT CASE WHEN side = 'shit' THEN wallet END) as shit_players
+     FROM day_stakes WHERE utc_day = ?`,
+    [utcHour]
+  );
+  const row = r.rows[0] || [];
+  return {
+    plays: Number(row[0] || 0),
+    players: Number(row[1] || 0),
+    hitPlays: Number(row[2] || 0),
+    shitPlays: Number(row[3] || 0),
+    hitPlayers: Number(row[4] || 0),
+    shitPlayers: Number(row[5] || 0),
+  };
+}
+
 export async function getMyTickets(
   utcDay: string,
   wallet: string
