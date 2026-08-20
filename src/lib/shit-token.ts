@@ -1,6 +1,8 @@
 /** Official TokenShit mint + game / treasury constants */
 export const SHIT_MINT =
   "fEbiuDdZZ1QaWYpJFPqk23ZkaRnAyHg4aivhrCTshit" as const;
+/** Tweet / deeplink form */
+export const SHIT_MINT_SOLANA_URI = `solana:${SHIT_MINT}` as const;
 
 export const SHIT_DECIMALS = 6;
 /** On-chain / display ticker */
@@ -185,7 +187,7 @@ export function tweetClaimBody(refHandle?: string | null): string {
       : "https://tokenshit.com";
   return (
     `Just judged bags on @${X_HANDLE} — every token is SH!T until proven otherwise.\n\n` +
-    `CA: ${SHIT_MINT}\n\n` +
+    `${SHIT_MINT_SOLANA_URI}\n\n` +
     ref
   );
 }

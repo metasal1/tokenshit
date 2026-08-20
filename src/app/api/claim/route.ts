@@ -494,7 +494,7 @@ export async function POST(request: NextRequest) {
           {
             error:
               t.error ||
-              "No tweet with @Tokenshit_ + mint CA found. Post fresh (<24h) including the CA, paste link, claim.",
+              "No tweet with @Tokenshit_ + solana:CA found. Post fresh (<24h) with solana:<mint>, paste link, claim.",
           },
           { status: 403 }
         );
