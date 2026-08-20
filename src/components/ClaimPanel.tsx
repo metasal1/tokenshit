@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { usePrivy } from "@privy-io/react-auth";
-import { useWallets } from "@privy-io/react-auth/solana";
+import { useWallets, useCreateWallet } from "@privy-io/react-auth/solana";
 import { useSafeLogin } from "@/hooks/useSafeLogin";
 import { isStandalonePwa } from "@/lib/pwa-auth";
 import {
@@ -412,6 +412,9 @@ export default function ClaimPanel() {
     usePrivy();
   const { safeLogin, loginWithTwitter } = useSafeLogin();
   const { wallets } = useWallets();
+  const { createWallet } = useCreateWallet();
+  const [walletCreating, setWalletCreating] = useState(false);
+  const [walletCreateTried, setWalletCreateTried] = useState(false);
   const [busy, setBusy] = useState<ClaimKind | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -438,6 +441,52 @@ export default function ClaimPanel() {
     () => pickSolanaAddress(wallets, user),
     [wallets, user]
   );
+
+  /** Privy sometimes skips auto Solana wallet (esp. after X+GitHub link) — create explicitly */
+  const ensureSolanaWallet = useCallback(async () => {
+    if (!authenticated || !ready) return null;
+    if (pickSolanaAddress(wallets, user)) return pickSolanaAddress(wallets, user);
+    setWalletCreating(true);
+    setErr(null);
+    try {
+      const res = await createWallet();
+      const addr =
+        (res as { wallet?: { address?: string } })?.wallet?.address ||
+        (res as { address?: string })?.address ||
+        null;
+      if (addr) {
+        setMsg("Solana wallet ready — you can claim now.");
+        return addr;
+      }
+      // wallets list may refresh async
+      await new Promise((r) => setTimeout(r, 800));
+      return pickSolanaAddress(wallets, user);
+    } catch (e) {
+      const m = e instanceof Error ? e.message : String(e);
+      if (!/already|exists/i.test(m)) {
+        setErr(
+          m.slice(0, 160) ||
+            "Could not create wallet — try Log out and log in with X again."
+        );
+      }
+      return null;
+    } finally {
+      setWalletCreating(false);
+      setWalletCreateTried(true);
+    }
+  }, [authenticated, ready, wallets, user, createWallet]);
+
+  useEffect(() => {
+    if (!ready || !authenticated || wallet || walletCreateTried || walletCreating) return;
+    void ensureSolanaWallet();
+  }, [
+    ready,
+    authenticated,
+    wallet,
+    walletCreateTried,
+    walletCreating,
+    ensureSolanaWallet,
+  ]);
 
   const isClaimed = (kind: ClaimKind) => {
     if (kind === "x_tweet") return !!tweetData?.onCooldown;
@@ -503,10 +552,16 @@ export default function ClaimPanel() {
       safeLogin();
       return;
     }
-    if (!wallet) {
-      setErr("No Solana wallet yet — wait a second after login, or re-login.");
-      setClaimPhase("error");
-      return;
+    let payWallet = wallet;
+    if (!payWallet) {
+      payWallet = await ensureSolanaWallet();
+      if (!payWallet) {
+        setErr(
+          "No Solana wallet yet — tap Create Solana wallet, or log out and log in with X again."
+        );
+        setClaimPhase("error");
+        return;
+      }
     }
     if (!twitter) {
       setErr("Sign in with X is required.");
@@ -567,7 +622,7 @@ export default function ClaimPanel() {
         },
         body: JSON.stringify({
           kind,
-          wallet,
+          wallet: payWallet,
           twitter,
           github,
           accessToken: token,
@@ -795,9 +850,14 @@ export default function ClaimPanel() {
                 {wallet.slice(0, 4)}…{wallet.slice(-4)}
               </span>
             ) : authenticated ? (
-              <span className="text-[11px] text-amber-400">
-                Waiting for Solana wallet…
-              </span>
+              <button
+                type="button"
+                disabled={walletCreating}
+                onClick={() => void ensureSolanaWallet()}
+                className="min-h-9 px-3 rounded-md border border-amber-400/50 bg-amber-500/15 text-amber-200 text-[11px] font-semibold disabled:opacity-50"
+              >
+                {walletCreating ? "Creating wallet…" : "Create Solana wallet"}
+              </button>
             ) : null}
           </>
         )}
