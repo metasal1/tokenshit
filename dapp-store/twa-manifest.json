@@ -1,0 +1,62 @@
+{
+  "packageId": "com.tokenshit.app",
+  "host": "tokenshit.com",
+  "name": "TOKEN$HIT",
+  "launcherName": "TOKEN$HIT",
+  "display": "standalone",
+  "themeColor": "#0a0a0f",
+  "themeColorDark": "#0a0a0f",
+  "navigationColor": "#0a0a0f",
+  "navigationColorDark": "#0a0a0f",
+  "navigationDividerColor": "#0a0a0f",
+  "navigationDividerColorDark": "#0a0a0f",
+  "backgroundColor": "#0a0a0f",
+  "enableNotifications": true,
+  "startUrl": "/?source=seeker",
+  "iconUrl": "https://tokenshit.com/icons/icon-512.png",
+  "maskableIconUrl": "https://tokenshit.com/icons/maskable-512.png",
+  "splashScreenFadeOutDuration": 300,
+  "signingKey": {
+    "path": "./android.keystore",
+    "alias": "tokenshit"
+  },
+  "appVersionName": "1.0.0",
+  "appVersionCode": 1,
+  "shortcuts": [
+    {
+      "name": "Play",
+      "shortName": "Play",
+      "url": "/play?source=seeker",
+      "chosenIconUrl": "https://tokenshit.com/icons/icon-192.png"
+    },
+    {
+      "name": "Claim",
+      "shortName": "Claim",
+      "url": "/claim?source=seeker",
+      "chosenIconUrl": "https://tokenshit.com/icons/icon-192.png"
+    },
+    {
+      "name": "Vote",
+      "shortName": "Vote",
+      "url": "/?source=seeker",
+      "chosenIconUrl": "https://tokenshit.com/icons/icon-192.png"
+    }
+  ],
+  "generatorApp": "bubblewrap-cli",
+  "webManifestUrl": "https://tokenshit.com/manifest.webmanifest",
+  "fallbackType": "customtabs",
+  "features": {},
+  "alphaDependencies": { "enabled": false },
+  "enableSiteSettingsShortcut": true,
+  "isChromeOSOnly": false,
+  "isMetaQuest": false,
+  "fullScopeUrl": "https://tokenshit.com/",
+  "minSdkVersion": 23,
+  "orientation": "portrait-primary",
+  "fingerprints": [],
+  "additionalTrustedOrigins": [],
+  "retainedBundles": [],
+  "protocolHandlers": [],
+  "fileHandlers": [],
+  "launchHandlerClientMode": ""
+}
