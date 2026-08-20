@@ -44,7 +44,7 @@ export async function GET(req: NextRequest) {
          AND signature != ''
          AND signature != 'pending'
        ORDER BY id DESC
-       LIMIT 15`,
+       LIMIT 24`,
       []
     );
 
