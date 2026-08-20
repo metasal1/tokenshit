@@ -146,16 +146,20 @@ textarea,
   border-radius: 3px;
 }
 
-/* Claim toast (sitewide) — compact top-right pill */
+/* Claim toast — mobile bottom-left (above dock), desktop top-right */
 .claim-toast-wrap {
-  top: max(4.25rem, calc(env(safe-area-inset-top) + 3.25rem));
-  right: 0.5rem;
-  left: auto;
+  bottom: calc(4.5rem + env(safe-area-inset-bottom, 0px));
+  left: 0.5rem;
+  right: auto;
+  top: auto;
   width: min(17.5rem, calc(100vw - 1rem));
 }
 @media (min-width: 640px) {
   .claim-toast-wrap {
+    top: max(4.25rem, calc(env(safe-area-inset-top) + 3.25rem));
     right: 1rem;
+    left: auto;
+    bottom: auto;
     width: 18.5rem;
   }
 }
@@ -164,12 +168,24 @@ textarea,
 }
 @keyframes claim-toast-in {
   0% {
-    transform: translateY(-6px);
+    transform: translateY(8px);
     opacity: 0;
   }
   100% {
     transform: none;
     opacity: 1;
+  }
+}
+@media (min-width: 640px) {
+  @keyframes claim-toast-in {
+    0% {
+      transform: translateY(-6px);
+      opacity: 0;
+    }
+    100% {
+      transform: none;
+      opacity: 1;
+    }
   }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -178,16 +194,20 @@ textarea,
   }
 }
 
-/* Signup toast — compact top-right, under claim toast */
+/* Signup toast — mobile bottom-left stacked above claim; desktop top-right */
 .signup-glitch-toast {
-  top: max(7.25rem, calc(env(safe-area-inset-top) + 6.25rem));
-  right: 0.5rem;
-  left: auto;
+  bottom: calc(8.25rem + env(safe-area-inset-bottom, 0px));
+  left: 0.5rem;
+  right: auto;
+  top: auto;
   width: min(15.5rem, calc(100vw - 1rem));
 }
 @media (min-width: 640px) {
   .signup-glitch-toast {
+    top: max(7.25rem, calc(env(safe-area-inset-top) + 6.25rem));
     right: 1rem;
+    left: auto;
+    bottom: auto;
     width: 16.5rem;
   }
 }
@@ -196,7 +216,7 @@ textarea,
 }
 @keyframes signup-glitch-in {
   from {
-    transform: translateY(-4px);
+    transform: translateY(6px);
     opacity: 0;
   }
   to {

@@ -18,11 +18,17 @@ export type ClaimToastEvent = {
   signature?: string | null;
   /** Fired from this tab's successful claim */
   self?: boolean;
+  /** First-visit replay of recent claims */
+  firstVisit?: boolean;
 };
 
 const SEEN_KEY = "tokenshit_claim_toast_seen_v2";
+/** First-ever visit: replay last N claim notifications via original glitch toast */
+const FIRST_VISIT_KEY = "tokenshit_first_visit_claim_toasts_v1";
+const FIRST_VISIT_COUNT = 10;
 const TOAST_MS = 3200;
 const TOAST_MS_SELF = 4200;
+const TOAST_MS_FIRST = 2600;
 const POLL_MS = 18_000;
 
 function fmtAmt(n: number) {
@@ -124,6 +130,22 @@ function writeSeen(id: number) {
   }
 }
 
+function isFirstVisitBurst(): boolean {
+  try {
+    return !localStorage.getItem(FIRST_VISIT_KEY);
+  } catch {
+    return false;
+  }
+}
+
+function markFirstVisitBurstDone() {
+  try {
+    localStorage.setItem(FIRST_VISIT_KEY, String(Date.now()));
+  } catch {
+    /* ignore */
+  }
+}
+
 const FALLBACK_AVATAR =
   "data:image/svg+xml," +
   encodeURIComponent(
@@ -131,8 +153,8 @@ const FALLBACK_AVATAR =
   );
 
 /**
- * Compact claim toast — top-right pill, soft on mobile.
- * Polls /api/claim/recent + local tokenshit:claim.
+ * Compact claim toast — bottom-left on mobile, top-right on sm+.
+ * First visit: last 10 claims. Then polls /api/claim/recent + tokenshit:claim.
  */
 export default function ClaimGlitchToast() {
   const [evt, setEvt] = useState<ClaimToastEvent | null>(null);
@@ -179,7 +201,11 @@ export default function ClaimGlitchToast() {
       }
     }
 
-    const duration = next.self ? TOAST_MS_SELF : TOAST_MS;
+    const duration = next.self
+      ? TOAST_MS_SELF
+      : next.firstVisit
+        ? TOAST_MS_FIRST
+        : TOAST_MS;
     const started = Date.now();
     progTimer.current = window.setInterval(() => {
       const p = Math.max(0, 100 - ((Date.now() - started) / duration) * 100);
@@ -198,17 +224,19 @@ export default function ClaimGlitchToast() {
   }, []);
 
   const enqueue = useCallback(
-    (e: ClaimToastEvent) => {
+    (e: ClaimToastEvent, opts?: { bulk?: boolean }) => {
       if (!e?.id) return;
-      if (!e.self && e.id <= readSeen()) return;
+      if (!e.self && !e.firstVisit && e.id <= readSeen()) return;
       if (queue.current.some((q) => q.id === e.id)) return;
       if (evt?.id === e.id) return;
-      // Cap queue: drop older social toasts first
       queue.current.push(e);
-      if (queue.current.length > 4) {
+      // Normal live: tiny queue. First-visit burst: allow full last-10 stack.
+      if (!opts?.bulk && queue.current.length > 4) {
         const selfs = queue.current.filter((q) => q.self);
         const others = queue.current.filter((q) => !q.self).slice(-2);
         queue.current = [...selfs, ...others].slice(-4);
+      } else if (opts?.bulk && queue.current.length > FIRST_VISIT_COUNT + 2) {
+        queue.current = queue.current.slice(-(FIRST_VISIT_COUNT + 2));
       }
       showNext();
     },
@@ -217,21 +245,44 @@ export default function ClaimGlitchToast() {
 
   useEffect(() => {
     let alive = true;
+    let firstBurstDone = !isFirstVisitBurst();
 
     const poll = async () => {
       try {
         const r = await fetch("/api/claim/recent", { cache: "no-store" });
         const d = await r.json();
         if (!alive || !Array.isArray(d.events)) return;
-        const seen = readSeen();
-        const fresh = (d.events as ClaimToastEvent[])
-          .filter((e) => e.id > seen)
-          .sort((a, b) => a.id - b.id);
-        if (seen === 0 && d.events[0]?.id) {
-          writeSeen(Number(d.events[0].id));
+        const events = d.events as ClaimToastEvent[];
+
+        // First visit: play last 10 notifications (oldest → newest), original toast UI
+        if (!firstBurstDone) {
+          firstBurstDone = true;
+          markFirstVisitBurstDone();
+          const last10 = [...events]
+            .sort((a, b) => a.id - b.id)
+            .slice(-FIRST_VISIT_COUNT);
+          if (last10.length) {
+            const maxId = last10[last10.length - 1]!.id;
+            writeSeen(maxId);
+            for (const e of last10) {
+              enqueue({ ...e, self: false, firstVisit: true }, { bulk: true });
+            }
+          } else if (events[0]?.id) {
+            writeSeen(Number(events[0].id));
+          }
           return;
         }
-        // Only enqueue newest 1–2 social events to avoid toast spam
+
+        const seen = readSeen();
+        const fresh = events
+          .filter((e) => e.id > seen)
+          .sort((a, b) => a.id - b.id);
+        // First poll after session seed with no history already handled above
+        if (seen === 0 && events[0]?.id) {
+          writeSeen(Number(events[0].id));
+          return;
+        }
+        // Live: only newest 1–2 social events
         for (const e of fresh.slice(-2)) enqueue({ ...e, self: false });
       } catch {
         /* ignore */
@@ -275,7 +326,7 @@ export default function ClaimGlitchToast() {
       className={`claim-toast-wrap fixed z-[150] pointer-events-none transition-all duration-200 ${
         visible
           ? "opacity-100 translate-y-0"
-          : "opacity-0 -translate-y-2"
+          : "opacity-0 translate-y-2 sm:-translate-y-2 sm:translate-y-0"
       }`}
       role="status"
       aria-live="polite"
