@@ -13,13 +13,8 @@ import { jupiterBuyUrlWithFee, USDC_MINT } from "@/lib/buy-fee";
 import { SHIT_MINT, SHIT_SYMBOL, SHIT_DECIMALS } from "@/lib/shit-token";
 import { pickSolanaAddress } from "@/lib/privy-identity";
 import { BalanceSkeleton } from "@/components/StatLoader";
-import {
-  b64ToBytes,
-  encodeSigBs58,
-  friendlySolanaSendError,
-  isPrepareFailure,
-  sendRawBase64,
-} from "@/lib/solana-send";
+import { friendlySolanaSendError } from "@/lib/solana-send";
+import { sendSponsoredSolanaTx } from "@/lib/sponsor-send";
 
 const SOL_MINT = "So11111111111111111111111111111111111111112";
 const USDC_DECIMALS = 6;
@@ -439,74 +434,21 @@ export default function SwapDesk() {
   }
 
   async function sendTx(raw: string) {
-    if (!walletObj) throw new Error("No wallet");
-    const txBytes = b64ToBytes(raw);
-
-    const trySignAndSend = (sponsor: boolean) =>
-      signAndSendTransaction({
-        transaction: txBytes,
-        wallet: walletObj,
-        chain: "solana:mainnet",
-        options: {
-          sponsor,
-          uiOptions: {
-            showWalletUIs: true,
-            // hide scary empty fee when sponsored
-            description: sponsor
-              ? "Network fees sponsored by TOKEN$HIT"
-              : undefined,
-          },
-        },
-      });
-
-    try {
-      // Prefer sponsored gas so users can swap $TOKENSHIT with 0 SOL
-      let result;
-      try {
-        result = await trySignAndSend(true);
-      } catch (sponsorErr) {
-        // Dashboard gas sponsorship not on / unsupported → retry user-pays
-        if ((balances?.sol ?? 0) < 0.005) {
-          throw new Error(
-            "Fee sponsorship unavailable and this wallet has almost no SOL. Tap Add SOL (~0.01) or try again later."
-          );
-        }
-        result = await trySignAndSend(false);
-      }
-      let signature: string | null = null;
-      const sigBytes = result?.signature;
-      if (sigBytes instanceof Uint8Array) {
-        signature = encodeSigBs58(sigBytes);
-      } else if (typeof result?.signature === "string") {
-        signature = result.signature;
-      }
-      setSig(signature);
-      return signature;
-    } catch (e) {
-      // Privy "prepare" often dies on Token-2022 Jupiter routes (-32602).
-      // Fallback: sign only, broadcast via our RPC (user pays fee if any SOL).
-      if (!isPrepareFailure(e)) throw e;
-      if ((balances?.sol ?? 0) < 0.003) {
-        throw new Error(
-          "Could not sponsor this route and wallet has no SOL for fees. Tap Add SOL, then retry."
-        );
-      }
-      const signed = await signTransaction({
-        transaction: txBytes,
-        wallet: walletObj,
-        chain: "solana:mainnet",
-        options: { uiOptions: { showWalletUIs: true } },
-      });
-      const signedBytes = signed?.signedTransaction;
-      if (!(signedBytes instanceof Uint8Array)) {
-        throw e;
-      }
-      const signature = await sendRawBase64(signedBytes, {
-        skipPreflight: true,
-      });
-      setSig(signature);
-      return signature;
-    }
+    if (!walletObj || !walletAddress) throw new Error("No wallet");
+    // Strip CloseAccount + rate-gate before Privy sponsor (ATA rent abuse)
+    const { signature } = await sendSponsoredSolanaTx({
+      transaction: raw,
+      wallet: walletObj,
+      walletAddress,
+      signAndSendTransaction,
+      signTransaction,
+      description: "Network fees sponsored by TOKEN$HIT",
+      kind: "swap",
+      solBalance: balances?.sol ?? null,
+      allowSelfPayFallback: true,
+    });
+    setSig(signature);
+    return signature;
   }
 
   if (!ready) {

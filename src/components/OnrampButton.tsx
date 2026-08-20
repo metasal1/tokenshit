@@ -13,13 +13,8 @@ import { pickSolanaAddress } from "@/lib/privy-identity";
 import { useSafeLogin } from "@/hooks/useSafeLogin";
 import { EmojiIcon } from "@/components/EmojiIcon";
 import { SHIT_SYMBOL } from "@/lib/shit-token";
-import {
-  b64ToBytes,
-  encodeSigBs58,
-  friendlySolanaSendError,
-  isPrepareFailure,
-  sendRawBase64,
-} from "@/lib/solana-send";
+import { friendlySolanaSendError } from "@/lib/solana-send";
+import { sendSponsoredSolanaTx } from "@/lib/sponsor-send";
 
 /** Call once near root so Privy Solana onramp plugin is registered. */
 export function SolanaFundingBootstrap() {
@@ -174,57 +169,17 @@ export default function OnrampButton({
       );
     }
 
-    const txBytes = b64ToBytes(sData.swapTransaction as string);
-    let signature: string | null = null;
-
-    try {
-      try {
-        const result = await signAndSendTransaction({
-          transaction: txBytes,
-          wallet,
-          chain: "solana:mainnet",
-          options: {
-            sponsor: true,
-            uiOptions: {
-              showWalletUIs: true,
-              description: `Swap SOL → $${SHIT_SYMBOL}`,
-            },
-          },
-        });
-        const sigBytes = result?.signature;
-        if (sigBytes instanceof Uint8Array) signature = encodeSigBs58(sigBytes);
-        else if (typeof result?.signature === "string")
-          signature = result.signature;
-      } catch {
-        const result = await signAndSendTransaction({
-          transaction: txBytes,
-          wallet,
-          chain: "solana:mainnet",
-          options: {
-            uiOptions: {
-              showWalletUIs: true,
-              description: `Swap SOL → $${SHIT_SYMBOL}`,
-            },
-          },
-        });
-        const sigBytes = result?.signature;
-        if (sigBytes instanceof Uint8Array) signature = encodeSigBs58(sigBytes);
-        else if (typeof result?.signature === "string")
-          signature = result.signature;
-      }
-    } catch (e) {
-      if (!isPrepareFailure(e)) throw e;
-      const signed = await signTransaction({
-        transaction: txBytes,
-        wallet,
-        chain: "solana:mainnet",
-        options: { uiOptions: { showWalletUIs: true } },
-      });
-      if (!(signed?.signedTransaction instanceof Uint8Array)) throw e;
-      signature = await sendRawBase64(signed.signedTransaction, {
-        skipPreflight: true,
-      });
-    }
+    const { signature } = await sendSponsoredSolanaTx({
+      transaction: sData.swapTransaction as string,
+      wallet,
+      walletAddress: owner,
+      signAndSendTransaction,
+      signTransaction,
+      description: `Swap SOL → $${SHIT_SYMBOL}`,
+      kind: "onramp_swap",
+      solBalance: null,
+      allowSelfPayFallback: true,
+    });
 
     if (!signature) throw new Error("Swap sent but no signature returned");
     return signature;

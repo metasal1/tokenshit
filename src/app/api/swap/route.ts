@@ -164,7 +164,8 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const quoteResponse = body.quoteResponse || body.quote;
     const userPublicKey = String(body.userPublicKey || "");
-    const preferLegacy = body.asLegacyTransaction === true;
+    // Default legacy so CloseAccount can be stripped for gas sponsorship
+    const preferLegacy = body.asLegacyTransaction !== false;
 
     if (!quoteResponse || !userPublicKey) {
       return Response.json(
