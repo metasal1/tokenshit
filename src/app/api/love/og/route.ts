@@ -1,10 +1,12 @@
-import { type NextRequest } from "next/server";
-import { getLoveOgPngResponse } from "@/lib/love-og-cache";
+import { type NextRequest, NextResponse } from "next/server";
 
-export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
+export const runtime = "edge";
+export const dynamic = "force-static";
 
-export async function GET(req: NextRequest) {
-  const ref = req.nextUrl.searchParams.get("ref");
-  return getLoveOgPngResponse(ref, req.url);
+/** Legacy /api/love/og?ref= → static brand card (no generation). */
+export async function GET(_req: NextRequest) {
+  return NextResponse.redirect(
+    "https://tokenshit.com/brand/og/love.png?v=8",
+    308
+  );
 }

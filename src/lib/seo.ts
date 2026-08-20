@@ -4,7 +4,7 @@ import { SHIT_MINT, SHIT_SYMBOL, TREASURY_ADDRESS, X_HANDLE } from "@/lib/shit-t
 
 const SITE = "https://tokenshit.com";
 /** Cache-bust when OG pack regenerates */
-const OG_V = "7";
+const OG_V = "8";
 
 export type OgKey =
   | "default"
