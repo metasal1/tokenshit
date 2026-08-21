@@ -167,7 +167,7 @@ def center_text(draw, y, text, font, fill) -> int:
     return y + (b[3] - b[1])
 
 
-def build(handle: str | None = None) -> Image.Image:
+def build(handle: str | None = None, pfp_path: str | None = None, display_name: str | None = None) -> Image.Image:
     rng = random.Random(42)
     img = Image.new("RGBA", (S, S), (*BG, 255))
 
@@ -223,6 +223,33 @@ def build(handle: str | None = None) -> Image.Image:
     y = center_text(d, y, "WINNER", f_win, GOLD) + 10
     f_ann = fnt("Monoton-Regular.ttf", 52)
     y = center_text(d, y, "ANNOUNCED", f_ann, CREAM) + 22
+
+    # profile photo
+    if pfp_path:
+        try:
+            pfp = Image.open(pfp_path).convert("RGBA")
+            size = 220
+            pfp = pfp.resize((size, size), Image.Resampling.LANCZOS)
+            # circular mask
+            mask = Image.new("L", (size, size), 0)
+            md = ImageDraw.Draw(mask)
+            md.ellipse([0, 0, size - 1, size - 1], fill=255)
+            # neon ring
+            ring = Image.new("RGBA", (size + 16, size + 16), (0, 0, 0, 0))
+            rd = ImageDraw.Draw(ring)
+            rd.ellipse([0, 0, size + 15, size + 15], outline=(*NEON, 255), width=6)
+            rd.ellipse([3, 3, size + 12, size + 12], outline=(*GOLD, 200), width=3)
+            circ = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+            circ.paste(pfp, (0, 0), mask)
+            rx = (S - (size + 16)) // 2
+            img.alpha_composite(ring, (rx, y))
+            img.alpha_composite(circ, (rx + 8, y + 8))
+            y += size + 16 + 16
+        except Exception as e:
+            print("pfp failed", e)
+
+    if display_name:
+        y = center_text(d, y, display_name.upper(), f_handle, CREAM) + 10
 
     if handle:
         h = handle if handle.startswith("@") else f"@{handle}"
@@ -316,6 +343,8 @@ def build(handle: str | None = None) -> Image.Image:
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--handle", default="", help="Winner X handle e.g. @foo")
+    ap.add_argument("--pfp", default="", help="Path to winner profile image")
+    ap.add_argument("--name", default="", help="Display name e.g. ROYAN")
     ap.add_argument(
         "--out",
         default="",
@@ -326,7 +355,9 @@ def main() -> None:
     if handle and not handle.startswith("@"):
         handle = "@" + handle.lstrip("@")
 
-    img = build(handle)
+    pfp = (args.pfp or "").strip() or None
+    name = (args.name or "").strip() or None
+    img = build(handle, pfp, name)
     stem = "meme-comp-winner-poster"
     if handle:
         safe = handle.lstrip("@").lower()
