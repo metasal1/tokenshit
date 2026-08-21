@@ -84,7 +84,9 @@ export default function MemeStudio({ embedded = false }: { embedded?: boolean })
       });
       const data = await res.json();
       if (!data.ok) throw new Error(data.error || "failed");
-      setItems((data.items || []) as MemeTemplate[]);
+      // Newest first (upstream local registry is append-only; reverse if needed)
+      const raw = (data.items || []) as MemeTemplate[];
+      setItems(raw);
     } catch (e) {
       setErr(e instanceof Error ? e.message : String(e));
     } finally {
@@ -322,12 +324,6 @@ export default function MemeStudio({ embedded = false }: { embedded?: boolean })
     }
   }, [preview, selected, boxes, texts]);
 
-  const shareCaption = useCallback(() => {
-    const lines = texts.map((t) => (t || "").trim()).filter(Boolean);
-    if (lines.length) return lines.map((l) => l.toUpperCase()).join(" / ");
-    return selected?.name || "TOKEN$HIT meme";
-  }, [texts, selected]);
-
   const buildShareUrl = useCallback(() => {
     if (!selected || typeof window === "undefined") return "";
     if (selected.id.startsWith("upload-")) {
@@ -346,7 +342,7 @@ export default function MemeStudio({ embedded = false }: { embedded?: boolean })
   }, [selected, texts]);
 
   const shareNativeImage = useCallback(
-    async (text: string, url: string) => {
+    async (_text?: string, _url?: string) => {
       if (!selected) return false;
       try {
         const blob = await getMemeBlob();
@@ -358,11 +354,10 @@ export default function MemeStudio({ embedded = false }: { embedded?: boolean })
           typeof navigator.canShare === "function" &&
           navigator.canShare({ files: [file] })
         ) {
+          // Image only — no caption text
           await navigator.share({
             files: [file],
-            title: selected.name,
-            text,
-            url,
+            title: selected.name || "meme",
           });
           return true;
         }
@@ -522,16 +517,15 @@ export default function MemeStudio({ embedded = false }: { embedded?: boolean })
     setExporting(true);
     try {
       const url = buildShareUrl();
-      const text = shareCaption();
-      if (await shareNativeImage(text, url)) return;
+      if (await shareNativeImage("", url)) return;
       const intent = new URL("https://twitter.com/intent/tweet");
-      intent.searchParams.set("text", text);
-      if (url) intent.searchParams.set("url", url);
+      // Deep link only — no caption text in share
+      intent.searchParams.set("text", url || "https://tokenshit.com/memes");
       window.open(intent.toString(), "_blank", "noopener,noreferrer");
     } finally {
       setExporting(false);
     }
-  }, [selected, buildShareUrl, shareCaption, shareNativeImage]);
+  }, [selected, buildShareUrl, shareNativeImage]);
 
   const featured = useMemo(
     () =>
