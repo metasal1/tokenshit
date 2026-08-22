@@ -34,6 +34,22 @@ export function middleware(request: NextRequest) {
     return withSecurityHeaders(NextResponse.redirect(url, 308));
   }
 
+  // /hit-{token} → /hit/{token}  ·  /shit-{token} → /shit/{token}
+  // Example: /hit-trn-shit-so  ·  /shit-solana-<mint>
+  const path = request.nextUrl.pathname;
+  const sideTok = path.match(/^\/(hit|shit)-([^/]+)(\/.*)?$/i);
+  if (sideTok) {
+    const side = sideTok[1]!.toLowerCase();
+    const token = sideTok[2]!;
+    const rest = sideTok[3] || "";
+    // avoid clobbering static segments if any ever appear after bare /hit-
+    if (token && token !== "opengraph-image" && token !== "twitter-image") {
+      const url = request.nextUrl.clone();
+      url.pathname = `/${side}/${encodeURIComponent(decodeURIComponent(token))}${rest}`;
+      return withSecurityHeaders(NextResponse.rewrite(url));
+    }
+  }
+
   return withSecurityHeaders(NextResponse.next());
 }
 
