@@ -4,6 +4,7 @@ import { CREAM, GREEN, OG_BG, OG_SIZE, creamGlow, dollarGlow } from "@/lib/og-br
 import { tursoExecute } from "@/lib/turso";
 import { KOL_OG_ASSETS } from "@/lib/kol-og-assets";
 
+export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 export const alt = "TOKEN$HIT Stats";
 export const size = OG_SIZE;

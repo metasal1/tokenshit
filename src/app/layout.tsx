@@ -1,30 +1,58 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono, Monoton, Orbitron } from "next/font/google";
+import localFont from "next/font/local";
 import Script from "next/script";
 import ClientLayout from "@/components/ClientLayout";
 import { GA_MEASUREMENT_ID } from "@/lib/analytics";
 import { defaultMetadata, siteJsonLd } from "@/lib/seo";
 import "./globals.css";
 
-const geistSans = Geist({
+/** Local fonts — no Google Fonts fetch at build (CF / offline safe). */
+const geistSans = localFont({
+  src: [
+    {
+      path: "../../public/brand/fonts/Inter-Regular.ttf",
+      weight: "400",
+      style: "normal",
+    },
+    {
+      path: "../../public/brand/fonts/Inter-Bold.ttf",
+      weight: "700",
+      style: "normal",
+    },
+  ],
   variable: "--font-geist-sans",
-  subsets: ["latin"],
+  display: "swap",
 });
 
-const geistMono = Geist_Mono({
+const geistMono = localFont({
+  src: [
+    {
+      path: "../../public/brand/fonts/Inter-Regular.ttf",
+      weight: "400",
+      style: "normal",
+    },
+    {
+      path: "../../public/brand/fonts/Inter-Bold.ttf",
+      weight: "700",
+      style: "normal",
+    },
+  ],
   variable: "--font-geist-mono",
-  subsets: ["latin"],
+  display: "swap",
 });
 
-const monoton = Monoton({
+const monoton = localFont({
+  src: "../../public/brand/fonts/Monoton-Regular.ttf",
   variable: "--font-monoton",
   weight: "400",
-  subsets: ["latin"],
+  display: "swap",
 });
 
-const orbitron = Orbitron({
+const orbitron = localFont({
+  src: "../../public/brand/fonts/Orbitron-Bold.ttf",
   variable: "--font-orbitron",
-  subsets: ["latin"],
+  weight: "700",
+  display: "swap",
 });
 
 export const metadata: Metadata = {
@@ -64,12 +92,7 @@ export default function RootLayout({
           href="/llms.txt"
           title="llms.txt"
         />
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link
-          rel="preconnect"
-          href="https://fonts.gstatic.com"
-          crossOrigin="anonymous"
-        />
+        {/* Noto emoji optional CDN — non-blocking; build does not depend on it */}
         <link
           href="https://fonts.googleapis.com/css2?family=Noto+Color+Emoji&display=swap"
           rel="stylesheet"
@@ -121,23 +144,24 @@ export default function RootLayout({
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
-        <Script
-          src={`https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`}
-          strategy="afterInteractive"
-        />
-        <Script id="google-analytics" strategy="afterInteractive">
-          {`
+        {GA_MEASUREMENT_ID ? (
+          <>
+            <Script
+              src={`https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`}
+              strategy="afterInteractive"
+            />
+            <Script id="google-analytics" strategy="afterInteractive">
+              {`
             window.dataLayer = window.dataLayer || [];
             function gtag(){dataLayer.push(arguments);}
             gtag('js', new Date());
             gtag('config', '${GA_MEASUREMENT_ID}', { anonymize_ip: true });
           `}
-        </Script>
+            </Script>
+          </>
+        ) : null}
       </head>
-      <body
-        className="min-h-full flex flex-col font-sans"
-        suppressHydrationWarning
-      >
+      <body className="min-h-full flex flex-col font-sans" suppressHydrationWarning>
         <ClientLayout>{children}</ClientLayout>
       </body>
     </html>
