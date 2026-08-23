@@ -810,6 +810,28 @@ export async function POST(request: NextRequest) {
           { status: err.status }
         );
       }
+      const msg = err.message || String(e);
+      if (/RPC HTTP 429|rate limit|RPC busy|too many requests/i.test(msg)) {
+        return Response.json(
+          {
+            error:
+              "Solana RPC busy (rate limit). Wait a few seconds and claim again.",
+            code: "rpc_rate_limit",
+            retry: true,
+          },
+          { status: 503 }
+        );
+      }
+      if (/RPC HTTP 5|RPC unavailable|fetch failed|ECONNRESET/i.test(msg)) {
+        return Response.json(
+          {
+            error: "Network blip talking to Solana. Tap claim again.",
+            code: "rpc_upstream",
+            retry: true,
+          },
+          { status: 503 }
+        );
+      }
       throw e;
     }
 
@@ -890,6 +912,27 @@ export async function POST(request: NextRequest) {
     const msg = e instanceof Error ? e.message : String(e);
     if (msg.includes("UNIQUE") || msg.includes("unique")) {
       return Response.json({ error: "Already claimed" }, { status: 409 });
+    }
+    if (/RPC HTTP 429|rate limit|RPC busy|too many requests/i.test(msg)) {
+      return Response.json(
+        {
+          error:
+            "Solana RPC busy (rate limit). Wait a few seconds and claim again.",
+          code: "rpc_rate_limit",
+          retry: true,
+        },
+        { status: 503 }
+      );
+    }
+    if (/RPC HTTP 5|RPC unavailable|fetch failed|ECONNRESET/i.test(msg)) {
+      return Response.json(
+        {
+          error: "Network blip talking to Solana. Tap claim again.",
+          code: "rpc_upstream",
+          retry: true,
+        },
+        { status: 503 }
+      );
     }
     return Response.json({ error: msg }, { status: 500 });
   }
