@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import SwapDesk from "@/components/SwapDesk";
 import OnrampButton from "@/components/OnrampButton";
+import CrossmintBuyCard from "@/components/CrossmintBuyCard";
 import WalletAddressCard from "@/components/WalletAddressCard";
 import WithdrawPanel from "@/components/WithdrawPanel";
 import CopyableAddress from "@/components/CopyableAddress";
@@ -20,7 +21,7 @@ import { pageMeta } from "@/lib/seo";
 
 export const metadata: Metadata = pageMeta({
   title: `Buy $${SHIT_SYMBOL}`,
-  description: `Buy $${SHIT_SYMBOL} with SOL or card. Withdraw to any Solana wallet.`,
+  description: `Buy $${SHIT_SYMBOL} with SOL, card (Crossmint), or MoonPay. Withdraw to any Solana wallet.`,
   path: "/swap",
 });
 
@@ -33,8 +34,8 @@ export default function SwapPage() {
           <span className="neon-text">Buy</span>
         </h1>
         <p className="text-zinc-400 text-sm leading-snug">
-          Get ${SHIT_SYMBOL} with SOL or card. Selling is off — withdraw to your
-          own wallet if you need to move bags.
+          Get ${SHIT_SYMBOL} with SOL or card (Crossmint / MoonPay). Selling is
+          off — withdraw to your own wallet if you need to move bags.
         </p>
         <p className="text-xs text-zinc-600">
           Free drops?{" "}
@@ -43,6 +44,8 @@ export default function SwapPage() {
           </Link>
         </p>
       </header>
+
+      <CrossmintBuyCard />
 
       <OnrampButton variant="full" amount="0.3" />
 
@@ -83,3 +86,4 @@ export default function SwapPage() {
     </div>
   );
 }
+
