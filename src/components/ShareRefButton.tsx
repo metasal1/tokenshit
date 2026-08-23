@@ -104,7 +104,7 @@ export default function ShareRefButton({
 
   function tweet() {
     if (!link) return;
-    const text = `I love talking tokenshit. @${X_HANDLE} · SH!T OF THE DAY 💚\n\nJoin via my link — I get ${REFERRAL_REWARD_SHIT.toLocaleString()} $${SHIT_SYMBOL} if you sign up.\n\n${link}`;
+    const text = `I just love tokenshit all day everyday. @${X_HANDLE} · SH!T OF THE DAY 💚\n\nJoin via my link — I get ${REFERRAL_REWARD_SHIT.toLocaleString()} $${SHIT_SYMBOL} if you sign up.\n\n${link}`;
     window.open(
       `https://x.com/intent/tweet?text=${encodeURIComponent(text)}`,
       "_blank",
