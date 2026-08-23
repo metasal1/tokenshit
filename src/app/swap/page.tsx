@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import SwapDesk from "@/components/SwapDesk";
 import OnrampButton from "@/components/OnrampButton";
-import CrossmintBuyCard from "@/components/CrossmintBuyCard";
+import CrossmintBuyCardLazy from "@/components/CrossmintBuyCardLazy";
 import WalletAddressCard from "@/components/WalletAddressCard";
 import WithdrawPanel from "@/components/WithdrawPanel";
 import CopyableAddress from "@/components/CopyableAddress";
@@ -45,7 +45,7 @@ export default function SwapPage() {
         </p>
       </header>
 
-      <CrossmintBuyCard />
+      <CrossmintBuyCardLazy />
 
       <OnrampButton variant="full" amount="0.3" />
 

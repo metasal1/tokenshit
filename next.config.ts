@@ -33,6 +33,8 @@ const nextConfig: NextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
+  // Keep Crossmint (and heavy wallet deps) out of the CF Worker server bundle
+  serverExternalPackages: ["@crossmint/client-sdk-react-ui"],
   async headers() {
     return [
       {
