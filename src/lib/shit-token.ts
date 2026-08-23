@@ -186,7 +186,7 @@ export function tweetClaimBody(refHandle?: string | null): string {
         )}`
       : "https://tokenshit.com";
   return (
-    `Just judged bags on @${X_HANDLE} — every token is SH!T until proven otherwise.\n\n` +
+    `I love talking tokenshit. @${X_HANDLE} — every token is SH!T until proven otherwise.\n\n` +
     `${SHIT_MINT_SOLANA_URI}\n\n` +
     ref
   );
