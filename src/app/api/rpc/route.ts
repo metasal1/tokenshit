@@ -16,8 +16,9 @@ const PRIMARY =
 
 /** PublicNode — secondary only (stress-tested 2026-08: 0/50 fail, ~300ms p50). */
 const SECONDARY = "https://solana.publicnode.com";
+const TERTIARY = "https://api.mainnet-beta.solana.com";
 
-const UPSTREAMS = [PRIMARY, SECONDARY].filter(
+const UPSTREAMS = [PRIMARY, SECONDARY, TERTIARY].filter(
   (u, i, a) => u && a.indexOf(u) === i
 );
 

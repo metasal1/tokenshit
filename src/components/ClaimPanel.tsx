@@ -643,7 +643,11 @@ export default function ClaimPanel() {
               ? ` (${JSON.stringify(data.meta.errors).slice(0, 120)})`
               : "";
         const msgText = (data.error || `Claim failed (${res.status})`) + detail;
-        setErr(msgText);
+        // Friendlier copy for RPC blips (server already maps 429 → this text)
+        const friendly = /RPC HTTP 429|rpc_rate_limit|RPC busy/i.test(msgText)
+          ? "Solana is rate-limiting us — wait ~5s and tap Claim again."
+          : msgText;
+        setErr(friendly);
         setClaimPhase("error");
         // Premium clicked but user is non-premium verified → auto-route verified
         if (

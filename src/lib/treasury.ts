@@ -6,27 +6,114 @@ import {
   shitToRaw,
 } from "@/lib/shit-token";
 
-const RPC =
-  process.env.SOLANA_RPC_URL ||
-  process.env.HELIUS_RPC_URL ||
-  "https://viviyan-bkj12u-fast-mainnet.helius-rpc.com";
+/** Prefer paid Helius, then PublicNode, then Solana labs public. */
+const RPC_URLS: string[] = [
+  process.env.SOLANA_RPC_URL,
+  process.env.HELIUS_RPC_URL,
+  "https://solana.publicnode.com",
+  "https://api.mainnet-beta.solana.com",
+].filter((u, i, a): u is string => Boolean(u) && a.indexOf(u) === i);
+
+/** @deprecated use RPC_URLS[0] — kept for Connection callers that need a string */
+const RPC = RPC_URLS[0] || "https://api.mainnet-beta.solana.com";
 
 /** Token-2022 program (mint is Token-2022, not classic SPL) */
 const TOKEN_2022_PROGRAM_ID_STR = "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb";
 
+function sleep(ms: number) {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+function isTransientRpc(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message : String(err);
+  return /RPC HTTP (429|402|5\d\d)|429|rate limit|too many|load.?shed|ECONNRESET|fetch failed|socket|timeout|503|502|504/i.test(
+    msg
+  );
+}
+
+/**
+ * JSON-RPC with multi-endpoint failover + short backoff on 429/5xx.
+ */
 export async function rpc<T = unknown>(
   method: string,
   params: unknown[]
 ): Promise<T> {
-  const res = await fetch(RPC, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
-  });
-  if (!res.ok) throw new Error(`RPC HTTP ${res.status}`);
-  const json = await res.json();
-  if (json.error) throw new Error(json.error.message || "RPC error");
-  return json.result as T;
+  let lastErr: Error | null = null;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    for (const url of RPC_URLS) {
+      try {
+        const res = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
+          cache: "no-store",
+        });
+        if (!res.ok) {
+          lastErr = new Error(`RPC HTTP ${res.status}`);
+          if (res.status === 429 || res.status === 402 || res.status >= 500) {
+            await sleep(150 + attempt * 250 + Math.floor(Math.random() * 100));
+            continue;
+          }
+          throw lastErr;
+        }
+        const json = await res.json();
+        if (json.error) {
+          const msg = String(json.error.message || "RPC error");
+          lastErr = new Error(msg);
+          if (isTransientRpc(lastErr)) {
+            await sleep(150 + attempt * 200);
+            continue;
+          }
+          throw lastErr;
+        }
+        return json.result as T;
+      } catch (e) {
+        lastErr = e instanceof Error ? e : new Error(String(e));
+        if (isTransientRpc(lastErr)) {
+          await sleep(120 + attempt * 180);
+          continue;
+        }
+        throw lastErr;
+      }
+    }
+  }
+  throw new Error(
+    lastErr?.message?.includes("429")
+      ? "Solana RPC busy (rate limit). Wait a few seconds and claim again."
+      : lastErr?.message || "Solana RPC unavailable — try again shortly."
+  );
+}
+
+/** web3 Connection with same failover list (tries until one works for a call). */
+export async function withSolanaConnection<T>(
+  fn: (conn: import("@solana/web3.js").Connection) => Promise<T>
+): Promise<T> {
+  const { Connection } = await import("@solana/web3.js");
+  let lastErr: Error | null = null;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    for (const url of RPC_URLS) {
+      try {
+        const conn = new Connection(url, {
+          commitment: "confirmed",
+          confirmTransactionInitialTimeout: 45_000,
+          disableRetryOnRateLimit: false,
+        });
+        return await fn(conn);
+      } catch (e) {
+        lastErr = e instanceof Error ? e : new Error(String(e));
+        if (isTransientRpc(lastErr)) {
+          await sleep(180 + attempt * 220);
+          continue;
+        }
+        throw lastErr;
+      }
+    }
+  }
+  throw new Error(
+    /429|rate/i.test(lastErr?.message || "")
+      ? "Solana RPC busy (rate limit). Wait a few seconds and claim again."
+      : lastErr?.message || "Solana RPC unavailable — try again shortly."
+  );
 }
 
 export async function getTreasuryBalances(): Promise<{
@@ -158,10 +245,6 @@ function loadKeypairFromEnv(
     throw new Error(`${envName} must be 64-byte JSON array`);
   }
   return Keypair.fromSecretKey(Uint8Array.from(arr));
-}
-
-function sleep(ms: number) {
-  return new Promise((r) => setTimeout(r, ms));
 }
 
 /**
@@ -329,11 +412,17 @@ async function sendShitFromPayer(opts: {
 
   const TOKEN_2022_PROGRAM_ID = new PublicKey(TOKEN_2022_PROGRAM_ID_STR);
   const tokenAuthority = opts.loadPayer();
-  const conn = new Connection(RPC, {
-    commitment: "confirmed",
-    confirmTransactionInitialTimeout: 20_000,
-    disableRetryOnRateLimit: false,
-  });
+  let rpcCursor = 0;
+  const makeConn = () => {
+    const url = RPC_URLS[rpcCursor % RPC_URLS.length] || RPC;
+    rpcCursor += 1;
+    return new Connection(url, {
+      commitment: "confirmed",
+      confirmTransactionInitialTimeout: 45_000,
+      disableRetryOnRateLimit: false,
+    });
+  };
+  let conn = makeConn();
   const mint = new PublicKey(SHIT_MINT);
   const toOwner = new PublicKey(opts.recipient);
   const raw = shitToRaw(amountWhole);
@@ -525,6 +614,10 @@ async function sendShitFromPayer(opts: {
       }
       if (/insufficient|0x1|no SOL|top up/i.test(lastErr.message)) {
         break;
+      }
+      // Rotate RPC on rate-limit / upstream blips
+      if (isTransientRpc(lastErr)) {
+        conn = makeConn();
       }
       await sleep(400 * attempt);
     }
