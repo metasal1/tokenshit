@@ -29,7 +29,12 @@ function isStagingKey(key: string): boolean {
  * Card buy $TOKENSHIT via Crossmint embedded memecoin checkout.
  * Staging keys use XMEME test mint; production keys use real SHIT mint.
  */
-export default function CrossmintBuyCard() {
+export default function CrossmintBuyCard({
+  embedded = false,
+}: {
+  /** No outer card chrome when nested in BuyDesk */
+  embedded?: boolean;
+} = {}) {
   const { authenticated, user } = usePrivy();
   const { safeLogin } = useSafeLogin();
   const { wallets } = useWallets();
@@ -57,9 +62,13 @@ export default function CrossmintBuyCard() {
   const amount = custom.trim() || usd;
   const amountOk = Number(amount) >= 1 && Number(amount) <= 500;
 
+  const shell = embedded
+    ? "space-y-3"
+    : "rounded-xl border border-neon/30 bg-card p-4 sm:p-5 space-y-3";
+
   if (!apiKey) {
     return (
-      <section className="rounded-xl border border-border bg-card p-4 space-y-2">
+      <section className={shell}>
         <h2 className="text-sm font-bold font-orbitron uppercase tracking-wide text-zinc-200">
           Buy with card
         </h2>
@@ -73,20 +82,29 @@ export default function CrossmintBuyCard() {
   }
 
   return (
-    <section className="rounded-xl border border-neon/30 bg-card p-4 sm:p-5 space-y-3">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h2 className="text-sm font-bold font-orbitron uppercase tracking-wide text-neon">
-            Buy with card
-          </h2>
-          <p className="text-xs text-zinc-500 mt-1 leading-snug">
-            Crossmint · Apple Pay / Google Pay / debit · lands in your Solana
-            wallet as ${SHIT_SYMBOL}
-            {staging ? " (staging sandbox)" : ""}.
-          </p>
+    <section className={shell}>
+      {!embedded && (
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h2 className="text-sm font-bold font-orbitron uppercase tracking-wide text-neon">
+              Buy with card
+            </h2>
+            <p className="text-xs text-zinc-500 mt-1 leading-snug">
+              Crossmint · Apple Pay / Google Pay / debit · lands in your Solana
+              wallet as ${SHIT_SYMBOL}
+              {staging ? " (staging sandbox)" : ""}.
+            </p>
+          </div>
+          <EmojiIcon size={22}>💳</EmojiIcon>
         </div>
-        <EmojiIcon size={22}>💳</EmojiIcon>
-      </div>
+      )}
+      {embedded && (
+        <p className="text-xs text-zinc-500 leading-snug">
+          Apple Pay / Google Pay / debit via Crossmint
+          {staging ? " · staging sandbox" : ""}. Tokens land in your Solana
+          wallet.
+        </p>
+      )}
 
       {!authenticated ? (
         <button
@@ -163,7 +181,7 @@ export default function CrossmintBuyCard() {
                   Change amount
                 </button>
               </div>
-              <div className="rounded-xl overflow-hidden border border-border bg-white min-h-[420px]">
+              <div className="rounded-xl overflow-hidden border border-border bg-white min-h-[360px] max-h-[min(70vh,640px)] overflow-y-auto">
                 <CrossmintProvider apiKey={apiKey}>
                   <CrossmintEmbeddedCheckout
                     key={`${walletAddress}-${amount}-${mint}`}
