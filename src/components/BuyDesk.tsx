@@ -1,18 +1,29 @@
 "use client";
 
 import { useState } from "react";
-import CrossmintBuyCard from "@/components/CrossmintBuyCard";
+import dynamic from "next/dynamic";
 import OnrampButton from "@/components/OnrampButton";
 import SwapDesk from "@/components/SwapDesk";
 import WalletAddressCard from "@/components/WalletAddressCard";
 import WithdrawPanel from "@/components/WithdrawPanel";
 import { EmojiIcon } from "@/components/EmojiIcon";
 
+const CrossmintBuyCard = dynamic(
+  () => import("@/components/CrossmintBuyCard"),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="animate-pulse h-40 rounded-xl bg-zinc-900/60 border border-border" />
+    ),
+  }
+);
+
 type Tab = "card" | "sol";
 
 /**
  * Buy desk layout — desktop 2-col, single primary panel with Card | SOL tabs.
  * Avoids stacked Crossmint + MoonPay + SwapDesk mess.
+ * Crossmint is client-only (ssr:false) so it never hits the CF Worker bundle.
  */
 export default function BuyDesk() {
   const [tab, setTab] = useState<Tab>("card");
@@ -22,7 +33,6 @@ export default function BuyDesk() {
       {/* Primary */}
       <div className="lg:col-span-7 xl:col-span-8 space-y-3 min-w-0">
         <div className="rounded-2xl border border-border bg-card overflow-hidden shadow-[0_0_40px_rgba(0,0,0,0.25)]">
-          {/* Tabs */}
           <div
             className="grid grid-cols-2 border-b border-border"
             role="tablist"
@@ -62,7 +72,6 @@ export default function BuyDesk() {
         </div>
       </div>
 
-      {/* Side rail — desktop always visible; mobile stacked under */}
       <aside className="lg:col-span-5 xl:col-span-4 space-y-3 min-w-0 lg:sticky lg:top-24">
         <WalletAddressCard />
         <div id="withdraw">
