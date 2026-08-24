@@ -81,6 +81,7 @@ const KNOWN: Record<string, string> = {
   USDC: cg("usd-coin"),
   USDT: cg("tether"),
   WBTC: cg("wrapped-bitcoin"),
+  XSGD: cg("xsgd"),
   STETH: cg("staked-ether"),
   HBAR: cg("hedera-hashgraph"),
   FIL: cg("filecoin"),

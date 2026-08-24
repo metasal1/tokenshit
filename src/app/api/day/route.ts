@@ -254,9 +254,22 @@ export async function GET(request: NextRequest) {
       if (
         (pct == null || !Number.isFinite(pct)) &&
         m.change1h != null &&
-        Number.isFinite(m.change1h)
+        Number.isFinite(m.change1h) &&
+        Math.abs(m.change1h) < 80 // reject absurd feed spikes
       ) {
         pct = m.change1h;
+      }
+      // Cap absurd hour % from bad open snaps
+      if (pct != null && Number.isFinite(pct) && Math.abs(pct) > 80) {
+        if (
+          m.change1h != null &&
+          Number.isFinite(m.change1h) &&
+          Math.abs(m.change1h) < 80
+        ) {
+          pct = m.change1h;
+        } else {
+          pct = null;
+        }
       }
 
       const h = heat.get(m.assetId);
