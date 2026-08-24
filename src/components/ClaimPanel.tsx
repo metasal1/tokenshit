@@ -343,6 +343,19 @@ function ClaimStatusBar({
                 View tx ↗
               </a>
             )}
+            {isDone && (
+              <div className="mt-3 flex flex-col gap-2">
+                <a
+                  href="/play"
+                  className="flex w-full min-h-11 items-center justify-center rounded-xl bg-neon text-black text-sm font-bold font-orbitron uppercase tracking-wide hover:brightness-110 active:scale-[0.99]"
+                >
+                  Play this hour →
+                </a>
+                <p className="text-[10px] text-zinc-500 text-center leading-snug">
+                  1,000 $TOKENSHIT · pick HIT or SHIT · winners split the pot
+                </p>
+              </div>
+            )}
             {isErr && error && (
               <p className="mt-1.5 text-[11px] text-red-400/90 break-words leading-snug">
                 {error}
@@ -711,7 +724,7 @@ export default function ClaimPanel() {
           setMsg(
             `Claimed gas for ${
               gas?.games || PLAY_GAS_STARTER_GAMES
-            } plays (${Number(data.amount || gas?.sol || PLAY_GAS_DROP_SOL).toFixed(4)} SOL).`
+            } plays (${Number(data.amount || gas?.sol || PLAY_GAS_DROP_SOL).toFixed(4)} SOL). Go play this hour.`
           );
         } else {
           const gasBit =
@@ -719,7 +732,7 @@ export default function ClaimPanel() {
               ? ` + ${Number(gas.sol).toFixed(4)} SOL gas (~${gas.games || 67} plays)`
               : "";
           setMsg(
-            `Sent ${Number(data.amount).toLocaleString()} $${SHIT_SYMBOL} to wallet.${gasBit}`
+            `Sent ${Number(data.amount).toLocaleString()} $${SHIT_SYMBOL} to wallet.${gasBit} Play this hour with it.`
           );
         }
       }
@@ -869,9 +882,15 @@ export default function ClaimPanel() {
             </p>
           )}
           {msg && (
-            <p className="text-sm text-green-400 break-words bg-green-950/30 border border-green-900/40 rounded-lg px-3 py-2">
-              {msg}
-            </p>
+            <div className="space-y-2 rounded-lg border border-green-900/40 bg-green-950/30 px-3 py-2">
+              <p className="text-sm text-green-400 break-words">{msg}</p>
+              <a
+                href="/play"
+                className="inline-flex min-h-10 w-full items-center justify-center rounded-lg bg-neon text-black text-xs font-bold font-orbitron uppercase tracking-wide hover:brightness-110"
+              >
+                Play with it →
+              </a>
+            </div>
           )}
           {sig && (
             <a
@@ -1229,11 +1248,17 @@ export default function ClaimPanel() {
       )}
 
       <p className="text-[11px] text-zinc-600 pt-1">
-        <a href="/kols" className="text-neon hover:underline">Scout KOLs 2.5K</a>
+        <a href="/play" className="text-neon font-semibold hover:underline">
+          Play $HIT OF THE DAY
+        </a>
         {" · "}
-        <a href="/swap" className="text-zinc-400 hover:text-neon">Buy</a>
+        <a href="/kols" className="text-zinc-400 hover:text-neon">
+          Scout KOLs 2.5K
+        </a>
         {" · "}
-        <a href="/play" className="text-zinc-400 hover:text-neon">Play</a>
+        <a href="/swap" className="text-zinc-400 hover:text-neon">
+          Buy
+        </a>
       </p>
 
       {/* Always-on-screen claim status */}

@@ -355,6 +355,13 @@ export default function HourCelebrate({
               Brag on X
             </a>
             <Link
+              href="/play"
+              className="w-full min-h-11 rounded-xl border border-neon/50 bg-neon/10 text-neon font-bold text-sm inline-flex items-center justify-center hover:bg-neon/20"
+              onClick={onClose}
+            >
+              Play next hour →
+            </Link>
+            <Link
               href={`/play/${encodeURIComponent(payload.utcHour)}`}
               className="w-full min-h-10 rounded-xl border border-border text-zinc-300 text-sm inline-flex items-center justify-center hover:bg-zinc-900"
               onClick={onClose}
