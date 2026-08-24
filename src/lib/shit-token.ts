@@ -48,14 +48,14 @@ export const CLAIM_JUP_VERIFIED = 5_000;
 export const CLAIM_X_TWEET = 2_500;
 /** Follow @Tokenshit_ (once) — minor */
 export const CLAIM_X_FOLLOW = 1_500;
-/** Retweet pinned promo post (once) */
-export const CLAIM_X_RETWEET = 2_000;
+/** Retweet promo post (once) */
+export const CLAIM_X_RETWEET = 1_000;
 /** Target status for x_retweet claim */
-export const CLAIM_RT_TWEET_ID = "2091741947245568246";
+export const CLAIM_RT_TWEET_ID = "2091804745849774464";
 export const CLAIM_RT_TWEET_URL =
   process.env.NEXT_PUBLIC_CLAIM_RT_TWEET_URL ||
   `https://x.com/Tokenshit_/status/${CLAIM_RT_TWEET_ID}`;
-/** Join email list (once) */
+
 export const CLAIM_EMAIL_LIST = 2_500;
 /** $TOKENSHIT per referral */
 export const REFERRAL_REWARD_SHIT = 1_000;

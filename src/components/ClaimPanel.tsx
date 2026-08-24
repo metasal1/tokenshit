@@ -995,7 +995,7 @@ export default function ClaimPanel() {
               >
                 this post
               </a>
-              , then claim once (2,000).
+              , then claim once (1,000).
             </>
           }
         >
@@ -1032,7 +1032,7 @@ export default function ClaimPanel() {
               onClick={() => claim("x_retweet")}
               className={BTN_SKY}
             >
-              {busy === "x_retweet" ? "Claiming…" : "2. Claim 2,000 $TOKENSHIT"}
+              {busy === "x_retweet" ? "Claiming…" : "2. Claim 1,000 $TOKENSHIT"}
             </button>
           </div>
         </RewardRow>
