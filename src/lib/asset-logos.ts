@@ -22,68 +22,132 @@ export async function ensureLogoSchema() {
   schemaReady = true;
 }
 
-/** Well-known symbol → logo (jsDelivr cryptocurrency-icons). */
+const SIMPLR =
+  "https://cdn.jsdelivr.net/gh/simplr-sh/coin-logos/images";
+
+/** CoinGecko id → logo via simplr CDN (no rate limit / bandwidth). */
+function cg(id: string): string {
+  return `${SIMPLR}/${id}/standard.png`;
+}
+
+/**
+ * Full board + common majors symbol → logo URL.
+ * Prefer simplr-sh (16k coins). Spot icons only where simpler.
+ */
 const KNOWN: Record<string, string> = {
-  SOL: "https://cdn.jsdelivr.net/gh/spothq/cryptocurrency-icons@master/128/color/sol.png",
-  BTC: "https://cdn.jsdelivr.net/gh/spothq/cryptocurrency-icons@master/128/color/btc.png",
-  ETH: "https://cdn.jsdelivr.net/gh/spothq/cryptocurrency-icons@master/128/color/eth.png",
-  BNB: "https://cdn.jsdelivr.net/gh/spothq/cryptocurrency-icons@master/128/color/bnb.png",
-  AVAX: "https://cdn.jsdelivr.net/gh/spothq/cryptocurrency-icons@master/128/color/avax.png",
-  SUI: "https://cdn.jsdelivr.net/gh/spothq/cryptocurrency-icons@master/128/color/sui.png",
-  NEAR: "https://cdn.jsdelivr.net/gh/spothq/cryptocurrency-icons@master/128/color/near.png",
-  AAVE: "https://cdn.jsdelivr.net/gh/spothq/cryptocurrency-icons@master/128/color/aave.png",
-  UNI: "https://cdn.jsdelivr.net/gh/spothq/cryptocurrency-icons@master/128/color/uni.png",
-  LINK: "https://cdn.jsdelivr.net/gh/spothq/cryptocurrency-icons@master/128/color/link.png",
-  DOGE: "https://cdn.jsdelivr.net/gh/spothq/cryptocurrency-icons@master/128/color/doge.png",
-  JUP: "https://cdn.jsdelivr.net/gh/spothq/cryptocurrency-icons@master/128/color/jup.png",
-  RENDER: "https://cdn.jsdelivr.net/gh/spothq/cryptocurrency-icons@master/128/color/rndr.png",
-  INJ: "https://cdn.jsdelivr.net/gh/spothq/cryptocurrency-icons@master/128/color/inj.png",
-  TIA: "https://cdn.jsdelivr.net/gh/spothq/cryptocurrency-icons@master/128/color/tia.png",
-  SEI: "https://cdn.jsdelivr.net/gh/spothq/cryptocurrency-icons@master/128/color/sei.png",
-  APT: "https://cdn.jsdelivr.net/gh/spothq/cryptocurrency-icons@master/128/color/apt.png",
-  OP: "https://cdn.jsdelivr.net/gh/spothq/cryptocurrency-icons@master/128/color/op.png",
-  ARB: "https://cdn.jsdelivr.net/gh/spothq/cryptocurrency-icons@master/128/color/arb.png",
-  ATOM: "https://cdn.jsdelivr.net/gh/spothq/cryptocurrency-icons@master/128/color/atom.png",
-  DOT: "https://cdn.jsdelivr.net/gh/spothq/cryptocurrency-icons@master/128/color/dot.png",
-  LTC: "https://cdn.jsdelivr.net/gh/spothq/cryptocurrency-icons@master/128/color/ltc.png",
-  XRP: "https://cdn.jsdelivr.net/gh/spothq/cryptocurrency-icons@master/128/color/xrp.png",
-  TON: "https://cdn.jsdelivr.net/gh/spothq/cryptocurrency-icons@master/128/color/ton.png",
-  TRX: "https://cdn.jsdelivr.net/gh/spothq/cryptocurrency-icons@master/128/color/trx.png",
-  ADA: "https://cdn.jsdelivr.net/gh/spothq/cryptocurrency-icons@master/128/color/ada.png",
-  PEPE: "https://cdn.jsdelivr.net/gh/spothq/cryptocurrency-icons@master/128/color/pepe.png",
-  BONK: "https://cdn.jsdelivr.net/gh/spothq/cryptocurrency-icons@master/128/color/bonk.png",
-  PYTH: "https://cdn.jsdelivr.net/gh/spothq/cryptocurrency-icons@master/128/color/pyth.png",
-  MSOL: "https://cdn.jsdelivr.net/gh/spothq/cryptocurrency-icons@master/128/color/msol.png",
-  WIF: "https://cdn.jsdelivr.net/gh/spothq/cryptocurrency-icons@master/128/color/wif.png",
-  POL: "https://cdn.jsdelivr.net/gh/spothq/cryptocurrency-icons@master/128/color/matic.png",
-  JTO: "https://cdn.jsdelivr.net/gh/spothq/cryptocurrency-icons@master/128/color/jto.png",
+  SOL: cg("solana"),
+  BTC: cg("bitcoin"),
+  ETH: cg("ethereum"),
+  BNB: cg("binancecoin"),
+  AVAX: cg("avalanche-2"),
+  SUI: cg("sui"),
+  NEAR: cg("near"),
+  AAVE: cg("aave"),
+  UNI: cg("uniswap"),
+  LINK: cg("chainlink"),
+  DOGE: cg("dogecoin"),
+  WIF: cg("dogwifcoin"),
+  JUP: cg("jupiter-exchange-solana"),
+  JTO: cg("jito-governance-token"),
+  RENDER: cg("render-token"),
+  RNDR: cg("render-token"),
+  INJ: cg("injective-protocol"),
+  TIA: cg("celestia"),
+  SEI: cg("sei-network"),
+  APT: cg("aptos"),
+  OP: cg("optimism"),
+  ARB: cg("arbitrum"),
+  POL: cg("polygon-ecosystem-token"),
+  MATIC: cg("matic-network"),
+  ATOM: cg("cosmos"),
+  DOT: cg("polkadot"),
+  LTC: cg("litecoin"),
+  XRP: cg("ripple"),
+  TON: cg("the-open-network"),
+  TRX: cg("tron"),
+  ADA: cg("cardano"),
+  HYPE: cg("hyperliquid"),
+  TAO: cg("bittensor"),
+  ZEC: cg("zcash"),
+  ENA: cg("ethena"),
+  PEPE: cg("pepe"),
+  BONK: cg("bonk"),
+  PYTH: cg("pyth-network"),
+  MSOL: cg("msol"),
+  JITOSOL: cg("jito-staked-sol"),
+  JitoSOL: cg("jito-staked-sol"),
+  W: cg("wormhole"),
+  WETH: cg("weth"),
+  USDC: cg("usd-coin"),
+  USDT: cg("tether"),
+  WBTC: cg("wrapped-bitcoin"),
+  STETH: cg("staked-ether"),
+  HBAR: cg("hedera-hashgraph"),
+  FIL: cg("filecoin"),
+  ICP: cg("internet-computer"),
+  IMX: cg("immutable-x"),
+  MKR: cg("maker"),
+  CRV: cg("curve-dao-token"),
+  LDO: cg("lido-dao"),
+  GRT: cg("the-graph"),
+  FET: cg("fetch-ai"),
+  ONDO: cg("ondo-finance"),
+  S: cg("sonic-3"),
+  FARTCOIN: cg("fartcoin"),
+  PENGU: cg("pudgy-penguins"),
+  TRUMP: cg("official-trump"),
+  VIRTUAL: cg("virtual-protocol"),
+  AI16Z: cg("ai16z"),
+  GOAT: cg("goatseus-maximus"),
 };
 
 export function knownLogo(symbol: string | null | undefined): string {
   if (!symbol) return "";
-  const s = symbol.toUpperCase().replace(/^\$/, "");
-  return KNOWN[s] || "";
+  const s = symbol.toUpperCase().replace(/^\$/, "").trim();
+  if (KNOWN[s]) return KNOWN[s]!;
+  // case variants already uppercased
+  if (s === "JITOSOL") return KNOWN.JITOSOL!;
+  return "";
+}
+
+/** All known symbol keys (for seeding). */
+export function allKnownLogoRows(): Array<{
+  assetId: string;
+  symbol: string;
+  logo: string;
+}> {
+  return Object.entries(KNOWN).map(([symbol, logo]) => ({
+    assetId: symbol.toLowerCase(),
+    symbol,
+    logo,
+  }));
 }
 
 export async function upsertAssetLogos(
   rows: Array<{ assetId: string; symbol?: string; logo?: string | null }>
 ): Promise<void> {
-  const clean = rows.filter((r) => r.assetId && r.logo && String(r.logo).startsWith("http"));
+  const clean = rows.filter(
+    (r) => r.assetId && r.logo && String(r.logo).startsWith("http")
+  );
   if (!clean.length) return;
   await ensureLogoSchema();
   const now = new Date().toISOString();
-  // batch small
-  for (const r of clean.slice(0, 80)) {
+  for (const r of clean.slice(0, 120)) {
     await tursoExecute(
       `INSERT INTO asset_logos (asset_id, symbol, logo, updated_at)
        VALUES (?, ?, ?, ?)
        ON CONFLICT(asset_id) DO UPDATE SET
          logo = excluded.logo,
-         symbol = COALESCE(excluded.symbol, asset_logos.symbol),
+         symbol = COALESCE(NULLIF(excluded.symbol, ''), asset_logos.symbol),
          updated_at = excluded.updated_at`,
       [r.assetId, (r.symbol || "").toUpperCase(), String(r.logo), now]
     );
   }
+}
+
+/** Seed board symbols into Turso so open-snap / pyth paths always have logos. */
+export async function seedKnownLogos(): Promise<void> {
+  await upsertAssetLogos(allKnownLogoRows());
 }
 
 export async function loadLogoMaps(opts: {
@@ -92,12 +156,19 @@ export async function loadLogoMaps(opts: {
 }): Promise<{ byId: Map<string, string>; bySym: Map<string, string> }> {
   const byId = new Map<string, string>();
   const bySym = new Map<string, string>();
+
+  // Always load known first so we never show blank for board bags
+  for (const [sym, logo] of Object.entries(KNOWN)) {
+    bySym.set(sym, logo);
+    byId.set(sym.toLowerCase(), logo);
+  }
+
   try {
     await ensureLogoSchema();
-    const ids = [...new Set(opts.assetIds.filter(Boolean))].slice(0, 120);
+    const ids = [...new Set(opts.assetIds.filter(Boolean))].slice(0, 150);
     const syms = [
       ...new Set(opts.symbols.map((s) => s.toUpperCase()).filter(Boolean)),
-    ].slice(0, 120);
+    ].slice(0, 150);
 
     if (ids.length) {
       const ph = ids.map(() => "?").join(",");
@@ -109,6 +180,7 @@ export async function loadLogoMaps(opts: {
         const id = String(row[0] || "");
         const logo = String(row[1] || "");
         const sym = String(row[2] || "").toUpperCase();
+        // Prefer non-empty stored (often better txyz/arweave art) over generic
         if (id && logo) byId.set(id, logo);
         if (sym && logo) bySym.set(sym, logo);
       }
@@ -123,15 +195,15 @@ export async function loadLogoMaps(opts: {
         const id = String(row[0] || "");
         const logo = String(row[1] || "");
         const sym = String(row[2] || "").toUpperCase();
-        if (id && logo && !byId.has(id)) byId.set(id, logo);
+        if (id && logo) byId.set(id, logo);
         if (sym && logo) bySym.set(sym, logo);
       }
     }
   } catch {
-    /* turso blip */
+    /* turso blip — known map still works */
   }
 
-  // fill known
+  // ensure every requested symbol has known fallback
   for (const s of opts.symbols) {
     const u = s.toUpperCase();
     if (!bySym.has(u)) {
@@ -149,10 +221,14 @@ export function resolveLogo(
   maps: { byId: Map<string, string>; bySym: Map<string, string> }
 ): string {
   if (current && String(current).startsWith("http")) return String(current);
+  const sym = (symbol || "").toUpperCase();
   return (
     maps.byId.get(assetId) ||
-    maps.bySym.get((symbol || "").toUpperCase()) ||
+    maps.bySym.get(sym) ||
+    maps.byId.get(assetId.toLowerCase()) ||
+    maps.byId.get(sym.toLowerCase()) ||
     knownLogo(symbol) ||
+    knownLogo(assetId) ||
     ""
   );
 }
