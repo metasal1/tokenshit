@@ -103,7 +103,7 @@ function Chip({
   );
 }
 
-export default function SwapDesk() {
+export default function SwapDesk({ embedded = false }: { embedded?: boolean } = {}) {
   const { ready, authenticated, user, login } = usePrivy();
   const { wallets } = useWallets();
   const { signAndSendTransaction } = useSignAndSendTransaction();
@@ -476,20 +476,28 @@ export default function SwapDesk() {
       : `Buy $${SHIT_SYMBOL}`;
 
   return (
-    <section className="rounded-2xl border border-border bg-card overflow-hidden shadow-[0_0_40px_rgba(0,0,0,0.35)]">
+    <section
+      className={
+        embedded
+          ? "min-w-0"
+          : "rounded-2xl border border-border bg-card overflow-hidden shadow-[0_0_40px_rgba(0,0,0,0.35)]"
+      }
+    >
       <SolanaFundingBootstrap />
 
       {/* Buy only — swap/sell tab hidden */}
-      <div className="border-b border-border px-4 py-3">
-        <p className="text-sm font-bold text-neon font-orbitron uppercase tracking-wide">
-          Buy ${SHIT_SYMBOL}
-        </p>
-        <p className="text-[11px] text-zinc-500 mt-0.5">
-          Card or SOL → $TOKENSHIT. Selling is off.
-        </p>
-      </div>
+      {!embedded && (
+        <div className="border-b border-border px-4 py-3">
+          <p className="text-sm font-bold text-neon font-orbitron uppercase tracking-wide">
+            Buy ${SHIT_SYMBOL}
+          </p>
+          <p className="text-[11px] text-zinc-500 mt-0.5">
+            Card or SOL → $TOKENSHIT. Selling is off.
+          </p>
+        </div>
+      )}
 
-      <div className="p-4 sm:p-5 space-y-4">
+      <div className={embedded ? "space-y-4" : "p-4 sm:p-5 space-y-4"}>
         <p className="text-[11px] font-mono text-neon/90 border border-neon/25 bg-neon/5 rounded-lg px-3 py-2">
           Buy with SOL · fees sponsored when available · selling is off
         </p>
