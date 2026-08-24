@@ -31,6 +31,32 @@ import { priceAssetById } from "@/lib/live-prices";
 
 export const dynamic = "force-dynamic";
 
+/** Never hang the worker — CF kills long requests; Play UI needs a fast shell. */
+function withTimeout<T>(p: Promise<T>, ms: number, fallback: T): Promise<T> {
+  return new Promise((resolve) => {
+    let done = false;
+    const t = setTimeout(() => {
+      if (!done) {
+        done = true;
+        resolve(fallback);
+      }
+    }, ms);
+    p.then((v) => {
+      if (!done) {
+        done = true;
+        clearTimeout(t);
+        resolve(v);
+      }
+    }).catch(() => {
+      if (!done) {
+        done = true;
+        clearTimeout(t);
+        resolve(fallback);
+      }
+    });
+  });
+}
+
 /**
  * GET /api/day — current hour round + live leaders + bags
  * Optional ?wallet= for myTickets
@@ -39,17 +65,28 @@ export const dynamic = "force-dynamic";
 export async function GET(request: NextRequest) {
   try {
     const hour = utcHourString();
-    await ensureRound(hour);
+    await withTimeout(ensureRound(hour), 4_000, undefined as void);
+
     const walletQ =
       request.nextUrl.searchParams.get("wallet")?.trim() || "";
 
+    const emptySeed = {
+      amount: 0,
+      signature: null as string | null,
+      status: null as string | null,
+    };
+
     const [round, stakes, majors, leaders, heat, hourSeed] = await Promise.all([
-      getRound(hour),
-      listStakes(hour),
-      fetchRealMajorsLive().catch(() => []),
-      getLiveLeaders(hour).catch(() => null),
-      getTicketHeat(hour).catch(() => new Map()),
-      getHourSeed(hour).catch(() => ({ amount: 0, signature: null, status: null })),
+      withTimeout(getRound(hour), 5_000, null),
+      withTimeout(listStakes(hour), 5_000, [] as Awaited<ReturnType<typeof listStakes>>),
+      withTimeout(fetchRealMajorsLive(), 8_000, [] as Awaited<ReturnType<typeof fetchRealMajorsLive>>),
+      withTimeout(getLiveLeaders(hour), 10_000, null),
+      withTimeout(
+        getTicketHeat(hour),
+        5_000,
+        new Map() as Awaited<ReturnType<typeof getTicketHeat>>
+      ),
+      withTimeout(getHourSeed(hour), 4_000, emptySeed),
     ]);
 
     const hitCount = stakes.filter((s) => s.side === "hit").length;
@@ -78,12 +115,17 @@ export async function GET(request: NextRequest) {
       tickets: number;
     }> = [];
     if (walletQ && isSolanaAddress(walletQ)) {
-      myTickets = await getMyTickets(hour, walletQ);
+      myTickets = await withTimeout(getMyTickets(hour, walletQ), 4_000, []);
     }
 
     const pctMap = new Map(
       (leaders?.moves || []).map((x) => [x.assetId, x] as const)
     );
+
+    const degraded =
+      !round ||
+      majors.length === 0 ||
+      !leaders;
 
     return Response.json({
       enabled: DAY_GAME_ENABLED,
@@ -99,6 +141,7 @@ export async function GET(request: NextRequest) {
       treasury: TREASURY_ADDRESS,
       pot: PLAY_POT_ADDRESS,
       mint: SHIT_MINT,
+      degraded,
       houseSpark: {
         enabled: PLAY_SEED_ENABLED,
         hourAmount: PLAY_SEED_HOUR_AMOUNT,
@@ -107,7 +150,12 @@ export async function GET(request: NextRequest) {
         status: hourSeed.status,
         signature: hourSeed.signature,
       },
-      round,
+      round: round || {
+        utcDay: hour,
+        status: "open",
+        hitPot: 0,
+        shitPot: 0,
+      },
       stats: {
         hitStakes: hitCount,
         shitStakes: shitCount,
