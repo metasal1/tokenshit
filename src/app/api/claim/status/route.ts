@@ -9,6 +9,7 @@ import {
   CLAIM_GH_FORK,
   CLAIM_JUP_VERIFIED,
   CLAIM_X_FOLLOW,
+  CLAIM_X_RETWEET,
   CLAIM_X_PREMIUM,
   CLAIM_X_TWEET,
   CLAIM_X_VERIFIED,
@@ -21,6 +22,7 @@ export const dynamic = "force-dynamic";
 const KINDS: ClaimKind[] = [
   "x_tweet",
   "x_follow",
+  "x_retweet",
   "x_verified",
   "x_premium",
   "gh_fork",
@@ -35,6 +37,7 @@ const AMOUNTS: Record<ClaimKind, number> = {
   gh_fork: CLAIM_GH_FORK,
   x_tweet: CLAIM_X_TWEET,
   x_follow: CLAIM_X_FOLLOW,
+  x_retweet: CLAIM_X_RETWEET,
   email_list: CLAIM_EMAIL_LIST,
   jup_verified: CLAIM_JUP_VERIFIED,
   sol_gas_love: PLAY_GAS_DROP_SOL,

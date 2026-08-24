@@ -48,6 +48,13 @@ export const CLAIM_JUP_VERIFIED = 5_000;
 export const CLAIM_X_TWEET = 2_500;
 /** Follow @Tokenshit_ (once) — minor */
 export const CLAIM_X_FOLLOW = 1_500;
+/** Retweet pinned promo post (once) */
+export const CLAIM_X_RETWEET = 2_000;
+/** Target status for x_retweet claim */
+export const CLAIM_RT_TWEET_ID = "2091741947245568246";
+export const CLAIM_RT_TWEET_URL =
+  process.env.NEXT_PUBLIC_CLAIM_RT_TWEET_URL ||
+  `https://x.com/Tokenshit_/status/${CLAIM_RT_TWEET_ID}`;
 /** Join email list (once) */
 export const CLAIM_EMAIL_LIST = 2_500;
 /** $TOKENSHIT per referral */
@@ -207,6 +214,22 @@ export function tweetCAIntentUrl(): string {
 }
 export function followIntentUrl(): string {
   return `https://x.com/intent/follow?screen_name=${X_HANDLE}`;
+}
+
+/** Intent to retweet the promo status (x_retweet claim). */
+export function retweetIntentUrl(tweetId = CLAIM_RT_TWEET_ID): string {
+  return `https://x.com/intent/retweet?tweet_id=${encodeURIComponent(tweetId)}`;
+}
+
+/** Quote-RT the promo (fallback verify via pasted status URL). */
+export function quoteRetweetIntentUrl(
+  tweetId = CLAIM_RT_TWEET_ID,
+  text = "SH!T"
+): string {
+  const u = new URL("https://x.com/intent/tweet");
+  if (text) u.searchParams.set("text", text);
+  u.searchParams.set("url", `https://x.com/Tokenshit_/status/${tweetId}`);
+  return u.toString();
 }
 
 /** Pre-filled exact love-gas tweet */

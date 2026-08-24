@@ -10,6 +10,8 @@ import {
   CLAIM_GH_FORK,
   CLAIM_JUP_VERIFIED,
   CLAIM_X_FOLLOW,
+  CLAIM_X_RETWEET,
+  CLAIM_RT_TWEET_URL,
   CLAIM_X_PREMIUM,
   CLAIM_X_TWEET,
   CLAIM_X_VERIFIED,
@@ -20,6 +22,8 @@ import {
   X_HANDLE,
   X_URL,
   followIntentUrl,
+  retweetIntentUrl,
+  quoteRetweetIntentUrl,
   treasurySolscanUrl,
   tweetTagIntentUrl,
   tweetClaimBody,
@@ -38,6 +42,7 @@ type ClaimKind =
   | "gh_fork"
   | "x_tweet"
   | "x_follow"
+  | "x_retweet"
   | "email_list"
   | "jup_verified"
   | "sol_gas_love";
@@ -55,6 +60,7 @@ const BTN_CLAIMED = `${BTN} border border-neon/40 bg-neon/10 text-neon cursor-no
 const KIND_TITLE: Record<ClaimKind, string> = {
   x_tweet: "Tweet tag",
   x_follow: "X follow",
+  x_retweet: "Retweet promo",
   x_premium: "X Premium",
   x_verified: "X verified",
   email_list: "Email list",
@@ -416,6 +422,7 @@ export default function ClaimPanel() {
   const [sig, setSig] = useState<string | null>(null);
   const [treasuryShit, setTreasuryShit] = useState<number | null>(null);
   const [tweetUrl, setTweetUrl] = useState("");
+  const [rtTweetUrl, setRtTweetUrl] = useState("");
   const [loveTweetUrl, setLoveTweetUrl] = useState("");
   const [claimedStatus, setClaimedStatus] = useState<Record<string, boolean>>(
     {}
@@ -623,6 +630,9 @@ export default function ClaimPanel() {
           accessToken: token,
           ...(kind === "x_tweet" && tweetUrl.trim()
             ? { tweetUrl: tweetUrl.trim() }
+            : {}),
+          ...(kind === "x_retweet" && rtTweetUrl.trim()
+            ? { tweetUrl: rtTweetUrl.trim() }
             : {}),
           ...(kind === "sol_gas_love" && loveTweetUrl.trim()
             ? { tweetUrl: loveTweetUrl.trim() }
@@ -964,6 +974,64 @@ export default function ClaimPanel() {
               className={BTN_SKY}
             >
               {busy === "x_follow" ? "Claiming…" : "Claim follow"}
+            </button>
+          </div>
+        </RewardRow>
+
+        <RewardRow
+          claimed={!!claimedStatus.x_retweet}
+          statusLoading={statusLoading && authenticated}
+          title="Retweet promo"
+          amount={CLAIM_X_RETWEET}
+          hint={
+            <>
+              RT or quote{" "}
+              <a
+                href={CLAIM_RT_TWEET_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-neon underline"
+              >
+                this post
+              </a>
+              , then claim once (2,000).
+            </>
+          }
+        >
+          <div className="grid grid-cols-1 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <a
+                href={retweetIntentUrl()}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`${BTN_OUTLINE} text-center`}
+              >
+                1. Retweet
+              </a>
+              <a
+                href={quoteRetweetIntentUrl()}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`${BTN_OUTLINE} text-center`}
+              >
+                Or quote RT
+              </a>
+            </div>
+            <input
+              type="url"
+              inputMode="url"
+              placeholder="Optional: paste your quote-tweet URL if claim fails"
+              value={rtTweetUrl}
+              onChange={(e) => setRtTweetUrl(e.target.value)}
+              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-zinc-600"
+            />
+            <button
+              type="button"
+              disabled={busy !== null || !!claimedStatus.x_retweet}
+              onClick={() => claim("x_retweet")}
+              className={BTN_SKY}
+            >
+              {busy === "x_retweet" ? "Claiming…" : "2. Claim 2,000 $TOKENSHIT"}
             </button>
           </div>
         </RewardRow>
