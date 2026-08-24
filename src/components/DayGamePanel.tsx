@@ -252,7 +252,7 @@ export default function DayGamePanel({
   const load = useCallback(() => {
     const w = wallet ? `?wallet=${encodeURIComponent(wallet)}` : "";
     const ac = new AbortController();
-    const kill = setTimeout(() => ac.abort(), 12_000);
+    const kill = setTimeout(() => ac.abort(), 20_000);
     fetch(`/api/day${w}`, { cache: "no-store", signal: ac.signal })
       .then(async (r) => {
         if (!r.ok) throw new Error(`Play API ${r.status}`);
@@ -267,7 +267,7 @@ export default function DayGamePanel({
         setLoading(false);
         setLoadErr(
           e?.name === "AbortError"
-            ? "Play took too long to load — retry."
+            ? "Play is slow right now — retry."
             : String(e?.message || e || "Could not load play")
         );
       })
