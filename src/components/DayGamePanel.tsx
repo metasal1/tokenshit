@@ -389,28 +389,43 @@ export default function DayGamePanel({
   const bags = useMemo(() => {
     const list = status?.majors || [];
     const s = q.trim().toLowerCase();
+    let out: Major[];
     if (s.length >= 2 && searchHits.length) {
       const byId = new Map(list.map((m) => [m.assetId, m]));
-      return searchHits.map((h) => byId.get(h.assetId) || toMajor(h));
-    }
-    let out = [...list];
-    if (s) {
-      out = out.filter(
-        (m) =>
-          m.symbol.toLowerCase().includes(s) ||
-          m.name.toLowerCase().includes(s) ||
-          m.assetId.toLowerCase().includes(s)
-      );
+      out = searchHits.map((h) => byId.get(h.assetId) || toMajor(h));
     } else {
-      out.sort((a, b) => {
-        const ap = a.pct;
-        const bp = b.pct;
-        if (ap == null && bp == null) return 0;
-        if (ap == null) return 1;
-        if (bp == null) return -1;
-        return side === "hit" ? bp - ap : ap - bp;
-      });
+      out = [...list];
+      if (s) {
+        out = out.filter(
+          (m) =>
+            m.symbol.toLowerCase().includes(s) ||
+            m.name.toLowerCase().includes(s) ||
+            m.assetId.toLowerCase().includes(s)
+        );
+      }
     }
+    // Always sort by hour % — HIT: best first · SHIT: worst first
+    out.sort((a, b) => {
+      const ap = a.pct;
+      const bp = b.pct;
+      const aNull = ap == null || !Number.isFinite(ap);
+      const bNull = bp == null || !Number.isFinite(bp);
+      if (aNull && bNull) {
+        return (a.symbol || "").localeCompare(b.symbol || "");
+      }
+      if (aNull) return 1;
+      if (bNull) return -1;
+      if (side === "hit") {
+        if (bp !== ap) return (bp as number) - (ap as number);
+      } else {
+        if (ap !== bp) return (ap as number) - (bp as number);
+      }
+      // tie-break: more plays, then symbol
+      const playsA = (a.hitPlays || 0) + (a.shitPlays || 0);
+      const playsB = (b.hitPlays || 0) + (b.shitPlays || 0);
+      if (playsB !== playsA) return playsB - playsA;
+      return (a.symbol || "").localeCompare(b.symbol || "");
+    });
     return out;
   }, [status?.majors, q, side, searchHits]);
 
