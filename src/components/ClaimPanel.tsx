@@ -438,6 +438,7 @@ export default function ClaimPanel() {
   const [tweetUrl, setTweetUrl] = useState("");
   const [rtTweetUrl, setRtTweetUrl] = useState("");
   const [loveTweetUrl, setLoveTweetUrl] = useState("");
+  const [following, setFollowing] = useState<boolean | null>(null);
   const [claimedStatus, setClaimedStatus] = useState<Record<string, boolean>>(
     {}
   );
@@ -526,6 +527,7 @@ export default function ClaimPanel() {
     if (!authenticated) {
       setClaimedStatus({});
       setTweetData(null);
+      setFollowing(null);
       return;
     }
     setStatusLoading(true);
@@ -537,6 +539,8 @@ export default function ClaimPanel() {
       .then((r) => r.json())
       .then((d) => {
         if (d.claimed) setClaimedStatus(d.claimed);
+        if (typeof d.following === "boolean") setFollowing(d.following);
+        else if (d.following === null) setFollowing(null);
         if (typeof d.treasuryShit === "number") setTreasuryShit(d.treasuryShit);
         if (d.tweet) {
           setTweetData({
@@ -557,6 +561,8 @@ export default function ClaimPanel() {
     if (claimPhase === "error") setErr(null);
   }
 
+  const canOtherClaims = !authenticated || following !== false;
+
   async function claim(kind: ClaimKind) {
     setErr(null);
     setMsg(null);
@@ -566,6 +572,13 @@ export default function ClaimPanel() {
 
     if (!authenticated) {
       safeLogin();
+      return;
+    }
+    if (kind !== "x_follow" && following === false) {
+      setErr(
+        `Follow @${X_HANDLE} on X first — required before any other claim.`
+      );
+      setClaimPhase("error");
       return;
     }
     let payWallet = wallet;
@@ -705,6 +718,7 @@ export default function ClaimPanel() {
           /already claimed|already paid|cooldown/i.test(String(data.error || ""))
         ) {
           setClaimedStatus((s) => ({ ...s, [kind]: true }));
+          if (kind === "x_follow") setFollowing(true);
           if (kind === "x_tweet") {
             setTweetData((t) => ({
               onCooldown: true,
@@ -739,6 +753,7 @@ export default function ClaimPanel() {
       setSig(data.signature || null);
       // Lock UI immediately
       setClaimedStatus((s) => ({ ...s, [kind]: true }));
+      if (kind === "x_follow") setFollowing(true);
       if (kind === "x_tweet") {
         setTweetData({
           onCooldown: true,
@@ -805,7 +820,7 @@ export default function ClaimPanel() {
           <h2 className="text-base font-bold text-foreground truncate">
             Your claims
           </h2>
-          <p className="text-[11px] text-zinc-500">Login · tweet · follow · more</p>
+          <p className="text-[11px] text-zinc-500">Login · <b className="text-neon">follow first</b> · then claim</p>
         </div>
         <TreasuryBalanceBadge className="shrink-0" />
       </div>
@@ -908,6 +923,46 @@ export default function ClaimPanel() {
 
 
       <div className="grid grid-cols-1 gap-3">
+
+        <RewardRow
+          claimed={!!claimedStatus.x_follow}
+          statusLoading={statusLoading && authenticated}
+          title={`Follow @${X_HANDLE}`}
+          amount={CLAIM_X_FOLLOW}
+          hint="Required first — unlocks every other claim. Follow, then claim once."
+        >
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <a
+              href={followIntentUrl()}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={`${BTN_OUTLINE} text-center`}
+            >
+              <span className="inline-flex items-center justify-center gap-1.5"><XLogo size={14} /> Follow</span>
+            </a>
+            <button
+              type="button"
+              disabled={busy !== null || !!claimedStatus.x_follow}
+              onClick={() => claim("x_follow")}
+              className={BTN_SKY}
+            >
+              {busy === "x_follow" ? "Claiming…" : "Claim follow"}
+            </button>
+          </div>
+        </RewardRow>
+
+        {authenticated && following === false && (
+          <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-2.5 text-[12px] text-amber-100 leading-snug">
+            <b className="text-amber-300">Follow @{X_HANDLE} first.</b>{" "}
+            RT / tweet / other claims stay locked until you follow.
+          </div>
+        )}
+        {authenticated && following === true && (
+          <div className="rounded-lg border border-neon/25 bg-neon/5 px-3 py-1.5 text-[11px] text-neon/90">
+            Following @{X_HANDLE} · claims unlocked
+          </div>
+        )}
+
         <RewardRow
           highlight
           claimed={!!tweetData?.onCooldown}
@@ -960,40 +1015,13 @@ export default function ClaimPanel() {
             />
             <button
               type="button"
-              disabled={busy !== null || !!tweetData?.onCooldown || !tweetUrl.trim()}
+              disabled={busy !== null || !canOtherClaims || !!tweetData?.onCooldown || !tweetUrl.trim()}
               onClick={() => claim("x_tweet")}
               className={BTN_NEON}
             >
               {busy === "x_tweet"
                 ? phaseLabel(claimPhase).replace("…", "") || "Claiming"
                 : "2. Claim (needs CA in tweet)"}
-            </button>
-          </div>
-        </RewardRow>
-
-        <RewardRow
-          claimed={!!claimedStatus.x_follow}
-          statusLoading={statusLoading && authenticated}
-          title={`Follow @${X_HANDLE}`}
-          amount={CLAIM_X_FOLLOW}
-          hint="Follow on X, then claim once."
-        >
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            <a
-              href={followIntentUrl()}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={`${BTN_OUTLINE} text-center`}
-            >
-              <span className="inline-flex items-center justify-center gap-1.5"><XLogo size={14} /> Follow</span>
-            </a>
-            <button
-              type="button"
-              disabled={busy !== null || !!claimedStatus.x_follow}
-              onClick={() => claim("x_follow")}
-              className={BTN_SKY}
-            >
-              {busy === "x_follow" ? "Claiming…" : "Claim follow"}
             </button>
           </div>
         </RewardRow>
@@ -1047,7 +1075,7 @@ export default function ClaimPanel() {
             />
             <button
               type="button"
-              disabled={busy !== null || !!claimedStatus.x_retweet}
+              disabled={busy !== null || !canOtherClaims || !!claimedStatus.x_retweet}
               onClick={() => claim("x_retweet")}
               className={BTN_SKY}
             >
@@ -1098,6 +1126,7 @@ export default function ClaimPanel() {
                   type="button"
                   disabled={
                     busy !== null ||
+                    !canOtherClaims ||
                     !!claimedStatus.sol_gas_love ||
                     !loveTweetUrl.trim()
                   }
@@ -1123,6 +1152,7 @@ export default function ClaimPanel() {
                   type="button"
                   disabled={
                     busy !== null ||
+                    !canOtherClaims ||
                     !!claimedStatus.x_premium ||
                     !!claimedStatus.x_verified
                   }
@@ -1148,6 +1178,7 @@ export default function ClaimPanel() {
                   type="button"
                   disabled={
                     busy !== null ||
+                    !canOtherClaims ||
                     !!claimedStatus.x_verified ||
                     !!claimedStatus.x_premium
                   }
@@ -1194,7 +1225,7 @@ export default function ClaimPanel() {
                 </a>
                 <button
                   type="button"
-                  disabled={busy !== null || !!claimedStatus.jup_verified}
+                  disabled={busy !== null || !canOtherClaims || !!claimedStatus.jup_verified}
                   onClick={() => claim("jup_verified")}
                   className={BTN_NEON}
                 >
@@ -1216,7 +1247,7 @@ export default function ClaimPanel() {
             >
               <button
                 type="button"
-                disabled={busy !== null || !!claimedStatus.email_list}
+                disabled={busy !== null || !canOtherClaims || !!claimedStatus.email_list}
                 onClick={() => claim("email_list")}
                 className={BTN_NEON}
               >

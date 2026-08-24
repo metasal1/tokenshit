@@ -194,20 +194,39 @@ export async function GET(request: NextRequest) {
       eligible = !prior && !gasDone && (!tweetUrl || tweetOk);
     }
 
+    // Follow is required for every claim except the follow reward itself
+    let following: boolean | null = null;
+    if (twitter && kind !== "x_follow") {
+      const f = await checkXFollowsTokenshit(twitter);
+      following = f.ok ? !!f.following : null;
+      if (following === false) {
+        eligible = false;
+        detail = { ...detail, mustFollowFirst: true, following: false };
+      }
+    } else if (kind === "x_follow" && twitter) {
+      const f = await checkXFollowsTokenshit(twitter);
+      following = f.ok ? !!f.following : null;
+    }
+
     const claimed = await hasClaimed(kind, { twitter, github, wallet });
     const bal = await getTreasuryBalances().catch(() => null);
     const amount = AMOUNTS[kind];
     const canClaim =
       kind === "sol_gas_love"
-        ? eligible && !claimed
-        : eligible && !claimed && (bal?.shit ?? 0) >= amount;
+        ? eligible && !claimed && following !== false
+        : eligible &&
+          !claimed &&
+          (bal?.shit ?? 0) >= amount &&
+          following !== false;
 
     return Response.json({
       kind,
       amount,
-      eligible,
+      eligible: eligible && following !== false,
       claimed,
       canClaim,
+      following,
+      mustFollowFirst: kind !== "x_follow",
       treasuryShit: bal?.shit ?? null,
       unit: kind === "sol_gas_love" ? "SOL" : "TOKENSHIT",
       detail,
@@ -390,6 +409,37 @@ export async function POST(request: NextRequest) {
         },
         { status: profileGate.status }
       );
+    }
+
+    // HARD GATE: must follow @Tokenshit_ before ANY other claim
+    if (kind !== "x_follow") {
+      const followGate = await checkXFollowsTokenshit(twitter);
+      if (!followGate.ok) {
+        return Response.json(
+          {
+            error:
+              followGate.error ||
+              "Could not verify follow. Follow @Tokenshit_ then retry.",
+            code: "follow_check_failed",
+          },
+          { status: 502 }
+        );
+      }
+      if (!followGate.following) {
+        await recordAbuseEvent("claim_blocked", ip, twitter, {
+          reason: "must_follow_first",
+          kind,
+        });
+        return Response.json(
+          {
+            error:
+              "Follow @Tokenshit_ on X first — required before any other claim.",
+            code: "must_follow_first",
+            followUrl: `https://x.com/intent/follow?screen_name=Tokenshit_`,
+          },
+          { status: 403 }
+        );
+      }
     }
 
     let amount = AMOUNTS[kind];
