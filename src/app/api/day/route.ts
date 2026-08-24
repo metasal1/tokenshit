@@ -133,7 +133,7 @@ export async function GET(request: NextRequest) {
       ),
       withTimeout(
         fetchRealMajorsLive(),
-        3_000,
+        10_000,
         [] as Awaited<ReturnType<typeof fetchRealMajorsLive>>
       ),
       withTimeout(majorsFromOpenSnap(hour), 2_000, [] as MajorSnap[]),
@@ -225,7 +225,7 @@ export async function GET(request: NextRequest) {
     const degraded =
       !round || majors.length === 0 || !leaders || majorsLive.length === 0;
 
-    const majorsOut = majors.slice(0, 120).map((m) => {
+    const majorsOut = majors.slice(0, 500).map((m) => {
       const move = pctMap.get(m.assetId);
       // also match leaders by symbol if id differs (pyth board vs txyz)
       const moveBySym =
@@ -249,6 +249,14 @@ export async function GET(request: NextRequest) {
           openPrice = op;
           pct = ((m.price - op) / op) * 100;
         }
+      }
+      // Tokens.xyz 1h as fallback when hour baseline missing
+      if (
+        (pct == null || !Number.isFinite(pct)) &&
+        m.change1h != null &&
+        Number.isFinite(m.change1h)
+      ) {
+        pct = m.change1h;
       }
 
       const h = heat.get(m.assetId);
