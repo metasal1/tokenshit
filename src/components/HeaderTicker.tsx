@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { SHIT_SYMBOL, PLAY_POT_ADDRESS, TREASURY_ADDRESS, playPotPortfolioUrl, treasurySolscanUrl } from "@/lib/shit-token";
 import { BalanceSkeleton, PulseDot, SpinLoader } from "@/components/StatLoader";
+import { XLogo } from "@/components/XLogo";
 
 type Payload = {
   shit?: number;
@@ -297,7 +298,7 @@ export default function HeaderTicker() {
           className="inline-flex items-center gap-1.5 hover:text-sky-400 transition-colors"
           title="@Tokenshit_ followers"
         >
-          <span className="text-zinc-500">X</span>
+          <XLogo size={12} className="text-zinc-400" title="X" />
           {xLoading || xLabel == null ? (
             <BalanceSkeleton />
           ) : (

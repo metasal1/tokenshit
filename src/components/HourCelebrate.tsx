@@ -7,6 +7,7 @@ import { EmojiIcon } from "@/components/EmojiIcon";
 import { SHIT_SYMBOL } from "@/lib/shit-token";
 import type { VrfRecord } from "@/lib/day-vrf-links";
 import VrfProofLinks from "@/components/VrfProofLinks";
+import { XLogo } from "@/components/XLogo";
 
 export type HourSettlePayload = {
   utcHour: string;
@@ -345,11 +346,12 @@ export default function HourCelebrate({
         {(phase === "done" || showShitW) && (
           <div className="flex flex-col gap-2 pt-1">
             <a
-              href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(tweetText)}`}
+              href={`https://x.com/intent/tweet?text=${encodeURIComponent(tweetText)}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="w-full min-h-11 rounded-xl bg-neon text-black font-bold text-sm inline-flex items-center justify-center hover:brightness-110"
+              className="w-full min-h-11 rounded-xl bg-neon text-black font-bold text-sm inline-flex items-center justify-center gap-2 hover:brightness-110"
             >
+              <XLogo size={15} className="text-black" />
               Brag on X
             </a>
             <Link

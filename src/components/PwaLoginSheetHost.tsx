@@ -6,6 +6,7 @@ import { EmojiIcon } from "@/components/EmojiIcon";
 import { useSafeLogin } from "@/hooks/useSafeLogin";
 import { isAndroidUa, needsPwaOAuth } from "@/lib/pwa-auth";
 import { isAndroidLike } from "@/lib/mwa";
+import { XLogo } from "@/components/XLogo";
 
 /**
  * Always mounted under PrivyProvider. Opens PWA login sheet on
@@ -91,7 +92,7 @@ export default function PwaLoginSheetHost() {
           onClick={() => void loginWithTwitter()}
           className="w-full min-h-12 rounded-xl bg-white text-black font-bold text-sm flex items-center justify-center gap-2 disabled:opacity-50"
         >
-          <span className="font-mono text-base">𝕏</span>
+          <XLogo size={16} className="text-black" />
           Continue with X
         </button>
 

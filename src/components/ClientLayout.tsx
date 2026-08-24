@@ -11,6 +11,7 @@ import { CanvasShell, CanvasHeaderFx } from '@/components/CanvasShell';
 import { TreasuryBalanceBadge } from '@/components/ClaimPanel';
 import GlobalTreasuryBanner from '@/components/GlobalTreasuryBanner';
 import ShareRefButton from '@/components/ShareRefButton';
+import { XLogo } from '@/components/XLogo';
 import XFollowersBadge from '@/components/XFollowersBadge';
 import HeaderTicker from '@/components/HeaderTicker';
 import SfxMuteToggle from '@/components/SfxMuteToggle';
@@ -482,6 +483,17 @@ function Layout({ children }: { children: React.ReactNode }) {
           <span className="text-zinc-700">·</span>
           <a href="https://tokens.xyz" className="text-neon-blue hover:underline" target="_blank" rel="noopener noreferrer">
             Powered by Tokens.xyz
+          </a>
+          <span className="text-zinc-700">·</span>
+          <a
+            href="https://x.com/Tokenshit_"
+            className="inline-flex items-center text-zinc-500 hover:text-zinc-200 transition-colors"
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="@Tokenshit_ on X"
+            title="@Tokenshit_ on X"
+          >
+            <XLogo size={16} />
           </a>
           <span className="text-zinc-700">·</span>
           <a

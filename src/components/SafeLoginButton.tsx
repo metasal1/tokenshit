@@ -5,6 +5,7 @@ import { usePrivy } from "@privy-io/react-auth";
 import { EmojiIcon } from "@/components/EmojiIcon";
 import { useSafeLogin } from "@/hooks/useSafeLogin";
 import { isStandalonePwa } from "@/lib/pwa-auth";
+import { XLogo } from "@/components/XLogo";
 
 type Props = {
   className?: string;
@@ -130,7 +131,7 @@ export default function SafeLoginButton({
               onClick={() => void loginWithTwitter()}
               className="w-full min-h-12 rounded-xl bg-white text-black font-bold text-sm flex items-center justify-center gap-2 disabled:opacity-50"
             >
-              <span className="font-mono text-base">𝕏</span>
+              <XLogo size={16} className="text-black" />
               Continue with X
             </button>
 

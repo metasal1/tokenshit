@@ -9,6 +9,7 @@ import {
 } from "react";
 import Link from "next/link";
 import { EmojiIcon } from "@/components/EmojiIcon";
+import { XLogo } from "@/components/XLogo";
 import MemeStage from "@/components/MemeStage";
 import {
   blankSrc,
@@ -975,7 +976,7 @@ export default function MemeStudio({ embedded = false }: { embedded?: boolean })
                       disabled={exporting}
                       className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-sky-400/30 bg-sky-400/10 px-4 py-3 text-sm font-bold text-sky-200 hover:bg-sky-400/20 disabled:opacity-50"
                     >
-                      𝕏 Share X
+                      <XLogo size={14} /> Share
                     </button>
                     <p className="text-center text-[10px] text-zinc-600 pb-1">
                       {preview.startsWith("data:")

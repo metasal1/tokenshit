@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { X_HANDLE, X_URL } from "@/lib/shit-token";
 import { BalanceSkeleton, SpinLoader } from "@/components/StatLoader";
+import { XLogo } from "@/components/XLogo";
 
 type Profile = {
   username: string;
@@ -59,7 +60,7 @@ export default function XFollowersBadge({
         className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 min-h-9 rounded-md border border-zinc-700 text-zinc-300 hover:border-sky-500 hover:text-white transition-colors font-mono ${className}`}
         title={`@${X_HANDLE} on X`}
       >
-        <span className="text-sky-400 font-sans font-bold">𝕏</span>
+        <XLogo size={13} className="text-sky-400" />
         {loading || followers == null ? (
           <SpinLoader size={11} label="Followers loading" />
         ) : (
@@ -84,8 +85,8 @@ export default function XFollowersBadge({
           className="h-11 w-11 rounded-full bg-zinc-800 shrink-0"
         />
       ) : (
-        <div className="h-11 w-11 rounded-full bg-zinc-800 flex items-center justify-center text-sky-400 font-bold shrink-0">
-          𝕏
+        <div className="h-11 w-11 rounded-full bg-zinc-800 flex items-center justify-center text-sky-400 shrink-0">
+          <XLogo size={20} />
         </div>
       )}
       <div className="min-w-0 flex-1 text-left">
@@ -109,7 +110,8 @@ export default function XFollowersBadge({
           )}
         </div>
       </div>
-      <span className="shrink-0 text-xs font-semibold text-sky-400 border border-sky-700/50 rounded-full px-3 py-1.5">
+      <span className="shrink-0 inline-flex items-center gap-1.5 text-xs font-semibold text-sky-400 border border-sky-700/50 rounded-full px-3 py-1.5">
+        <XLogo size={12} />
         Follow
       </span>
     </a>
