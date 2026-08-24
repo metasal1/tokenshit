@@ -161,7 +161,7 @@ export default function MemeStudio({ embedded = false }: { embedded?: boolean })
         lines: 2,
         featured: true,
         tag: "Upload",
-        keywords: ["upload", "custom"],
+        keywords: ["upload", "custom", "paste"],
         boxes: defaultBoxes(2),
       };
       setUploads((prev) => [tpl, ...prev].slice(0, 24));
@@ -169,6 +169,49 @@ export default function MemeStudio({ embedded = false }: { embedded?: boolean })
     },
     [open]
   );
+
+  // ⌘V / Ctrl+V paste image → blank (skip when typing in inputs)
+  useEffect(() => {
+    const onPaste = (e: ClipboardEvent) => {
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+      if ((e.target as HTMLElement)?.isContentEditable) return;
+      const items = e.clipboardData?.items;
+      if (!items) return;
+      for (const item of Array.from(items)) {
+        if (item.type.startsWith("image/")) {
+          e.preventDefault();
+          const file = item.getAsFile();
+          if (file) void openFromBlob(file, "Pasted image");
+          return;
+        }
+      }
+    };
+    window.addEventListener("paste", onPaste);
+    return () => window.removeEventListener("paste", onPaste);
+  }, [openFromBlob]);
+
+  const pasteFromClipboard = useCallback(async () => {
+    try {
+      if (!navigator.clipboard?.read) {
+        alert("Paste not supported here — copy an image and press ⌘V / Ctrl+V");
+        return;
+      }
+      const items = await navigator.clipboard.read();
+      for (const item of items) {
+        const type = item.types.find((t) => t.startsWith("image/"));
+        if (!type) continue;
+        const blob = await item.getType(type);
+        await openFromBlob(blob, "Pasted image");
+        return;
+      }
+      alert("No image on clipboard — copy an image, then Paste (or ⌘V)");
+    } catch {
+      alert(
+        "Paste blocked — click the page and press ⌘V / Ctrl+V with an image copied"
+      );
+    }
+  }, [openFromBlob]);
 
   const allTemplates = useMemo(
     () => [...uploads, ...items],
@@ -581,7 +624,7 @@ export default function MemeStudio({ embedded = false }: { embedded?: boolean })
             </h1>
             <p className="mt-2 max-w-xl text-sm text-zinc-500">
               Pick a blank · type captions · drag & resize · light/dark Monoton.
-              Blanks via{" "}
+              Upload or paste (⌘V) your own. Blanks via{" "}
               <a
                 href="https://memes.sal.fun"
                 className="text-neon-blue hover:underline"
@@ -600,6 +643,14 @@ export default function MemeStudio({ embedded = false }: { embedded?: boolean })
               className="rounded-2xl border border-neon/40 bg-neon/10 px-4 py-2.5 text-sm font-semibold text-neon hover:bg-neon/20"
             >
               Upload image
+            </button>
+            <button
+              type="button"
+              onClick={() => void pasteFromClipboard()}
+              className="rounded-2xl border border-white/15 px-4 py-2.5 text-sm font-semibold text-zinc-200 hover:bg-white/10"
+              title="Paste image from clipboard (⌘V)"
+            >
+              Paste
             </button>
             <Link
               href="/"
@@ -620,15 +671,23 @@ export default function MemeStudio({ embedded = false }: { embedded?: boolean })
           >
             Upload
           </button>
+          <button
+            type="button"
+            onClick={() => void pasteFromClipboard()}
+            className="rounded-xl border border-white/15 px-3 py-2 text-xs font-semibold text-zinc-200 hover:bg-white/10"
+            title="Paste image from clipboard (⌘V)"
+          >
+            Paste
+          </button>
           <p className="text-[11px] text-zinc-500 flex-1 min-w-[10rem]">
-            Pick a blank · caption · download
+            Pick a blank · paste/upload · caption · download
           </p>
         </div>
       )}
 
       {dragOver && (
         <div className="mb-6 rounded-2xl border-2 border-dashed border-neon/50 bg-neon/5 py-10 text-center text-neon">
-          Drop image to caption
+          Drop or paste image to caption
         </div>
       )}
 
