@@ -16,6 +16,7 @@ import {
   recordStake,
   utcHourString,
   type DaySide,
+  type MajorSnap,
 } from "@/lib/day-game";
 import { requirePrivy } from "@/lib/privy-server";
 import { isSolanaAddress, getClientIp, rateLimitIp } from "@/lib/api-guard";
@@ -29,6 +30,10 @@ import {
 } from "@/lib/shit-token";
 import { getHourSeed } from "@/lib/play-seed";
 import { priceAssetById } from "@/lib/live-prices";
+import {
+  fetchPythUsdBySymbols,
+  HOUR_BOARD_SYMBOLS,
+} from "@/lib/pyth-prices";
 
 export const dynamic = "force-dynamic";
 
@@ -58,16 +63,39 @@ function withTimeout<T>(p: Promise<T>, ms: number, fallback: T): Promise<T> {
   });
 }
 
+/** Fast board bags via Pyth only (no Tokens.xyz). */
+async function boardMajorsPyth(): Promise<MajorSnap[]> {
+  const prices = await withTimeout(
+    fetchPythUsdBySymbols([...HOUR_BOARD_SYMBOLS]),
+    2_500,
+    new Map<string, number>()
+  );
+  const out: MajorSnap[] = [];
+  for (const sym of HOUR_BOARD_SYMBOLS) {
+    const p = prices.get(sym) ?? prices.get(sym.toUpperCase());
+    if (!(p && p > 0)) continue;
+    out.push({
+      assetId: sym.toLowerCase(),
+      price: p,
+      volume24h: 0,
+      name: sym,
+      symbol: sym,
+      logo: "",
+      source: "pyth",
+    });
+  }
+  return out;
+}
+
 /**
  * GET /api/day — current hour round + live leaders + bags
  * Optional ?wallet= for myTickets
  * POST /api/day — play (multi-ticket OK; any priced bag)
  */
 export async function GET(request: NextRequest) {
+  const t0 = Date.now();
   try {
     const hour = utcHourString();
-    await withTimeout(ensureRound(hour), 4_000, undefined as void);
-
     const walletQ =
       request.nextUrl.searchParams.get("wallet")?.trim() || "";
 
@@ -77,37 +105,54 @@ export async function GET(request: NextRequest) {
       status: null as string | null,
     };
 
-    const [round, stakes, majorsLive, leaders, heat, hourSeed] =
-      await Promise.all([
-        withTimeout(getRound(hour), 5_000, null),
-        withTimeout(
-          listStakes(hour),
-          5_000,
-          [] as Awaited<ReturnType<typeof listStakes>>
-        ),
-        withTimeout(
-          fetchRealMajorsLive(),
-          6_000,
-          [] as Awaited<ReturnType<typeof fetchRealMajorsLive>>
-        ),
-        withTimeout(getLiveLeaders(hour), 8_000, null),
-        withTimeout(
-          getTicketHeat(hour),
-          5_000,
-          new Map() as Awaited<ReturnType<typeof getTicketHeat>>
-        ),
-        withTimeout(getHourSeed(hour), 4_000, emptySeed),
-      ]);
+    // Everything in parallel — short timeouts so mobile never spins forever
+    const [
+      _ensured,
+      round,
+      stakes,
+      majorsLive,
+      majorsSnap,
+      majorsPyth,
+      leaders,
+      heat,
+      hourSeed,
+    ] = await Promise.all([
+      withTimeout(ensureRound(hour), 2_000, undefined as void),
+      withTimeout(getRound(hour), 2_500, null),
+      withTimeout(
+        listStakes(hour),
+        2_500,
+        [] as Awaited<ReturnType<typeof listStakes>>
+      ),
+      withTimeout(
+        fetchRealMajorsLive(),
+        3_000,
+        [] as Awaited<ReturnType<typeof fetchRealMajorsLive>>
+      ),
+      withTimeout(majorsFromOpenSnap(hour), 2_000, [] as MajorSnap[]),
+      withTimeout(boardMajorsPyth(), 2_800, [] as MajorSnap[]),
+      withTimeout(getLiveLeaders(hour), 3_000, null),
+      withTimeout(
+        getTicketHeat(hour),
+        2_000,
+        new Map() as Awaited<ReturnType<typeof getTicketHeat>>
+      ),
+      withTimeout(getHourSeed(hour), 2_000, emptySeed),
+    ]);
 
-    let majors = majorsLive;
-    if (majors.length === 0) {
-      majors = await withTimeout(majorsFromOpenSnap(hour), 4_000, []);
-    }
-    // Still empty → last-hour open snap
+    let majors =
+      majorsLive.length > 0
+        ? majorsLive
+        : majorsSnap.length > 0
+          ? majorsSnap
+          : majorsPyth;
+
+    // Last resort: previous hour snap
     if (majors.length === 0) {
       const prev = new Date(Date.now() - 3600_000).toISOString().slice(0, 13);
-      majors = await withTimeout(majorsFromOpenSnap(prev), 4_000, []);
+      majors = await withTimeout(majorsFromOpenSnap(prev), 1_500, []);
     }
+
     const hitCount = stakes.filter((s) => s.side === "hit").length;
     const shitCount = stakes.filter((s) => s.side === "shit").length;
     const uniqueHit = new Set(
@@ -134,7 +179,7 @@ export async function GET(request: NextRequest) {
       tickets: number;
     }> = [];
     if (walletQ && isSolanaAddress(walletQ)) {
-      myTickets = await withTimeout(getMyTickets(hour, walletQ), 4_000, []);
+      myTickets = await withTimeout(getMyTickets(hour, walletQ), 2_000, []);
     }
 
     const pctMap = new Map(
@@ -142,9 +187,7 @@ export async function GET(request: NextRequest) {
     );
 
     const degraded =
-      !round ||
-      majors.length === 0 ||
-      !leaders;
+      !round || majors.length === 0 || !leaders || majorsLive.length === 0;
 
     return Response.json({
       enabled: DAY_GAME_ENABLED,
@@ -161,6 +204,7 @@ export async function GET(request: NextRequest) {
       pot: PLAY_POT_ADDRESS,
       mint: SHIT_MINT,
       degraded,
+      ms: Date.now() - t0,
       houseSpark: {
         enabled: PLAY_SEED_ENABLED,
         hourAmount: PLAY_SEED_HOUR_AMOUNT,
@@ -178,7 +222,6 @@ export async function GET(request: NextRequest) {
       stats: {
         hitStakes: hitCount,
         shitStakes: shitCount,
-        /** Total plays (tickets) — multi-play counts multiple */
         hitTickets: hitCount,
         shitTickets: shitCount,
         hitPlayers: uniqueHit,
