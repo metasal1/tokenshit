@@ -4,6 +4,8 @@ import {
   CLAIM_GH_FORK,
   CLAIM_JUP_VERIFIED,
   CLAIM_X_FOLLOW,
+  CLAIM_X_RETWEET,
+  CLAIM_RT_TWEET_ID,
   CLAIM_X_PREMIUM,
   CLAIM_X_TWEET,
   CLAIM_X_VERIFIED,
@@ -16,6 +18,7 @@ import {
 import {
   checkGhFork,
   checkXFollowsTokenshit,
+  checkXRetweeted,
   checkXTweetTag,
   checkXVerified,
   getTweetClaimCooldown,
@@ -50,6 +53,7 @@ const AMOUNTS: Record<ClaimKind, number> = {
   gh_fork: CLAIM_GH_FORK,
   x_tweet: CLAIM_X_TWEET,
   x_follow: CLAIM_X_FOLLOW,
+  x_retweet: CLAIM_X_RETWEET,
   email_list: CLAIM_EMAIL_LIST,
   jup_verified: CLAIM_JUP_VERIFIED,
   /** SOL amount (not $TOKENSHIT) — 67 plays of gas */
@@ -140,6 +144,13 @@ export async function GET(request: NextRequest) {
       const f = await checkXFollowsTokenshit(twitter);
       detail = f;
       eligible = f.ok && f.following;
+    } else if (kind === "x_retweet") {
+      if (!twitter)
+        return Response.json({ error: "twitter required" }, { status: 400 });
+      const tweetUrl = sp.get("tweetUrl");
+      const r = await checkXRetweeted(twitter, CLAIM_RT_TWEET_ID, tweetUrl);
+      detail = r;
+      eligible = r.ok && r.retweeted;
     } else if (kind === "email_list") {
       const email = sp.get("email");
       const list = await isOnEmailList({
@@ -520,6 +531,33 @@ export async function POST(request: NextRequest) {
           { error: "Follow @Tokenshit_ on X, then claim." },
           { status: 403 }
         );
+    } else if (kind === "x_retweet") {
+      const tweetUrl = body.tweetUrl ? String(body.tweetUrl).trim() : "";
+      const r = await checkXRetweeted(twitter, CLAIM_RT_TWEET_ID, tweetUrl || null);
+      if (!r.ok && r.error && /paste|could not load|API/i.test(r.error)) {
+        return Response.json(
+          {
+            error: r.error,
+            code: "rt_verify_failed",
+            target: CLAIM_RT_TWEET_ID,
+          },
+          { status: 502 }
+        );
+      }
+      if (!r.retweeted) {
+        return Response.json(
+          {
+            error:
+              r.error ||
+              "Retweet the promo post (or quote it and paste your status URL), then claim.",
+            code: "not_retweeted",
+            target: CLAIM_RT_TWEET_ID,
+          },
+          { status: 403 }
+        );
+      }
+      amount = CLAIM_X_RETWEET;
+      if (r.evidenceTweetId) tweetId = r.evidenceTweetId;
     } else if (kind === "email_list") {
       const emailRaw = body.email ? String(body.email).trim().toLowerCase() : "";
       const list = await isOnEmailList({

@@ -6,6 +6,7 @@ export type ClaimKind =
   | "gh_fork"
   | "x_tweet"
   | "x_follow"
+  | "x_retweet"
   | "email_list"
   | "jup_verified"
   | "sol_gas_love";
@@ -411,6 +412,7 @@ export {
   checkXFollowsTokenshit,
   checkXTweetTag,
   checkXTweetByUrl,
+  checkXRetweeted,
   formatXApiError,
   parseTweetId,
 } from "@/lib/x-data";

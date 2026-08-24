@@ -1348,3 +1348,292 @@ export async function checkXTweetTag(
     error: "Paste your tweet URL (X search unavailable).",
   };
 }
+
+
+/**
+ * Verify user retweeted (or quote-RTed) a specific Tokenshit_ status.
+ * 1) retweeters APIs (when credits allow)
+ * 2) optional quote/status URL paste — free fxtwitter/vx must show quote of target by user
+ */
+export async function checkXRetweeted(
+  username: string,
+  targetTweetId: string,
+  quoteOrRtUrl?: string | null
+): Promise<{
+  ok: boolean;
+  retweeted: boolean;
+  error?: string;
+  source?: string;
+  evidenceTweetId?: string;
+}> {
+  const user = normalizeXHandle(username);
+  const target = String(targetTweetId || "").replace(/\D/g, "");
+  if (!user) return { ok: false, retweeted: false, error: "no username" };
+  if (!target) return { ok: false, retweeted: false, error: "no target tweet" };
+
+  // --- A) pasted quote / RT status (works when retweeter APIs are dry) ---
+  const paste = (quoteOrRtUrl || "").trim();
+  if (paste) {
+    const id = parseTweetId(paste);
+    if (!id) {
+      return {
+        ok: false,
+        retweeted: false,
+        error: "Paste your quote-tweet status URL (Share → Copy link).",
+      };
+    }
+    if (id === target) {
+      return {
+        ok: false,
+        retweeted: false,
+        error: "Paste YOUR quote/retweet link, not the original Tokenshit_ post.",
+      };
+    }
+    const q = await loadTweetForRetweetProof(id, user);
+    if (!q.ok) {
+      return {
+        ok: false,
+        retweeted: false,
+        error: q.error || "Could not load your tweet",
+      };
+    }
+    const author = normalizeXHandle(q.authorUsername || "");
+    if (author && author !== user) {
+      return {
+        ok: false,
+        retweeted: false,
+        error: `That post is from @${author}, not @${user}.`,
+      };
+    }
+    const refs = q.refIds || [];
+    const text = (q.text || "").toLowerCase();
+    const hitsTarget =
+      refs.includes(target) ||
+      text.includes(target) ||
+      text.includes(`status/${target}`) ||
+      text.includes(`tokenshit_/status/${target}`);
+    if (!hitsTarget) {
+      return {
+        ok: false,
+        retweeted: false,
+        error: `Quote or RT the promo post first (status ${target}).`,
+      };
+    }
+    return {
+      ok: true,
+      retweeted: true,
+      source: q.source || "quote-url",
+      evidenceTweetId: id,
+    };
+  }
+
+  // --- B) retweeters list (paid APIs) ---
+  const onList = await userInRetweeters(user, target);
+  if (onList.ok && onList.found) {
+    return {
+      ok: true,
+      retweeted: true,
+      source: onList.source,
+    };
+  }
+  if (onList.ok === false && onList.hardError) {
+    return {
+      ok: false,
+      retweeted: false,
+      error:
+        onList.error ||
+        "Could not verify RT (X API). Quote the post and paste your status URL.",
+      source: onList.source,
+    };
+  }
+
+  return {
+    ok: true,
+    retweeted: false,
+    error:
+      "RT not found yet. Retweet the post, wait a few seconds, and try again — or Quote it and paste your status URL.",
+    source: onList.source,
+  };
+}
+
+async function loadTweetForRetweetProof(
+  tweetId: string,
+  hintUser?: string
+): Promise<{
+  ok: boolean;
+  text?: string;
+  authorUsername?: string;
+  refIds?: string[];
+  source?: string;
+  error?: string;
+}> {
+  // fxtwitter free
+  try {
+    const res = await fetchTimeout(
+      `https://api.fxtwitter.com/status/${tweetId}`,
+      { headers: { "User-Agent": "TokenShit/1.0" }, cache: "no-store" },
+      12_000
+    );
+    if (res.ok) {
+      const j = (await res.json()) as {
+        tweet?: Record<string, unknown>;
+        code?: number;
+      };
+      const tw = (j.tweet || j) as Record<string, unknown>;
+      const author = (tw.author || {}) as Record<string, unknown>;
+      const handle =
+        normalizeXHandle(
+          String(author.screen_name || author.username || tw.author_screen_name || "")
+        ) || pickAuthorHandle(tw);
+      const text = String(tw.text || tw.raw_text || "");
+      const refIds: string[] = [];
+      const q = tw.quote as Record<string, unknown> | undefined;
+      const rt = (tw.retweet || tw.reweet) as Record<string, unknown> | undefined;
+      const rep = tw.replying_to_status as string | undefined;
+      for (const block of [q, rt]) {
+        if (!block) continue;
+        const id = String(block.id || block.id_str || "").replace(/\D/g, "");
+        if (id) refIds.push(id);
+      }
+      if (rep) refIds.push(String(rep).replace(/\D/g, ""));
+      // nested url entities
+      const raw = JSON.stringify(tw);
+      for (const m of raw.matchAll(/status\/(\d{10,})/g)) {
+        refIds.push(m[1]!);
+      }
+      return {
+        ok: true,
+        text,
+        authorUsername: handle || hintUser,
+        refIds: [...new Set(refIds.filter(Boolean))],
+        source: "fxtwitter",
+      };
+    }
+  } catch {
+    /* fall through */
+  }
+
+  const vx = await tweetFromVx(tweetId, hintUser);
+  if (vx.ok) {
+    const refIds: string[] = [];
+    const raw = `${vx.text || ""}`;
+    for (const m of raw.matchAll(/status\/(\d{10,})/g)) refIds.push(m[1]!);
+    return {
+      ok: true,
+      text: vx.text,
+      authorUsername: vx.authorUsername,
+      refIds,
+      source: "vx",
+    };
+  }
+
+  const io = await tweetFromTwitterApiIo(tweetId).catch(() => null);
+  if (io?.ok) {
+    return {
+      ok: true,
+      text: io.text,
+      authorUsername: io.authorUsername,
+      refIds: [],
+      source: "twitterapi.io",
+    };
+  }
+
+  return { ok: false, error: vx.error || io?.error || "tweet load failed" };
+}
+
+async function userInRetweeters(
+  username: string,
+  tweetId: string
+): Promise<{
+  ok: boolean;
+  found: boolean;
+  hardError?: boolean;
+  error?: string;
+  source?: string;
+}> {
+  const user = username.toLowerCase();
+  const bearer = process.env.X_BEARER_TOKEN || process.env.TWITTER_BEARER_TOKEN || "";
+  if (bearer) {
+    try {
+      let url: string | null =
+        `https://api.twitter.com/2/tweets/${tweetId}/retweeted_by?max_results=100&user.fields=username`;
+      let pages = 0;
+      while (url && pages < 5) {
+        pages++;
+        const res = await fetchTimeout(
+          url,
+          { headers: { Authorization: `Bearer ${bearer}` } },
+          12_000
+        );
+        if (res.status === 402 || res.status === 429) {
+          break;
+        }
+        if (!res.ok) break;
+        const j = (await res.json()) as {
+          data?: { username?: string }[];
+          meta?: { next_token?: string };
+        };
+        if ((j.data || []).some((u) => (u.username || "").toLowerCase() === user)) {
+          return { ok: true, found: true, source: "x-api-retweeted_by" };
+        }
+        const nt = j.meta?.next_token;
+        url = nt
+          ? `https://api.twitter.com/2/tweets/${tweetId}/retweeted_by?max_results=100&user.fields=username&pagination_token=${encodeURIComponent(nt)}`
+          : null;
+      }
+    } catch {
+      /* fall through */
+    }
+  }
+
+  const ioKey = twitterApiIoKey();
+  if (ioKey) {
+    for (const path of [
+      `${TWITTERAPI_IO_BASE}/twitter/tweet/retweeters?tweetId=${tweetId}`,
+      `${TWITTERAPI_IO_BASE}/twitter/tweet/retweeters?tweet_id=${tweetId}`,
+    ]) {
+      try {
+        const res = await fetchTimeout(
+          path,
+          { headers: { "X-API-Key": ioKey } },
+          12_000
+        );
+        if (res.status === 402) break;
+        if (!res.ok) continue;
+        const j = (await res.json()) as Record<string, unknown>;
+        const blob = JSON.stringify(j).toLowerCase();
+        if (
+          blob.includes(`"username":"${user}"`) ||
+          blob.includes(`"screen_name":"${user}"`) ||
+          blob.includes(`"userName":"${user}"`)
+        ) {
+          return { ok: true, found: true, source: "twitterapi.io-retweeters" };
+        }
+        // parsed lists
+        const lists = [
+          j.retweeters,
+          j.users,
+          (j.data as Record<string, unknown> | undefined)?.retweeters,
+          (j.data as Record<string, unknown> | undefined)?.users,
+        ].filter(Boolean) as unknown[];
+        for (const list of lists) {
+          if (!Array.isArray(list)) continue;
+          for (const row of list) {
+            const r = row as Record<string, unknown>;
+            const h = normalizeXHandle(
+              String(r.userName || r.username || r.screen_name || "")
+            );
+            if (h === user) {
+              return { ok: true, found: true, source: "twitterapi.io-retweeters" };
+            }
+          }
+        }
+      } catch {
+        /* try next */
+      }
+    }
+  }
+
+  return { ok: true, found: false, source: "retweeters-miss" };
+}
+

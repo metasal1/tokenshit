@@ -140,6 +140,7 @@ const KIND_LABEL: Record<string, string> = {
   gh_fork: "GitHub fork",
   x_tweet: "Tweet tag",
   x_follow: "Follow",
+  x_retweet: "Retweet",
   referral: "Referral",
 };
 
