@@ -137,6 +137,16 @@ function fmt(n: number) {
   return n.toLocaleString(undefined, { maximumFractionDigits: 0 });
 }
 
+function fmtPrice(n: number | null | undefined) {
+  if (n == null || !Number.isFinite(n) || n <= 0) return "—";
+  if (n >= 1000)
+    return n.toLocaleString(undefined, { maximumFractionDigits: 0 });
+  if (n >= 1) return n.toLocaleString(undefined, { maximumFractionDigits: 2 });
+  if (n >= 0.01)
+    return n.toLocaleString(undefined, { maximumFractionDigits: 4 });
+  return n.toLocaleString(undefined, { maximumFractionDigits: 6 });
+}
+
 function fmtCountdown(ms: number) {
   if (ms <= 0) return "00:00";
   const s = Math.floor(ms / 1000);
@@ -886,20 +896,23 @@ export default function DayGamePanel({
                       : "border-zinc-800 bg-zinc-950/90 hover:border-zinc-600"
                   }`}
                 >
-                  <TokenMark logo={m.logo} symbol={m.symbol} size={36} />
+                  <TokenMark logo={m.logo} symbol={m.symbol} size={40} />
                   <span className="w-full truncate text-center text-[11px] font-bold text-zinc-100">
                     {m.symbol || m.name}
                   </span>
                   <span
-                    className={`font-mono text-xs font-black tabular-nums ${
+                    className={`font-mono text-[13px] font-black tabular-nums leading-none ${
                       !pctKnown
-                        ? "text-zinc-600"
+                        ? "text-zinc-500"
                         : pctUp
                           ? "text-green-400"
                           : "text-red-400"
                     }`}
                   >
                     {fmtPct(pct)}
+                  </span>
+                  <span className="font-mono text-[9px] tabular-nums text-zinc-500">
+                    ${fmtPrice(m.price)}
                   </span>
                   {mine > 0 && (
                     <span className="absolute -right-1 -top-1 rounded-full bg-neon px-1.5 font-mono text-[10px] font-bold text-black">
@@ -947,8 +960,19 @@ export default function DayGamePanel({
                 >
                   {sideLabel}
                 </span>
-                <span className="font-mono text-[11px] text-zinc-500">
+                <span
+                  className={`font-mono text-[11px] font-bold tabular-nums ${
+                    selected.pct == null
+                      ? "text-zinc-500"
+                      : selected.pct >= 0
+                        ? "text-green-400"
+                        : "text-red-400"
+                  }`}
+                >
                   {fmtPct(selected.pct)}
+                </span>
+                <span className="font-mono text-[10px] text-zinc-500">
+                  ${fmtPrice(selected.price)}
                 </span>
               </div>
               <p className="font-mono text-[10px] text-zinc-600">
