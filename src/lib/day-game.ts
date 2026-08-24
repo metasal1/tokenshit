@@ -1070,6 +1070,7 @@ type PriceRow = {
   volume24h: number;
   name: string;
   symbol: string;
+  logo: string;
 };
 
 async function loadPhase(
@@ -1077,7 +1078,7 @@ async function loadPhase(
   phase: "open" | "close"
 ): Promise<Map<string, PriceRow>> {
   const r = await tursoExecute(
-    `SELECT asset_id, price, volume24h, name, symbol FROM day_prices
+    `SELECT asset_id, price, volume24h, name, symbol, logo FROM day_prices
      WHERE utc_day = ? AND phase = ?`,
     [utcDay, phase]
   );
@@ -1089,6 +1090,7 @@ async function loadPhase(
       volume24h: Number(row[2] || 0),
       name: String(row[3] || ""),
       symbol: String(row[4] || ""),
+      logo: String(row[5] || ""),
     });
   }
   return m;
@@ -1108,7 +1110,7 @@ export async function majorsFromOpenSnap(
       volume24h: row.volume24h || 0,
       name: row.name || row.symbol || row.assetId,
       symbol: row.symbol || row.assetId,
-      logo: "",
+      logo: row.logo || "",
       source: "open-snap",
     });
   }

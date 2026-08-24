@@ -34,6 +34,12 @@ import {
   fetchPythUsdBySymbols,
   HOUR_BOARD_SYMBOLS,
 } from "@/lib/pyth-prices";
+import {
+  knownLogo,
+  loadLogoMaps,
+  resolveLogo,
+  upsertAssetLogos,
+} from "@/lib/asset-logos";
 
 export const dynamic = "force-dynamic";
 
@@ -80,7 +86,7 @@ async function boardMajorsPyth(): Promise<MajorSnap[]> {
       volume24h: 0,
       name: sym,
       symbol: sym,
-      logo: "",
+      logo: knownLogo(sym),
       source: "pyth",
     });
   }
@@ -186,8 +192,77 @@ export async function GET(request: NextRequest) {
       (leaders?.moves || []).map((x) => [x.assetId, x] as const)
     );
 
+    // Open prices by id + symbol for hour % when leaders sparse
+    const openById = new Map(
+      majorsSnap.map((m) => [m.assetId, m.price] as const)
+    );
+    const openBySym = new Map(
+      majorsSnap.map((m) => [m.symbol.toUpperCase(), m.price] as const)
+    );
+
+    // Persist + hydrate logos
+    void upsertAssetLogos(
+      [...majorsLive, ...majorsSnap, ...majors].map((m) => ({
+        assetId: m.assetId,
+        symbol: m.symbol,
+        logo: m.logo,
+      }))
+    ).catch(() => {});
+
+    const logoMaps = await withTimeout(
+      loadLogoMaps({
+        assetIds: majors.map((m) => m.assetId),
+        symbols: majors.map((m) => m.symbol),
+      }),
+      1_500,
+      { byId: new Map<string, string>(), bySym: new Map<string, string>() }
+    );
+
     const degraded =
       !round || majors.length === 0 || !leaders || majorsLive.length === 0;
+
+    const majorsOut = majors.slice(0, 120).map((m) => {
+      const move = pctMap.get(m.assetId);
+      // also match leaders by symbol if id differs (pyth board vs txyz)
+      const moveBySym =
+        !move && leaders?.moves
+          ? leaders.moves.find(
+              (x) =>
+                (x.symbol || "").toUpperCase() ===
+                (m.symbol || "").toUpperCase()
+            )
+          : null;
+      const mv = move || moveBySym || null;
+
+      let pct = mv?.pct ?? null;
+      let openPrice = mv?.openPrice ?? null;
+      if (pct == null && m.price > 0) {
+        const op =
+          openById.get(m.assetId) ??
+          openBySym.get((m.symbol || "").toUpperCase()) ??
+          null;
+        if (op && op > 0) {
+          openPrice = op;
+          pct = ((m.price - op) / op) * 100;
+        }
+      }
+
+      const h = heat.get(m.assetId);
+      const logo = resolveLogo(m.assetId, m.symbol, m.logo, logoMaps);
+
+      return {
+        assetId: m.assetId,
+        name: m.name,
+        symbol: m.symbol,
+        logo,
+        price: m.price,
+        pct: pct != null && Number.isFinite(pct) ? pct : null,
+        openPrice,
+        source: m.source || null,
+        hitPlays: h?.hit || 0,
+        shitPlays: h?.shit || 0,
+      };
+    });
 
     return Response.json({
       enabled: DAY_GAME_ENABLED,
@@ -229,8 +304,28 @@ export async function GET(request: NextRequest) {
       },
       leaders: leaders
         ? {
-            hitting: leaders.hitting,
-            shitting: leaders.shitting,
+            hitting: leaders.hitting
+              ? {
+                  ...leaders.hitting,
+                  logo: resolveLogo(
+                    leaders.hitting.assetId,
+                    leaders.hitting.symbol,
+                    leaders.hitting.logo,
+                    logoMaps
+                  ),
+                }
+              : null,
+            shitting: leaders.shitting
+              ? {
+                  ...leaders.shitting,
+                  logo: resolveLogo(
+                    leaders.shitting.assetId,
+                    leaders.shitting.symbol,
+                    leaders.shitting.logo,
+                    logoMaps
+                  ),
+                }
+              : null,
             topHit: leaders.topHit,
             topShit: leaders.topShit,
             stakesOnHitting,
@@ -238,22 +333,7 @@ export async function GET(request: NextRequest) {
             compared: leaders.compared,
           }
         : null,
-      majors: majors.slice(0, 120).map((m) => {
-        const move = pctMap.get(m.assetId);
-        const h = heat.get(m.assetId);
-        return {
-          assetId: m.assetId,
-          name: m.name,
-          symbol: m.symbol,
-          logo: m.logo,
-          price: m.price,
-          pct: move?.pct ?? null,
-          openPrice: move?.openPrice ?? null,
-          source: m.source || null,
-          hitPlays: h?.hit || 0,
-          shitPlays: h?.shit || 0,
-        };
-      }),
+      majors: majorsOut,
       majorsCount: majors.length,
       myTickets,
     });
