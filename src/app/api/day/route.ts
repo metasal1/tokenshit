@@ -11,6 +11,7 @@ import {
   getRound,
   getTicketHeat,
   listStakes,
+  majorsFromOpenSnap,
   nextUtcHourMs,
   recordStake,
   utcHourString,
@@ -76,19 +77,37 @@ export async function GET(request: NextRequest) {
       status: null as string | null,
     };
 
-    const [round, stakes, majors, leaders, heat, hourSeed] = await Promise.all([
-      withTimeout(getRound(hour), 5_000, null),
-      withTimeout(listStakes(hour), 5_000, [] as Awaited<ReturnType<typeof listStakes>>),
-      withTimeout(fetchRealMajorsLive(), 8_000, [] as Awaited<ReturnType<typeof fetchRealMajorsLive>>),
-      withTimeout(getLiveLeaders(hour), 10_000, null),
-      withTimeout(
-        getTicketHeat(hour),
-        5_000,
-        new Map() as Awaited<ReturnType<typeof getTicketHeat>>
-      ),
-      withTimeout(getHourSeed(hour), 4_000, emptySeed),
-    ]);
+    const [round, stakes, majorsLive, leaders, heat, hourSeed] =
+      await Promise.all([
+        withTimeout(getRound(hour), 5_000, null),
+        withTimeout(
+          listStakes(hour),
+          5_000,
+          [] as Awaited<ReturnType<typeof listStakes>>
+        ),
+        withTimeout(
+          fetchRealMajorsLive(),
+          6_000,
+          [] as Awaited<ReturnType<typeof fetchRealMajorsLive>>
+        ),
+        withTimeout(getLiveLeaders(hour), 8_000, null),
+        withTimeout(
+          getTicketHeat(hour),
+          5_000,
+          new Map() as Awaited<ReturnType<typeof getTicketHeat>>
+        ),
+        withTimeout(getHourSeed(hour), 4_000, emptySeed),
+      ]);
 
+    let majors = majorsLive;
+    if (majors.length === 0) {
+      majors = await withTimeout(majorsFromOpenSnap(hour), 4_000, []);
+    }
+    // Still empty → last-hour open snap
+    if (majors.length === 0) {
+      const prev = new Date(Date.now() - 3600_000).toISOString().slice(0, 13);
+      majors = await withTimeout(majorsFromOpenSnap(prev), 4_000, []);
+    }
     const hitCount = stakes.filter((s) => s.side === "hit").length;
     const shitCount = stakes.filter((s) => s.side === "shit").length;
     const uniqueHit = new Set(
