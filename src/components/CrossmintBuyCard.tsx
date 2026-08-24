@@ -197,7 +197,19 @@ export default function CrossmintBuyCard({
                     payment={{
                       ...(email ? { receiptEmail: email } : {}),
                       crypto: { enabled: false },
-                      fiat: { enabled: true },
+                      fiat: {
+                        enabled: true,
+                        // Apple Pay / Google Pay are Crossmint wallet buttons —
+                        // not a separate Apple JS SDK. Shown by Crossmint when
+                        // device/browser supports them (Safari/iOS, Chrome/Android)
+                        // and the project domain is verified in Crossmint.
+                        allowedMethods: {
+                          card: true,
+                          applePay: true,
+                          googlePay: true,
+                        },
+                        defaultCurrency: "usd",
+                      },
                       defaultMethod: "fiat",
                     }}
                   />
