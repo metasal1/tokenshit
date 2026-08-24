@@ -244,15 +244,34 @@ export default function DayGamePanel({
   const [justPlayed, setJustPlayed] = useState(false);
   const [solBalUi, setSolBalUi] = useState<number | null>(null);
   const [shitBalUi, setShitBalUi] = useState<number | null>(null);
+  const [loadErr, setLoadErr] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
   const prevPots = useRef<{ hit: number; shit: number } | null>(null);
   const lastBagTap = useRef<{ id: string; t: number } | null>(null);
 
   const load = useCallback(() => {
     const w = wallet ? `?wallet=${encodeURIComponent(wallet)}` : "";
-    fetch(`/api/day${w}`, { cache: "no-store" })
-      .then((r) => r.json())
-      .then((d) => setStatus(d))
-      .catch(() => {});
+    const ac = new AbortController();
+    const kill = setTimeout(() => ac.abort(), 12_000);
+    fetch(`/api/day${w}`, { cache: "no-store", signal: ac.signal })
+      .then(async (r) => {
+        if (!r.ok) throw new Error(`Play API ${r.status}`);
+        return r.json();
+      })
+      .then((d) => {
+        setStatus(d);
+        setLoadErr(null);
+        setLoading(false);
+      })
+      .catch((e) => {
+        setLoading(false);
+        setLoadErr(
+          e?.name === "AbortError"
+            ? "Play took too long to load — retry."
+            : String(e?.message || e || "Could not load play")
+        );
+      })
+      .finally(() => clearTimeout(kill));
     if (wallet) {
       fetch(`/api/wallet/balances?address=${encodeURIComponent(wallet)}`, {
         cache: "no-store",
@@ -555,12 +574,29 @@ export default function DayGamePanel({
     if (!next) sfx.ding();
   }
 
-  if (!ready || !status) {
+  if (!ready || loading || !status) {
     return (
-      <div className="flex h-36 items-center justify-center rounded-3xl border border-border bg-card">
-        <EmojiIcon size={28} className="animate-spin opacity-90">
-          💫
-        </EmojiIcon>
+      <div className="flex h-full min-h-[12rem] flex-col items-center justify-center gap-3 rounded-3xl border border-border bg-card px-4">
+        {loadErr ? (
+          <>
+            <p className="text-center text-sm text-red-400">{loadErr}</p>
+            <button
+              type="button"
+              onClick={() => {
+                setLoading(true);
+                setLoadErr(null);
+                load();
+              }}
+              className="min-h-11 rounded-xl bg-neon px-5 text-sm font-bold text-black"
+            >
+              Retry Play
+            </button>
+          </>
+        ) : (
+          <EmojiIcon size={28} className="animate-spin opacity-90">
+            💫
+          </EmojiIcon>
+        )}
       </div>
     );
   }
