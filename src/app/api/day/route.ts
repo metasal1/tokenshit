@@ -38,6 +38,7 @@ import {
   knownLogo,
   loadLogoMaps,
   resolveLogo,
+  seedKnownLogos,
   upsertAssetLogos,
 } from "@/lib/asset-logos";
 
@@ -200,14 +201,17 @@ export async function GET(request: NextRequest) {
       majorsSnap.map((m) => [m.symbol.toUpperCase(), m.price] as const)
     );
 
-    // Persist + hydrate logos
-    void upsertAssetLogos(
-      [...majorsLive, ...majorsSnap, ...majors].map((m) => ({
-        assetId: m.assetId,
-        symbol: m.symbol,
-        logo: m.logo,
-      }))
-    ).catch(() => {});
+    // Persist live logos + seed full known board set
+    void Promise.all([
+      upsertAssetLogos(
+        [...majorsLive, ...majorsSnap, ...majors].map((m) => ({
+          assetId: m.assetId,
+          symbol: m.symbol,
+          logo: m.logo || knownLogo(m.symbol) || knownLogo(m.assetId),
+        }))
+      ),
+      seedKnownLogos(),
+    ]).catch(() => {});
 
     const logoMaps = await withTimeout(
       loadLogoMaps({
