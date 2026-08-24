@@ -132,15 +132,30 @@ export async function upsertAssetLogos(
   if (!clean.length) return;
   await ensureLogoSchema();
   const now = new Date().toISOString();
-  for (const r of clean.slice(0, 120)) {
+  // batch inserts (Workers can't do 500 sequential round-trips)
+  const chunk = 40;
+  for (let i = 0; i < Math.min(clean.length, 500); i += chunk) {
+    const part = clean.slice(i, i + chunk);
+    const values: Array<string | number | null> = [];
+    const ph = part
+      .map((r) => {
+        values.push(
+          r.assetId,
+          (r.symbol || "").toUpperCase(),
+          String(r.logo),
+          now
+        );
+        return "(?, ?, ?, ?)";
+      })
+      .join(",");
     await tursoExecute(
       `INSERT INTO asset_logos (asset_id, symbol, logo, updated_at)
-       VALUES (?, ?, ?, ?)
+       VALUES ${ph}
        ON CONFLICT(asset_id) DO UPDATE SET
          logo = excluded.logo,
          symbol = COALESCE(NULLIF(excluded.symbol, ''), asset_logos.symbol),
          updated_at = excluded.updated_at`,
-      [r.assetId, (r.symbol || "").toUpperCase(), String(r.logo), now]
+      values
     );
   }
 }

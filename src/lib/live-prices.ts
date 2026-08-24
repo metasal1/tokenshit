@@ -181,7 +181,7 @@ function num(v: unknown): number | null {
   return null;
 }
 
-/** Universe from Tokens.xyz + hard board symbols (Pyth-priced). */
+/** Universe from Tokens.xyz mega (~485) + hard board symbols (Pyth-priced). */
 export async function fetchMajorsUniverse(): Promise<PriceHint[]> {
   // short in-memory cache — Tokens.xyz list is slow / flaky on Workers
   const g = globalThis as unknown as {
@@ -191,12 +191,17 @@ export async function fetchMajorsUniverse(): Promise<PriceHint[]> {
     return g.__tsMajorsUni.val;
   }
 
+  const list =
+    process.env.PLAY_MAJORS_LIST?.trim() ||
+    process.env.TOKENS_XYZ_MAJORS_LIST?.trim() ||
+    "mega"; // ~485 assets with logos
+
   let data: Record<string, unknown> | null = null;
   try {
     data = (await Promise.race([
-      apiFetch(`/assets/curated?list=majors&groupBy=asset`),
+      apiFetch(`/assets/curated?list=${encodeURIComponent(list)}&groupBy=asset`),
       new Promise((_, rej) =>
-        setTimeout(() => rej(new Error("txyz universe timeout")), 5_000)
+        setTimeout(() => rej(new Error("txyz universe timeout")), 12_000)
       ),
     ])) as Record<string, unknown>;
   } catch {
@@ -207,7 +212,6 @@ export async function fetchMajorsUniverse(): Promise<PriceHint[]> {
     Record<string, unknown>
   >;
   const {
-    filterRealMajors,
     rowAssetId,
     rowName,
     rowSymbol,
@@ -215,18 +219,9 @@ export async function fetchMajorsUniverse(): Promise<PriceHint[]> {
     rowVolume24h,
   } = await import("@/lib/majors-filter");
 
-  const boardSym = new Set(HOUR_BOARD_SYMBOLS.map((s) => s.toUpperCase()));
-  const realOrBoard = raw.filter((row) => {
-    const id = rowAssetId(row as never);
-    const sym = rowSymbol(row as never).toUpperCase();
-    if (!id) return false;
-    if (filterRealMajors([row as never]).length) return true;
-    return boardSym.has(sym);
-  });
-
   const out: PriceHint[] = [];
   const seen = new Set<string>();
-  for (const row of realOrBoard) {
+  for (const row of raw) {
     const a = ((row as { asset?: Record<string, unknown> }).asset ||
       row) as Record<string, unknown>;
     const assetId = rowAssetId(row as never);
@@ -257,12 +252,13 @@ export async function fetchMajorsUniverse(): Promise<PriceHint[]> {
       null;
 
     const symbol = rowSymbol(row as never) || String(a.symbol || "");
+    const logo = rowLogo(row as never);
     seen.add(assetId);
     out.push({
       assetId,
       symbol,
       name: rowName(row as never) || assetId,
-      logo: rowLogo(row as never),
+      logo: logo || "",
       mint,
       coinId,
       fallbackPrice: fallback > 0 ? fallback : 0,
@@ -309,6 +305,7 @@ export async function fetchMajorsUniverse(): Promise<PriceHint[]> {
 
 /**
  * Resolve live USD — Pyth first, then Jup/CG/Dex, txyz last.
+ * Large universes (mega ~485): txyz + Pyth board only (fast path).
  */
 export async function priceMajorsLive(
   hints?: PriceHint[]
@@ -324,11 +321,23 @@ export async function priceMajorsLive(
       new Promise<T>((r) => setTimeout(() => r(fb), ms)),
     ]);
 
+  const large = universe.length > 80;
+  // Full multi-source only for small boards — mega list uses txyz + Pyth
+  const boardSyms = large
+    ? [...HOUR_BOARD_SYMBOLS]
+    : symbols;
+
   const [pyth, jup, dex, cg] = await Promise.all([
-    to(fetchPythUsdBySymbols(symbols), 4_000, new Map<string, number>()),
-    to(fetchJupiterUsd(mints), 4_000, new Map<string, number>()),
-    to(fetchDexScreenerUsd(mints), 4_000, new Map<string, number>()),
-    to(fetchCoinGeckoUsd(coinIds), 4_000, new Map<string, number>()),
+    to(fetchPythUsdBySymbols(boardSyms), 4_000, new Map<string, number>()),
+    large
+      ? Promise.resolve(new Map<string, number>())
+      : to(fetchJupiterUsd(mints), 4_000, new Map<string, number>()),
+    large
+      ? Promise.resolve(new Map<string, number>())
+      : to(fetchDexScreenerUsd(mints), 4_000, new Map<string, number>()),
+    large
+      ? Promise.resolve(new Map<string, number>())
+      : to(fetchCoinGeckoUsd(coinIds), 4_000, new Map<string, number>()),
   ]);
 
   return universe
@@ -358,7 +367,7 @@ export async function priceMajorsLive(
       if (mint && dex.has(mint)) {
         candidates.push({ price: dex.get(mint)!, source: "dexscreener" });
       }
-      // 5) Tokens.xyz last (often stale)
+      // 5) Tokens.xyz last (often stale) — primary for mega list
       if (txyz) {
         candidates.push({ price: txyz, source: "tokens.xyz" });
       }

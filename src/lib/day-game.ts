@@ -156,6 +156,8 @@ export type MajorSnap = {
   symbol: string;
   logo: string;
   source?: string;
+  /** Tokens.xyz 1h change when hour-open pct unavailable */
+  change1h?: number | null;
 };
 
 /**
@@ -173,6 +175,7 @@ export async function fetchRealMajorsLive(): Promise<MajorSnap[]> {
     symbol: m.symbol,
     logo: m.logo,
     source: m.source,
+    change1h: m.txyzChange1h ?? null,
   }));
 }
 
