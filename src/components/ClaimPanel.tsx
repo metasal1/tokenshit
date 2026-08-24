@@ -35,6 +35,7 @@ import {
 import { BalanceSkeleton } from "@/components/StatLoader";
 import { pickSolanaAddress } from "@/lib/privy-identity";
 import { EmojiIcon } from "@/components/EmojiIcon";
+import { XLogo } from "@/components/XLogo";
 
 type ClaimKind =
   | "x_verified"
@@ -58,9 +59,9 @@ const BTN_LIGHT = `${BTN} bg-zinc-100 hover:bg-white text-black`;
 const BTN_CLAIMED = `${BTN} border border-neon/40 bg-neon/10 text-neon cursor-not-allowed`;
 
 const KIND_TITLE: Record<ClaimKind, string> = {
-  x_tweet: "Tweet tag",
-  x_follow: "X follow",
-  x_retweet: "Retweet promo",
+  x_tweet: "X · Tweet tag",
+  x_follow: "X · Follow",
+  x_retweet: "X · Retweet promo",
   x_premium: "X Premium",
   x_verified: "X verified",
   email_list: "Email list",
@@ -927,7 +928,7 @@ export default function ClaimPanel() {
               rel="noopener noreferrer"
               className={`${BTN_OUTLINE} text-center font-semibold`}
             >
-              1. Tweet + CA
+              <span className="inline-flex items-center justify-center gap-1.5"><XLogo size={14} /> 1. Tweet + CA</span>
             </a>
 
             <input
@@ -965,7 +966,7 @@ export default function ClaimPanel() {
               rel="noopener noreferrer"
               className={`${BTN_OUTLINE} text-center`}
             >
-              Follow
+              <span className="inline-flex items-center justify-center gap-1.5"><XLogo size={14} /> Follow</span>
             </a>
             <button
               type="button"
@@ -1006,7 +1007,7 @@ export default function ClaimPanel() {
                 rel="noopener noreferrer"
                 className={`${BTN_OUTLINE} text-center`}
               >
-                1. Retweet
+                <span className="inline-flex items-center justify-center gap-1.5"><XLogo size={14} /> 1. Retweet</span>
               </a>
               <a
                 href={quoteRetweetIntentUrl()}
@@ -1014,7 +1015,7 @@ export default function ClaimPanel() {
                 rel="noopener noreferrer"
                 className={`${BTN_OUTLINE} text-center`}
               >
-                Or quote RT
+                <span className="inline-flex items-center justify-center gap-1.5"><XLogo size={14} /> Or quote RT</span>
               </a>
             </div>
             <input

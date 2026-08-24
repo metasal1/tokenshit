@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { EmojiIcon } from "@/components/EmojiIcon";
 import { KOL_OG_QUOTE } from "@/lib/kol-og-quote";
+import { XLogo } from "@/components/XLogo";
 
 type Props = {
   handle: string;
@@ -317,7 +318,7 @@ export default function KolLoveCard({
           rel="noopener noreferrer"
           className="min-h-11 inline-flex items-center justify-center gap-2 rounded-xl bg-sky-500 text-white text-xs font-bold hover:bg-sky-400 active:scale-[0.98]"
         >
-          <span className="font-sans font-black text-sm">𝕏</span>
+          <XLogo size={14} />
           Share on X
         </a>
         <a

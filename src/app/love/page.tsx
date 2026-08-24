@@ -4,6 +4,7 @@ import { EmojiIcon } from "@/components/EmojiIcon";
 import { pageMeta } from "@/lib/seo";
 import { LOVE_GAS_TWEET, loveGasTweetIntentUrl } from "@/lib/shit-token";
 import { loadLoveReferrer } from "@/lib/love-og";
+import { XLogo } from "@/components/XLogo";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -123,7 +124,7 @@ export default async function LovePage({ searchParams }: Props) {
           rel="noopener noreferrer"
           className="flex min-h-12 items-center justify-center gap-2 rounded-xl bg-sky-500 text-white text-sm font-bold hover:bg-sky-400 active:scale-[0.98]"
         >
-          <span className="font-black">𝕏</span>
+          <XLogo size={16} />
           Tweet it
         </a>
         <Link

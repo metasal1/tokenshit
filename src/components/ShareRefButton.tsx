@@ -8,6 +8,7 @@ import {
   X_HANDLE,
 } from "@/lib/shit-token";
 import { getRefHandle } from "@/lib/privy-identity";
+import { XLogo } from "@/components/XLogo";
 
 function buildRefLink(handle: string, path = "/") {
   const base =
@@ -158,9 +159,9 @@ export default function ShareRefButton({
         <button
           type="button"
           onClick={tweet}
-          className="min-h-9 px-3 rounded-md bg-sky-600 hover:bg-sky-500 text-xs font-semibold text-white"
+          className="min-h-9 px-3 rounded-md bg-sky-600 hover:bg-sky-500 text-xs font-semibold text-white inline-flex items-center gap-1.5"
         >
-          Tweet ref
+          <XLogo size={12} /> Post ref
         </button>
       </div>
     );
@@ -214,9 +215,9 @@ export default function ShareRefButton({
         <button
           type="button"
           onClick={tweet}
-          className="min-h-11 touch-manipulation rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-sm font-semibold active:scale-[0.98]"
+          className="min-h-11 touch-manipulation rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-sm font-semibold active:scale-[0.98] inline-flex items-center justify-center gap-1.5"
         >
-          Tweet
+          <XLogo size={14} /> Post
         </button>
       </div>
 
