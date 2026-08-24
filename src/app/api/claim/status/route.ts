@@ -14,8 +14,10 @@ import {
   CLAIM_X_TWEET,
   CLAIM_X_VERIFIED,
   PLAY_GAS_DROP_SOL,
+  X_HANDLE,
 } from "@/lib/shit-token";
 import { getTreasuryBalances } from "@/lib/treasury";
+import { checkXFollowsTokenshit } from "@/lib/x-data";
 
 export const dynamic = "force-dynamic";
 
@@ -63,10 +65,19 @@ export async function GET(request: NextRequest) {
     const tweetCooldown = await getTweetClaimCooldown({ twitter, wallet });
     claimed.x_tweet = tweetCooldown.onCooldown;
 
+    let following: boolean | null = null;
+    if (twitter) {
+      const f = await checkXFollowsTokenshit(twitter);
+      following = f.ok ? !!f.following : null;
+    }
+
     const bal = await getTreasuryBalances().catch(() => null);
     return Response.json({
       claimed,
       amounts: AMOUNTS,
+      following,
+      mustFollowFirst: true,
+      followHandle: X_HANDLE,
       treasuryShit: bal?.shit ?? null,
       treasurySol: bal?.sol ?? null,
       tweet: {
