@@ -1094,6 +1094,27 @@ async function loadPhase(
   return m;
 }
 
+/** Bags from open snap when live price APIs are slow/down */
+export async function majorsFromOpenSnap(
+  utcHour: string
+): Promise<MajorSnap[]> {
+  const open = await loadPhase(utcHour, "open");
+  const out: MajorSnap[] = [];
+  for (const row of open.values()) {
+    if (!(row.price > 0)) continue;
+    out.push({
+      assetId: row.assetId,
+      price: row.price,
+      volume24h: row.volume24h || 0,
+      name: row.name || row.symbol || row.assetId,
+      symbol: row.symbol || row.assetId,
+      logo: "",
+      source: "open-snap",
+    });
+  }
+  return out;
+}
+
 /** Tie-break: higher volume24h only (close snapshot volume). */
 function pickExtreme(
   moves: Array<{ assetId: string; pct: number; volume24h: number }>,

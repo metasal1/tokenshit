@@ -183,7 +183,26 @@ function num(v: unknown): number | null {
 
 /** Universe from Tokens.xyz + hard board symbols (Pyth-priced). */
 export async function fetchMajorsUniverse(): Promise<PriceHint[]> {
-  const data = await apiFetch(`/assets/curated?list=majors&groupBy=asset`);
+  // short in-memory cache — Tokens.xyz list is slow / flaky on Workers
+  const g = globalThis as unknown as {
+    __tsMajorsUni?: { at: number; val: PriceHint[] };
+  };
+  if (g.__tsMajorsUni && Date.now() - g.__tsMajorsUni.at < 10 * 60_000) {
+    return g.__tsMajorsUni.val;
+  }
+
+  let data: Record<string, unknown> | null = null;
+  try {
+    data = (await Promise.race([
+      apiFetch(`/assets/curated?list=majors&groupBy=asset`),
+      new Promise((_, rej) =>
+        setTimeout(() => rej(new Error("txyz universe timeout")), 5_000)
+      ),
+    ])) as Record<string, unknown>;
+  } catch {
+    data = null;
+  }
+
   const raw = (data?.assets || data?.results || []) as Array<
     Record<string, unknown>
   >;
@@ -268,13 +287,23 @@ export async function fetchMajorsUniverse(): Promise<PriceHint[]> {
       name: sym,
       logo: "",
       mint: sym === "SOL" ? WSOL : null,
-      coinId: sym === "SOL" ? "solana" : sym === "BTC" ? "bitcoin" : sym === "ETH" ? "ethereum" : null,
+      coinId:
+        sym === "SOL"
+          ? "solana"
+          : sym === "BTC"
+            ? "bitcoin"
+            : sym === "ETH"
+              ? "ethereum"
+              : null,
       fallbackPrice: 0,
       volume24h: 0,
       txyzChange1h: null,
     });
   }
 
+  if (out.length) {
+    g.__tsMajorsUni = { at: Date.now(), val: out };
+  }
   return out;
 }
 
@@ -289,11 +318,17 @@ export async function priceMajorsLive(
   const coinIds = universe.map((u) => u.coinId).filter(Boolean) as string[];
   const symbols = universe.map((u) => u.symbol).filter(Boolean);
 
+  const to = <T,>(p: Promise<T>, ms: number, fb: T) =>
+    Promise.race([
+      p.catch(() => fb),
+      new Promise<T>((r) => setTimeout(() => r(fb), ms)),
+    ]);
+
   const [pyth, jup, dex, cg] = await Promise.all([
-    fetchPythUsdBySymbols(symbols),
-    fetchJupiterUsd(mints),
-    fetchDexScreenerUsd(mints),
-    fetchCoinGeckoUsd(coinIds),
+    to(fetchPythUsdBySymbols(symbols), 4_000, new Map<string, number>()),
+    to(fetchJupiterUsd(mints), 4_000, new Map<string, number>()),
+    to(fetchDexScreenerUsd(mints), 4_000, new Map<string, number>()),
+    to(fetchCoinGeckoUsd(coinIds), 4_000, new Map<string, number>()),
   ]);
 
   return universe
