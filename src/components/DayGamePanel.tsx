@@ -21,7 +21,7 @@ import {
 } from "@/lib/solana-send";
 import Link from "next/link";
 import { EmojiIcon } from "@/components/EmojiIcon";
-import { HOUR_PRODUCT } from "@/lib/hour-product";
+import { HOUR_PRODUCT, PLAY_PRODUCT } from "@/lib/hour-product";
 import { isMuted, sfx, toggleMuted } from "@/lib/sfx";
 
 const PLAY_STAKE = 1_000;
@@ -242,6 +242,8 @@ export default function DayGamePanel({
   const [showTip, setShowTip] = useState(false);
   const [soundOn, setSoundOn] = useState(true);
   const [justPlayed, setJustPlayed] = useState(false);
+  const [solBalUi, setSolBalUi] = useState<number | null>(null);
+  const [shitBalUi, setShitBalUi] = useState<number | null>(null);
   const prevPots = useRef<{ hit: number; shit: number } | null>(null);
   const lastBagTap = useRef<{ id: string; t: number } | null>(null);
 
@@ -251,6 +253,20 @@ export default function DayGamePanel({
       .then((r) => r.json())
       .then((d) => setStatus(d))
       .catch(() => {});
+    if (wallet) {
+      fetch(`/api/wallet/balances?address=${encodeURIComponent(wallet)}`, {
+        cache: "no-store",
+      })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((bd) => {
+          if (!bd) return;
+          const s = Number(bd.sol);
+          const n = Number(bd.shit ?? bd.tokenshit ?? bd.balance);
+          if (Number.isFinite(s)) setSolBalUi(s);
+          if (Number.isFinite(n)) setShitBalUi(n);
+        })
+        .catch(() => {});
+    }
   }, [wallet]);
 
   useEffect(() => {
@@ -412,12 +428,12 @@ export default function DayGamePanel({
       }
       if (have != null && have < PLAY_STAKE) {
         throw new Error(
-          `Need ${PLAY_STAKE.toLocaleString()} $${SHIT_SYMBOL} (have ${have.toLocaleString(undefined, { maximumFractionDigits: 0 })}).`
+          `Need ${PLAY_STAKE.toLocaleString()} $${SHIT_SYMBOL} (have ${have.toLocaleString(undefined, { maximumFractionDigits: 0 })}). Claim free tokens or buy.`
         );
       }
       if (solBal != null && solBal < 0.002) {
         throw new Error(
-          `Need ~0.01 SOL for fees (have ${solBal.toFixed(4)}). Add SOL on Buy.`
+          `Need ~0.01 SOL for fees (have ${solBal.toFixed(4)}). Get love gas on Claim or fund on Buy.`
         );
       }
 
@@ -703,6 +719,60 @@ export default function DayGamePanel({
         </div>
       )}
 
+      {authenticated &&
+        wallet &&
+        solBalUi != null &&
+        solBalUi < 0.002 && (
+          <div className="flex shrink-0 flex-col gap-1.5 border-x border-amber-500/30 bg-amber-500/10 px-3 py-2">
+            <p className="text-[11px] text-amber-100 leading-snug">
+              <b className="text-amber-300">Low SOL</b> — need ~0.01 SOL for
+              play fees
+              {solBalUi != null ? ` (have ${solBalUi.toFixed(4)})` : ""}.
+            </p>
+            <div className="flex gap-2">
+              <Link
+                href="/claim"
+                className="flex-1 rounded-lg border border-amber-400/40 bg-amber-500/15 py-2 text-center text-[11px] font-bold text-amber-100"
+              >
+                Love gas (free plays)
+              </Link>
+              <Link
+                href="/swap"
+                className="flex-1 rounded-lg bg-neon py-2 text-center text-[11px] font-bold text-black"
+              >
+                Buy SOL / SHIT
+              </Link>
+            </div>
+          </div>
+        )}
+
+      {authenticated &&
+        wallet &&
+        shitBalUi != null &&
+        shitBalUi < PLAY_STAKE &&
+        !(solBalUi != null && solBalUi < 0.002) && (
+          <div className="flex shrink-0 flex-col gap-1.5 border-x border-neon/25 bg-neon/5 px-3 py-2">
+            <p className="text-[11px] text-zinc-200 leading-snug">
+              Need {PLAY_STAKE.toLocaleString()} ${SHIT_SYMBOL} to play (have{" "}
+              {fmt(shitBalUi)}).
+            </p>
+            <div className="flex gap-2">
+              <Link
+                href="/claim"
+                className="flex-1 rounded-lg border border-neon/40 py-2 text-center text-[11px] font-bold text-neon"
+              >
+                Claim free
+              </Link>
+              <Link
+                href="/swap"
+                className="flex-1 rounded-lg bg-neon py-2 text-center text-[11px] font-bold text-black"
+              >
+                Buy
+              </Link>
+            </div>
+          </div>
+        )}
+
       {/* Side pills */}
       <div className="shrink-0 border-x border-border bg-card px-3 py-2">
         <div className="grid grid-cols-2 gap-1.5 rounded-2xl bg-zinc-950 p-1">
@@ -870,6 +940,31 @@ export default function DayGamePanel({
           </p>
         )}
 
+        {justPlayed && !err && !busy && (
+          <div className="flex gap-2">
+            <a
+              href={`https://x.com/intent/tweet?text=${encodeURIComponent(
+                `Locked ${sideLabel} on ${PLAY_PRODUCT.tweetName} @Tokenshit_ — 1,000 $TOKENSHIT in the pot.\n\nhttps://tokenshit.com/play`
+              )}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex-1 rounded-xl border border-zinc-600 py-2.5 text-center text-xs font-semibold text-zinc-200 hover:border-neon"
+            >
+              Brag on X
+            </a>
+            <button
+              type="button"
+              onClick={() => {
+                setJustPlayed(false);
+                setMsg(null);
+              }}
+              className="flex-1 rounded-xl border border-neon/40 bg-neon/10 py-2.5 text-center text-xs font-bold text-neon"
+            >
+              Play again
+            </button>
+          </div>
+        )}
+
         <button
           type="button"
           disabled={busy || !status.enabled || (authenticated && !selected)}
@@ -909,17 +1004,17 @@ export default function DayGamePanel({
           </a>
         </p>
 
-        {err && /claim|buy|balance|Need|SOL/i.test(err) && (
+        {err && /claim|buy|balance|Need|SOL|\$TOKENSHIT|TOKENSHIT/i.test(err) && (
           <div className="flex gap-2">
             <Link
               href="/claim"
-              className="flex-1 rounded-xl border border-zinc-700 py-2 text-center text-xs text-zinc-300"
+              className="flex-1 rounded-xl border border-zinc-700 py-2.5 text-center text-xs font-semibold text-zinc-200"
             >
-              Claim
+              {/SOL|gas|fee/i.test(err) ? "Love gas" : "Claim"}
             </Link>
             <Link
               href="/swap"
-              className="flex-1 rounded-xl bg-neon py-2 text-center text-xs font-bold text-black"
+              className="flex-1 rounded-xl bg-neon py-2.5 text-center text-xs font-bold text-black"
             >
               Buy
             </Link>
