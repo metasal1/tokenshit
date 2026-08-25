@@ -1,5 +1,19 @@
 "use client";
 
+/**
+ * ═══════════════════════════════════════════════════════════════════
+ * MEMES LOCK — DO NOT REGRESS (Metasal standing rule)
+ * 1) Paste image: window paste (⌘V) + Paste button + openFromBlob
+ *    must tolerate empty MIME / iOS clipboard.
+ * 2) Face filter chips: load /api/memes/faces (KV), NEVER hardcode only
+ *    All/Toly/Non-Toly. data-face-picker must stay in the DOM.
+ * 3) No sal.fun user copy — upstream is memes.sol.new.
+ * 4) Before shipping any tokenshit change that touches memes, run:
+ *    npm run check:memes-lock
+ * Guard script + skill tokenshit-site enforce this.
+ * ═══════════════════════════════════════════════════════════════════
+ */
+
 import {
   useCallback,
   useEffect,

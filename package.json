@@ -4,10 +4,11 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "npx next build",
+    "build": "npm run check:memes-lock && npx next build",
     "start": "next start",
     "lint": "eslint",
-    "gen:disposable-emails": "python3 scripts/gen-disposable-emails.py"
+    "gen:disposable-emails": "python3 scripts/gen-disposable-emails.py",
+    "check:memes-lock": "node scripts/check-memes-lock.mjs"
   },
   "dependencies": {
     "@crossmint/client-sdk-react-ui": "^4.5.0",
