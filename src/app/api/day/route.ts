@@ -357,6 +357,8 @@ export async function GET(request: NextRequest) {
         shitTickets: shitCount,
         hitPlayers: uniqueHit,
         shitPlayers: uniqueShit,
+        players: new Set(stakes.map((s) => s.wallet)).size,
+        plays: stakes.length,
       },
       leaders: leaders
         ? {
@@ -417,19 +419,52 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     let wallet = String(body.wallet || "").trim();
-    const assetId = String(body.assetId || "").trim();
-    const side = String(body.side || "").toLowerCase() as DaySide;
+    // Batch: { picks: [{ assetId, side }, ...] } or single assetId/side
+    const rawPicks = Array.isArray(body.picks) ? body.picks : null;
+    const singleAssetId = String(body.assetId || "").trim();
+    const singleSide = String(body.side || "").toLowerCase() as DaySide;
     const signature = String(body.signature || body.sig || "").trim();
 
     if (!isSolanaAddress(wallet)) {
       return Response.json({ error: "invalid wallet" }, { status: 400 });
     }
-    if (!assetId) {
-      return Response.json({ error: "assetId required" }, { status: 400 });
+
+    type PickIn = { assetId: string; side: DaySide };
+    let picks: PickIn[] = [];
+    if (rawPicks && rawPicks.length) {
+      for (const p of rawPicks) {
+        const assetId = String((p as { assetId?: string })?.assetId || "").trim();
+        const side = String(
+          (p as { side?: string })?.side || ""
+        ).toLowerCase() as DaySide;
+        if (!assetId) continue;
+        if (side !== "hit" && side !== "shit") {
+          return Response.json(
+            { error: "each pick side must be hit|shit" },
+            { status: 400 }
+          );
+        }
+        picks.push({ assetId, side });
+      }
+      if (!picks.length) {
+        return Response.json({ error: "no valid picks" }, { status: 400 });
+      }
+      if (picks.length > PLAY_MAX_PICKS) {
+        return Response.json(
+          { error: `Max ${PLAY_MAX_PICKS} picks at once` },
+          { status: 400 }
+        );
+      }
+    } else {
+      if (!singleAssetId) {
+        return Response.json({ error: "assetId required" }, { status: 400 });
+      }
+      if (singleSide !== "hit" && singleSide !== "shit") {
+        return Response.json({ error: "side must be hit|shit" }, { status: 400 });
+      }
+      picks = [{ assetId: singleAssetId, side: singleSide }];
     }
-    if (side !== "hit" && side !== "shit") {
-      return Response.json({ error: "side must be hit|shit" }, { status: 400 });
-    }
+
     if (!FREE_PLAY && (!signature || signature.length < 40)) {
       return Response.json(
         { error: "on-chain transfer signature required" },
@@ -460,46 +495,91 @@ export async function POST(request: NextRequest) {
       wallet = match;
     }
 
-    // Any bag we can price (majors or full registry)
-    const priced = await priceAssetById(assetId);
-    if (!priced || !(priced.price > 0)) {
-      return Response.json(
-        { error: "Bag not playable yet — pick another or try again" },
-        { status: 400 }
-      );
+    const hour = utcHourString();
+    const locked: Array<{
+      assetId: string;
+      side: DaySide;
+      symbol?: string;
+      ok: boolean;
+      error?: string;
+    }> = [];
+    let lastRec: Awaited<ReturnType<typeof recordStake>> | null = null;
+
+    for (const pick of picks) {
+      const priced = await priceAssetById(pick.assetId);
+      if (!priced || !(priced.price > 0)) {
+        locked.push({
+          assetId: pick.assetId,
+          side: pick.side,
+          ok: false,
+          error: "Bag not playable yet",
+        });
+        continue;
+      }
+      const rec = await recordStake({
+        utcDay: hour,
+        wallet,
+        assetId: pick.assetId,
+        side: pick.side,
+        signature: FREE_PLAY ? undefined : signature,
+        twitter: auth.id.twitter,
+      });
+      if (!rec.ok) {
+        locked.push({
+          assetId: pick.assetId,
+          side: pick.side,
+          symbol: priced.symbol,
+          ok: false,
+          error: rec.error,
+        });
+        // stop batch on hard gates (balance/follow/max)
+        if (rec.status === 403 || /Max \d+ tokens/i.test(rec.error)) {
+          lastRec = rec;
+          break;
+        }
+        continue;
+      }
+      lastRec = rec;
+      locked.push({
+        assetId: pick.assetId,
+        side: pick.side,
+        symbol: priced.symbol,
+        ok: true,
+      });
     }
 
-    const hour = utcHourString();
-    const rec = await recordStake({
-      utcDay: hour,
-      wallet,
-      assetId,
-      side,
-      signature: FREE_PLAY ? undefined : signature,
-      twitter: auth.id.twitter,
-    });
-    if (!rec.ok) {
-      return Response.json({ error: rec.error }, { status: rec.status });
+    const okCount = locked.filter((l) => l.ok).length;
+    if (okCount === 0) {
+      const err =
+        (lastRec && !lastRec.ok && lastRec.error) ||
+        locked.find((l) => l.error)?.error ||
+        "Play failed";
+      const status =
+        lastRec && !lastRec.ok ? lastRec.status : 400;
+      return Response.json({ error: err, locked }, { status });
     }
 
     const prize = await getHourPrizePool(hour);
+    const picksUsed =
+      lastRec && lastRec.ok
+        ? lastRec.picksUsed
+        : await countWalletPicks(hour, wallet);
+
     return Response.json({
       ok: true,
       freePlay: FREE_PLAY,
       utcDay: hour,
       utcHour: hour,
-      side,
-      assetId,
-      symbol: priced.symbol,
-      amount: FREE_PLAY ? 0 : 1_000,
-      hitPot: rec.hitPot,
-      shitPot: rec.shitPot,
-      ticketCount: rec.ticketCount,
-      picksUsed: rec.picksUsed,
-      maxPicks: rec.maxPicks,
+      locked,
+      lockedCount: okCount,
+      amount: 0,
+      hitPot: lastRec && lastRec.ok ? lastRec.hitPot : 0,
+      shitPot: lastRec && lastRec.ok ? lastRec.shitPot : 0,
+      picksUsed,
+      maxPicks: PLAY_MAX_PICKS,
       prize,
       multiTicket: true,
-      signature: FREE_PLAY ? null : signature,
+      signature: null,
     });
   } catch (e) {
     return Response.json(

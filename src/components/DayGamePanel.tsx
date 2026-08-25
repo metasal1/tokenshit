@@ -90,6 +90,8 @@ type DayStatus = {
     shitTickets: number;
     hitPlayers?: number;
     shitPlayers?: number;
+    players?: number;
+    plays?: number;
   };
   leaders?: {
     hitting: Leader | null;
@@ -251,6 +253,9 @@ export default function DayGamePanel({
   const [searchHits, setSearchHits] = useState<SearchHit[]>([]);
   const [searching, setSearching] = useState(false);
   const [selected, setSelected] = useState<Major | null>(null);
+  const [cart, setCart] = useState<
+    Array<{ assetId: string; side: "hit" | "shit"; symbol: string; name: string; logo: string }>
+  >([]);
   const [side, setSide] = useState<"hit" | "shit">("hit");
   const [busy, setBusy] = useState(false);
   const [phase, setPhase] = useState<string | null>(null);
@@ -438,8 +443,45 @@ export default function DayGamePanel({
     return out;
   }, [status?.majors, q, side, searchHits]);
 
-  async function play(bag?: Major | SearchHit | null) {
-    const pick = bag ? toMajor(bag) : selected;
+  function toggleCart(bag: Major) {
+    sfx.tap();
+    const playedAssets = new Set((status?.myTickets || []).map((x) => x.assetId));
+    if (playedAssets.has(bag.assetId)) {
+      setErr("Already played this token this hour");
+      sfx.error();
+      return;
+    }
+    const maxP = status?.maxPicks ?? DEFAULT_MAX_PICKS;
+    const remaining = Math.max(0, maxP - playedAssets.size);
+    setSelected(bag);
+    setErr(null);
+    setCart((prev) => {
+      if (prev.some((c) => c.assetId === bag.assetId)) {
+        return prev.filter((c) => c.assetId !== bag.assetId);
+      }
+      if (prev.length >= remaining) {
+        setErr(
+          remaining <= 0
+            ? `Max ${maxP} tokens this hour`
+            : `Cart full — ${remaining} slot${remaining === 1 ? "" : "s"} left`
+        );
+        sfx.error();
+        return prev;
+      }
+      return [
+        ...prev,
+        {
+          assetId: bag.assetId,
+          side,
+          symbol: bag.symbol,
+          name: bag.name,
+          logo: bag.logo,
+        },
+      ];
+    });
+  }
+
+  async function play(_bag?: Major | SearchHit | null) {
     if (busy) return;
     if (!authenticated || !ready) {
       safeLogin();
@@ -450,34 +492,43 @@ export default function DayGamePanel({
       sfx.error();
       return;
     }
-    if (!pick) {
-      setErr("Pick a bag first");
-      sfx.error();
-      return;
-    }
     if (!twitter) {
       setErr("Sign in with X — follow @Tokenshit_ required to Play");
       sfx.error();
       return;
     }
-    setSelected(pick);
-    setErr(null);
-    setMsg(null);
 
     const maxP = status?.maxPicks ?? DEFAULT_MAX_PICKS;
     const minBal = status?.minBalance ?? DEFAULT_MIN_BAL;
     const playedAssets = new Set((status?.myTickets || []).map((x) => x.assetId));
-    if (playedAssets.has(pick.assetId)) {
-      setErr("Already played this token this hour — pick another bag");
+    const remaining = Math.max(0, maxP - playedAssets.size);
+
+    let queue = cart.filter((c) => !playedAssets.has(c.assetId));
+    if (!queue.length && selected && !playedAssets.has(selected.assetId)) {
+      queue = [
+        {
+          assetId: selected.assetId,
+          side,
+          symbol: selected.symbol,
+          name: selected.name,
+          logo: selected.logo,
+        },
+      ];
+    }
+    if (!queue.length) {
+      setErr("Tap up to 5 bags into your cart, then Lock");
       sfx.error();
       return;
     }
-    if (playedAssets.size >= maxP) {
+    if (queue.length > remaining) queue = queue.slice(0, remaining);
+    if (remaining <= 0) {
       setErr(`Max ${maxP} tokens this hour — come back next hour`);
       sfx.error();
       return;
     }
 
+    setErr(null);
+    setMsg(null);
     setBusy(true);
     try {
       setPhase("Checking…");
@@ -492,17 +543,18 @@ export default function DayGamePanel({
           const n = Number(bd.ui ?? bd.balance ?? bd.shit);
           if (Number.isFinite(n)) have = n;
         }
-      } catch {
-        /* */
-      }
+      } catch { /* */ }
       if (have != null && have < minBal) {
         throw new Error(
           `Hold at least ${minBal.toLocaleString()} $${SHIT_SYMBOL} to play (have ${Math.floor(have).toLocaleString()}). Claim or buy — don't dump.`
         );
       }
 
-      setPhase("Locking free pick…");
-      const sideLabel = side === "hit" ? "UP" : "DOWN";
+      setPhase(
+        queue.length > 1
+          ? `Locking ${queue.length} free picks…`
+          : "Locking free pick…"
+      );
       sfx.tap();
       const token = await getAccessToken();
       const res = await fetch("/api/day", {
@@ -514,26 +566,31 @@ export default function DayGamePanel({
         },
         body: JSON.stringify({
           wallet,
-          assetId: pick.assetId,
-          side,
+          picks: queue.map((q) => ({ assetId: q.assetId, side: q.side })),
           accessToken: token,
         }),
       });
       const data = (await res.json()) as {
         error?: string;
+        lockedCount?: number;
         picksUsed?: number;
         maxPicks?: number;
-        symbol?: string;
+        locked?: Array<{ ok?: boolean }>;
       };
       if (!res.ok) throw new Error(String(data.error || "Play failed"));
-      const used = Number(data.picksUsed || playedAssets.size + 1);
+      const n = Number(data.lockedCount || 0);
+      const used = Number(data.picksUsed || playedAssets.size + n);
       const max = Number(data.maxPicks || maxP);
       const left = Math.max(0, max - used);
       setMsg(
-        `Locked free · ${sideLabel} ${data.symbol || pick.symbol || pick.name} · ${left} left this hour`
+        n > 0
+          ? `Locked ${n} free pick${n === 1 ? "" : "s"} · ${left} left this hour`
+          : data.error || "Nothing locked"
       );
+      setCart([]);
+      setSelected(null);
       setPhase(null);
-      setJustPlayed(true);
+      setJustPlayed(n > 0);
       sfx.lock();
       if (side === "hit") sfx.hit();
       else sfx.shit();
@@ -549,22 +606,10 @@ export default function DayGamePanel({
 
   function pickBag(m: Major | SearchHit | Leader) {
     sfx.unlock();
-    sfx.tap();
-    const bag = toMajor(m);
-    setSelected(bag);
-    setErr(null);
     setMsg(null);
-
-    // Double-tap / double-click within 380ms → play immediately
-    const now = Date.now();
-    const prev = lastBagTap.current;
-    if (prev && prev.id === bag.assetId && now - prev.t < 450) {
-      lastBagTap.current = null;
-      void play(bag);
-      return;
-    }
-    lastBagTap.current = { id: bag.assetId, t: now };
+    toggleCart(toMajor(m));
   }
+
 
   function setSideSafe(next: "hit" | "shit") {
     sfx.unlock();
@@ -623,15 +668,18 @@ export default function DayGamePanel({
   const sideLabel = side === "hit" ? "UP" : "DOWN";
   const potForSide = side === "hit" ? hitPot : shitPot;
 
+  const playedN = new Set((status?.myTickets || []).map((x) => x.assetId)).size;
+  const maxPui = status?.maxPicks ?? DEFAULT_MAX_PICKS;
+  const cartN = cart.length;
   const cta = busy
     ? phase || "Working…"
     : !authenticated
       ? "Login to play"
-      : !selected
-        ? "Pick a bag"
-        : justPlayed
-          ? `Again · ${sideLabel}`
-          : `Lock ${sideLabel} · ${selected.symbol || selected.name}`;
+      : cartN > 0
+        ? `Lock ${cartN} free pick${cartN === 1 ? "" : "s"} · ${sideLabel}`
+        : playedN >= maxPui
+          ? "Max 5 this hour"
+          : "Tap bags (up to 5) then Lock";
 
   return (
     <div
@@ -756,7 +804,7 @@ export default function DayGamePanel({
       {showTip && (
         <div className="flex shrink-0 items-center gap-2 border-x border-border bg-neon/10 px-3 py-2 text-[11px] leading-snug text-zinc-200">
           <span className="min-w-0 flex-1">
-            <b className="text-neon">Play:</b> UP/DOWN · double-tap bag to lock.{" "}
+            <b className="text-neon">Play:</b> tap up to 5 bags, then Lock all at once.{" "}
             FREE · up to 5 · {DEFAULT_HOUR_PRIZE.toLocaleString()} ${SHIT_SYMBOL}/hr · jackpot rolls
             pot.
           </span>
@@ -769,6 +817,31 @@ export default function DayGamePanel({
           </button>
         </div>
       )}
+
+
+      <div className="flex shrink-0 items-center justify-center gap-3 border-x border-border bg-black/40 px-3 py-1.5 font-mono text-[11px] text-zinc-400">
+        <span>
+          <b className="text-neon">{status?.stats?.players ?? 0}</b> playing
+        </span>
+        <span className="text-zinc-600">·</span>
+        <span>
+          <b className="text-zinc-200">{status?.stats?.plays ?? 0}</b> picks
+        </span>
+        <span className="text-zinc-600">·</span>
+        <span>
+          you{" "}
+          <b className="text-amber-300">
+            {new Set((status?.myTickets || []).map((x) => x.assetId)).size}/
+            {status?.maxPicks ?? DEFAULT_MAX_PICKS}
+          </b>
+        </span>
+        {cart.length > 0 && (
+          <>
+            <span className="text-zinc-600">·</span>
+            <span className="text-amber-300">cart {cart.length}</span>
+          </>
+        )}
+      </div>
 
       {authenticated &&
         wallet &&
@@ -876,7 +949,7 @@ export default function DayGamePanel({
         >
           <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
             {bags.map((m) => {
-              const on = selected?.assetId === m.assetId;
+              const on = selected?.assetId === m.assetId || cart.some((c) => c.assetId === m.assetId);
               const pct = m.pct;
               const pctKnown = pct != null && Number.isFinite(pct);
               const pctUp = pctKnown && (pct as number) >= 0;
@@ -1033,9 +1106,32 @@ export default function DayGamePanel({
           </div>
         )}
 
+
+        {cart.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 justify-center px-1">
+            {cart.map((c) => (
+              <button
+                key={c.assetId}
+                type="button"
+                onClick={() =>
+                  setCart((prev) => prev.filter((x) => x.assetId !== c.assetId))
+                }
+                className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-bold ${
+                  c.side === "hit"
+                    ? "border-green-500/40 bg-green-500/15 text-green-300"
+                    : "border-red-500/40 bg-red-500/15 text-red-300"
+                }`}
+              >
+                <TokenMark logo={c.logo} symbol={c.symbol} size={14} />
+                {c.symbol} · {c.side === "hit" ? "UP" : "DOWN"} ×
+              </button>
+            ))}
+          </div>
+        )}
+
         <button
           type="button"
-          disabled={busy || !status.enabled || (authenticated && !selected)}
+          disabled={busy || !status.enabled || (authenticated && cart.length === 0)}
           onClick={() => void play()}
           className={`flex min-h-[3.25rem] w-full items-center justify-center gap-2 rounded-2xl font-orbitron text-sm font-black uppercase tracking-wide transition active:scale-[0.99] disabled:opacity-40 ${
             side === "hit"
@@ -1052,9 +1148,10 @@ export default function DayGamePanel({
         </button>
 
         <p className="text-center font-mono text-[9px] text-zinc-600">
-          Split pot · 25% house
-          {status?.houseSpark?.enabled
-            ? ` · house spark ${fmt(status.houseSpark.hourAmount || 3750)}/hr`
+          FREE · correct picks split{" "}
+          {fmt(status?.prize?.total ?? DEFAULT_HOUR_PRIZE)} ${SHIT_SYMBOL}/hr
+          {(status?.prize?.jackpot || 0) > 0
+            ? ` · jackpot +${fmt(status!.prize!.jackpot)}`
             : ""}
           {" · "}
           <Link href={HOUR_PRODUCT.winnersPath} className="text-zinc-400">
