@@ -25,7 +25,7 @@ import { HOUR_PRODUCT, PLAY_PRODUCT } from "@/lib/hour-product";
 import { isMuted, sfx, toggleMuted } from "@/lib/sfx";
 
 const PLAY_STAKE = 0; // free play
-const DEFAULT_MAX_PICKS = 5;
+const DEFAULT_MAX_PICKS = 2;
 const DEFAULT_MIN_BAL = 10_000;
 const DEFAULT_HOUR_PRIZE = 10_000;
 const TIP_KEY = "tokenshit_play_tip_v3";
@@ -70,6 +70,8 @@ type DayStatus = {
   stakeAmount: number;
   freePlay?: boolean;
   maxPicks?: number;
+  maxPerSide?: number;
+  mySides?: { hit?: number; shit?: number };
   minBalance?: number;
   requireFollow?: boolean;
   prize?: { base: number; jackpot: number; total: number };
@@ -272,6 +274,7 @@ export default function DayGamePanel({
   const [loading, setLoading] = useState(true);
   const prevPots = useRef<{ hit: number; shit: number } | null>(null);
   const lastBagTap = useRef<{ id: string; t: number } | null>(null);
+  const hourKeyRef = useRef<string | null>(null);
 
   const load = useCallback(() => {
     const w = wallet ? `?wallet=${encodeURIComponent(wallet)}` : "";
@@ -394,6 +397,29 @@ export default function DayGamePanel({
     return m;
   }, [status?.myTickets, side]);
 
+
+  // New UTC hour → wipe cart + stale tickets so max resets
+  useEffect(() => {
+    const h = status?.utcHour || null;
+    if (!h) return;
+    if (hourKeyRef.current && hourKeyRef.current !== h) {
+      setCart([]);
+      setSelected(null);
+      setJustPlayed(false);
+      setMsg(null);
+      setErr(null);
+    }
+    hourKeyRef.current = h;
+  }, [status?.utcHour]);
+
+
+  useEffect(() => {
+    const ms = status?.msToClose;
+    if (ms == null || ms > 2_000) return;
+    const tmr = window.setTimeout(() => load(), Math.max(500, ms + 400));
+    return () => window.clearTimeout(tmr);
+  }, [status?.msToClose, load]);
+
   const myTotal = useMemo(() => {
     let n = 0;
     for (const t of status?.myTickets || []) n += t.tickets;
@@ -459,11 +485,10 @@ export default function DayGamePanel({
       if (prev.some((c) => c.assetId === bag.assetId)) {
         return prev.filter((c) => c.assetId !== bag.assetId);
       }
-      if (prev.length >= remaining) {
+      const sideUsed = (status?.mySides?.[side] || 0) + prev.filter((c) => c.side === side).length;
+      if (sideUsed >= 1) {
         setErr(
-          remaining <= 0
-            ? `Max ${maxP} tokens this hour`
-            : `Cart full — ${remaining} slot${remaining === 1 ? "" : "s"} left`
+          `Already have 1 ${side === "hit" ? "UP" : "DOWN"} this hour`
         );
         sfx.error();
         return prev;
@@ -516,13 +541,13 @@ export default function DayGamePanel({
       ];
     }
     if (!queue.length) {
-      setErr("Tap up to 5 bags into your cart, then Lock");
+      setErr("Add 1 UP and/or 1 DOWN, then Lock");
       sfx.error();
       return;
     }
     if (queue.length > remaining) queue = queue.slice(0, remaining);
     if (remaining <= 0) {
-      setErr(`Max ${maxP} tokens this hour — come back next hour`);
+      setErr("Used 1 UP and 1 DOWN this hour — wait for the next hour");
       sfx.error();
       return;
     }
@@ -575,6 +600,8 @@ export default function DayGamePanel({
         lockedCount?: number;
         picksUsed?: number;
         maxPicks?: number;
+  maxPerSide?: number;
+  mySides?: { hit?: number; shit?: number };
         locked?: Array<{ ok?: boolean }>;
       };
       if (!res.ok) throw new Error(String(data.error || "Play failed"));
@@ -678,8 +705,8 @@ export default function DayGamePanel({
       : cartN > 0
         ? `Lock ${cartN} free pick${cartN === 1 ? "" : "s"} · ${sideLabel}`
         : playedN >= maxPui
-          ? "Max 5 this hour"
-          : "Tap bags (up to 5) then Lock";
+          ? "Max 1 UP + 1 DOWN this hour"
+          : "Tap 1 UP + 1 DOWN then Lock";
 
   return (
     <div
@@ -804,8 +831,8 @@ export default function DayGamePanel({
       {showTip && (
         <div className="flex shrink-0 items-center gap-2 border-x border-border bg-neon/10 px-3 py-2 text-[11px] leading-snug text-zinc-200">
           <span className="min-w-0 flex-1">
-            <b className="text-neon">Play:</b> tap up to 5 bags, then Lock all at once.{" "}
-            FREE · up to 5 · {DEFAULT_HOUR_PRIZE.toLocaleString()} ${SHIT_SYMBOL}/hr · jackpot rolls
+            <b className="text-neon">Play:</b> tap 1 UP and 1 DOWN, then Lock.{" "}
+            FREE · 1 UP + 1 DOWN · {DEFAULT_HOUR_PRIZE.toLocaleString()} ${SHIT_SYMBOL}/hr · jackpot rolls
             pot.
           </span>
           <button
@@ -831,8 +858,9 @@ export default function DayGamePanel({
         <span>
           you{" "}
           <b className="text-amber-300">
-            {new Set((status?.myTickets || []).map((x) => x.assetId)).size}/
-            {status?.maxPicks ?? DEFAULT_MAX_PICKS}
+            {(status?.mySides?.hit || 0) ? "UP✓" : "UP"}
+            {" · "}
+            {(status?.mySides?.shit || 0) ? "DOWN✓" : "DOWN"}
           </b>
         </span>
         {cart.length > 0 && (
@@ -1058,7 +1086,7 @@ export default function DayGamePanel({
                 {myOnSelected ? ` · you ×${myOnSelected}` : ""}
                 {" · "}
                 {(status?.myTickets || []).length}/
-                {status?.maxPicks ?? DEFAULT_MAX_PICKS} this hour
+                1 UP + 1 DOWN this hour
                 {" · pot "}
                 {fmt(potForSide)}
                 {status?.houseSpark?.seeded
