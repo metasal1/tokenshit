@@ -556,30 +556,32 @@ export default function DayGamePanel({
     setMsg(null);
     setBusy(true);
     try {
-      setPhase("Checking…");
-      let have: number | null = shitBalUi;
-      try {
-        const br = await fetch(
-          `/api/wallet/shit-balance?address=${encodeURIComponent(wallet)}`,
-          { cache: "no-store" }
-        );
-        if (br.ok) {
-          const bd = await br.json();
-          const n = Number(bd.ui ?? bd.balance ?? bd.shit);
-          if (Number.isFinite(n)) have = n;
-        }
-      } catch { /* */ }
-      if (have != null && have < minBal) {
-        throw new Error(
-          `Hold at least ${minBal.toLocaleString()} $${SHIT_SYMBOL} to play (have ${Math.floor(have).toLocaleString()}). Claim or buy — don't dump.`
-        );
-      }
-
       setPhase(
         queue.length > 1
           ? `Locking ${queue.length} free picks…`
           : "Locking free pick…"
       );
+      let have: number | null = shitBalUi;
+      if (have == null) {
+        try {
+          const br = await fetch(
+            `/api/wallet/shit-balance?address=${encodeURIComponent(wallet)}`,
+            { cache: "no-store" }
+          );
+          if (br.ok) {
+            const bd = await br.json();
+            const n = Number(bd.ui ?? bd.balance ?? bd.shit);
+            if (Number.isFinite(n)) have = n;
+          }
+        } catch {
+          /* */
+        }
+      }
+      if (have != null && have < minBal) {
+        throw new Error(
+          `Hold at least ${minBal.toLocaleString()} $${SHIT_SYMBOL} to play (have ${Math.floor(have).toLocaleString()}). Claim or buy — don't dump.`
+        );
+      }
       sfx.tap();
       const token = await getAccessToken();
       const res = await fetch("/api/day", {

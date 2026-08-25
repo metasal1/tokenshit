@@ -514,15 +514,18 @@ export async function POST(request: NextRequest) {
     let lastRec: Awaited<ReturnType<typeof recordStake>> | null = null;
 
     for (const pick of picks) {
-      const priced = await priceAssetById(pick.assetId);
-      if (!priced || !(priced.price > 0)) {
-        locked.push({
-          assetId: pick.assetId,
-          side: pick.side,
-          ok: false,
-          error: "Bag not playable yet",
-        });
-        continue;
+      // Free play: skip live reprice — board already listed the bag
+      if (!FREE_PLAY) {
+        const priced = await priceAssetById(pick.assetId);
+        if (!priced || !(priced.price > 0)) {
+          locked.push({
+            assetId: pick.assetId,
+            side: pick.side,
+            ok: false,
+            error: "Bag not playable yet",
+          });
+          continue;
+        }
       }
       const rec = await recordStake({
         utcDay: hour,
@@ -536,7 +539,7 @@ export async function POST(request: NextRequest) {
         locked.push({
           assetId: pick.assetId,
           side: pick.side,
-          symbol: priced.symbol,
+          symbol: undefined,
           ok: false,
           error: rec.error,
         });
@@ -551,7 +554,7 @@ export async function POST(request: NextRequest) {
       locked.push({
         assetId: pick.assetId,
         side: pick.side,
-        symbol: priced.symbol,
+        symbol: undefined,
         ok: true,
       });
     }
@@ -567,7 +570,11 @@ export async function POST(request: NextRequest) {
       return Response.json({ error: err, locked }, { status });
     }
 
-    const prize = await getHourPrizePool(hour);
+    const prize = {
+      base: HOUR_PRIZE,
+      jackpot: 0,
+      total: HOUR_PRIZE,
+    };
     const picksUsed =
       lastRec && lastRec.ok
         ? lastRec.picksUsed

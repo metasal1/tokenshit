@@ -224,8 +224,13 @@ export async function setHourJackpot(
   ]);
 }
 
-/** On-chain TOKENSHIT UI balance for play gate */
+/** On-chain TOKENSHIT UI balance for play gate (30s cache) */
+const shitBalCache = new Map<string, { at: number; ui: number }>();
+
 export async function getWalletShitUi(wallet: string): Promise<number> {
+  const key = wallet.toLowerCase();
+  const hit = shitBalCache.get(key);
+  if (hit && Date.now() - hit.at < 30_000) return hit.ui;
   const { SHIT_MINT, SHIT_DECIMALS } = await import("@/lib/shit-token");
   const HELIUS =
     process.env.HELIUS_RPC_URL ||
@@ -257,7 +262,9 @@ export async function getWalletShitUi(wallet: string): Promise<number> {
       raw += Number(info.amount || 0);
       if (typeof info.decimals === "number") decimals = info.decimals;
     }
-    return raw / Math.pow(10, decimals);
+    const ui = raw / Math.pow(10, decimals);
+    shitBalCache.set(key, { at: Date.now(), ui });
+    return ui;
   } catch {
     return 0;
   }
@@ -1044,24 +1051,45 @@ export async function recordStake(opts: {
     return { ok: false, error: "Day game paused", status: 503 };
   }
   await ensureRound(opts.utcDay);
-  const round = await getRound(opts.utcDay);
+  const hour = FREE_PLAY ? normalizeHourKey(opts.utcDay) : opts.utcDay;
+  const round = await getRound(hour);
   if (!round || round.status !== "open") {
     return { ok: false, error: "Round not open for play", status: 400 };
   }
 
-  // Freeze open price on first play of this bag (lazy open snap)
-  const openOk = await ensureOpenSnapForAsset(opts.utcDay, opts.assetId);
-  if (!openOk) {
-    return {
-      ok: false,
-      error: "Could not price this bag yet — try another or wait a moment",
-      status: 400,
-    };
-  }
-
   if (FREE_PLAY) {
-    const hour = normalizeHourKey(opts.utcDay);
-    const sideUsed = await countWalletSidePicks(hour, opts.wallet, opts.side);
+    const tw = (opts.twitter || "").replace(/^@/, "").trim();
+    const [sideUsed, dup, bal, followOk] = await Promise.all([
+      countWalletSidePicks(hour, opts.wallet, opts.side),
+      tursoExecute(
+        `SELECT id FROM day_stakes
+         WHERE utc_day = ? AND lower(wallet) = lower(?) AND asset_id = ? LIMIT 1`,
+        [hour, opts.wallet, opts.assetId]
+      ),
+      getWalletShitUi(opts.wallet),
+      (async (): Promise<boolean> => {
+        if (!PLAY_REQUIRE_FOLLOW) return true;
+        if (!tw) return false;
+        const { hasClaimed } = await import("@/lib/claims");
+        if (await hasClaimed("x_follow", { twitter: tw, wallet: opts.wallet })) {
+          return true;
+        }
+        // Live X only if they never claimed Follow — otherwise we wait on dead APIs
+        try {
+          const { checkXFollowsTokenshit } = await import("@/lib/x-data");
+          const live = await Promise.race([
+            checkXFollowsTokenshit(tw),
+            new Promise<{ ok: boolean; following: boolean }>((resolve) =>
+              setTimeout(() => resolve({ ok: false, following: false }), 2500)
+            ),
+          ]);
+          return !!(live.ok && live.following);
+        } catch {
+          return false;
+        }
+      })(),
+    ]);
+
     if (sideUsed >= PLAY_MAX_PER_SIDE) {
       const label = opts.side === "hit" ? "UP" : "DOWN";
       return {
@@ -1070,12 +1098,6 @@ export async function recordStake(opts: {
         status: 400,
       };
     }
-    // One pick per token per hour
-    const dup = await tursoExecute(
-      `SELECT id, side FROM day_stakes
-       WHERE utc_day = ? AND lower(wallet) = lower(?) AND asset_id = ? LIMIT 1`,
-      [hour, opts.wallet, opts.assetId]
-    );
     if (dup.rows.length) {
       return {
         ok: false,
@@ -1083,8 +1105,6 @@ export async function recordStake(opts: {
         status: 409,
       };
     }
-
-    const bal = await getWalletShitUi(opts.wallet);
     if (bal < PLAY_MIN_BALANCE) {
       return {
         ok: false,
@@ -1092,9 +1112,7 @@ export async function recordStake(opts: {
         status: 403,
       };
     }
-
-    if (PLAY_REQUIRE_FOLLOW) {
-      const tw = (opts.twitter || "").replace(/^@/, "").trim();
+    if (PLAY_REQUIRE_FOLLOW && !followOk) {
       if (!tw) {
         return {
           ok: false,
@@ -1102,30 +1120,16 @@ export async function recordStake(opts: {
           status: 403,
         };
       }
-      const { checkXFollowsTokenshit } = await import("@/lib/x-data");
-      const { hasClaimed } = await import("@/lib/claims");
-      const followClaimed = await hasClaimed("x_follow", {
-        twitter: tw,
-        wallet: opts.wallet,
-      });
-      const live = await checkXFollowsTokenshit(tw);
-      const following =
-        live.ok && live.following === true
-          ? true
-          : followClaimed
-            ? true
-            : live.ok
-              ? false
-              : null;
-      if (following === false || (following === null && !followClaimed)) {
-        return {
-          ok: false,
-          error:
-            "Follow @Tokenshit_ and claim Follow on /claim first — required to Play",
-          status: 403,
-        };
-      }
+      return {
+        ok: false,
+        error:
+          "Follow @Tokenshit_ and claim Follow on /claim first — required to Play",
+        status: 403,
+      };
     }
+
+    // Open snap in background — do not block lock on live prices
+    void ensureOpenSnapForAsset(hour, opts.assetId).catch(() => {});
 
     const signature =
       opts.signature?.trim() ||
@@ -1153,23 +1157,26 @@ export async function recordStake(opts: {
       return { ok: false, error: msg, status: 500 };
     }
 
-    // Display pot = prize pool (not player stakes)
-    const prize = await getHourPrizePool(hour);
-    const half = Math.floor(prize.total / 2);
-    await tursoExecute(
-      `UPDATE day_rounds SET hit_pot = ?, shit_pot = ? WHERE utc_day = ?`,
-      [half, prize.total - half, hour]
-    );
-    const updated = await getRound(hour);
-    const picksUsed = (await countWalletPicks(hour, opts.wallet));
+    const prize = HOUR_PRIZE;
+    const half = Math.floor(prize / 2);
     return {
       ok: true,
-      hitPot: updated?.hitPot || half,
-      shitPot: updated?.shitPot || prize.total - half,
+      hitPot: half,
+      shitPot: prize - half,
       ticketCount: 1,
       freePlay: true,
-      picksUsed,
+      picksUsed: sideUsed + 1 + (opts.side === "hit" ? 0 : 0),
       maxPicks: PLAY_MAX_PICKS,
+    };
+  }
+
+  // Freeze open price on first play of this bag (legacy paid)
+  const openOk = await ensureOpenSnapForAsset(opts.utcDay, opts.assetId);
+  if (!openOk) {
+    return {
+      ok: false,
+      error: "Could not price this bag yet — try another or wait a moment",
+      status: 400,
     };
   }
 
