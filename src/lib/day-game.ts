@@ -1,14 +1,25 @@
 /**
- * Hit / Shit of the Hour — stakes, snapshots, settlement.
+ * Hit / Shit of the Hour — free plays, snapshots, settlement.
+ * Free mode: no stake. Fixed hourly prize from claims treasury (SHTy).
  * Round key = UTC hour `YYYY-MM-DDTHH` (stored in day_* tables as utc_day).
  */
 import { tursoExecute } from "@/lib/turso";
 import { PLAY_POT_ADDRESS } from "@/lib/shit-token";
 import { rpc } from "@/lib/treasury";
 
-export const DAY_STAKE_AMOUNT = 1_000;
-export const DAY_HOUSE_FEE_BPS = 2_500; // 25%
+/** Legacy stake amount — free play uses 0 */
+export const DAY_STAKE_AMOUNT = 0;
+export const DAY_HOUSE_FEE_BPS = 0;
 export const DAY_GAME_ENABLED = process.env.DAY_GAME_ENABLED !== "0";
+
+/** Free Play of the Hour */
+export const FREE_PLAY = process.env.PLAY_FREE !== "0";
+export const PLAY_MAX_PICKS = Number(process.env.PLAY_MAX_PICKS || 5);
+/** Must still hold this much $TOKENSHIT (didn't dump claims) */
+export const PLAY_MIN_BALANCE = Number(process.env.PLAY_MIN_BALANCE || 10_000);
+/** Base prize each hour from SHTy; jackpot rolls on top if no winners */
+export const HOUR_PRIZE = Number(process.env.PLAY_HOUR_PRIZE || 10_000);
+export const PLAY_REQUIRE_FOLLOW = process.env.PLAY_REQUIRE_FOLLOW !== "0";
 
 /** Round length */
 export const ROUND_MS = 60 * 60 * 1000;
@@ -146,6 +157,118 @@ export async function ensureRound(utcDay: string) {
     `INSERT OR IGNORE INTO day_rounds (utc_day, status) VALUES (?, 'open')`,
     [utcDay]
   );
+}
+
+export type RoundMeta = {
+  jackpot?: number;
+  freePlay?: boolean;
+  rolledFrom?: string;
+  rolledAmount?: number;
+  [k: string]: unknown;
+};
+
+export function parseRoundMeta(raw: string | null | undefined): RoundMeta {
+  if (!raw) return {};
+  try {
+    const j = JSON.parse(raw);
+    return j && typeof j === "object" ? (j as RoundMeta) : {};
+  } catch {
+    return {};
+  }
+}
+
+/** Prize this hour = base 10k + jackpot rolled from prior empty hours */
+export async function getHourPrizePool(utcDay: string): Promise<{
+  base: number;
+  jackpot: number;
+  total: number;
+}> {
+  await ensureRound(utcDay);
+  const r = await tursoExecute(
+    `SELECT meta FROM day_rounds WHERE utc_day = ? LIMIT 1`,
+    [utcDay]
+  );
+  const meta = parseRoundMeta(
+    r.rows[0]?.[0] != null ? String(r.rows[0][0]) : null
+  );
+  const jackpot = Math.max(0, Math.floor(Number(meta.jackpot || 0)));
+  const base = FREE_PLAY ? HOUR_PRIZE : 0;
+  return { base, jackpot, total: base + jackpot };
+}
+
+export async function setHourJackpot(
+  utcDay: string,
+  jackpot: number,
+  extra?: RoundMeta
+): Promise<void> {
+  await ensureRound(utcDay);
+  const r = await tursoExecute(
+    `SELECT meta FROM day_rounds WHERE utc_day = ? LIMIT 1`,
+    [utcDay]
+  );
+  const meta = parseRoundMeta(
+    r.rows[0]?.[0] != null ? String(r.rows[0][0]) : null
+  );
+  const next = {
+    ...meta,
+    ...extra,
+    freePlay: true,
+    jackpot: Math.max(0, Math.floor(jackpot)),
+  };
+  await tursoExecute(`UPDATE day_rounds SET meta = ? WHERE utc_day = ?`, [
+    JSON.stringify(next),
+    utcDay,
+  ]);
+}
+
+/** On-chain TOKENSHIT UI balance for play gate */
+export async function getWalletShitUi(wallet: string): Promise<number> {
+  const { SHIT_MINT, SHIT_DECIMALS } = await import("@/lib/shit-token");
+  const HELIUS =
+    process.env.HELIUS_RPC_URL ||
+    "https://viviyan-bkj12u-fast-mainnet.helius-rpc.com";
+  try {
+    const res = await fetch(HELIUS, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: 1,
+        method: "getTokenAccountsByOwner",
+        params: [
+          wallet,
+          { mint: SHIT_MINT },
+          { encoding: "jsonParsed", commitment: "confirmed" },
+        ],
+      }),
+      cache: "no-store",
+    });
+    const json = (await res.json()) as {
+      result?: { value?: Array<{ account?: { data?: { parsed?: { info?: { tokenAmount?: { amount?: string; decimals?: number } } } } } }> };
+    };
+    let raw = 0;
+    let decimals = SHIT_DECIMALS;
+    for (const a of json?.result?.value || []) {
+      const info = a?.account?.data?.parsed?.info?.tokenAmount;
+      if (!info) continue;
+      raw += Number(info.amount || 0);
+      if (typeof info.decimals === "number") decimals = info.decimals;
+    }
+    return raw / Math.pow(10, decimals);
+  } catch {
+    return 0;
+  }
+}
+
+export async function countWalletPicks(
+  utcDay: string,
+  wallet: string
+): Promise<number> {
+  const r = await tursoExecute(
+    `SELECT COUNT(*) FROM day_stakes WHERE utc_day = ? AND wallet = ?`,
+    [utcDay, wallet]
+  );
+  return Number(r.rows[0]?.[0] || 0);
 }
 
 export type MajorSnap = {
@@ -875,10 +998,18 @@ export async function recordStake(opts: {
   wallet: string;
   assetId: string;
   side: DaySide;
-  signature: string;
+  signature?: string;
   twitter?: string | null;
 }): Promise<
-  | { ok: true; hitPot: number; shitPot: number; ticketCount: number }
+  | {
+      ok: true;
+      hitPot: number;
+      shitPot: number;
+      ticketCount: number;
+      freePlay: boolean;
+      picksUsed: number;
+      maxPicks: number;
+    }
   | { ok: false; error: string; status: number }
 > {
   if (!DAY_GAME_ENABLED) {
@@ -900,6 +1031,122 @@ export async function recordStake(opts: {
     };
   }
 
+  if (FREE_PLAY) {
+    const picks = await countWalletPicks(opts.utcDay, opts.wallet);
+    if (picks >= PLAY_MAX_PICKS) {
+      return {
+        ok: false,
+        error: `Max ${PLAY_MAX_PICKS} tokens this hour — wait for the next hour`,
+        status: 400,
+      };
+    }
+    // One pick per token per hour
+    const dup = await tursoExecute(
+      `SELECT id, side FROM day_stakes
+       WHERE utc_day = ? AND wallet = ? AND asset_id = ? LIMIT 1`,
+      [opts.utcDay, opts.wallet, opts.assetId]
+    );
+    if (dup.rows.length) {
+      return {
+        ok: false,
+        error: "Already played this token this hour — pick another bag",
+        status: 409,
+      };
+    }
+
+    const bal = await getWalletShitUi(opts.wallet);
+    if (bal < PLAY_MIN_BALANCE) {
+      return {
+        ok: false,
+        error: `Hold at least ${PLAY_MIN_BALANCE.toLocaleString()} $TOKENSHIT to play (have ${Math.floor(bal).toLocaleString()}). Claim or buy — don't dump.`,
+        status: 403,
+      };
+    }
+
+    if (PLAY_REQUIRE_FOLLOW) {
+      const tw = (opts.twitter || "").replace(/^@/, "").trim();
+      if (!tw) {
+        return {
+          ok: false,
+          error: "Sign in with X and follow @Tokenshit_ to play",
+          status: 403,
+        };
+      }
+      const { checkXFollowsTokenshit } = await import("@/lib/x-data");
+      const { hasClaimed } = await import("@/lib/claims");
+      const followClaimed = await hasClaimed("x_follow", {
+        twitter: tw,
+        wallet: opts.wallet,
+      });
+      const live = await checkXFollowsTokenshit(tw);
+      const following =
+        live.ok && live.following === true
+          ? true
+          : followClaimed
+            ? true
+            : live.ok
+              ? false
+              : null;
+      if (following === false || (following === null && !followClaimed)) {
+        return {
+          ok: false,
+          error:
+            "Follow @Tokenshit_ and claim Follow on /claim first — required to Play",
+          status: 403,
+        };
+      }
+    }
+
+    const signature =
+      opts.signature?.trim() ||
+      `free:${opts.utcDay}:${opts.wallet}:${opts.assetId}:${opts.side}`;
+
+    try {
+      await tursoExecute(
+        `INSERT INTO day_stakes (utc_day, wallet, asset_id, side, amount, signature, twitter)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [
+          opts.utcDay,
+          opts.wallet,
+          opts.assetId,
+          opts.side,
+          0,
+          signature,
+          opts.twitter || null,
+        ]
+      );
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (/unique|UNIQUE/i.test(msg)) {
+        return { ok: false, error: "Already locked this pick", status: 409 };
+      }
+      return { ok: false, error: msg, status: 500 };
+    }
+
+    // Display pot = prize pool (not player stakes)
+    const prize = await getHourPrizePool(opts.utcDay);
+    const half = Math.floor(prize.total / 2);
+    await tursoExecute(
+      `UPDATE day_rounds SET hit_pot = ?, shit_pot = ? WHERE utc_day = ?`,
+      [half, prize.total - half, opts.utcDay]
+    );
+    const updated = await getRound(opts.utcDay);
+    const picksUsed = picks + 1;
+    return {
+      ok: true,
+      hitPot: updated?.hitPot || half,
+      shitPot: updated?.shitPot || prize.total - half,
+      ticketCount: 1,
+      freePlay: true,
+      picksUsed,
+      maxPicks: PLAY_MAX_PICKS,
+    };
+  }
+
+  // Legacy paid stake path (disabled when FREE_PLAY)
+  if (!opts.signature || opts.signature.length < 40) {
+    return { ok: false, error: "on-chain transfer signature required", status: 400 };
+  }
   const ver = await verifyStakeTransfer({
     signature: opts.signature,
     wallet: opts.wallet,
@@ -915,7 +1162,7 @@ export async function recordStake(opts: {
         opts.wallet,
         opts.assetId,
         opts.side,
-        DAY_STAKE_AMOUNT,
+        1_000,
         opts.signature,
         opts.twitter || null,
       ]
@@ -931,7 +1178,7 @@ export async function recordStake(opts: {
   const col = opts.side === "hit" ? "hit_pot" : "shit_pot";
   await tursoExecute(
     `UPDATE day_rounds SET ${col} = ${col} + ? WHERE utc_day = ?`,
-    [DAY_STAKE_AMOUNT, opts.utcDay]
+    [1_000, opts.utcDay]
   );
   const updated = await getRound(opts.utcDay);
   const tc = await tursoExecute(
@@ -944,6 +1191,9 @@ export async function recordStake(opts: {
     hitPot: updated?.hitPot || 0,
     shitPot: updated?.shitPot || 0,
     ticketCount: Number(tc.rows[0]?.[0] || 1),
+    freePlay: false,
+    picksUsed: await countWalletPicks(opts.utcDay, opts.wallet),
+    maxPicks: 999,
   };
 }
 
@@ -1497,6 +1747,176 @@ export async function settleDay(
         .filter((s) => s.assetId === shitBag.assetId)
         .map((s) => s.wallet)
     : [];
+
+  // ——— FREE PLAY settle: one prize pool from SHTy, share all correct picks ———
+  if (FREE_PLAY) {
+    const pool = await getHourPrizePool(utcDay);
+    const prizePool = pool.total;
+    const allTickets = [...hitTickets, ...shitTickets];
+    const { sendShitFromTreasury } = await import("@/lib/treasury");
+
+    const counts = new Map<string, number>();
+    for (const w of allTickets) {
+      const key = String(w || "").trim();
+      if (!key) continue;
+      counts.set(key, (counts.get(key) || 0) + 1);
+    }
+    const totalTickets = [...counts.values()].reduce((a, b) => a + b, 0);
+
+    type W = {
+      wallet: string;
+      tickets: number;
+      amount: number;
+      sig: string | null;
+    };
+    const winners: W[] = [];
+    let paidTotal = 0;
+    let firstSig: string | null = null;
+    let rolled = 0;
+
+    if (totalTickets <= 0 || prizePool <= 0) {
+      // No winners → roll jackpot to next hour
+      rolled = prizePool > 0 ? prizePool : HOUR_PRIZE + pool.jackpot;
+      const nextHour = (() => {
+        const t = Date.parse(
+          utcDay.includes("T") ? utcDay + ":00:00.000Z" : utcDay + "T00:00:00.000Z"
+        );
+        if (!Number.isFinite(t)) return utcDay;
+        return new Date(t + ROUND_MS).toISOString().slice(0, 13);
+      })();
+      await setHourJackpot(nextHour, rolled, {
+        rolledFrom: utcDay,
+        rolledAmount: rolled,
+      });
+    } else {
+      const entries = [...counts.entries()].sort((a, b) => {
+        if (b[1] !== a[1]) return b[1] - a[1];
+        return a[0].localeCompare(b[0]);
+      });
+      let allocated = 0;
+      const shares: Array<{ wallet: string; tickets: number; amount: number }> =
+        [];
+      for (const [wallet, n] of entries) {
+        const amount = Math.floor((prizePool * n) / totalTickets);
+        shares.push({ wallet, tickets: n, amount });
+        allocated += amount;
+      }
+      let rem = prizePool - allocated;
+      let i = 0;
+      while (rem > 0 && shares.length) {
+        shares[i % shares.length]!.amount += 1;
+        rem -= 1;
+        i += 1;
+      }
+      for (const s of shares) {
+        if (s.amount <= 0) {
+          winners.push({ ...s, sig: null });
+          continue;
+        }
+        try {
+          const paid = await sendShitFromTreasury(s.wallet, s.amount);
+          winners.push({ ...s, sig: paid.signature });
+          paidTotal += s.amount;
+          if (!firstSig) firstSig = paid.signature;
+        } catch {
+          winners.push({ ...s, sig: null });
+        }
+      }
+    }
+
+    const hitWinners = winners.filter((w) =>
+      hitTickets.some((t) => t === w.wallet)
+    );
+    const shitWinners = winners.filter((w) =>
+      shitTickets.some((t) => t === w.wallet)
+    );
+
+    const meta = JSON.stringify({
+      freePlay: true,
+      prizePool,
+      base: pool.base,
+      jackpotIn: pool.jackpot,
+      rolledOut: rolled,
+      totalCorrectPicks: totalTickets,
+      winners,
+      hitTickets: hitTickets.length,
+      shitTickets: shitTickets.length,
+      moveCount: moves.length,
+      priceRetries,
+      boardHealth,
+      force: !!opts?.force,
+      splitMode: true,
+    });
+
+    await tursoExecute(
+      `UPDATE day_rounds SET
+        status = 'settled',
+        settled_at = datetime('now'),
+        hit_asset_id = ?,
+        shit_asset_id = ?,
+        hit_pct = ?,
+        shit_pct = ?,
+        hit_winner = ?,
+        shit_winner = ?,
+        hit_prize = ?,
+        shit_prize = ?,
+        hit_fee = 0,
+        shit_fee = 0,
+        hit_sig = ?,
+        shit_sig = ?,
+        hit_pot = ?,
+        shit_pot = ?,
+        meta = ?
+       WHERE utc_day = ?`,
+      [
+        hitBag?.assetId || null,
+        shitBag?.assetId || null,
+        hitBag != null ? Number(hitBag.pct) : null,
+        shitBag != null ? Number(shitBag.pct) : null,
+        hitWinners.length
+          ? hitWinners.length === 1
+            ? hitWinners[0]!.wallet
+            : `SPLIT:${hitWinners.length}`
+          : rolled
+            ? "ROLL"
+            : null,
+        shitWinners.length
+          ? shitWinners.length === 1
+            ? shitWinners[0]!.wallet
+            : `SPLIT:${shitWinners.length}`
+          : rolled
+            ? "ROLL"
+            : null,
+        hitWinners.reduce((a, w) => a + w.amount, 0),
+        shitWinners.reduce((a, w) => a + w.amount, 0),
+        firstSig,
+        firstSig,
+        Math.floor(prizePool / 2),
+        prizePool - Math.floor(prizePool / 2),
+        meta,
+        utcDay,
+      ]
+    );
+
+    return {
+      ok: true,
+      result: {
+        utcDay,
+        freePlay: true,
+        prizePool,
+        paidTotal,
+        rolled,
+        hitBag,
+        shitBag,
+        winners,
+        hitTickets: hitTickets.length,
+        shitTickets: shitTickets.length,
+        priceRetries,
+        boardHealth,
+        force: !!opts?.force,
+      },
+    };
+  }
 
   // re-read round pots after possible force reset
   const round2 = (await getRound(utcDay)) || round;
