@@ -68,7 +68,7 @@ for (const n of faceNeedles) {
   if (!src.includes(n)) errors.push(`FACE LOCK broken: missing \`${n}\` in MemeStudio`);
 }
 // must include modern faces in fallback
-for (const id of ["elon", "bezos", "jensen", "zuck", "ansem", "mert", "jackma", "frank"]) {
+for (const id of ["elon", "bezos", "jensen", "zuck", "ansem", "mert", "jackma", "frank", "trump"]) {
   if (!src.includes(`id: "${id}"`)) {
     errors.push(`FACE LOCK broken: DEFAULT_FACES missing id "${id}"`);
   }

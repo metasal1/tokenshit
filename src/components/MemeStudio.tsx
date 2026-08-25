@@ -60,6 +60,7 @@ const DEFAULT_FACES: FaceDef[] = [
   { id: "mert", label: "Mert", color: "cyan", enabled: true, order: 9 },
   { id: "jackma", label: "Jack Ma", color: "yellow", enabled: true, order: 10 },
   { id: "frank", label: "Frank", color: "fuchsia", enabled: true, order: 11 },
+  { id: "trump", label: "Trump", color: "red", enabled: true, order: 12 },
 ];
 
 const FACE_CHIP_ACTIVE: Record<string, string> = {
@@ -75,6 +76,7 @@ const FACE_CHIP_ACTIVE: Record<string, string> = {
   cyan: "border-cyan-400 bg-cyan-400 text-black",
   yellow: "border-yellow-400 bg-yellow-400 text-black",
   fuchsia: "border-fuchsia-400 bg-fuchsia-400 text-black",
+  red: "border-red-500 bg-red-500 text-black",
 };
 
 const MAX_UPLOAD = 12 * 1024 * 1024;
