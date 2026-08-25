@@ -1,6 +1,6 @@
 /**
  * Canvas meme renderer for TOKENSHIT — Monoton light/dark captions.
- * Templates from https://memes.sal.fun/api
+ * Templates from https://memes.sol.new/api
  */
 
 export type MemeBox = {
@@ -31,7 +31,7 @@ export type MemeTemplate = {
   editorUrl?: string;
 };
 
-export const MEMES_API = "https://memes.sal.fun";
+export const MEMES_API = "https://memes.sol.new";
 
 const MONOTON_STACK =
   'Monoton, "Monoton Regular", cursive, system-ui, sans-serif';
@@ -284,8 +284,8 @@ function loadImage(url: string): Promise<HTMLImageElement> {
 }
 
 /**
- * Always same-origin for canvas (memes.sal.fun has no ACAO on images).
- * Mirrors memes.sal.fun `proxiedBlank`.
+ * Always same-origin for canvas (memes.sol.new has no ACAO on images).
+ * Mirrors memes.sol.new `proxiedBlank`.
  */
 export function blankSrc(url: string): string {
   if (!url) return url;

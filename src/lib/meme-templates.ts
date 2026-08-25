@@ -1,4 +1,4 @@
-/** Free memes.sal.fun template ids (custom + imgflip blanks) */
+/** Free memes.sol.new template ids (custom + imgflip blanks) */
 export const MEME_TEMPLATE_IDS = [
   "sol-au-drake",
   "sol-au-sweeney",
@@ -39,7 +39,7 @@ export function memeStudioUrl(opts: {
   const top = opts.hit ? "Reading charts all day" : `$${sym} bagholders`;
   const bottom = opts.hit ? `$${sym} = HIT` : `$${sym} = SHIT`;
   const t = opts.templateId || randomMemeTemplateId();
-  // Local studio — tokenshit.com/memes (not memes.sal.fun)
+  // Local studio — tokenshit.com/memes (not memes.sol.new)
   const base =
     typeof window !== "undefined"
       ? `${window.location.origin}/memes`

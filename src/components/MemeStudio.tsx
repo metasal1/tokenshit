@@ -23,7 +23,45 @@ import {
   type MemeTemplate,
 } from "@/lib/meme-render";
 
-type FaceFilter = "all" | "toly" | "original";
+type FaceDef = {
+  id: string;
+  label: string;
+  tag?: string;
+  color?: string;
+  enabled?: boolean;
+  order?: number;
+};
+
+/** Fallback if /api/memes/faces is down */
+const DEFAULT_FACES: FaceDef[] = [
+  { id: "all", label: "All", color: "white", enabled: true, order: 0 },
+  { id: "original", label: "Original", color: "sky", enabled: true, order: 1 },
+  { id: "toly", label: "Toly", color: "lime", enabled: true, order: 2 },
+  { id: "elon", label: "Elon", color: "violet", enabled: true, order: 3 },
+  { id: "bezos", label: "Bezos", color: "amber", enabled: true, order: 4 },
+  { id: "jensen", label: "Jensen", color: "emerald", enabled: true, order: 5 },
+  { id: "zuck", label: "Zuck", color: "blue", enabled: true, order: 6 },
+  { id: "sal", label: "Sal", color: "rose", enabled: true, order: 7 },
+  { id: "ansem", label: "Ansem", color: "orange", enabled: true, order: 8 },
+  { id: "mert", label: "Mert", color: "cyan", enabled: true, order: 9 },
+  { id: "jackma", label: "Jack Ma", color: "yellow", enabled: true, order: 10 },
+  { id: "frank", label: "Frank", color: "fuchsia", enabled: true, order: 11 },
+];
+
+const FACE_CHIP_ACTIVE: Record<string, string> = {
+  white: "border-white bg-white text-black",
+  sky: "border-sky-400 bg-sky-400 text-black",
+  lime: "border-neon bg-neon text-black",
+  violet: "border-violet-400 bg-violet-400 text-black",
+  amber: "border-amber-400 bg-amber-400 text-black",
+  emerald: "border-emerald-400 bg-emerald-400 text-black",
+  blue: "border-blue-400 bg-blue-400 text-black",
+  rose: "border-rose-400 bg-rose-400 text-black",
+  orange: "border-orange-400 bg-orange-400 text-black",
+  cyan: "border-cyan-400 bg-cyan-400 text-black",
+  yellow: "border-yellow-400 bg-yellow-400 text-black",
+  fuchsia: "border-fuchsia-400 bg-fuchsia-400 text-black",
+};
 
 const MAX_UPLOAD = 12 * 1024 * 1024;
 
@@ -42,7 +80,9 @@ export default function MemeStudio({ embedded = false }: { embedded?: boolean })
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
   const [q, setQ] = useState("");
-  const [face, setFace] = useState<FaceFilter>("all");
+  const [face, setFace] = useState<string>("all");
+  const [faceDefs, setFaceDefs] = useState<FaceDef[]>(DEFAULT_FACES);
+  const [faceCounts, setFaceCounts] = useState<Record<string, number>>({});
   const [selected, setSelected] = useState<MemeTemplate | null>(null);
   const [boxes, setBoxes] = useState<MemeBox[]>([]);
   const [texts, setTexts] = useState<string[]>([]);
@@ -70,14 +110,33 @@ export default function MemeStudio({ embedded = false }: { embedded?: boolean })
     };
   }, [selected]);
 
+  // Face packs from memes KV (via /api/memes/faces)
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/memes/faces", { cache: "no-store" });
+        const data = await res.json();
+        if (cancelled || !data?.ok || !Array.isArray(data.faces)) return;
+        const faces = (data.faces as FaceDef[]).filter((f) => f.enabled !== false);
+        if (faces.length) setFaceDefs(faces);
+      } catch {
+        /* keep defaults */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const load = useCallback(async () => {
     setLoading(true);
     setErr("");
     try {
       const params = new URLSearchParams({
-        limit: "120",
-        source: "all",
-        face,
+        limit: "200",
+        source: "local",
+        face: face || "all",
       });
       if (q.trim()) params.set("q", q.trim());
       const res = await fetch(`/api/memes/templates?${params}`, {
@@ -85,9 +144,11 @@ export default function MemeStudio({ embedded = false }: { embedded?: boolean })
       });
       const data = await res.json();
       if (!data.ok) throw new Error(data.error || "failed");
-      // Newest first (upstream local registry is append-only; reverse if needed)
       const raw = (data.items || []) as MemeTemplate[];
       setItems(raw);
+      if (data.faceCounts && typeof data.faceCounts === "object") {
+        setFaceCounts(data.faceCounts as Record<string, number>);
+      }
     } catch (e) {
       setErr(e instanceof Error ? e.message : String(e));
     } finally {
@@ -219,22 +280,28 @@ export default function MemeStudio({ embedded = false }: { embedded?: boolean })
     [uploads, items]
   );
 
+  const faceOf = useCallback((t: MemeTemplate) => {
+    if (t.face && t.face !== "original") return t.face.toLowerCase();
+    const id = (t.id || "").toLowerCase();
+    const tag = (t.tag || "").toLowerCase();
+    for (const f of faceDefs) {
+      if (f.id === "all" || f.id === "original") continue;
+      if (tag === (f.tag || f.label || "").toLowerCase()) return f.id;
+      if (tag === f.id) return f.id;
+      if (id.startsWith(f.id + "-")) return f.id;
+      if ((t.keywords || []).some((k) => k.toLowerCase() === f.id)) return f.id;
+    }
+    return (t.face || "original").toLowerCase();
+  }, [faceDefs]);
+
   const filtered = useMemo(() => {
     let list = allTemplates;
-    if (face === "toly") {
-      list = list.filter(
-        (t) =>
-          t.face === "toly" ||
-          t.tag === "Toly" ||
-          t.id.toLowerCase().includes("toly")
-      );
-    } else if (face === "original") {
-      list = list.filter(
-        (t) =>
-          t.face !== "toly" &&
-          t.tag !== "Toly" &&
-          !t.id.toLowerCase().includes("toly")
-      );
+    if (face && face !== "all") {
+      if (face === "original" || face === "non-toly") {
+        list = list.filter((t) => faceOf(t) === "original");
+      } else {
+        list = list.filter((t) => faceOf(t) === face);
+      }
     }
     if (q.trim()) {
       const needle = q.trim().toLowerCase();
@@ -242,11 +309,13 @@ export default function MemeStudio({ embedded = false }: { embedded?: boolean })
         (t) =>
           t.name.toLowerCase().includes(needle) ||
           t.id.toLowerCase().includes(needle) ||
-          (t.keywords || []).some((k) => k.toLowerCase().includes(needle))
+          (t.keywords || []).some((k) => k.toLowerCase().includes(needle)) ||
+          (t.tag || "").toLowerCase().includes(needle) ||
+          faceOf(t).includes(needle)
       );
     }
     return list;
-  }, [allTemplates, face, q]);
+  }, [allTemplates, face, q, faceOf]);
 
   const templateIndex = selected
     ? filtered.findIndex((t) => t.id === selected.id)
@@ -317,7 +386,7 @@ export default function MemeStudio({ embedded = false }: { embedded?: boolean })
     setActiveBox((i) => Math.max(0, Math.min(i, boxes.length - 2)));
   };
 
-  // Keep PNG dataURL preview (same as memes.sal.fun) for reliable export
+  // Keep PNG dataURL preview (same as memes.sol.new) for reliable export
   useEffect(() => {
     if (!selected) {
       setPreview("");
@@ -555,7 +624,7 @@ export default function MemeStudio({ embedded = false }: { embedded?: boolean })
     }
   }, [selected, getMemeBlob]);
 
-  /** Ported from memes.sal.fun shareToX() */
+  /** Ported from memes.sol.new shareToX() */
   const shareX = useCallback(async () => {
     if (!selected) return;
     setExporting(true);
@@ -571,13 +640,17 @@ export default function MemeStudio({ embedded = false }: { embedded?: boolean })
     }
   }, [selected, buildShareUrl, shareNativeImage]);
 
-  const featured = useMemo(
-    () =>
-      filtered.filter(
-        (t) => t.featured && (t.tag === "Toly" || t.face === "toly" || t.tag === "Upload")
-      ).slice(0, 24),
-    [filtered]
-  );
+  const featured = useMemo(() => {
+    const list = filtered.filter(
+      (t) =>
+        t.featured &&
+        t.tag !== "Upload" &&
+        (face === "all" ||
+          faceOf(t) === face ||
+          (face === "original" && faceOf(t) === "original"))
+    );
+    return list.slice(0, face === "all" ? 30 : 48);
+  }, [filtered, face, faceOf]);
   const rest = useMemo(() => {
     const ids = new Set(featured.map((t) => t.id));
     return filtered.filter((t) => !ids.has(t.id));
@@ -625,16 +698,7 @@ export default function MemeStudio({ embedded = false }: { embedded?: boolean })
             </h1>
             <p className="mt-2 max-w-xl text-sm text-zinc-500">
               Pick a blank · type captions · drag & resize · light/dark Monoton.
-              Upload or paste (⌘V) your own. Blanks via{" "}
-              <a
-                href="https://memes.sal.fun"
-                className="text-neon-blue hover:underline"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                memes.sal.fun
-              </a>
-              .
+              Upload or paste (⌘V) your own. Filter by face pack.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -692,22 +756,49 @@ export default function MemeStudio({ embedded = false }: { embedded?: boolean })
         </div>
       )}
 
-      {/* Filters */}
+      {/* Face filter — packs from memes KV via /api/memes/faces */}
+      <div
+        data-face-picker="v3"
+        className={`mb-3 flex flex-wrap items-center gap-2 ${embedded ? "mb-2" : "mb-4"}`}
+      >
+        <span className="mr-0.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-zinc-500">
+          Face
+        </span>
+        {faceDefs
+          .filter((f) => f.enabled !== false)
+          .slice()
+          .sort((a, b) => (a.order ?? 99) - (b.order ?? 99))
+          .map((f) => {
+            const on = face === f.id;
+            const count = f.id === "all" ? faceCounts.all : faceCounts[f.id];
+            const active =
+              FACE_CHIP_ACTIVE[f.color || ""] ||
+              "border-neon bg-neon text-black";
+            return (
+              <button
+                key={f.id}
+                type="button"
+                onClick={() => setFace(f.id)}
+                className={`rounded-full px-3 py-1.5 text-xs font-semibold border transition-colors ${
+                  on
+                    ? active
+                    : "border-white/10 text-zinc-400 hover:border-white/25 hover:bg-white/5"
+                }`}
+                title={count != null ? `${f.label} · ${count} blanks` : f.label}
+              >
+                {f.label}
+                {count != null && count > 0 ? (
+                  <span
+                    className={`ml-1 tabular-nums ${on ? "opacity-70" : "text-zinc-600"}`}
+                  >
+                    {count}
+                  </span>
+                ) : null}
+              </button>
+            );
+          })}
+      </div>
       <div className={`mb-4 flex flex-wrap items-center gap-2 ${embedded ? "mb-3" : "mb-6"}`}>
-        {(["all", "toly", "original"] as FaceFilter[]).map((f) => (
-          <button
-            key={f}
-            type="button"
-            onClick={() => setFace(f)}
-            className={`rounded-full px-3.5 py-1.5 text-xs font-semibold border transition-colors ${
-              face === f
-                ? "border-neon bg-neon text-black"
-                : "border-white/10 text-zinc-400 hover:border-white/25"
-            }`}
-          >
-            {f === "all" ? "All" : f === "toly" ? "Toly" : "Non-Toly"}
-          </button>
-        ))}
         <input
           value={q}
           onChange={(e) => setQ(e.target.value)}
@@ -726,10 +817,12 @@ export default function MemeStudio({ embedded = false }: { embedded?: boolean })
         </p>
       )}
 
-      {featured.length > 0 && !q.trim() && face !== "original" && (
+      {featured.length > 0 && !q.trim() && (
         <section className="mb-10">
           <p className="mb-3 text-xs font-semibold uppercase tracking-[0.2em] text-neon">
-            Featured ({featured.length})
+            {face === "all"
+              ? `Featured (${featured.length})`
+              : `${faceDefs.find((f) => f.id === face)?.label || face} blanks (${featured.length})`}
           </p>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
             {featured.map((t) => (
@@ -742,7 +835,9 @@ export default function MemeStudio({ embedded = false }: { embedded?: boolean })
       <p className="mb-4 text-xs uppercase tracking-[0.2em] text-zinc-600">
         {q.trim()
           ? `${filtered.length} matches`
-          : `${rest.length} templates`}
+          : face !== "all"
+            ? `${rest.length} more ${faceDefs.find((f) => f.id === face)?.label || face}`
+            : `${rest.length} templates`}
       </p>
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
         {(q.trim() ? filtered : rest).map((t) => (

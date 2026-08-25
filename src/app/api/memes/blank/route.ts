@@ -3,6 +3,7 @@ import { type NextRequest } from "next/server";
 export const dynamic = "force-dynamic";
 
 const ALLOW = new Set([
+  "memes.sol.new",
   "memes.sal.fun",
   "api.memegen.link",
   "i.imgflip.com",
