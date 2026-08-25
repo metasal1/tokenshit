@@ -196,36 +196,51 @@ export async function GET(request: NextRequest) {
 
     // Follow is required for every claim except the follow reward itself
     let following: boolean | null = null;
-    if (twitter && kind !== "x_follow") {
+    let followClaimed = false;
+    if (twitter) {
+      followClaimed = await hasClaimed("x_follow", {
+        twitter,
+        github,
+        wallet,
+      });
       const f = await checkXFollowsTokenshit(twitter);
       following = f.ok ? !!f.following : null;
-      if (following === false) {
-        eligible = false;
-        detail = { ...detail, mustFollowFirst: true, following: false };
+      if (kind !== "x_follow") {
+        // Need durable follow claim; live not-following also blocks
+        if (!followClaimed || following === false) {
+          eligible = false;
+          detail = {
+            ...detail,
+            mustFollowFirst: true,
+            following,
+            followClaimed,
+          };
+        }
       }
-    } else if (kind === "x_follow" && twitter) {
-      const f = await checkXFollowsTokenshit(twitter);
-      following = f.ok ? !!f.following : null;
     }
 
     const claimed = await hasClaimed(kind, { twitter, github, wallet });
     const bal = await getTreasuryBalances().catch(() => null);
     const amount = AMOUNTS[kind];
+    const followOk =
+      kind === "x_follow" ||
+      (followClaimed && following !== false);
     const canClaim =
       kind === "sol_gas_love"
-        ? eligible && !claimed && following !== false
+        ? eligible && !claimed && followOk
         : eligible &&
           !claimed &&
           (bal?.shit ?? 0) >= amount &&
-          following !== false;
+          followOk;
 
     return Response.json({
       kind,
       amount,
-      eligible: eligible && following !== false,
+      eligible: eligible && followOk,
       claimed,
       canClaim,
       following,
+      followClaimed,
       mustFollowFirst: kind !== "x_follow",
       treasuryShit: bal?.shit ?? null,
       unit: kind === "sol_gas_love" ? "SOL" : "TOKENSHIT",
@@ -411,21 +426,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // HARD GATE: must follow @Tokenshit_ before ANY other claim
+    // HARD GATE: Follow @Tokenshit_ before ANY other claim
+    // 1) Durable: must have successfully claimed x_follow (paid follow reward)
+    // 2) Live: when X APIs work, still following (blocks unfollow-after-claim)
     if (kind !== "x_follow") {
-      const followGate = await checkXFollowsTokenshit(twitter);
-      if (!followGate.ok) {
-        return Response.json(
-          {
-            error:
-              followGate.error ||
-              "Could not verify follow. Follow @Tokenshit_ then retry.",
-            code: "follow_check_failed",
-          },
-          { status: 502 }
-        );
-      }
-      if (!followGate.following) {
+      const followedClaim = await hasClaimed("x_follow", {
+        twitter,
+        github,
+        wallet,
+      });
+      if (!followedClaim) {
         await recordAbuseEvent("claim_blocked", ip, twitter, {
           reason: "must_follow_first",
           kind,
@@ -433,7 +443,25 @@ export async function POST(request: NextRequest) {
         return Response.json(
           {
             error:
-              "Follow @Tokenshit_ on X first — required before any other claim.",
+              "Follow @Tokenshit_ and claim the Follow reward first — required before RT / tweet / anything else.",
+            code: "must_follow_first",
+            followUrl: `https://x.com/intent/follow?screen_name=Tokenshit_`,
+          },
+          { status: 403 }
+        );
+      }
+
+      const followGate = await checkXFollowsTokenshit(twitter);
+      // Only hard-block on a conclusive "not following". API outages fall back to durable claim.
+      if (followGate.ok && !followGate.following) {
+        await recordAbuseEvent("claim_blocked", ip, twitter, {
+          reason: "unfollowed_after_claim",
+          kind,
+        });
+        return Response.json(
+          {
+            error:
+              "You unfollowed @Tokenshit_. Follow again before claiming.",
             code: "must_follow_first",
             followUrl: `https://x.com/intent/follow?screen_name=Tokenshit_`,
           },

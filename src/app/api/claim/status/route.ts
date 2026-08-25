@@ -76,6 +76,8 @@ export async function GET(request: NextRequest) {
       claimed,
       amounts: AMOUNTS,
       following,
+      /** UI: unlock other claims only after follow reward claimed (or live following) */
+      followClaimed: !!claimed.x_follow,
       mustFollowFirst: true,
       followHandle: X_HANDLE,
       treasuryShit: bal?.shit ?? null,
