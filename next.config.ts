@@ -24,6 +24,7 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  output: 'standalone',
   allowedDevOrigins: [
     "tokenshit.metasal.xyz",
     "*.trycloudflare.com",
