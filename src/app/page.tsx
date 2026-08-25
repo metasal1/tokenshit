@@ -41,6 +41,7 @@ const QUICK = [
   { href: "/memes", label: "Memes", emoji: "🎨" },
   { href: "/referrals", label: "Refer", emoji: "🔗" },
   { href: "/boards", label: "Boards", emoji: "📊" },
+  { href: "/posters", label: "Posters", emoji: "🖼️" },
 ] as const;
 
 export default function Home() {

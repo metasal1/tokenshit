@@ -472,6 +472,11 @@ export default function BrandPage() {
               ["Hour banner @2x", BRAND.logo.assets.hitShitHourBanner2x],
               ["Jup like poster", BRAND.logo.assets.jupLikePoster],
               ["Jup like @2x", BRAND.logo.assets.jupLikePoster2x],
+              ["Play poster", BRAND.logo.assets.playPoster],
+              ["Play poster @2x", BRAND.logo.assets.playPoster2x],
+              ["Play square", BRAND.logo.assets.playSquare],
+              ["KOLs poster", BRAND.logo.assets.kolsPoster],
+              ["KOLs poster @2x", BRAND.logo.assets.kolsPoster2x],
             ] as const
           ).map(([label, src]) => (
             <a

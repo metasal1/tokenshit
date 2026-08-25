@@ -20,12 +20,20 @@ export default function PlayPage() {
           <span className="neon-dollar">$</span>
           <span className="neon-text">HIT</span>
         </h1>
-        <Link
-          href={PLAY_PRODUCT.winnersPath}
-          className="font-orbitron text-[10px] uppercase tracking-wider text-neon-blue"
-        >
-          Winners
-        </Link>
+        <div className="flex items-center gap-3">
+          <Link
+            href="/posters"
+            className="font-orbitron text-[10px] uppercase tracking-wider text-zinc-500 hover:text-neon"
+          >
+            Poster
+          </Link>
+          <Link
+            href={PLAY_PRODUCT.winnersPath}
+            className="font-orbitron text-[10px] uppercase tracking-wider text-neon-blue"
+          >
+            Winners
+          </Link>
+        </div>
       </header>
       <div className="min-h-0 flex-1">
         <DayGamePanel />

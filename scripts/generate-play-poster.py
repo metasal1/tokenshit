@@ -15,6 +15,149 @@ FONTS = BRAND / "fonts"
 OUT = ROOT / "public" / "posters"
 OUT.mkdir(parents=True, exist_ok=True)
 
+import math
+import random
+import urllib.request
+
+EMOJI_DIR = BRAND / "emoji"
+TOKEN_CACHE = ROOT / "public" / "brand" / "token-icons"
+TOKEN_CACHE.mkdir(parents=True, exist_ok=True)
+
+# Brand emoji (Noto/tw via local brand assets — never bare system emoji)
+SCATTER_EMOJI = [
+    "1f3af",  # target
+    "1f525",  # fire
+    "1f3c6",  # trophy
+    "2728",   # sparkles
+    "1f31f",  # star
+    "1f389",  # party
+    "1f680",  # rocket
+    "2b50",   # star
+    "1f4b0",  # money bag
+    "1f48e",  # gem
+]
+
+# Majors board icons (CoinGecko ids via simplr CDN)
+TOKEN_ICONS = [
+    ("solana", "SOL"),
+    ("bitcoin", "BTC"),
+    ("ethereum", "ETH"),
+    ("binancecoin", "BNB"),
+    ("dogecoin", "DOGE"),
+    ("sui", "SUI"),
+    ("avalanche-2", "AVAX"),
+    ("chainlink", "LINK"),
+    ("uniswap", "UNI"),
+    ("aave", "AAVE"),
+    ("near", "NEAR"),
+    ("jupiter-exchange-solana", "JUP"),
+]
+
+
+def load_emoji(cp: str) -> Image.Image | None:
+    local = EMOJI_DIR / f"tw-{cp}.png"
+    aliases = {
+        "1f3af": "target-512.png",
+        "1f480": "skull-512.png",
+        "1f525": "fire-512.png",
+        "2728": "sparkles-512.png",
+        "1f3c6": "trophy-512.png",
+    }
+    for p in (local, EMOJI_DIR / aliases.get(cp, "")):
+        if p and Path(p).exists() and Path(p).stat().st_size > 200:
+            return Image.open(p).convert("RGBA")
+    dest = EMOJI_DIR / f"tw-{cp}.png"
+    url = f"https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/{cp}.png"
+    try:
+        urllib.request.urlretrieve(url, dest)
+        return Image.open(dest).convert("RGBA")
+    except Exception:
+        return None
+
+
+def load_token_icon(cg_id: str) -> Image.Image | None:
+    dest = TOKEN_CACHE / f"{cg_id}.png"
+    if dest.exists() and dest.stat().st_size > 200:
+        try:
+            return Image.open(dest).convert("RGBA")
+        except Exception:
+            pass
+    urls = [
+        f"https://cdn.jsdelivr.net/gh/simplr-sh/coin-logos/images/{cg_id}/standard.png",
+        f"https://cdn.jsdelivr.net/gh/spothq/cryptocurrency-icons@master/128/color/{cg_id.split('-')[0][:5]}.png",
+    ]
+    # map common
+    sym_map = {
+        "binancecoin": "bnb",
+        "avalanche-2": "avax",
+        "jupiter-exchange-solana": "jup",
+    }
+    if cg_id in sym_map:
+        urls.insert(0, f"https://cdn.jsdelivr.net/gh/spothq/cryptocurrency-icons@master/128/color/{sym_map[cg_id]}.png")
+    for url in urls:
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": "TokenShitPoster/1.0"})
+            with urllib.request.urlopen(req, timeout=12) as r:
+                dest.write_bytes(r.read())
+            if dest.stat().st_size > 200:
+                return Image.open(dest).convert("RGBA")
+        except Exception:
+            continue
+    return None
+
+
+def paste_rgba(base, overlay, x, y, *, opacity=1.0, rotate=0, size=None, center=True):
+    im = overlay.copy()
+    if size:
+        im = im.resize((size, size), Image.Resampling.LANCZOS)
+    if rotate:
+        im = im.rotate(rotate, expand=True, resample=Image.Resampling.BICUBIC)
+    if opacity < 1:
+        a = im.split()[-1].point(lambda p: int(p * opacity))
+        im.putalpha(a)
+    if center:
+        px, py = int(x - im.width / 2), int(y - im.height / 2)
+    else:
+        px, py = int(x), int(y)
+    base.alpha_composite(im, (max(0, px), max(0, py)))
+
+
+def scatter_icons(img: Image.Image, rng: random.Random) -> None:
+    """Always put token logos + brand emoji on posters."""
+    # ring of token icons
+    icons = []
+    for cg, _sym in TOKEN_ICONS:
+        im = load_token_icon(cg)
+        if im is not None:
+            icons.append(im)
+    emojis = []
+    for cp in SCATTER_EMOJI:
+        em = load_emoji(cp)
+        if em is not None:
+            emojis.append(em)
+
+    # corners + edges — avoid center card zone roughly y 280-780
+    spots = [
+        (90, 200), (990, 200), (70, 520), (1010, 520),
+        (120, 900), (960, 900), (200, 160), (880, 160),
+        (160, 780), (920, 780), (540, 980), (80, 360),
+        (1000, 360), (300, 120), (780, 120), (540, 200),
+    ]
+    rng.shuffle(spots)
+    i = 0
+    for im in icons:
+        if i >= len(spots):
+            break
+        x, y = spots[i]
+        i += 1
+        paste_rgba(img, im, x, y, size=rng.randint(52, 72), opacity=0.92, rotate=rng.randint(-18, 18))
+    for em in emojis:
+        if i >= len(spots):
+            break
+        x, y = spots[i]
+        i += 1
+        paste_rgba(img, em, x, y, size=rng.randint(36, 52), opacity=0.55, rotate=rng.randint(-25, 25))
+
 S = 1080
 M = 72
 
@@ -127,6 +270,9 @@ def build() -> Image.Image:
     gd.ellipse([480, -200, 1200, 420], fill=(*NEON, 28))
     gd.ellipse([-220, 640, 400, 1220], fill=(*GOLD, 20))
     img = Image.alpha_composite(img, glow.filter(ImageFilter.GaussianBlur(72)))
+
+    # ALWAYS token icons + brand emoji on posters
+    scatter_icons(img, random.Random(42))
 
     # faint brand marks — top only
     mark = load_logo_mark(96)
