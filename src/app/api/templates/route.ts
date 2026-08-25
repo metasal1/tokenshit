@@ -2,7 +2,7 @@ import { type NextRequest } from "next/server";
 
 export const dynamic = "force-dynamic";
 
-const UPSTREAM = "https://memes.sal.fun/api/templates";
+const UPSTREAM = "https://memes.sol.new/api/templates";
 
 /** Alias of /api/memes/templates for older clients */
 export async function GET(req: NextRequest) {
@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
       const v = sp.get(k);
       if (v != null && v !== "") url.searchParams.set(k, v);
     }
-    if (!url.searchParams.has("limit")) url.searchParams.set("limit", "80");
+    if (!url.searchParams.has("limit")) url.searchParams.set("limit", "200");
 
     const res = await fetch(url.toString(), {
       headers: { Accept: "application/json" },

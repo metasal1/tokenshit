@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = pageMeta({
   title: "Memes",
   description:
-    "Caption memes with Monoton + glow. Blanks from memes.sal.fun. Download & share.",
+    "Caption memes with Monoton + glow. Filter by face. Download & share.",
   path: "/memes",
 });
 
