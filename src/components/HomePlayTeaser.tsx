@@ -86,7 +86,7 @@ export default function HomePlayTeaser() {
             </p>
             <p className="mt-2 text-sm text-zinc-300 max-w-sm md:max-w-[16rem] lg:max-w-sm leading-snug">
               <span className="text-neon font-semibold">FREE</span> · hold 10k ·
-              pick up to 5 ·{" "}
+              1 UP + 1 DOWN ·{" "}
               <span className="text-green-400 font-semibold">HIT</span> or{" "}
               <span className="text-red-400 font-semibold">SHIT</span> · 10k $
               {SHIT_SYMBOL}/hr (+ jackpot)

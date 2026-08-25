@@ -14,7 +14,10 @@ export const DAY_GAME_ENABLED = process.env.DAY_GAME_ENABLED !== "0";
 
 /** Free Play of the Hour */
 export const FREE_PLAY = process.env.PLAY_FREE !== "0";
-export const PLAY_MAX_PICKS = Number(process.env.PLAY_MAX_PICKS || 5);
+/** 1 UP + 1 DOWN per wallet per UTC hour */
+export const PLAY_MAX_PER_SIDE = 1;
+/** Total slots = both sides (kept for API/UI that still read maxPicks) */
+export const PLAY_MAX_PICKS = PLAY_MAX_PER_SIDE * 2;
 /** Must still hold this much $TOKENSHIT (didn't dump claims) */
 export const PLAY_MIN_BALANCE = Number(process.env.PLAY_MIN_BALANCE || 10_000);
 /** Base prize each hour from SHTy; jackpot rolls on top if no winners */
@@ -260,13 +263,38 @@ export async function getWalletShitUi(wallet: string): Promise<number> {
   }
 }
 
+/** Normalize hour key so leftover date-only rows never leak into the next hour. */
+export function normalizeHourKey(raw: string): string {
+  const s = String(raw || "").trim();
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}$/.test(s)) return s;
+  const t = Date.parse(s.includes("T") ? (s.endsWith("Z") ? s : s + "Z") : s + "T00:00:00.000Z");
+  if (Number.isFinite(t)) return utcHourString(new Date(t));
+  return utcHourString();
+}
+
 export async function countWalletPicks(
   utcDay: string,
   wallet: string
 ): Promise<number> {
+  const hour = normalizeHourKey(utcDay);
   const r = await tursoExecute(
-    `SELECT COUNT(*) FROM day_stakes WHERE utc_day = ? AND wallet = ?`,
-    [utcDay, wallet]
+    `SELECT COUNT(*) FROM day_stakes
+     WHERE utc_day = ? AND lower(wallet) = lower(?)`,
+    [hour, wallet]
+  );
+  return Number(r.rows[0]?.[0] || 0);
+}
+
+export async function countWalletSidePicks(
+  utcDay: string,
+  wallet: string,
+  side: DaySide
+): Promise<number> {
+  const hour = normalizeHourKey(utcDay);
+  const r = await tursoExecute(
+    `SELECT COUNT(*) FROM day_stakes
+     WHERE utc_day = ? AND lower(wallet) = lower(?) AND side = ?`,
+    [hour, wallet, side]
   );
   return Number(r.rows[0]?.[0] || 0);
 }
@@ -1032,19 +1060,21 @@ export async function recordStake(opts: {
   }
 
   if (FREE_PLAY) {
-    const picks = await countWalletPicks(opts.utcDay, opts.wallet);
-    if (picks >= PLAY_MAX_PICKS) {
+    const hour = normalizeHourKey(opts.utcDay);
+    const sideUsed = await countWalletSidePicks(hour, opts.wallet, opts.side);
+    if (sideUsed >= PLAY_MAX_PER_SIDE) {
+      const label = opts.side === "hit" ? "UP" : "DOWN";
       return {
         ok: false,
-        error: `Max ${PLAY_MAX_PICKS} tokens this hour — wait for the next hour`,
+        error: `Already used your 1 ${label} this hour — pick the other side or wait for the next hour`,
         status: 400,
       };
     }
     // One pick per token per hour
     const dup = await tursoExecute(
       `SELECT id, side FROM day_stakes
-       WHERE utc_day = ? AND wallet = ? AND asset_id = ? LIMIT 1`,
-      [opts.utcDay, opts.wallet, opts.assetId]
+       WHERE utc_day = ? AND lower(wallet) = lower(?) AND asset_id = ? LIMIT 1`,
+      [hour, opts.wallet, opts.assetId]
     );
     if (dup.rows.length) {
       return {
@@ -1099,14 +1129,14 @@ export async function recordStake(opts: {
 
     const signature =
       opts.signature?.trim() ||
-      `free:${opts.utcDay}:${opts.wallet}:${opts.assetId}:${opts.side}`;
+      `free:${hour}:${opts.wallet.toLowerCase()}:${opts.assetId}:${opts.side}`;
 
     try {
       await tursoExecute(
         `INSERT INTO day_stakes (utc_day, wallet, asset_id, side, amount, signature, twitter)
          VALUES (?, ?, ?, ?, ?, ?, ?)`,
         [
-          opts.utcDay,
+          hour,
           opts.wallet,
           opts.assetId,
           opts.side,
@@ -1124,14 +1154,14 @@ export async function recordStake(opts: {
     }
 
     // Display pot = prize pool (not player stakes)
-    const prize = await getHourPrizePool(opts.utcDay);
+    const prize = await getHourPrizePool(hour);
     const half = Math.floor(prize.total / 2);
     await tursoExecute(
       `UPDATE day_rounds SET hit_pot = ?, shit_pot = ? WHERE utc_day = ?`,
-      [half, prize.total - half, opts.utcDay]
+      [half, prize.total - half, hour]
     );
-    const updated = await getRound(opts.utcDay);
-    const picksUsed = picks + 1;
+    const updated = await getRound(hour);
+    const picksUsed = (await countWalletPicks(hour, opts.wallet));
     return {
       ok: true,
       hitPot: updated?.hitPot || half,

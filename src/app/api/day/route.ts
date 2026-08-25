@@ -6,6 +6,7 @@ import {
   FREE_PLAY,
   HOUR_PRIZE,
   PLAY_MAX_PICKS,
+  PLAY_MAX_PER_SIDE,
   PLAY_MIN_BALANCE,
   PLAY_REQUIRE_FOLLOW,
   countWalletPicks,
@@ -315,6 +316,11 @@ export async function GET(request: NextRequest) {
       stakeAmount: FREE_PLAY ? 0 : DAY_STAKE_AMOUNT,
       houseFeeBps: DAY_HOUSE_FEE_BPS,
       maxPicks: PLAY_MAX_PICKS,
+      maxPerSide: PLAY_MAX_PER_SIDE,
+      mySides: {
+        hit: myTickets.filter((t) => t.side === "hit").length,
+        shit: myTickets.filter((t) => t.side === "shit").length,
+      },
       minBalance: PLAY_MIN_BALANCE,
       requireFollow: PLAY_REQUIRE_FOLLOW,
       prize: prizePool,
@@ -449,9 +455,11 @@ export async function POST(request: NextRequest) {
       if (!picks.length) {
         return Response.json({ error: "no valid picks" }, { status: 400 });
       }
-      if (picks.length > PLAY_MAX_PICKS) {
+      const hitN = picks.filter((p) => p.side === "hit").length;
+      const shitN = picks.filter((p) => p.side === "shit").length;
+      if (hitN > PLAY_MAX_PER_SIDE || shitN > PLAY_MAX_PER_SIDE) {
         return Response.json(
-          { error: `Max ${PLAY_MAX_PICKS} picks at once` },
+          { error: "1 UP and 1 DOWN per hour — one of each at a time" },
           { status: 400 }
         );
       }
