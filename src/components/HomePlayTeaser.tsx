@@ -146,6 +146,19 @@ export default function HomePlayTeaser() {
           </div>
         </div>
 
+        <a
+          href="/brand/play-poster.png"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="block overflow-hidden rounded-xl border border-neon/25 bg-black/30"
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/brand/play-poster.png"
+            alt="Free Play poster"
+            className="aspect-square w-full object-cover max-h-40 sm:max-h-48 object-top"
+          />
+        </a>
         <Link
           href={PLAY_PRODUCT.path}
           className="mt-auto flex w-full min-h-14 sm:min-h-14 items-center justify-center gap-2 rounded-xl bg-neon text-black text-base sm:text-lg font-bold font-orbitron tracking-wide uppercase hover:brightness-110 active:scale-[0.99] transition shadow-[0_0_32px_rgba(57,255,20,0.35)]"
@@ -154,6 +167,10 @@ export default function HomePlayTeaser() {
           Play this hour
         </Link>
         <p className="text-center text-[10px] text-zinc-600 -mt-1">
+          <Link href="/posters" className="text-zinc-500 hover:text-neon">
+            Posters
+          </Link>
+          {" · "}
           Not in this hour yet? You&apos;re missing the split.
         </p>
       </div>
