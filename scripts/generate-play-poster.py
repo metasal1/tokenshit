@@ -157,7 +157,7 @@ def build() -> Image.Image:
     d.line([(mid - 100, y), (mid + 100, y)], fill=LINE, width=2)
     y += 22
 
-    y = draw_centered(d, y, "PLAY RULES  |  HOUSE PRIZE", f_eye, NEON) + 16
+    y = draw_centered(d, y, "PLAY RULES  |  FREE HOUR", f_eye, NEON) + 16
 
     # product line
     hero = "SH!T"
@@ -169,10 +169,10 @@ def build() -> Image.Image:
     d.text((hx, hy), hero, font=f_hero, fill=CREAM)
     y += (hb[3] - hb[1]) + 6
 
-    y = draw_centered(d, y, "OF THE DAY", f_sub, GOLD) + 24
+    y = draw_centered(d, y, "OF THE HOUR", f_sub, GOLD) + 24
 
     # prize pill
-    pill = "SPARK 3,750/HR  |  DAY CAP 90K"
+    pill = "FREE PLAY  |  10,000 / HR  |  JACKPOT ROLLS"
     pw = tw(f_pill, pill) + 48
     ph = 50
     px = (S - pw) // 2
@@ -192,24 +192,18 @@ def build() -> Image.Image:
 
     # rules card
     rules = [
-        ("1,000 $TOKENSHIT", "One ticket into the bag"),
-        ("Call UP or DOWN", "Best % wins HIT · worst wins SHIT"),
-        ("House spark", "We seed the bag every hour"),
-        ("75% to winners", "Split by tickets · 25% house"),
-    ]
-    # mid-dot may box in some fonts for sub — use | and -
-    rules = [
-        ("1,000 $TOKENSHIT", "One ticket into the bag"),
-        ("Call UP or DOWN", "Best % wins HIT  |  worst wins SHIT"),
-        ("House spark", "We seed the bag every hour"),
-        ("75% to winners", "Split by tickets  |  25% house"),
+        ("FREE to play", "No stake  |  lock up to 5 bags at once"),
+        ("Hold 10,000 $TOKENSHIT", "Keep your claims  |  don't dump"),
+        ("Follow @Tokenshit_", "Required before you Play"),
+        ("Call UP or DOWN", "Best % = HIT  |  worst % = SHIT"),
+        ("10,000 prize / hour", "Winners split  |  no winners = jackpot rolls"),
     ]
 
     inner_x = M + 4
     inner_w = S - 2 * (M + 4)
-    row_h = 64
-    card_pad_y = 20
-    header_h = 32
+    row_h = 56
+    card_pad_y = 18
+    header_h = 30
     card_h = card_pad_y + header_h + 10 + row_h * len(rules) + 10
 
     d.rounded_rectangle(
@@ -223,25 +217,25 @@ def build() -> Image.Image:
     )
 
     cy = y + card_pad_y
-    draw_centered(d, cy, "HOW THE BAG WORKS", f_card_h, MUTED)
+    draw_centered(d, cy, "HOW FREE PLAY WORKS", f_card_h, MUTED)
     cy += header_h
     d.line([(inner_x + 28, cy), (inner_x + inner_w - 28, cy)], fill=LINE, width=1)
-    cy += 12
+    cy += 10
 
     text_left = inner_x + 32
     for i, (title, sub) in enumerate(rules):
         ry = cy + i * row_h
-        d.ellipse([text_left, ry + 8, text_left + 10, ry + 18], fill=NEON)
+        d.ellipse([text_left, ry + 6, text_left + 10, ry + 16], fill=NEON)
         tx = text_left + 26
         tb = f_rule.getbbox(title)
         d.text((tx - tb[0], ry - tb[1]), title, font=f_rule, fill=CREAM)
         sb = f_rule_sub.getbbox(sub)
-        d.text((tx - sb[0], ry + 28 - sb[1]), sub, font=f_rule_sub, fill=MUTED)
+        d.text((tx - sb[0], ry + 26 - sb[1]), sub, font=f_rule_sub, fill=MUTED)
         if i < len(rules) - 1:
             ly = ry + row_h - 6
             d.line([(tx, ly), (inner_x + inner_w - 36, ly)], fill=LINE, width=1)
 
-    y += card_h + 20
+    y += card_h + 18
 
     foot = "Every token is SH!T until proven otherwise."
     foot_h = th(f_foot, foot)
@@ -281,6 +275,7 @@ def main():
     for p in (
         OUT / "play-square.png",
         OUT / "play-1200.png",
+        OUT / "play-poster.png",
         BRAND / "play-poster.png",
     ):
         im.save(p, "PNG", optimize=True)
@@ -289,6 +284,10 @@ def main():
     p2 = OUT / "play-square@2x.png"
     im2.save(p2, "PNG", optimize=True)
     print("wrote", p2)
+    # also brand 2x
+    p3 = BRAND / "play-poster@2x.png"
+    im2.save(p3, "PNG", optimize=True)
+    print("wrote", p3)
 
 
 if __name__ == "__main__":
