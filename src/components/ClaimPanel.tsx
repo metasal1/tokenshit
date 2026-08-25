@@ -561,7 +561,12 @@ export default function ClaimPanel() {
     if (claimPhase === "error") setErr(null);
   }
 
-  const canOtherClaims = !authenticated || following !== false;
+  // Durable follow claim unlocks rewards. Live following also unlocks.
+  // Never unlock just because APIs returned null (that let RTs claim without follow).
+  const canOtherClaims =
+    !authenticated ||
+    following === true ||
+    !!claimedStatus.x_follow;
 
   async function claim(kind: ClaimKind) {
     setErr(null);
@@ -574,9 +579,13 @@ export default function ClaimPanel() {
       safeLogin();
       return;
     }
-    if (kind !== "x_follow" && following === false) {
+    if (
+      kind !== "x_follow" &&
+      following !== true &&
+      !claimedStatus.x_follow
+    ) {
       setErr(
-        `Follow @${X_HANDLE} on X first — required before any other claim.`
+        `Follow @${X_HANDLE} and claim the Follow reward first — required before RT / anything else.`
       );
       setClaimPhase("error");
       return;
@@ -925,11 +934,12 @@ export default function ClaimPanel() {
       <div className="grid grid-cols-1 gap-3">
 
         <RewardRow
+          highlight
           claimed={!!claimedStatus.x_follow}
           statusLoading={statusLoading && authenticated}
-          title={`Follow @${X_HANDLE}`}
+          title={`1. Follow @${X_HANDLE} (required)`}
           amount={CLAIM_X_FOLLOW}
-          hint="Required first — unlocks every other claim. Follow, then claim once."
+          hint="Do this first. Unlocks RT, tweet, and every other claim."
         >
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <a
@@ -951,15 +961,25 @@ export default function ClaimPanel() {
           </div>
         </RewardRow>
 
-        {authenticated && following === false && (
-          <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-2.5 text-[12px] text-amber-100 leading-snug">
-            <b className="text-amber-300">Follow @{X_HANDLE} first.</b>{" "}
-            RT / tweet / other claims stay locked until you follow.
+        {authenticated && !claimedStatus.x_follow && following !== true && (
+          <div className="rounded-xl border border-amber-500/50 bg-amber-500/15 px-3 py-3 text-[13px] text-amber-50 leading-snug space-y-2">
+            <p>
+              <b className="text-amber-300">Step 1 — Follow @{X_HANDLE}</b>
+              {" "}then claim Follow. RT / tweet stay locked until this is done.
+            </p>
+            <a
+              href={followIntentUrl()}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-lg bg-sky-600 px-4 text-sm font-bold text-white"
+            >
+              <XLogo size={14} /> Follow @{X_HANDLE} now
+            </a>
           </div>
         )}
-        {authenticated && following === true && (
+        {authenticated && (!!claimedStatus.x_follow || following === true) && (
           <div className="rounded-lg border border-neon/25 bg-neon/5 px-3 py-1.5 text-[11px] text-neon/90">
-            Following @{X_HANDLE} · claims unlocked
+            Follow unlocked · you can claim RT / tweet / more
           </div>
         )}
 
@@ -1042,11 +1062,14 @@ export default function ClaimPanel() {
               >
                 this post
               </a>
-              , then claim once (1,000).
+              {" "}after you follow + claim Follow (1,000).
             </>
           }
         >
           <div className="grid grid-cols-1 gap-2">
+            {!canOtherClaims && (
+              <p className="text-[11px] text-amber-300/90">Locked until Follow is claimed.</p>
+            )}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <a
                 href={retweetIntentUrl()}
