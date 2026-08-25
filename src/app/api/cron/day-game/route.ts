@@ -5,6 +5,7 @@ import {
   snapshotPrices,
   utcHourString,
   DAY_GAME_ENABLED,
+  FREE_PLAY,
   getHourPlayStats,
   getRound,
 } from "@/lib/day-game";
@@ -100,7 +101,7 @@ export async function POST(request: NextRequest) {
       const n = await snapshotPrices(day, "open");
       let seed: unknown = null;
       try {
-        seed = await seedPlayHour(day);
+        seed = FREE_PLAY ? { ok: true, skipped: true } : await seedPlayHour(day);
       } catch (e) {
         seed = { ok: false, reason: e instanceof Error ? e.message : String(e) };
       }
@@ -204,7 +205,9 @@ export async function POST(request: NextRequest) {
       // House spark into bag (smooth ~3.75k/hr, 90k/day cap)
       let seed: unknown = null;
       try {
-        seed = await seedPlayHour(nowHour);
+        seed = FREE_PLAY
+          ? { ok: true, skipped: true }
+          : await seedPlayHour(nowHour);
       } catch (e) {
         seed = {
           ok: false,

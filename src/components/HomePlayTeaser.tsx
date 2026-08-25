@@ -85,10 +85,11 @@ export default function HomePlayTeaser() {
               of the day
             </p>
             <p className="mt-2 text-sm text-zinc-300 max-w-sm md:max-w-[16rem] lg:max-w-sm leading-snug">
-              1,000 ${SHIT_SYMBOL} · pick{" "}
+              <span className="text-neon font-semibold">FREE</span> · hold 10k ·
+              pick up to 5 ·{" "}
               <span className="text-green-400 font-semibold">HIT</span> or{" "}
-              <span className="text-red-400 font-semibold">SHIT</span> · winners
-              split the pot
+              <span className="text-red-400 font-semibold">SHIT</span> · 10k $
+              {SHIT_SYMBOL}/hr (+ jackpot)
             </p>
           </div>
           <div

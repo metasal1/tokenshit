@@ -24,7 +24,10 @@ import { EmojiIcon } from "@/components/EmojiIcon";
 import { HOUR_PRODUCT, PLAY_PRODUCT } from "@/lib/hour-product";
 import { isMuted, sfx, toggleMuted } from "@/lib/sfx";
 
-const PLAY_STAKE = 1_000;
+const PLAY_STAKE = 0; // free play
+const DEFAULT_MAX_PICKS = 5;
+const DEFAULT_MIN_BAL = 10_000;
+const DEFAULT_HOUR_PRIZE = 10_000;
 const TIP_KEY = "tokenshit_play_tip_v3";
 
 function fmtPct(n: number | null | undefined): string {
@@ -65,6 +68,11 @@ type DayStatus = {
   msToClose: number;
   nextCloseAt: string;
   stakeAmount: number;
+  freePlay?: boolean;
+  maxPicks?: number;
+  minBalance?: number;
+  requireFollow?: boolean;
+  prize?: { base: number; jackpot: number; total: number };
   multiTicket?: boolean;
   houseSpark?: {
     enabled?: boolean;
@@ -228,6 +236,7 @@ export default function DayGamePanel({
   dense?: boolean;
 } = {}) {
   const { ready, authenticated, getAccessToken, user } = usePrivy();
+  const twitter = user?.twitter?.username || null;
   const { safeLogin } = useSafeLogin();
   const { wallets } = useWallets();
   const { signAndSendTransaction } = useSignAndSendTransaction();
@@ -430,12 +439,9 @@ export default function DayGamePanel({
   }, [status?.majors, q, side, searchHits]);
 
   async function play(bag?: Major | SearchHit | null) {
-    sfx.unlock();
     const pick = bag ? toMajor(bag) : selected;
-    setErr(null);
-    setMsg(null);
-    setPhase(null);
-    if (!authenticated) {
+    if (busy) return;
+    if (!authenticated || !ready) {
       safeLogin();
       return;
     }
@@ -449,99 +455,83 @@ export default function DayGamePanel({
       sfx.error();
       return;
     }
+    if (!twitter) {
+      setErr("Sign in with X — follow @Tokenshit_ required to Play");
+      sfx.error();
+      return;
+    }
     setSelected(pick);
+    setErr(null);
+    setMsg(null);
+
+    const maxP = status?.maxPicks ?? DEFAULT_MAX_PICKS;
+    const minBal = status?.minBalance ?? DEFAULT_MIN_BAL;
+    const playedAssets = new Set((status?.myTickets || []).map((x) => x.assetId));
+    if (playedAssets.has(pick.assetId)) {
+      setErr("Already played this token this hour — pick another bag");
+      sfx.error();
+      return;
+    }
+    if (playedAssets.size >= maxP) {
+      setErr(`Max ${maxP} tokens this hour — come back next hour`);
+      sfx.error();
+      return;
+    }
+
     setBusy(true);
     try {
       setPhase("Checking…");
-      let have: number | null = null;
-      let solBal: number | null = null;
+      let have: number | null = shitBalUi;
       try {
         const br = await fetch(
-          `/api/wallet/balances?address=${encodeURIComponent(wallet)}`,
+          `/api/wallet/shit-balance?address=${encodeURIComponent(wallet)}`,
           { cache: "no-store" }
         );
         if (br.ok) {
           const bd = await br.json();
-          const n = Number(bd.shit ?? bd.tokenshit ?? bd.balance);
-          have = Number.isFinite(n) ? n : null;
-          const s = Number(bd.sol);
-          solBal = Number.isFinite(s) ? s : null;
+          const n = Number(bd.ui ?? bd.balance ?? bd.shit);
+          if (Number.isFinite(n)) have = n;
         }
       } catch {
         /* */
       }
-      if (have != null && have < PLAY_STAKE) {
+      if (have != null && have < minBal) {
         throw new Error(
-          `Need ${PLAY_STAKE.toLocaleString()} $${SHIT_SYMBOL} (have ${have.toLocaleString(undefined, { maximumFractionDigits: 0 })}). Claim free tokens or buy.`
-        );
-      }
-      if (solBal != null && solBal < 0.002) {
-        throw new Error(
-          `Need ~0.01 SOL for fees (have ${solBal.toFixed(4)}). Get love gas on Claim or fund on Buy.`
+          `Hold at least ${minBal.toLocaleString()} $${SHIT_SYMBOL} to play (have ${Math.floor(have).toLocaleString()}). Claim or buy — don't dump.`
         );
       }
 
-      setPhase("Building…");
-      const rawTx = await fetchTransferTx(wallet, {
-        side,
-        symbol: pick.symbol,
-        assetId: pick.assetId,
-      });
-      const txBytes = b64ToBytes(rawTx);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const walletObj =
-        (wallets as any[])?.find((w) => w?.address === wallet) ||
-        (wallets as any[])?.[0];
-      if (!walletObj) throw new Error("No wallet object");
-
+      setPhase("Locking free pick…");
       const sideLabel = side === "hit" ? "UP" : "DOWN";
-      setPhase("Approve…");
       sfx.tap();
-      const signature = await sendWithPrivyFallback({
-        txBytes,
-        wallet: walletObj,
-        signAndSendTransaction,
-        signTransaction,
-        description: `Play ${sideLabel} ${pick.symbol || pick.name} · 1,000 $${SHIT_SYMBOL}`,
-        solBalance: solBal,
+      const token = await getAccessToken();
+      const res = await fetch("/api/day", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+          "x-privy-token": token || "",
+        },
+        body: JSON.stringify({
+          wallet,
+          assetId: pick.assetId,
+          side,
+          accessToken: token,
+        }),
       });
-      if (!signature) throw new Error("No signature");
-
-      setPhase("Locking ticket…");
-      // Retry register — chain may lag "confirmed"
-      let data: Record<string, unknown> | null = null;
-      let lastErr = "";
-      for (let attempt = 0; attempt < 5; attempt++) {
-        if (attempt) await new Promise((r) => setTimeout(r, 700 * attempt));
-        const token = await getAccessToken();
-        const res = await fetch("/api/day", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-            "x-privy-token": token || "",
-          },
-          body: JSON.stringify({
-            wallet,
-            assetId: pick.assetId,
-            side,
-            signature,
-            accessToken: token,
-          }),
-        });
-        data = await res.json();
-        if (res.ok) break;
-        lastErr = String((data as { error?: string })?.error || "Play failed");
-        if (!/not found|retry|confirm/i.test(lastErr)) break;
-      }
-      if (!data || (data as { error?: string }).error) {
-        throw new Error(
-          lastErr ||
-            "Paid on-chain but ticket not registered — tap Lock again in a few seconds (won't double-charge if sig already used)."
-        );
-      }
-      const tc = Number((data as { ticketCount?: number }).ticketCount || 1);
-      setMsg(`Locked · ${sideLabel} ${pick.symbol || pick.name} · ×${tc}`);
+      const data = (await res.json()) as {
+        error?: string;
+        picksUsed?: number;
+        maxPicks?: number;
+        symbol?: string;
+      };
+      if (!res.ok) throw new Error(String(data.error || "Play failed"));
+      const used = Number(data.picksUsed || playedAssets.size + 1);
+      const max = Number(data.maxPicks || maxP);
+      const left = Math.max(0, max - used);
+      setMsg(
+        `Locked free · ${sideLabel} ${data.symbol || pick.symbol || pick.name} · ${left} left this hour`
+      );
       setPhase(null);
       setJustPlayed(true);
       sfx.lock();
@@ -550,7 +540,7 @@ export default function DayGamePanel({
       load();
     } catch (e) {
       setPhase(null);
-      setErr(friendlySolanaSendError(e));
+      setErr(e instanceof Error ? e.message : String(e));
       sfx.error();
     } finally {
       setBusy(false);
@@ -767,7 +757,7 @@ export default function DayGamePanel({
         <div className="flex shrink-0 items-center gap-2 border-x border-border bg-neon/10 px-3 py-2 text-[11px] leading-snug text-zinc-200">
           <span className="min-w-0 flex-1">
             <b className="text-neon">Play:</b> UP/DOWN · double-tap bag to lock.{" "}
-            {PLAY_STAKE.toLocaleString()} ${SHIT_SYMBOL}/ticket · winners split
+            FREE · up to 5 · {DEFAULT_HOUR_PRIZE.toLocaleString()} ${SHIT_SYMBOL}/hr · jackpot rolls
             pot.
           </span>
           <button
@@ -810,11 +800,11 @@ export default function DayGamePanel({
       {authenticated &&
         wallet &&
         shitBalUi != null &&
-        shitBalUi < PLAY_STAKE &&
+        shitBalUi < (status?.minBalance ?? DEFAULT_MIN_BAL) &&
         !(solBalUi != null && solBalUi < 0.002) && (
           <div className="flex shrink-0 flex-col gap-1.5 border-x border-neon/25 bg-neon/5 px-3 py-2">
             <p className="text-[11px] text-zinc-200 leading-snug">
-              Need {PLAY_STAKE.toLocaleString()} ${SHIT_SYMBOL} to play (have{" "}
+              Need {(status?.minBalance ?? DEFAULT_MIN_BAL).toLocaleString()} ${SHIT_SYMBOL} held to play (have{" "}
               {fmt(shitBalUi)}).
             </p>
             <div className="flex gap-2">
@@ -991,8 +981,11 @@ export default function DayGamePanel({
                 </span>
               </div>
               <p className="font-mono text-[10px] text-zinc-600">
-                {PLAY_STAKE.toLocaleString()} ${SHIT_SYMBOL}
+                FREE pick
                 {myOnSelected ? ` · you ×${myOnSelected}` : ""}
+                {" · "}
+                {(status?.myTickets || []).length}/
+                {status?.maxPicks ?? DEFAULT_MAX_PICKS} this hour
                 {" · pot "}
                 {fmt(potForSide)}
                 {status?.houseSpark?.seeded
@@ -1019,7 +1012,7 @@ export default function DayGamePanel({
           <div className="flex gap-2">
             <a
               href={`https://x.com/intent/tweet?text=${encodeURIComponent(
-                `Locked ${sideLabel} on ${PLAY_PRODUCT.tweetName} @Tokenshit_ — 1,000 $TOKENSHIT in the pot.\n\nhttps://tokenshit.com/play`
+                `Locked ${sideLabel} on ${PLAY_PRODUCT.tweetName} @Tokenshit_ — FREE pick in the pot.\n\nhttps://tokenshit.com/play`
               )}`}
               target="_blank"
               rel="noopener noreferrer"

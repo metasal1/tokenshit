@@ -3,13 +3,21 @@ import {
   DAY_GAME_ENABLED,
   DAY_HOUSE_FEE_BPS,
   DAY_STAKE_AMOUNT,
+  FREE_PLAY,
+  HOUR_PRIZE,
+  PLAY_MAX_PICKS,
+  PLAY_MIN_BALANCE,
+  PLAY_REQUIRE_FOLLOW,
+  countWalletPicks,
   ensureRound,
   fetchRealMajorsLive,
   formatHourLabel,
+  getHourPrizePool,
   getLiveLeaders,
   getMyTickets,
   getRound,
   getTicketHeat,
+  getWalletShitUi,
   listStakes,
   majorsFromOpenSnap,
   nextUtcHourMs,
@@ -146,6 +154,12 @@ export async function GET(request: NextRequest) {
       ),
       withTimeout(getHourSeed(hour), 2_000, emptySeed),
     ]);
+
+    const prizePool = await withTimeout(
+      getHourPrizePool(hour),
+      2_000,
+      { base: HOUR_PRIZE, jackpot: 0, total: HOUR_PRIZE }
+    );
 
     let majors =
       majorsLive.length > 0
@@ -291,14 +305,19 @@ export async function GET(request: NextRequest) {
 
     return Response.json({
       enabled: DAY_GAME_ENABLED,
+      freePlay: FREE_PLAY,
       cadence: "hourly",
       utcDay: hour,
       utcHour: hour,
       hourLabel: formatHourLabel(hour),
       msToClose: Math.max(0, nextUtcHourMs() - Date.now()),
       nextCloseAt: new Date(nextUtcHourMs()).toISOString(),
-      stakeAmount: DAY_STAKE_AMOUNT,
+      stakeAmount: FREE_PLAY ? 0 : DAY_STAKE_AMOUNT,
       houseFeeBps: DAY_HOUSE_FEE_BPS,
+      maxPicks: PLAY_MAX_PICKS,
+      minBalance: PLAY_MIN_BALANCE,
+      requireFollow: PLAY_REQUIRE_FOLLOW,
+      prize: prizePool,
       multiTicket: true,
       treasury: TREASURY_ADDRESS,
       pot: PLAY_POT_ADDRESS,
@@ -306,19 +325,31 @@ export async function GET(request: NextRequest) {
       degraded,
       ms: Date.now() - t0,
       houseSpark: {
-        enabled: PLAY_SEED_ENABLED,
+        enabled: !FREE_PLAY && PLAY_SEED_ENABLED,
         hourAmount: PLAY_SEED_HOUR_AMOUNT,
         dayCap: PLAY_SEED_DAY_CAP,
         seeded: Number(hourSeed.amount || 0),
         status: hourSeed.status,
         signature: hourSeed.signature,
       },
-      round: round || {
-        utcDay: hour,
-        status: "open",
-        hitPot: 0,
-        shitPot: 0,
-      },
+      round: round
+        ? {
+            ...round,
+            hitPot: FREE_PLAY
+              ? Math.floor(prizePool.total / 2)
+              : round.hitPot,
+            shitPot: FREE_PLAY
+              ? prizePool.total - Math.floor(prizePool.total / 2)
+              : round.shitPot,
+          }
+        : {
+            utcDay: hour,
+            status: "open",
+            hitPot: FREE_PLAY ? Math.floor(prizePool.total / 2) : 0,
+            shitPot: FREE_PLAY
+              ? prizePool.total - Math.floor(prizePool.total / 2)
+              : 0,
+          },
       stats: {
         hitStakes: hitCount,
         shitStakes: shitCount,
@@ -399,7 +430,7 @@ export async function POST(request: NextRequest) {
     if (side !== "hit" && side !== "shit") {
       return Response.json({ error: "side must be hit|shit" }, { status: 400 });
     }
-    if (!signature || signature.length < 40) {
+    if (!FREE_PLAY && (!signature || signature.length < 40)) {
       return Response.json(
         { error: "on-chain transfer signature required" },
         { status: 400 }
@@ -444,26 +475,31 @@ export async function POST(request: NextRequest) {
       wallet,
       assetId,
       side,
-      signature,
+      signature: FREE_PLAY ? undefined : signature,
       twitter: auth.id.twitter,
     });
     if (!rec.ok) {
       return Response.json({ error: rec.error }, { status: rec.status });
     }
 
+    const prize = await getHourPrizePool(hour);
     return Response.json({
       ok: true,
+      freePlay: FREE_PLAY,
       utcDay: hour,
       utcHour: hour,
       side,
       assetId,
       symbol: priced.symbol,
-      amount: DAY_STAKE_AMOUNT,
+      amount: FREE_PLAY ? 0 : 1_000,
       hitPot: rec.hitPot,
       shitPot: rec.shitPot,
       ticketCount: rec.ticketCount,
+      picksUsed: rec.picksUsed,
+      maxPicks: rec.maxPicks,
+      prize,
       multiTicket: true,
-      signature,
+      signature: FREE_PLAY ? null : signature,
     });
   } catch (e) {
     return Response.json(
