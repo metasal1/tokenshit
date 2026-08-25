@@ -1,13 +1,18 @@
 /**
  * X/Twitter public data for claims.
- * Cost order: memory → Turso → free fxtwitter → twitterapi.io → TweetAPI → official X (last).
+ * Cost order: memory → Turso → free fxtwitter → ApiTwitter (primary paid) →
+ * twitterapi.io → TweetAPI → official X (last).
  * Never dump raw API JSON to UI.
  */
 import { tursoExecute } from "@/lib/turso";
 
 const TWEETAPI_BASE = "https://api.tweetapi.com/tw-v2";
-/** twitterapi.io — primary paid source (X-API-Key header) */
+/** twitterapi.io — backup paid source */
 const TWITTERAPI_IO_BASE = "https://api.twitterapi.io";
+/** ApiTwitter (apitwitter.com) — primary paid source */
+const APITWITTER_BASE = (
+  process.env.APITWITTER_BASE || "https://api.apitwitter.com"
+).replace(/\/$/, "");
 const TOKENSHIT_ID = process.env.X_TOKENSHIT_USER_ID || "2037761105359986688";
 const TOKENSHIT_USER = "tokenshit_";
 
@@ -46,6 +51,302 @@ function twitterApiIoKey(): string {
   ).trim();
 }
 
+function apiTwitterKey(): string {
+  return (
+    process.env.APITWITTER_API_KEY ||
+    process.env.APITWITTER_KEY ||
+    process.env.API_TWITTER_KEY ||
+    ""
+  ).trim();
+}
+
+/** Optional cookie for ApiTwitter POST (auth_token=…; ct0=…) */
+function apiTwitterCookie(): string {
+  const raw = (
+    process.env.APITWITTER_COOKIE ||
+    process.env.APITWITTER_COOKIES ||
+    ""
+  ).trim();
+  if (raw) return raw;
+  const auth = (
+    process.env.APITWITTER_AUTH_TOKEN ||
+    process.env.X_AUTH_TOKEN_APITWITTER ||
+    ""
+  ).trim();
+  const ct0 = (
+    process.env.APITWITTER_CT0 ||
+    process.env.X_CT0_APITWITTER ||
+    ""
+  ).trim();
+  if (auth && ct0) return `auth_token=${auth}; ct0=${ct0}`;
+  if (auth) return `auth_token=${auth}`;
+  return "";
+}
+
+function apiTwitterProxy(): string {
+  return (
+    process.env.APITWITTER_PROXY ||
+    process.env.APITWITTER_PROXY_URL ||
+    ""
+  ).trim();
+}
+
+function apiTwitterHeaders(): Record<string, string> {
+  const key = apiTwitterKey();
+  const h: Record<string, string> = {
+    "X-API-Key": key,
+    Accept: "application/json",
+  };
+  const ct0 = (
+    process.env.APITWITTER_CT0 ||
+    process.env.X_CT0_APITWITTER ||
+    ""
+  ).trim();
+  if (ct0) h["x-csrf-token"] = ct0;
+  return h;
+}
+
+/** GET first (server pool). If empty and cookie+proxy set, POST with session. */
+async function apiTwitterGetJson(
+  pathAndQuery: string,
+  ms = 12_000
+): Promise<{ ok: boolean; status: number; json: any; error?: string }> {
+  const key = apiTwitterKey();
+  if (!key) return { ok: false, status: 0, json: null, error: "no apitwitter key" };
+  const url = pathAndQuery.startsWith("http")
+    ? pathAndQuery
+    : `${APITWITTER_BASE}${pathAndQuery.startsWith("/") ? "" : "/"}${pathAndQuery}`;
+  try {
+    const res = await fetchTimeout(url, { headers: apiTwitterHeaders() }, ms);
+    const text = await res.text();
+    let json: any = null;
+    try {
+      json = text ? JSON.parse(text) : null;
+    } catch {
+      json = { raw: text.slice(0, 200) };
+    }
+    if (!res.ok) {
+      return {
+        ok: false,
+        status: res.status,
+        json,
+        error: `apitwitter ${res.status}: ${text.slice(0, 120)}`,
+      };
+    }
+    return { ok: true, status: res.status, json };
+  } catch (e) {
+    return {
+      ok: false,
+      status: 0,
+      json: null,
+      error: e instanceof Error ? e.message : "apitwitter fetch failed",
+    };
+  }
+}
+
+async function apiTwitterPostJson(
+  path: string,
+  body: Record<string, unknown>,
+  ms = 25_000
+): Promise<{ ok: boolean; status: number; json: any; error?: string }> {
+  const key = apiTwitterKey();
+  if (!key) return { ok: false, status: 0, json: null, error: "no apitwitter key" };
+  const cookie = apiTwitterCookie();
+  const proxy = apiTwitterProxy();
+  if (!cookie || !proxy) {
+    return {
+      ok: false,
+      status: 0,
+      json: null,
+      error: "apitwitter POST needs cookie + proxy",
+    };
+  }
+  const url = `${APITWITTER_BASE}${path.startsWith("/") ? "" : "/"}${path}`;
+  const payload = { ...body, cookie, proxy };
+  try {
+    const res = await fetchTimeout(
+      url,
+      {
+        method: "POST",
+        headers: {
+          ...apiTwitterHeaders(),
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      },
+      ms
+    );
+    const text = await res.text();
+    let json: any = null;
+    try {
+      json = text ? JSON.parse(text) : null;
+    } catch {
+      json = { raw: text.slice(0, 200) };
+    }
+    if (!res.ok) {
+      return {
+        ok: false,
+        status: res.status,
+        json,
+        error: `apitwitter POST ${res.status}: ${text.slice(0, 120)}`,
+      };
+    }
+    return { ok: true, status: res.status, json };
+  } catch (e) {
+    return {
+      ok: false,
+      status: 0,
+      json: null,
+      error: e instanceof Error ? e.message : "apitwitter post failed",
+    };
+  }
+}
+
+function apiTwitterDataUseful(data: any): boolean {
+  if (!data || typeof data !== "object") return false;
+  if (Array.isArray(data)) return data.length > 0;
+  const id = data.id ?? data.user_id ?? data.userId;
+  const un =
+    data.userName || data.username || data.screen_name || data.screenName;
+  const fol = data.followers ?? data.followers_count ?? data.followersCount;
+  if (id && String(id).length > 0) return true;
+  if (un && String(un).length > 0) return true;
+  if (fol != null && Number(fol) > 0) return true;
+  if (data.following === true || data.following === false) return true;
+  if (data.isFollowing === true || data.isFollowing === false) return true;
+  if (data.source_follows_target != null) return true;
+  if (Array.isArray(data.followings) && data.followings.length) return true;
+  if (Array.isArray(data.users) && data.users.length) return true;
+  if (Array.isArray(data.retweeters) && data.retweeters.length) return true;
+  return false;
+}
+
+async function apiTwitterResolve(
+  getPath: string,
+  postPath: string,
+  postBody: Record<string, unknown>
+): Promise<{ ok: boolean; data: any; source: string; error?: string }> {
+  const g = await apiTwitterGetJson(getPath);
+  if (g.ok) {
+    const data = g.json?.data ?? g.json;
+    if (apiTwitterDataUseful(data) && g.json?.status !== "error") {
+      return { ok: true, data, source: "apitwitter" };
+    }
+  }
+  const p = await apiTwitterPostJson(postPath, postBody);
+  if (p.ok) {
+    const data = p.json?.data ?? p.json;
+    if (apiTwitterDataUseful(data) && p.json?.status !== "error") {
+      return { ok: true, data, source: "apitwitter-session" };
+    }
+  }
+  return {
+    ok: false,
+    data: null,
+    source: "apitwitter",
+    error: p.error || g.error || "apitwitter empty",
+  };
+}
+
+async function fromApiTwitterUser(username: string): Promise<any> {
+  const key = apiTwitterKey();
+  if (!key) return null;
+  const clean = username.replace(/^@/, "").trim();
+  try {
+    const r = await apiTwitterResolve(
+      `/twitter/user/info?userName=${encodeURIComponent(clean)}`,
+      "/twitter/user/info",
+      { userName: clean }
+    );
+    if (!r.ok || !r.data) {
+      return {
+        ok: false,
+        followers: 0,
+        following: 0,
+        tweets: 0,
+        verified: false,
+        verifiedType: "none",
+        error: r.error || "user not found",
+        source: "apitwitter",
+      };
+    }
+    const d = r.data as Record<string, unknown>;
+    const rawVt = String(d.verifiedType || d.verified_type || "").toLowerCase();
+    const isBlueVerified = Boolean(
+      d.is_blue_verified || d.isBlueVerified || d.isBlue
+    );
+    const verified =
+      isBlueVerified ||
+      Boolean(d.isVerified) ||
+      Boolean(d.verified) ||
+      /blue|business|government/i.test(rawVt);
+    const verifiedType = isBlueVerified
+      ? "blue"
+      : rawVt && rawVt !== "none"
+        ? rawVt
+        : verified
+          ? "blue"
+          : "none";
+    const unRaw = String(
+      d.userName || d.username || d.screen_name || d.screenName || ""
+    ).trim();
+    const un = unRaw || clean;
+    const id = d.id != null && String(d.id) ? String(d.id) : undefined;
+    const followers = Number(
+      d.followers ?? d.followersCount ?? d.followers_count ?? 0
+    );
+    // Empty shell responses from ApiTwitter pool (200 + blank fields)
+    if (!id && !unRaw && followers <= 0) {
+      return {
+        ok: false,
+        followers: 0,
+        following: 0,
+        tweets: 0,
+        verified: false,
+        verifiedType: "none",
+        error: "apitwitter empty profile",
+        source: "apitwitter",
+      };
+    }
+    return {
+      ok: true,
+      username: un,
+      id,
+      name: d.name ? String(d.name) : undefined,
+      followers,
+      following: Number(
+        d.following ?? d.followingCount ?? d.friends_count ?? 0
+      ),
+      tweets: Number(
+        d.statuses_count ?? d.statusesCount ?? d.tweets ?? d.statuses ?? 0
+      ),
+      verified,
+      premium: isBlueVerified || verifiedType === "blue",
+      isBlueVerified,
+      verifiedType,
+      profileImageUrl: d.profile_image_url
+        ? String(d.profile_image_url).replace("_normal", "_bigger")
+        : d.profilePicture
+          ? String(d.profilePicture).replace("_normal", "_bigger")
+          : d.profile_image_url_https
+            ? String(d.profile_image_url_https).replace("_normal", "_bigger")
+            : undefined,
+      source: r.source,
+    };
+  } catch (e) {
+    return {
+      ok: false,
+      followers: 0,
+      following: 0,
+      tweets: 0,
+      verified: false,
+      verifiedType: "none",
+      error: e instanceof Error ? e.message : "apitwitter user failed",
+      source: "apitwitter",
+    };
+  }
+}
+
 /** Hard cap external lookups so claim UI never spins forever. */
 async function fetchTimeout(
   url: string,
@@ -67,15 +368,16 @@ export function formatXApiError(status: number, body: string): string {
     status === 402 ||
     lower.includes("credits depleted") ||
     lower.includes("credits-depleted") ||
-    lower.includes("payment required")
+    lower.includes("payment required") ||
+    lower.includes("credits is not enough")
   ) {
-    return "X developer credits depleted on this app. Using backup data source when available — paste a tweet link for tweet claims.";
+    return "X data credits depleted. Top up ApiTwitter / twitterapi.io — or paste a tweet URL for tweet claims.";
   }
   if (status === 429 || lower.includes("rate limit")) {
     return "X rate limit — wait a minute and try again.";
   }
   if (status === 401 || status === 403) {
-    return "X API auth failed — check Tokenshit_ bearer / TweetAPI key.";
+    return "X API auth failed — check ApiTwitter / TweetAPI key.";
   }
   let detail = "";
   try {
@@ -599,7 +901,15 @@ export async function fetchXUserPublic(username: string): Promise<XUserPublic> {
   const fx = await fromFxTwitter(clean);
   let best: XUserPublic | null = fx?.ok ? withProfileFlags(fx) : null;
 
-  // 2) Always try twitterapi.io when badge unknown (isBlueVerified is reliable)
+  // 2) ApiTwitter primary paid (is_blue_verified reliable when pool works)
+  if (!best?.premium) {
+    const at = await fromApiTwitterUser(clean);
+    if (at?.ok) {
+      best = mergeXProfiles(best, withProfileFlags(at));
+    }
+  }
+
+  // 3) twitterapi.io backup
   if (!best?.premium) {
     const io = await fromTwitterApiIoUser(clean);
     if (io?.ok) {
@@ -607,7 +917,7 @@ export async function fetchXUserPublic(username: string): Promise<XUserPublic> {
     }
   }
 
-  // 3) TweetAPI if still no badge
+  // 4) TweetAPI if still no badge
   if (!best?.premium && !best?.verified) {
     const ta = await fromTweetApiUser(clean);
     if (ta?.ok) {
@@ -615,7 +925,7 @@ export async function fetchXUserPublic(username: string): Promise<XUserPublic> {
     }
   }
 
-  // 4) Official X last
+  // 5) Official X last
   if (!best?.premium && !best?.verified) {
     const official = await fromOfficialX(clean);
     if (official?.ok) {
@@ -734,7 +1044,66 @@ export async function checkXFollowsTokenshit(username: string): Promise<{
     return val;
   };
 
-  // 1) twitterapi.io relationship (cheap + authoritative when present)
+  // 1) ApiTwitter relationship (primary)
+  if (apiTwitterKey()) {
+    try {
+      const r = await apiTwitterResolve(
+        `/twitter/user/check_follow_relationship?source_user_name=${encodeURIComponent(user)}&target_user_name=${encodeURIComponent("Tokenshit_")}`,
+        "/twitter/user/check_follow_relationship",
+        {
+          source_user_name: user,
+          target_user_name: "Tokenshit_",
+          sourceUserName: user,
+          targetUserName: "Tokenshit_",
+        }
+      );
+      if (r.ok && r.data) {
+        const flag = relationshipFollowingFlag(
+          r.data as Record<string, unknown>
+        );
+        if (flag !== null) {
+          return rememberFollow({
+            ok: true,
+            following: flag,
+            source: r.source,
+          });
+        }
+      }
+    } catch {
+      /* fall through */
+    }
+
+    // 2) ApiTwitter followings scan — POSITIVE only
+    try {
+      const r = await apiTwitterResolve(
+        `/twitter/user/following?userName=${encodeURIComponent(user)}`,
+        "/twitter/user/following",
+        { userName: user, count: 200 }
+      );
+      if (r.ok && r.data) {
+        const list = Array.isArray(r.data)
+          ? r.data
+          : (r.data as any).followings ||
+            (r.data as any).users ||
+            (r.data as any).data ||
+            [];
+        if (
+          Array.isArray(list) &&
+          list.some((u: any) => isTokenshitFollowTarget(u))
+        ) {
+          return rememberFollow({
+            ok: true,
+            following: true,
+            source: (r.source || "apitwitter") + "-following",
+          });
+        }
+      }
+    } catch {
+      /* fall through */
+    }
+  }
+
+  // 3) twitterapi.io relationship (backup)
   const ioKey = twitterApiIoKey();
   if (ioKey) {
     try {
@@ -767,8 +1136,7 @@ export async function checkXFollowsTokenshit(username: string): Promise<{
       /* fall through */
     }
 
-    // 2) followings page scan — POSITIVE only.
-    // First page is incomplete for heavy follow graphs; never treat a miss as "not following".
+    // 4) followings page scan — POSITIVE only.
     try {
       const url = `${TWITTERAPI_IO_BASE}/twitter/user/followings?userName=${encodeURIComponent(user)}`;
       const res = await fetchTimeout(
@@ -1580,6 +1948,60 @@ async function userInRetweeters(
         url = nt
           ? `https://api.twitter.com/2/tweets/${tweetId}/retweeted_by?max_results=100&user.fields=username&pagination_token=${encodeURIComponent(nt)}`
           : null;
+      }
+    } catch {
+      /* fall through */
+    }
+  }
+
+  // ApiTwitter retweeters (primary paid)
+  if (apiTwitterKey()) {
+    try {
+      const r = await apiTwitterResolve(
+        `/twitter/tweet/retweeters?tweetId=${encodeURIComponent(tweetId)}`,
+        "/twitter/tweet/retweeters",
+        { tweetId, tweet_id: tweetId }
+      );
+      if (r.ok && r.data) {
+        const blob = JSON.stringify(r.data).toLowerCase();
+        if (
+          blob.includes(`"username":"${user}"`) ||
+          blob.includes(`"screen_name":"${user}"`) ||
+          blob.includes(`"username":"${user}"`)
+        ) {
+          return {
+            ok: true,
+            found: true,
+            source: (r.source || "apitwitter") + "-retweeters",
+          };
+        }
+        const lists = [
+          Array.isArray(r.data) ? r.data : null,
+          (r.data as any).retweeters,
+          (r.data as any).users,
+          (r.data as any).data,
+        ].filter(Boolean) as unknown[];
+        for (const list of lists) {
+          if (!Array.isArray(list)) continue;
+          for (const row of list) {
+            const rowObj = row as Record<string, unknown>;
+            const h = normalizeXHandle(
+              String(
+                rowObj.userName ||
+                  rowObj.username ||
+                  rowObj.screen_name ||
+                  ""
+              )
+            );
+            if (h === user) {
+              return {
+                ok: true,
+                found: true,
+                source: (r.source || "apitwitter") + "-retweeters",
+              };
+            }
+          }
+        }
       }
     } catch {
       /* fall through */
