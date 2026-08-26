@@ -3,12 +3,12 @@
  *
  * Metasal claim rules:
  *   - X login compulsory
- *   - min 250 followers + real PFP
+ *   - min 500 followers + real PFP
  *   - major claims (verified/premium/gh): 1 IP / day (own bucket)
  *   - other claims (tweet/follow/email): shared IP day bucket
  *
  * Env knobs (optional):
- *   MIN_X_FOLLOWERS_CLAIM=250
+ *   MIN_X_FOLLOWERS_CLAIM=500
  *   MIN_X_FOLLOWERS_REFERRAL=100
  *   MAJOR_CLAIMS_PER_IP_DAY=1
  *   CLAIM_PER_IP_DAY=24
@@ -223,7 +223,7 @@ export async function gateMajorClaimIp(
   return { ok: true };
 }
 
-/** All claims: X profile, ≥250 followers, real PFP. Fail closed on lookup fail. */
+/** All claims: X profile, ≥500 followers, real PFP. Fail closed on lookup fail. */
 export async function gateXProfileForClaim(
   twitter: string | null | undefined
 ): Promise<

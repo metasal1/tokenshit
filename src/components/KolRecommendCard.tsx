@@ -5,7 +5,7 @@ import { usePrivy } from "@privy-io/react-auth";
 import { useWallets } from "@privy-io/react-auth/solana";
 import { pickSolanaAddress } from "@/lib/privy-identity";
 import { EmojiIcon } from "@/components/EmojiIcon";
-import { KOL_SCOUT_REWARD_SHIT, MIN_KOL_FOLLOWERS } from "@/lib/shit-token";
+import { KOL_SCOUT_REWARD_SHIT, MIN_KOL_FOLLOWERS, ABUSE_MIN_FOLLOWERS_CLAIM } from "@/lib/shit-token";
 
 type LookupOk = {
   ok: true;
@@ -245,7 +245,7 @@ export default function KolRecommendCard() {
                 : `Submit @${lookup.handle} · earn ${KOL_SCOUT_REWARD_SHIT.toLocaleString()}`}
           </button>
           <p className="text-[10px] text-zinc-500 leading-snug">
-            X login · your profile 250+ flw · 5 noms/day · KOL needs{" "}
+            X login · your profile {ABUSE_MIN_FOLLOWERS_CLAIM}+ flw · 5 noms/day · KOL needs{" "}
             {MIN_KOL_FOLLOWERS.toLocaleString()}+ · paid on accept
           </p>
           {/* honeypot — hidden from humans */}

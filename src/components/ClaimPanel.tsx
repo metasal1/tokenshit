@@ -31,6 +31,7 @@ import {
   PLAY_GAS_DROP_SOL,
   PLAY_GAS_STARTER_GAMES,
   loveGasTweetIntentUrl,
+  ABUSE_MIN_FOLLOWERS_CLAIM,
 } from "@/lib/shit-token";
 import { BalanceSkeleton } from "@/components/StatLoader";
 import { pickSolanaAddress } from "@/lib/privy-identity";
@@ -836,7 +837,7 @@ export default function ClaimPanel() {
 
       <p className="text-[11px] text-zinc-500 leading-snug">
         <span className="text-neon font-semibold">X required</span>
-        {" "}· PFP · 250+ followers · tweet every 24h
+        {" "}· PFP · {ABUSE_MIN_FOLLOWERS_CLAIM}+ followers · tweet every 24h
       </p>
 
       <div className="flex flex-wrap items-center gap-2 text-xs">
