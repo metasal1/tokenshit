@@ -8,8 +8,8 @@ import { EmojiIcon } from "@/components/EmojiIcon";
 
 type DayLite = {
   nextCloseAt?: string;
-  round?: { hitPot?: number; shitPot?: number } | null;
-  stats?: { hitTickets?: number; shitTickets?: number };
+  prize?: { total?: number; base?: number; jackpot?: number };
+  stats?: { plays?: number; players?: number };
 };
 
 function fmt(n: number) {
@@ -29,9 +29,7 @@ function fmtCd(ms: number) {
   return `${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
 }
 
-/**
- * Home Play teaser — pot + countdown + one CTA → /play
- */
+/** Home Play teaser — PLAY FOR PRIZES. No poster. */
 export default function HomePlayTeaser() {
   const [data, setData] = useState<DayLite | null>(null);
   const [tick, setTick] = useState(0);
@@ -62,34 +60,27 @@ export default function HomePlayTeaser() {
 
   const cd = msLeft == null ? "—:— " : fmtCd(msLeft);
   const urgent = msLeft != null && msLeft > 0 && msLeft < 5 * 60_000;
-
-  const hit = data?.round?.hitPot ?? 0;
-  const shit = data?.round?.shitPot ?? 0;
-  const total = hit + shit;
-  const hitT = data?.stats?.hitTickets ?? 0;
-  const shitT = data?.stats?.shitTickets ?? 0;
+  const prize = Number(data?.prize?.total ?? 10_000);
+  const players = Number(data?.stats?.players ?? 0);
 
   return (
     <section className="rounded-2xl border-2 border-neon/50 bg-gradient-to-b from-neon/15 via-card to-card overflow-hidden h-full flex flex-col shadow-[0_0_40px_rgba(57,255,20,0.12)]">
-      <div className="p-4 sm:p-5 md:p-5 lg:p-6 space-y-3.5 md:space-y-4 lg:space-y-5 flex flex-col flex-1">
+      <div className="p-4 sm:p-5 md:p-5 lg:p-6 space-y-4 flex flex-col flex-1">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 text-left">
             <p className="text-[10px] font-orbitron uppercase tracking-[0.22em] text-neon">
-              Main game · this hour
+              Free · this hour
             </p>
-            <h2 className="mt-1 text-2xl sm:text-3xl md:text-[1.85rem] lg:text-4xl font-monoton leading-none">
-              <span className="neon-dollar">$</span>
-              <span className="neon-text">HIT</span>
+            <h2 className="mt-1 text-2xl sm:text-3xl md:text-[1.75rem] lg:text-4xl font-monoton leading-[0.95] text-cream">
+              PLAY
+              <br />
+              FOR PRIZES
             </h2>
-            <p className="mt-1 text-[11px] sm:text-xs font-orbitron uppercase tracking-[0.16em] text-zinc-500">
-              of the day
-            </p>
-            <p className="mt-2 text-sm text-zinc-300 max-w-sm md:max-w-[16rem] lg:max-w-sm leading-snug">
-              <span className="text-neon font-semibold">FREE</span> · hold 10k ·
-              1 UP + 1 DOWN ·{" "}
+            <p className="mt-2 text-sm text-zinc-300 max-w-sm leading-snug">
+              <span className="text-neon font-semibold">FREE</span> · 1 UP + 1
+              DOWN · hold 10k ·{" "}
               <span className="text-green-400 font-semibold">HIT</span> or{" "}
-              <span className="text-red-400 font-semibold">SHIT</span> · 10k $
-              {SHIT_SYMBOL}/hr (+ jackpot)
+              <span className="text-red-400 font-semibold">SHIT</span>
             </p>
           </div>
           <div
@@ -103,7 +94,7 @@ export default function HomePlayTeaser() {
               {urgent ? "Closing soon" : "Closes in"}
             </div>
             <div
-              className={`text-xl sm:text-2xl md:text-2xl lg:text-3xl font-mono font-bold tabular-nums ${
+              className={`text-xl sm:text-2xl lg:text-3xl font-mono font-bold tabular-nums ${
                 urgent ? "text-amber-300" : "text-neon"
               }`}
             >
@@ -112,67 +103,25 @@ export default function HomePlayTeaser() {
           </div>
         </div>
 
-        {/* Total pot hero */}
-        <div className="rounded-xl border border-neon/35 bg-black/40 px-3 py-3 text-center">
+        <div className="rounded-xl border border-neon/35 bg-black/40 px-3 py-4 text-center">
           <div className="text-[10px] font-orbitron uppercase tracking-[0.18em] text-zinc-500">
-            Live pot
+            This hour
           </div>
           <div className="mt-0.5 text-3xl sm:text-4xl font-mono font-black text-neon tabular-nums">
-            {fmt(total)}
+            {fmt(prize)}
           </div>
           <div className="text-[11px] text-zinc-500 font-mono">
-            ${SHIT_SYMBOL} · {hitT + shitT} tickets in
+            ${SHIT_SYMBOL} prize · {players} playing
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-2 sm:gap-3 md:gap-2.5 lg:gap-3 content-start">
-          <div className="rounded-xl border border-green-500/25 bg-green-950/25 px-3 py-2.5 text-left">
-            <div className="text-[10px] font-orbitron uppercase tracking-wider text-green-400/90 flex items-center gap-1">
-              <EmojiIcon size={12}>🎯</EmojiIcon> Hit pot
-            </div>
-            <div className="text-xl sm:text-2xl font-mono font-bold text-green-400 tabular-nums mt-0.5">
-              {fmt(hit)}
-            </div>
-            <div className="text-[10px] text-zinc-600 font-mono">{hitT} in</div>
-          </div>
-          <div className="rounded-xl border border-red-500/25 bg-red-950/25 px-3 py-2.5 text-right">
-            <div className="text-[10px] font-orbitron uppercase tracking-wider text-red-400/90 flex items-center justify-end gap-1">
-              Shit pot <EmojiIcon size={12}>💀</EmojiIcon>
-            </div>
-            <div className="text-xl sm:text-2xl font-mono font-bold text-red-400 tabular-nums mt-0.5">
-              {fmt(shit)}
-            </div>
-            <div className="text-[10px] text-zinc-600 font-mono">{shitT} in</div>
-          </div>
-        </div>
-
-        <a
-          href="/brand/play-poster.png"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="block overflow-hidden rounded-xl border border-neon/25 bg-black/30"
-        >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/brand/play-poster.png"
-            alt="Free Play poster"
-            className="aspect-square w-full object-cover max-h-40 sm:max-h-48 object-top"
-          />
-        </a>
         <Link
           href={PLAY_PRODUCT.path}
-          className="mt-auto flex w-full min-h-14 sm:min-h-14 items-center justify-center gap-2 rounded-xl bg-neon text-black text-base sm:text-lg font-bold font-orbitron tracking-wide uppercase hover:brightness-110 active:scale-[0.99] transition shadow-[0_0_32px_rgba(57,255,20,0.35)]"
+          className="mt-auto flex w-full min-h-14 items-center justify-center gap-2 rounded-xl bg-neon text-black text-base sm:text-lg font-bold font-orbitron tracking-wide uppercase hover:brightness-110 active:scale-[0.99] transition shadow-[0_0_32px_rgba(57,255,20,0.35)]"
         >
           <EmojiIcon size={20}>🎯</EmojiIcon>
-          Play this hour
+          Play for prizes
         </Link>
-        <p className="text-center text-[10px] text-zinc-600 -mt-1">
-          <Link href="/posters" className="text-zinc-500 hover:text-neon">
-            Posters
-          </Link>
-          {" · "}
-          Not in this hour yet? You&apos;re missing the split.
-        </p>
       </div>
     </section>
   );
