@@ -384,7 +384,7 @@ export default function DayGamePanel({
 
   useEffect(() => {
     if (!justPlayed) return;
-    const t = window.setTimeout(() => setJustPlayed(false), 2400);
+    const t = window.setTimeout(() => setJustPlayed(false), 20_000);
     return () => clearTimeout(t);
   }, [justPlayed]);
 
