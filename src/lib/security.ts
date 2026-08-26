@@ -55,7 +55,10 @@ export const BLACKLISTED_WALLETS = new Set<string>([
   "GomDeLCCgkQ2gA121FX17Ro1FARAA5pb1T7kgwhvJcrK",
   "H34RK8gNNiPhW4Ffh8gfrqevPMaaz4sxAqwV8vHrThY2",
   "FNxL4x4969zfzCSKCmk5fbpKwkWjYwfQFt4vwwxR4kQR",
-
+  // 2026-08-26 rezip6 referral farm — 1k every ~2m, mule wallets reused
+  "CUNoG2p67W7xsf6YcH9Vpcv3a6nz114KuUwTmWYfEJ2Q",
+  "7c8Npaznnt1JUoxBMp2zYUeKCDK4erdwfyevu2LsjbrX",
+  "DpN4diowJDjEaQKbJtaBqjCEVi2aTTfYcUfETwt8n28k",
 ]);
 
 const BLACKLIST_PREFIXES: string[] = [
@@ -98,6 +101,7 @@ export const BLACKLISTED_TWITTER = new Set(
     "subarjdo",
     "sheorhemxpg",
     "jatimmah9578402",
+    "rezip6",
   ].map((h) => h.toLowerCase())
 );
 
