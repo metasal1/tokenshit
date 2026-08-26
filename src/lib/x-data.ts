@@ -1102,7 +1102,7 @@ export async function checkXFollowsTokenshit(username: string): Promise<{
       const recent = await hitIn(
         `/twitter/user/Tokenshit_/followers`,
         "followers",
-        8
+        3
       );
       if (recent === "yes") {
         return rememberFollow({
@@ -1115,7 +1115,7 @@ export async function checkXFollowsTokenshit(username: string): Promise<{
       const theirs = await hitIn(
         `/twitter/user/${encodeURIComponent(user)}/following`,
         "following",
-        6
+        3
       );
       if (theirs === "yes") {
         return rememberFollow({
