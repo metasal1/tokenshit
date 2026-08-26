@@ -13,7 +13,7 @@ export const metadata: Metadata = pageMeta({
 
 export default function PlayPage() {
   return (
-    <div className="mx-auto flex h-[calc(100dvh-env(safe-area-inset-top)-3.25rem-4rem)] w-full max-w-2xl flex-col md:h-[calc(100dvh-env(safe-area-inset-top)-3.5rem)]">
+    <div className="mx-auto flex h-[calc(100dvh-env(safe-area-inset-top)-3.25rem-4rem)] w-full max-w-[1600px] flex-col px-3 sm:px-4 lg:px-6 md:h-[calc(100dvh-env(safe-area-inset-top)-3.5rem)]">
       <DayGamePanel />
     </div>
   );
