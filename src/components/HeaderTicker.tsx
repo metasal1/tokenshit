@@ -5,6 +5,7 @@ import Link from "next/link";
 import { SHIT_SYMBOL, PLAY_POT_ADDRESS, TREASURY_ADDRESS, playPotPortfolioUrl, treasurySolscanUrl } from "@/lib/shit-token";
 import { BalanceSkeleton, PulseDot, SpinLoader } from "@/components/StatLoader";
 import { XLogo } from "@/components/XLogo";
+import { LedNum } from "@/components/LedNum";
 
 type Payload = {
   shit?: number;
@@ -207,7 +208,7 @@ export default function HeaderTicker() {
             <BalanceSkeleton />
           ) : (
             <span className="text-neon font-semibold">
-              {bal} ${SHIT_SYMBOL}
+              <LedNum>{bal}</LedNum> ${SHIT_SYMBOL}
             </span>
           )}
         </a>
@@ -227,7 +228,9 @@ export default function HeaderTicker() {
           {treasuryLoading || gasBal == null ? (
             <BalanceSkeleton />
           ) : (
-            <span className="text-sky-300 font-semibold">{gasBal} SOL</span>
+            <span className="text-sky-300 font-semibold">
+              <LedNum>{gasBal}</LedNum> SOL
+            </span>
           )}
         </a>
       ),
@@ -247,7 +250,7 @@ export default function HeaderTicker() {
             <BalanceSkeleton />
           ) : (
             <span className="text-amber-300 font-semibold">
-              {potBal} ${SHIT_SYMBOL}
+              <LedNum>{potBal}</LedNum> ${SHIT_SYMBOL}
             </span>
           )}
         </a>
@@ -262,7 +265,9 @@ export default function HeaderTicker() {
           title="Nominate KOLs · earn 2,500 $TOKENSHIT when accepted"
         >
           <span className="text-zinc-500">KOLs</span>
-          <span className="text-neon font-semibold">2.5K</span>
+          <span className="text-neon font-semibold">
+            <LedNum>2.5K</LedNum>
+          </span>
         </Link>
       ),
     },
@@ -278,7 +283,9 @@ export default function HeaderTicker() {
           {tokensLoading || tokensLabel == null ? (
             <BalanceSkeleton />
           ) : (
-            <span className="text-white font-semibold">{tokensLabel}</span>
+            <span className="text-white font-semibold">
+              <LedNum>{tokensLabel}</LedNum>
+            </span>
           )}
         </Link>
       ),
@@ -295,7 +302,9 @@ export default function HeaderTicker() {
           {holdersLoading || holdersLabel == null ? (
             <BalanceSkeleton />
           ) : (
-            <span className="text-white font-semibold">{holdersLabel}</span>
+            <span className="text-white font-semibold">
+              <LedNum>{holdersLabel}</LedNum>
+            </span>
           )}
         </Link>
       ),
@@ -312,7 +321,9 @@ export default function HeaderTicker() {
           {usersLoading || usersLabel == null ? (
             <BalanceSkeleton />
           ) : (
-            <span className="text-white font-semibold">{usersLabel}</span>
+            <span className="text-white font-semibold">
+              <LedNum>{usersLabel}</LedNum>
+            </span>
           )}
         </Link>
       ),
@@ -331,7 +342,9 @@ export default function HeaderTicker() {
           {xLoading || xLabel == null ? (
             <BalanceSkeleton />
           ) : (
-            <span className="text-sky-400 font-semibold">{xLabel}</span>
+            <span className="text-sky-400 font-semibold">
+              <LedNum>{xLabel}</LedNum>
+            </span>
           )}
         </a>
       ),
@@ -348,7 +361,9 @@ export default function HeaderTicker() {
           ) : (
             <>
               <PulseDot />
-              <span className="text-zinc-300">{online ?? 0} online</span>
+              <span className="text-zinc-300">
+                <LedNum>{online ?? 0}</LedNum> online
+              </span>
             </>
           )}
         </span>

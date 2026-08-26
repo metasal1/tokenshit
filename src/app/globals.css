@@ -596,6 +596,11 @@ textarea,
 /* Font utility classes */
 .font-monoton { font-family: var(--font-monoton), cursive; }
 .font-orbitron { font-family: var(--font-orbitron), system-ui, sans-serif; }
+.font-led {
+  font-family: var(--font-led), ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+}
 
 /* Secondary UI type — menus, nav labels, section chips */
 .font-nav,
