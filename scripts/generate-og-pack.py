@@ -207,6 +207,74 @@ def fit_monoton(text: str, start: int = 160, min_size: int = 80, max_w: int = 10
     return load_font("Monoton-Regular.ttf", min_size)
 
 
+def make_play_og(
+    key: str,
+    icons: list[Image.Image],
+    twemoji: list[Image.Image],
+) -> None:
+    """Clean 1200x630 Play share card — stacked title, no wall of rules."""
+    base = Image.new("RGBA", (W, H), (*BG, 255))
+    wash = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    wd = ImageDraw.Draw(wash)
+    wd.ellipse([W // 2 - 480, 40, W // 2 + 480, 520], fill=(*NEON, 28))
+    wash = wash.filter(ImageFilter.GaussianBlur(80))
+    base = Image.alpha_composite(base, wash)
+
+    # few corner icons only
+    pool = (twemoji + icons)[:8]
+    corners = [
+        (90, 80, 56),
+        (1110, 90, 52),
+        (80, 540, 48),
+        (1120, 530, 52),
+        (180, 560, 40),
+        (1020, 70, 40),
+    ]
+    for i, (x, y, size) in enumerate(corners):
+        if not pool:
+            break
+        paste_rgba(base, pool[i % len(pool)], x, y, opacity=0.55, rotate=0, size=size)
+
+    draw = ImageDraw.Draw(base)
+    draw_brand_lockup(draw, load_font("Monoton-Regular.ttf", 58), 86)
+
+    play_f = load_font("Monoton-Regular.ttf", 148)
+    prizes_f = load_font("Monoton-Regular.ttf", 118)
+    for dx, dy in [(-4, 0), (4, 0), (0, -4), (0, 4)]:
+        draw.text((W // 2 + dx, 248 + dy), "PLAY", font=play_f, fill=(16, 80, 20), anchor="mm")
+        draw.text((W // 2 + dx, 368 + dy), "FOR PRIZES", font=prizes_f, fill=(16, 80, 20), anchor="mm")
+    draw.text((W // 2, 248), "PLAY", font=play_f, fill=NEON, anchor="mm")
+    draw.text((W // 2, 368), "FOR PRIZES", font=prizes_f, fill=NEON, anchor="mm")
+
+    # three rule pills
+    orbit = load_font("Orbitron-Bold.ttf", 26)
+    pills = ["FREE", "1 UP + 1 DOWN", "10,000 / HR"]
+    pill_fonts = [orbit] * 3
+    pad_x, pad_y, gap = 22, 12, 16
+    widths = [text_w(orbit, t) + pad_x * 2 for t in pills]
+    total = sum(widths) + gap * (len(pills) - 1)
+    x = (W - total) // 2
+    y = 470
+    for t, pw in zip(pills, widths):
+        draw.rounded_rectangle(
+            [x, y, x + pw, y + 48],
+            radius=24,
+            outline=NEON,
+            width=3,
+            fill=(8, 24, 10, 255),
+        )
+        draw.text((x + pw // 2, y + 24), t, font=orbit, fill=NEON, anchor="mm")
+        x += pw + gap
+
+    orbit_sm = load_font("Orbitron-Bold.ttf", 22)
+    draw.text((W // 2, 560), "TOKENSHIT.COM/PLAY", font=orbit_sm, fill=DIM, anchor="mm")
+
+    out = base.convert("RGB")
+    path = OUT / f"{key}.png"
+    out.save(path, "PNG", optimize=True)
+    print(f"wrote {path.name} ({path.stat().st_size}) hero=PLAY stacked")
+
+
 def make(
     key: str,
     route_title: str | None,
@@ -321,7 +389,10 @@ def main() -> None:
     print(f"icons local={len(icons)} twemoji={len(twemoji)}")
 
     for key, title, sub, url in ROUTES:
-        make(key, title, sub, url, icons, twemoji)
+        if key in ("play", "day", "hour"):
+            make_play_og(key, icons, twemoji)
+        else:
+            make(key, title, sub, url, icons, twemoji)
 
     shutil.copy(OUT / "default.png", ROOT / "og-share.png")
     shutil.copy(OUT / "default.png", ROOT / "og-image.png")
