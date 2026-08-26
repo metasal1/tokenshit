@@ -304,7 +304,7 @@ export default async function StatsPage() {
                   [
                     { href: "/play", label: "Play", emoji: "🎯" },
                     { href: "/winners", label: "Winners", emoji: "🏆" },
-                    { href: "/#vote", label: "Vote", emoji: "🗳️" },
+                    { href: "/play", label: "Play", emoji: "🗳️" },
                     { href: "/whales", label: "Whales", emoji: "🐋" },
                   ] as const
                 ).map((q) => (
@@ -365,7 +365,7 @@ export default async function StatsPage() {
                 </h2>
               </div>
               <Link
-                href="/#vote"
+                href="/play"
                 className="text-[10px] font-orbitron uppercase tracking-wider text-zinc-500 hover:text-green-400"
               >
                 Vote
@@ -392,7 +392,7 @@ export default async function StatsPage() {
                 </h2>
               </div>
               <Link
-                href="/#vote"
+                href="/play"
                 className="text-[10px] font-orbitron uppercase tracking-wider text-zinc-500 hover:text-red-400"
               >
                 Vote
