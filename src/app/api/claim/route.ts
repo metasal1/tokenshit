@@ -700,8 +700,13 @@ export async function POST(request: NextRequest) {
           { status: 403 }
         );
       }
-      const { hasReceivedGasDrop } = await import("@/lib/gas-drop");
-      if (await hasReceivedGasDrop(wallet)) {
+      const { hasReceivedGasDrop, hasReceivedGasDropForTwitter } = await import(
+        "@/lib/gas-drop"
+      );
+      if (
+        (await hasReceivedGasDrop(wallet)) ||
+        (await hasReceivedGasDropForTwitter(twitter))
+      ) {
         return Response.json(
           { error: "Already received play gas.", code: "gas_already" },
           { status: 409 }
@@ -874,6 +879,7 @@ export async function POST(request: NextRequest) {
         const drop = await maybeDropPlayGas({
           wallet,
           twitter,
+          ip,
           force: true,
         });
         if (!drop.dropped || !drop.signature) {
@@ -984,22 +990,16 @@ export async function POST(request: NextRequest) {
       ip,
     });
 
-    // One-time SOL gas starter (~67 plays) on normal claims — skip if love-gas claim
-    let gasDrop: {
-      dropped: boolean;
-      signature?: string;
-      sol?: number;
-      games?: number;
-      reason?: string;
-    } | null = gasDropExtra;
-    if (kind !== "sol_gas_love") {
-      try {
-        const { maybeDropPlayGas } = await import("@/lib/gas-drop");
-        gasDrop = await maybeDropPlayGas({ wallet, twitter });
-      } catch {
-        gasDrop = { dropped: false, reason: "error" };
-      }
-    }
+    // Play is FREE — do not auto-send SOL on every first claim (farm drain).
+    const gasDrop:
+      | {
+          dropped: boolean;
+          signature?: string;
+          sol?: number;
+          games?: number;
+          reason?: string;
+        }
+      | null = gasDropExtra;
 
     return Response.json({
       ok: true,

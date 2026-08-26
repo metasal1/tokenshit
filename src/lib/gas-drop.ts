@@ -34,6 +34,38 @@ export async function hasReceivedGasDrop(wallet: string): Promise<boolean> {
   return !!r.rows[0];
 }
 
+export async function hasReceivedGasDropForTwitter(
+  twitter: string | null | undefined
+): Promise<boolean> {
+  const tw = String(twitter || "")
+    .replace(/^@/, "")
+    .trim()
+    .toLowerCase();
+  if (!tw) return false;
+  await ensureGasDropSchema();
+  const r = await tursoExecute(
+    `SELECT wallet FROM sol_gas_drops WHERE lower(twitter) = ? LIMIT 1`,
+    [tw]
+  );
+  return !!r.rows[0];
+}
+
+export async function gasDropsForIpToday(ip: string): Promise<number> {
+  const key = `ip:${(ip || "").trim()}`;
+  if (key === "ip:") return 0;
+  await ensureGasDropSchema();
+  try {
+    const r = await tursoExecute(
+      `SELECT COUNT(*) FROM sol_gas_drops
+       WHERE twitter = ? AND created_at >= datetime('now', '-1 day')`,
+      [key]
+    );
+    return Number(r.rows?.[0]?.[0] ?? 0);
+  } catch {
+    return 0;
+  }
+}
+
 /**
  * Send starter SOL from claims treasury if wallet never received a drop
  * and current SOL is below a playable threshold.
@@ -42,6 +74,7 @@ export async function hasReceivedGasDrop(wallet: string): Promise<boolean> {
 export async function maybeDropPlayGas(opts: {
   wallet: string;
   twitter?: string | null;
+  ip?: string | null;
   /** Skip "already has SOL" soft skip — still once-per-wallet via table */
   force?: boolean;
 }): Promise<{
@@ -54,11 +87,22 @@ export async function maybeDropPlayGas(opts: {
 }> {
   const wallet = opts.wallet.trim();
   if (!wallet) return { dropped: false, reason: "no_wallet" };
+  const tw = String(opts.twitter || "")
+    .replace(/^@/, "")
+    .trim()
+    .toLowerCase();
+  if (!tw) return { dropped: false, reason: "no_twitter" };
 
   try {
     await ensureGasDropSchema();
     if (await hasReceivedGasDrop(wallet)) {
       return { dropped: false, reason: "already" };
+    }
+    if (await hasReceivedGasDropForTwitter(opts.twitter)) {
+      return { dropped: false, reason: "already_twitter" };
+    }
+    if (opts.ip && (await gasDropsForIpToday(opts.ip)) >= 1) {
+      return { dropped: false, reason: "ip_day_cap" };
     }
 
     const { Connection, PublicKey, SystemProgram, Transaction } =
@@ -139,13 +183,20 @@ export async function maybeDropPlayGas(opts: {
       await tursoExecute(
         `INSERT INTO sol_gas_drops (wallet, twitter, lamports, signature)
          VALUES (?, ?, ?, ?)`,
-        [
-          wallet,
-          opts.twitter || null,
-          PLAY_GAS_DROP_LAMPORTS,
-          signature,
-        ]
+        [wallet, tw, PLAY_GAS_DROP_LAMPORTS, signature]
       );
+      if (opts.ip) {
+        await tursoExecute(
+          `INSERT OR IGNORE INTO sol_gas_drops (wallet, twitter, lamports, signature)
+           VALUES (?, ?, ?, ?)`,
+          [
+            `ip:${opts.ip.trim()}`,
+            `ip:${opts.ip.trim()}`,
+            0,
+            `ip:${signature}`,
+          ]
+        );
+      }
     } catch (e) {
       // unique race — ok
       const msg = e instanceof Error ? e.message : String(e);
