@@ -10,7 +10,6 @@ import {
   hitScoreRoast,
   hitScoreEmoji,
 } from "@/lib/format";
-import VoteButtons from "@/components/VoteButtons";
 import TokenPageWrapper from "@/components/TokenPageWrapper";
 import CollapsibleSection from "@/components/CollapsibleSection";
 import TokenNews from "@/components/TokenNews";
@@ -31,8 +30,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const name = meta.name || assetId;
   const symbol = meta.symbol || "";
   return {
-    title: symbol ? `${name} (${symbol}) — HIT or SHIT` : `${name} — HIT or SHIT`,
-    description: `Vote HIT or SHIT on ${name}. Every token is shit until proven otherwise.`,
+    title: symbol ? `${name} (${symbol})` : name,
+    description: `${name} on TOKEN$HIT. Play FOR PRIZES.`,
   };
 }
 
@@ -289,8 +288,12 @@ export default async function TokenPage({ params, searchParams }: Props) {
           ) : null}
         </header>
 
-        {/* Primary: vote */}
-        <VoteButtons assetId={assetId} symbol={symbol || name} />
+        <Link
+          href="/play"
+          className="block rounded-2xl border border-neon/40 bg-neon/10 px-4 py-3 text-center font-orbitron text-sm font-bold uppercase tracking-wide text-neon hover:bg-neon/20"
+        >
+          Play FOR PRIZES
+        </Link>
 
         {/* Score + noise */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

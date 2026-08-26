@@ -28,7 +28,6 @@ export const SITE_NAV: NavItem[] = [
     primary: true,
     match: "prefix",
   },
-  { href: "/boards", label: "Boards", primary: false, match: "prefix" },
   { href: "/swap", label: "Buy", primary: false, match: "prefix" },
   { href: "/stats", label: "Stats", primary: false, match: "prefix" },
   { href: "/winners", label: "Winners", primary: false, match: "prefix" },
