@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { LedNum } from "@/components/LedNum";
 
 type Item = { assetId: string; symbol: string; pct: number | null };
 type Lane = { key: string; label: string; count: number; items: Item[] };
@@ -37,7 +38,7 @@ function LaneTape({
               up ? "text-neon" : down ? "text-rose-400" : "text-zinc-500"
             }
           >
-            {fmtPct(it.pct)}
+            <LedNum>{fmtPct(it.pct)}</LedNum>
           </span>
         ) : null}
       </Link>
@@ -54,8 +55,8 @@ function LaneTape({
         <span className="text-neon font-orbitron uppercase tracking-wider text-[9px] sm:text-[10px]">
           {lane.label}
         </span>
-        <span className="text-white font-semibold font-mono text-[10px]">
-          {lane.count || "—"}
+        <span className="text-white font-semibold text-[10px]">
+          <LedNum>{lane.count || "—"}</LedNum>
         </span>
       </span>
       <div className="relative min-w-0 flex-1 overflow-hidden h-full">
@@ -181,7 +182,7 @@ export default function FooterCategoryTicker() {
               <span key={l.label}>
                 {i ? " · " : ""}
                 <span className="text-neon">{l.label}</span>{" "}
-                {l.count || "—"}
+                <LedNum>{l.count || "—"}</LedNum>
               </span>
             ))}
           </span>

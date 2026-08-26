@@ -55,6 +55,13 @@ const orbitron = localFont({
   display: "swap",
 });
 
+const led = localFont({
+  src: "../../public/brand/fonts/DSEG7ClassicMini-Bold.woff2",
+  variable: "--font-led",
+  weight: "700",
+  display: "swap",
+});
+
 export const metadata: Metadata = {
   ...defaultMetadata,
   // Home sets its own canonical; do NOT set root canonical to "/"
@@ -81,7 +88,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} ${monoton.variable} ${orbitron.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} ${monoton.variable} ${orbitron.variable} ${led.variable} h-full antialiased`}
       suppressHydrationWarning
     >
       <head>
