@@ -33,7 +33,7 @@ DIM = (82, 82, 91)
 SCATTER_EMOJI = [
     "1f3af",
     "1f480",
-    "1f4a9",
+    "1f49a",
     "1f680",
     "1f48e",
     "1f525",
@@ -67,7 +67,7 @@ ROUTES = [
     ("claim", "CLAIM", "Grab free $TOKENSHIT rewards", "tokenshit.com/claim"),
     ("claims", "CLAIM", "Grab free $TOKENSHIT rewards", "tokenshit.com/claim"),
     ("memes", "MEMES", "Make shit memes. Share the bag.", "tokenshit.com/memes"),
-    ("play", "PLAY", "$SHIT OF THE DAY · hourly pot", "tokenshit.com/play"),
+    ("play", "PLAY FOR PRIZES", "FREE  |  1 UP + 1 DOWN  |  10,000 / HR", "tokenshit.com/play"),
     ("whales", "WHALES", "Top 50 holders · movements", "tokenshit.com/whales"),
     ("winners", "WINNERS", "Hourly pot winners & VRF", "tokenshit.com/winners"),
     ("swap", "SWAP", "Trade $TOKENSHIT on Solana", "tokenshit.com/swap"),
@@ -78,8 +78,8 @@ ROUTES = [
     ("search", "SEARCH", "Find any Solana token · HIT or SHIT", "tokenshit.com/search"),
     ("terms", "TERMS", "Rules of the shitshow", "tokenshit.com/terms"),
     ("privacy", "PRIVACY", "How we handle your data", "tokenshit.com/privacy"),
-    ("day", "PLAY", "$SHIT OF THE DAY · hourly pot", "tokenshit.com/play"),
-    ("hour", "PLAY", "$SHIT OF THE DAY · hourly pot", "tokenshit.com/play"),
+    ("day", "PLAY FOR PRIZES", "FREE  |  1 UP + 1 DOWN  |  10,000 / HR", "tokenshit.com/play"),
+    ("hour", "PLAY FOR PRIZES", "FREE  |  1 UP + 1 DOWN  |  10,000 / HR", "tokenshit.com/play"),
 ]
 
 CACHE = Path("/tmp/tokenshit-twemoji")

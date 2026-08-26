@@ -4,7 +4,7 @@ import { SHIT_MINT, SHIT_SYMBOL, TREASURY_ADDRESS, X_HANDLE } from "@/lib/shit-t
 
 const SITE = "https://tokenshit.com";
 /** Cache-bust when OG pack regenerates */
-const OG_V = "8";
+const OG_V = "9";
 
 export type OgKey =
   | "default"
@@ -56,7 +56,7 @@ export const defaultMetadata: Metadata = {
     template: "%s · TOKEN$HIT",
   },
   description:
-    "Every token is shit until proven otherwise. Play $HIT OF THE DAY, vote HIT or SHIT on Solana assets, claim rewards, swap $TOKENSHIT.",
+    "Every token is shit until proven otherwise. Play PLAY FOR PRIZES, vote HIT or SHIT on Solana assets, claim rewards, swap $TOKENSHIT.",
   applicationName: "TOKEN$HIT",
   authors: [{ name: "TOKEN$HIT", url: SITE }],
   creator: "@Tokenshit_",
@@ -78,7 +78,7 @@ export const defaultMetadata: Metadata = {
     siteName: "TOKEN$HIT",
     title: "TOKEN$HIT — Every token is shit until proven otherwise",
     description:
-      "Play $HIT OF THE DAY. Vote HIT or SHIT on real Solana assets. Claim, swap, whales.",
+      "Play FOR PRIZES. Vote HIT or SHIT on real Solana assets. Claim, swap, whales.",
     images: [SITE_OG],
   },
   twitter: {
@@ -87,7 +87,7 @@ export const defaultMetadata: Metadata = {
     creator: "@Tokenshit_",
     title: "TOKEN$HIT — Every token is shit until proven otherwise",
     description:
-      "Play $HIT OF THE DAY. Vote HIT or SHIT on real Solana assets.",
+      "Play FOR PRIZES. Vote HIT or SHIT on real Solana assets.",
     images: [OG],
   },
   icons: {
