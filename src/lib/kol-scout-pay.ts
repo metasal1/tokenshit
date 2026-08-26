@@ -97,9 +97,6 @@ export async function payKolScoutIfEligible(
   if (newStatus !== "accepted" && newStatus !== "live") {
     return { paid: false, reason: "status_not_accept" };
   }
-  if (process.env.CLAIMS_ENABLED === "0") {
-    return { paid: false, reason: "giveaways_paused" };
-  }
   await ensureScoutPayCols();
 
   // re-read paid flag

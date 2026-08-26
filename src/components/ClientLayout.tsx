@@ -14,6 +14,7 @@ import ShareRefButton from '@/components/ShareRefButton';
 import { XLogo } from '@/components/XLogo';
 import XFollowersBadge from '@/components/XFollowersBadge';
 import HeaderTicker from '@/components/HeaderTicker';
+import FooterCategoryTicker from '@/components/FooterCategoryTicker';
 import SfxMuteToggle from '@/components/SfxMuteToggle';
 import PwaProvider from '@/components/PwaProvider';
 import ShitBalanceBadge from '@/components/ShitBalanceBadge';
@@ -476,6 +477,7 @@ function Layout({ children }: { children: React.ReactNode }) {
         </div>
       </nav>
 
+      <FooterCategoryTicker />
       <footer className="border-t border-border py-6 text-center text-sm text-zinc-500 font-orbitron tracking-wide hidden md:block">
         <p className="font-sans normal-case tracking-normal">TokenShit — Every token is shit until proven otherwise.</p>
         <p className="mt-2 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-zinc-600 uppercase text-xs">
