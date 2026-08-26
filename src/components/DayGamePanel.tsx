@@ -951,7 +951,7 @@ export default function DayGamePanel({
             side === "hit" ? "cursor-hit" : "cursor-shit"
           }`}
         >
-          <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+          <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8">
             {bags.map((m) => {
               const on = selected?.assetId === m.assetId || cart.some((c) => c.assetId === m.assetId);
               const pct = m.pct;
