@@ -278,6 +278,15 @@ export async function POST(request: NextRequest) {
     if (!isKind(kindRaw)) {
       return Response.json({ error: "Invalid claim kind" }, { status: 400 });
     }
+    if (kindRaw === "sol_gas_love") {
+      return Response.json(
+        {
+          error: "No SOL on claims. Play is free — no gas drop.",
+          code: "gas_claims_off",
+        },
+        { status: 410 }
+      );
+    }
     const kind = kindRaw;
 
     // Major (premium/verified/gh): own 1/IP/day bucket only.
@@ -813,7 +822,7 @@ export async function POST(request: NextRequest) {
         { status: 503 }
       );
     }
-    if (bal.sol < 0.0015) {
+    if (kind !== "x_follow" && bal.sol < 0.0015) {
       // still allow if pot can sponsor gas (sendShitFromTreasury allowPlayPotFeePayer)
       const pot = await getPlayPotBalances().catch(() => null);
       if (!pot || pot.sol < 0.005) {
@@ -937,6 +946,22 @@ export async function POST(request: NextRequest) {
         `DELETE FROM shit_claims WHERE claim_kind = ? AND wallet = ? AND signature = 'pending'`,
         [kind, wallet]
       ).catch(() => {});
+      if (kind === "x_follow") {
+        return Response.json(
+          {
+            ok: true,
+            paid: false,
+            retry: true,
+            kind,
+            amount,
+            wallet,
+            code: "claim_later",
+            error:
+              "Follow counted. 1,000 $TOKENSHIT waiting — tap Claim follow again later (no gas from us).",
+          },
+          { status: 202 }
+        );
+      }
       if (err.status && err.code) {
         return Response.json(
           { error: err.message, code: err.code },

@@ -697,6 +697,15 @@ export default function ClaimPanel() {
       window.clearTimeout(sendTimer);
       setClaimPhase("send");
       const data = await res.json().catch(() => ({}));
+      if (res.status === 202 || data.code === "claim_later" || data.paid === false) {
+        setFollowing(true);
+        setMsg(
+          data.error ||
+            "Follow counted. 1,000 waiting — tap Claim follow again later. No SOL from us."
+        );
+        setClaimPhase("done");
+        return;
+      }
       if (!res.ok) {
         const detail =
           typeof data.detail === "string"
@@ -766,12 +775,8 @@ export default function ClaimPanel() {
             } plays (${Number(data.amount || gas?.sol || PLAY_GAS_DROP_SOL).toFixed(4)} SOL). Go play this hour.`
           );
         } else {
-          const gasBit =
-            gas?.ok && gas.sol
-              ? ` + ${Number(gas.sol).toFixed(4)} SOL gas (~${gas.games || 67} plays)`
-              : "";
           setMsg(
-            `Sent ${Number(data.amount).toLocaleString()} $${SHIT_SYMBOL} to wallet.${gasBit} Play this hour with it.`
+            `Sent ${Number(data.amount).toLocaleString()} $${SHIT_SYMBOL} to wallet. Play this hour with it.`
           );
         }
       }
@@ -970,7 +975,7 @@ export default function ClaimPanel() {
           statusLoading={statusLoading && authenticated}
           title={`1. Follow @${X_HANDLE} (required)`}
           amount={CLAIM_X_FOLLOW}
-          hint="Do this first. Unlocks RT, tweet, and every other claim."
+          hint="1,000 once. If payout fails (no gas), tap Claim again later. We never send SOL."
         >
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <a
@@ -1147,51 +1152,16 @@ export default function ClaimPanel() {
           </summary>
           <div className="px-2 pb-3 space-y-3">
             <RewardRow
-              claimed={!!claimedStatus.sol_gas_love}
-              statusLoading={statusLoading && authenticated}
+              claimed
+              statusLoading={false}
               title="Love gas (SOL starter)"
-              amount={PLAY_GAS_STARTER_GAMES}
-              amountUnit="plays"
-              hint={
-                <>
-                  First claim · tweet exact{" "}
-                  <span className="font-mono text-[10px] text-neon">{LOVE_GAS_TWEET}</span>
-                </>
-              }
+              amount={0}
+              amountUnit="SOL"
+              hint="Off. We never send SOL on claims. Play is free."
             >
-              <div className="grid grid-cols-1 gap-2">
-                <a
-                  href={loveGasTweetIntentUrl(twitter)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className={`${BTN_OUTLINE} text-center`}
-                >
-                  1. Post love tweet
-                </a>
-                <input
-                  type="url"
-                  inputMode="url"
-                  placeholder="Paste tweet URL"
-                  value={loveTweetUrl}
-                  onChange={(e) => setLoveTweetUrl(e.target.value)}
-                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-zinc-600"
-                />
-                <button
-                  type="button"
-                  disabled={
-                    busy !== null ||
-                    !canOtherClaims ||
-                    !!claimedStatus.sol_gas_love ||
-                    !loveTweetUrl.trim()
-                  }
-                  onClick={() => claim("sol_gas_love")}
-                  className={BTN_NEON}
-                >
-                  {busy === "sol_gas_love"
-                    ? phaseLabel(claimPhase)
-                    : `Claim ${PLAY_GAS_STARTER_GAMES} plays`}
-                </button>
-              </div>
+              <p className="text-[12px] text-zinc-500">
+                No gas drop. Get a little SOL yourself if a wallet needs rent.
+              </p>
             </RewardRow>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
