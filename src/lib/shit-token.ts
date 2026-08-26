@@ -109,7 +109,7 @@ export const ABUSE_MIN_FOLLOWERS_CLAIM = Number(
   process.env.MIN_X_FOLLOWERS_CLAIM || 500
 );
 export const ABUSE_MIN_FOLLOWERS_REFERRAL = Number(
-  process.env.MIN_X_FOLLOWERS_REFERRAL || 100
+  process.env.MIN_X_FOLLOWERS_REFERRAL || 500
 );
 
 /**
