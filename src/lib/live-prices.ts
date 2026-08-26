@@ -276,32 +276,6 @@ export async function fetchMajorsUniverse(): Promise<PriceHint[]> {
     });
   }
 
-  // Backfill any HOUR_BOARD symbols missing from txyz list
-  for (const sym of HOUR_BOARD_SYMBOLS) {
-    if ([...out].some((o) => o.symbol.toUpperCase() === sym)) continue;
-    const assetId = sym.toLowerCase();
-    if (seen.has(assetId)) continue;
-    seen.add(assetId);
-    out.push({
-      assetId,
-      symbol: sym,
-      name: sym,
-      logo: "",
-      mint: sym === "SOL" ? WSOL : null,
-      coinId:
-        sym === "SOL"
-          ? "solana"
-          : sym === "BTC"
-            ? "bitcoin"
-            : sym === "ETH"
-              ? "ethereum"
-              : null,
-      fallbackPrice: 0,
-      volume24h: 0,
-      txyzChange1h: null,
-    });
-  }
-
   if (out.length) {
     g.__tsMajorsUni = { at: Date.now(), val: out };
   }
