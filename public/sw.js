@@ -1,5 +1,5 @@
-/* TOKENSHIT service worker v6 — hard bust after hydration white-screens */
-const CACHE = "tokenshit-v7";
+/* TOKENSHIT service worker v8 — drop stale v6/v7 + never cache Next chunks */
+const CACHE = "tokenshit-v8";
 const PRECACHE = [
   "/manifest.webmanifest",
   "/icons/icon-192.png",
@@ -64,19 +64,9 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Next.js bundles: network-first, never serve stale hashed miss forever
+  // Next.js hashed bundles: NEVER cache. Stale chunk + new HTML = crash screen.
   if (url.pathname.startsWith("/_next/static/")) {
-    event.respondWith(
-      fetch(req)
-        .then((res) => {
-          if (res.ok) {
-            const clone = res.clone();
-            caches.open(CACHE).then((c) => c.put(req, clone));
-          }
-          return res;
-        })
-        .catch(() => caches.match(req).then((h) => h || Response.error()))
-    );
+    event.respondWith(fetch(req, { cache: "no-store" }));
     return;
   }
 

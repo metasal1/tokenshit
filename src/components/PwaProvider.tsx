@@ -280,7 +280,7 @@ export default function PwaProvider({
             {banner === "notify"
               ? "/test · notifications"
               : banner === "update"
-                ? "PWA · tokenshit-v6"
+                ? "PWA · tokenshit-v8"
                 : "PWA · home screen"}
           </p>
         </div>
