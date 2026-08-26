@@ -37,6 +37,7 @@ import { BalanceSkeleton } from "@/components/StatLoader";
 import { pickSolanaAddress } from "@/lib/privy-identity";
 import { EmojiIcon } from "@/components/EmojiIcon";
 import { XLogo } from "@/components/XLogo";
+import Link from "next/link";
 
 type ClaimKind =
   | "x_verified"
@@ -432,6 +433,7 @@ export default function ClaimPanel() {
   const [walletCreating, setWalletCreating] = useState(false);
   const [walletCreateTried, setWalletCreateTried] = useState(false);
   const [busy, setBusy] = useState<ClaimKind | null>(null);
+  const [claimsPaused, setClaimsPaused] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [sig, setSig] = useState<string | null>(null);
@@ -516,6 +518,15 @@ export default function ClaimPanel() {
   };
 
   useEffect(() => {
+    fetch("/api/claim")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d?.paused === true) setClaimsPaused(true);
+      })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
     fetch("/api/treasury")
       .then((r) => r.json())
       .then((d) => {
@@ -570,6 +581,10 @@ export default function ClaimPanel() {
     !!claimedStatus.x_follow;
 
   async function claim(kind: ClaimKind) {
+    if (claimsPaused) {
+      setErr("Claims paused. Play for prizes instead.");
+      return;
+    }
     setErr(null);
     setMsg(null);
     setSig(null);
@@ -830,15 +845,30 @@ export default function ClaimPanel() {
           <h2 className="text-base font-bold text-foreground truncate">
             Your claims
           </h2>
-          <p className="text-[11px] text-zinc-500">Login · <b className="text-neon">follow first</b> · then claim</p>
+          <p className="text-[11px] text-zinc-500">
+            {claimsPaused ? (
+              <>Paused · <Link href="/play" className="text-neon font-bold">Play for prizes</Link></>
+            ) : (
+              <>Login · <b className="text-neon">follow first</b> · then claim</>
+            )}
+          </p>
         </div>
         <TreasuryBalanceBadge className="shrink-0" />
       </div>
 
-      <p className="text-[11px] text-zinc-500 leading-snug">
-        <span className="text-neon font-semibold">X required</span>
-        {" "}· PFP · {ABUSE_MIN_FOLLOWERS_CLAIM}+ followers · tweet every 24h
-      </p>
+      {claimsPaused ? (
+        <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-3 text-sm text-amber-100">
+          Claims are off. No free SHIT.{" "}
+          <Link href="/play" className="text-neon font-bold underline">
+            Play for prizes
+          </Link>
+        </div>
+      ) : (
+        <p className="text-[11px] text-zinc-500 leading-snug">
+          <span className="text-neon font-semibold">X required</span>
+          {" "}· PFP · {ABUSE_MIN_FOLLOWERS_CLAIM}+ followers · tweet every 24h
+        </p>
+      )}
 
       <div className="flex flex-wrap items-center gap-2 text-xs">
         {!authenticated ? (

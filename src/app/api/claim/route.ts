@@ -14,6 +14,7 @@ import {
   PLAY_GAS_STARTER_GAMES,
   TREASURY_ADDRESS,
   loveGasTweetIntentUrl,
+  ABUSE_MIN_FOLLOWERS_CLAIM,
 } from "@/lib/shit-token";
 import {
   checkGhFork,
@@ -87,9 +88,10 @@ export async function GET(request: NextRequest) {
     return Response.json({
       amounts: AMOUNTS,
       treasury: TREASURY_ADDRESS,
+      paused: process.env.CLAIMS_ENABLED === "0",
       rules: {
         xRequired: true,
-        minFollowers: 100,
+        minFollowers: ABUSE_MIN_FOLLOWERS_CLAIM,
         requirePfp: true,
         majorClaimsPerIpDay: 1,
         verified: CLAIM_X_VERIFIED,
@@ -263,7 +265,7 @@ export async function POST(request: NextRequest) {
       return Response.json(
         {
           error:
-            "Claims paused while we secure the treasury. Follow @Tokenshit_ for updates.",
+            "Claims paused. Play for prizes instead.",
           code: "claims_paused",
         },
         { status: 503 }
