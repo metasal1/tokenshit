@@ -30,6 +30,165 @@ export type JupLiker = {
   profileImageUrl?: string;
 };
 
+type LikerIndex = {
+  at: number;
+  likes: number;
+  byHandle: Map<string, JupLiker>;
+  byId: Map<string, JupLiker>;
+};
+
+const LIKER_TTL_MS = 3 * 60 * 1000;
+const likerCache = new Map<string, LikerIndex>();
+
+function normHandle(raw: string | undefined | null): string {
+  return String(raw || "")
+    .replace(/^@/, "")
+    .trim()
+    .toLowerCase();
+}
+
+async function fetchLikerPage(
+  mint: string,
+  page: number,
+  limit: number
+): Promise<{
+  rows: JupLiker[];
+  total: number;
+  totalPages: number;
+  hasNext: boolean;
+}> {
+  const url = `${VRFD_API}/likes/list?mint=${encodeURIComponent(
+    mint
+  )}&page=${page}&limit=${limit}`;
+  const res = await fetch(url, { headers: vrfdHeaders(), cache: "no-store" });
+  if (!res.ok) throw new Error(`VRFD likes/list ${res.status}`);
+  const json = (await res.json()) as {
+    success?: boolean;
+    data?: JupLiker[];
+    total?: number;
+    pagination?: {
+      page?: number;
+      limit?: number;
+      total?: number;
+      totalPages?: number;
+      hasNext?: boolean;
+    };
+  };
+  const rows = Array.isArray(json.data) ? json.data : [];
+  const pg = json.pagination || {};
+  const total = Number(pg.total ?? json.total ?? 0);
+  const totalPages = Number(
+    pg.totalPages || (total > 0 ? Math.ceil(total / limit) : 1)
+  );
+  const hasNext = pg.hasNext === true || page < totalPages;
+  return { rows, total, totalPages, hasNext };
+}
+
+async function loadLikerIndex(mint: string): Promise<LikerIndex> {
+  const hit = likerCache.get(mint);
+  if (hit && Date.now() - hit.at < LIKER_TTL_MS) return hit;
+
+  const limit = 50;
+  const first = await fetchLikerPage(mint, 1, limit);
+  const pages = Math.min(Math.max(first.totalPages || 1, 1), 20);
+  const rest =
+    pages > 1
+      ? await Promise.all(
+          Array.from({ length: pages - 1 }, (_, i) =>
+            fetchLikerPage(mint, i + 2, limit).catch(() => ({
+              rows: [] as JupLiker[],
+              total: first.total,
+              totalPages: pages,
+              hasNext: false,
+            }))
+          )
+        )
+      : [];
+
+  const byHandle = new Map<string, JupLiker>();
+  const byId = new Map<string, JupLiker>();
+  for (const pack of [first, ...rest]) {
+    for (const u of pack.rows) {
+      const h = normHandle(u.twitterUsername);
+      if (h) byHandle.set(h, u);
+      const id = String(u.twitterId || "").trim();
+      if (id) byId.set(id, u);
+    }
+  }
+  const idx: LikerIndex = {
+    at: Date.now(),
+    likes: first.total || byHandle.size,
+    byHandle,
+    byId,
+  };
+  likerCache.set(mint, idx);
+  return idx;
+}
+
+/**
+ * Paginate VRFD likers until handle found or pages exhausted.
+ * Public — no auth required.
+ */
+export async function userLikedTokenOnVrfd(opts: {
+  twitter: string;
+  twitterId?: string | null;
+  mint?: string;
+  maxPages?: number;
+  pageSize?: number;
+}): Promise<{
+  liked: boolean;
+  likes: number;
+  matched?: JupLiker;
+  pagesScanned: number;
+  dashboard: string;
+}> {
+  const mint = opts.mint || SHIT_MINT;
+  const handle = normHandle(opts.twitter);
+  const twitterId = String(opts.twitterId || "").trim();
+  const dashboard = JUP_VRFD_DASHBOARD(mint);
+  if (!handle && !twitterId) {
+    return { liked: false, likes: 0, pagesScanned: 0, dashboard };
+  }
+
+  // Fast path: top likers on summary
+  try {
+    const sum = await getTokenLikeSummary(mint);
+    const top = sum.topLikers.find(
+      (u) =>
+        normHandle(u.twitterUsername) === handle ||
+        (!!twitterId && String(u.twitterId || "") === twitterId)
+    );
+    if (top) {
+      return {
+        liked: true,
+        likes: sum.likes,
+        matched: top,
+        pagesScanned: 0,
+        dashboard,
+      };
+    }
+  } catch {
+    /* continue to full list */
+  }
+
+  try {
+    const idx = await loadLikerIndex(mint);
+    const matched =
+      (handle && idx.byHandle.get(handle)) ||
+      (twitterId && idx.byId.get(twitterId)) ||
+      undefined;
+    return {
+      liked: !!matched,
+      likes: idx.likes,
+      matched,
+      pagesScanned: 1,
+      dashboard,
+    };
+  } catch {
+    return { liked: false, likes: 0, pagesScanned: 0, dashboard };
+  }
+}
+
 function jupHeaders(): HeadersInit {
   const key =
     process.env.JUP_API_KEY ||
@@ -115,98 +274,6 @@ export async function getTokenLikeSummary(
     smartLikes: Number(data.smartLikes || 0),
     topLikers: Array.isArray(data.topLikers) ? data.topLikers : [],
   };
-}
-
-/**
- * Paginate VRFD likers until handle found or pages exhausted.
- * Public — no auth required.
- */
-export async function userLikedTokenOnVrfd(opts: {
-  twitter: string;
-  mint?: string;
-  maxPages?: number;
-  pageSize?: number;
-}): Promise<{
-  liked: boolean;
-  likes: number;
-  matched?: JupLiker;
-  pagesScanned: number;
-  dashboard: string;
-}> {
-  const mint = opts.mint || SHIT_MINT;
-  const handle = opts.twitter.replace(/^@/, "").trim().toLowerCase();
-  const dashboard = JUP_VRFD_DASHBOARD(mint);
-  if (!handle) {
-    return { liked: false, likes: 0, pagesScanned: 0, dashboard };
-  }
-
-  // Fast path: top likers on summary
-  try {
-    const sum = await getTokenLikeSummary(mint);
-    const top = sum.topLikers.find(
-      (u) =>
-        String(u.twitterUsername || "")
-          .replace(/^@/, "")
-          .toLowerCase() === handle
-    );
-    if (top) {
-      return {
-        liked: true,
-        likes: sum.likes,
-        matched: top,
-        pagesScanned: 0,
-        dashboard,
-      };
-    }
-    // If total likes fit in top list and not found → not liked
-    if (sum.likes > 0 && sum.topLikers.length >= sum.likes) {
-      return {
-        liked: false,
-        likes: sum.likes,
-        pagesScanned: 0,
-        dashboard,
-      };
-    }
-  } catch {
-    /* continue to list */
-  }
-
-  const maxPages = Math.min(Math.max(opts.maxPages ?? 15, 1), 40);
-  const limit = Math.min(Math.max(opts.pageSize ?? 50, 10), 100);
-  let likes = 0;
-  let pagesScanned = 0;
-
-  for (let page = 1; page <= maxPages; page++) {
-    const url = `${VRFD_API}/likes/list?mint=${encodeURIComponent(mint)}&page=${page}&limit=${limit}`;
-    const res = await fetch(url, { headers: vrfdHeaders(), cache: "no-store" });
-    if (!res.ok) break;
-    const json = (await res.json()) as {
-      success?: boolean;
-      data?: JupLiker[];
-      total?: number;
-    };
-    const rows = Array.isArray(json.data) ? json.data : [];
-    pagesScanned++;
-    if (typeof json.total === "number") likes = json.total;
-    const hit = rows.find(
-      (u) =>
-        String(u.twitterUsername || "")
-          .replace(/^@/, "")
-          .toLowerCase() === handle
-    );
-    if (hit) {
-      return {
-        liked: true,
-        likes: likes || rows.length,
-        matched: hit,
-        pagesScanned,
-        dashboard,
-      };
-    }
-    if (rows.length < limit) break;
-  }
-
-  return { liked: false, likes, pagesScanned, dashboard };
 }
 
 export type CraftTxnResult = {

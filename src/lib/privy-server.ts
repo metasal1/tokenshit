@@ -20,6 +20,7 @@ const PRIVY_APP_ID_FALLBACK = (process.env.PRIVY_APP_ID_FALLBACK || "").trim();
 export type PrivyIdentity = {
   privyId: string;
   twitter: string | null;
+  twitterId: string | null;
   github: string | null;
   wallets: string[];
 };
@@ -273,6 +274,7 @@ async function fetchPrivyUser(
   const empty: PrivyIdentity = {
     privyId,
     twitter: null,
+    twitterId: null,
     github: null,
     wallets: [],
   };
@@ -298,15 +300,18 @@ async function fetchPrivyUser(
         username?: string;
         address?: string;
         chain_type?: string;
+        subject?: string;
       }>;
     };
     let twitter: string | null = null;
+    let twitterId: string | null = null;
     let github: string | null = null;
     const wallets: string[] = [];
     for (const a of u.linked_accounts || []) {
       const t = (a.type || "").toLowerCase();
       if (t === "twitter_oauth" || t === "twitter") {
         twitter = (a.username || "").toLowerCase().replace(/^@/, "") || null;
+        twitterId = a.subject ? String(a.subject) : null;
       }
       if (t === "github_oauth" || t === "github") {
         github = (a.username || "").toLowerCase().replace(/^@/, "") || null;
@@ -323,7 +328,7 @@ async function fetchPrivyUser(
         wallets.push(a.address);
       }
     }
-    return { privyId, twitter, github, wallets };
+    return { privyId, twitter, twitterId, github, wallets };
   } catch (e) {
     console.error("privy getUser failed", e);
     return empty;
