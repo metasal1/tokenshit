@@ -660,7 +660,10 @@ export async function POST(request: NextRequest) {
       const { userLikedTokenOnVrfd, JUP_VRFD_DASHBOARD } = await import(
         "@/lib/jup-vrfd"
       );
-      const like = await userLikedTokenOnVrfd({ twitter });
+      const like = await userLikedTokenOnVrfd({
+        twitter,
+        twitterId: auth.id.twitterId,
+      });
       if (!like.liked) {
         return Response.json(
           {
