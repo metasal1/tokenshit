@@ -33,10 +33,23 @@ export async function ensureSw(): Promise<ServiceWorkerRegistration | null> {
     return null;
   }
   try {
-    const reg = await navigator.serviceWorker.register("/sw.js?v=6", {
+    const reg = await navigator.serviceWorker.register("/sw.js?v=8", {
       scope: "/",
       updateViaCache: "none",
     });
+    try {
+      if (!sessionStorage.getItem("tokenshit_sw_v8_purged")) {
+        const keys = await caches.keys();
+        await Promise.all(
+          keys
+            .filter((k) => k.startsWith("tokenshit-") && k !== "tokenshit-v8")
+            .map((k) => caches.delete(k))
+        );
+        sessionStorage.setItem("tokenshit_sw_v8_purged", "1");
+      }
+    } catch {
+      /* ignore */
+    }
     try {
       await reg.update();
     } catch {
