@@ -215,6 +215,8 @@ function apiTwitterDataUseful(data: any): boolean {
   if (data.following === true || data.following === false) return true;
   if (data.isFollowing === true || data.isFollowing === false) return true;
   if (data.source_follows_target != null) return true;
+  if (Array.isArray(data.following) && data.following.length) return true;
+  if (Array.isArray(data.followers) && data.followers.length) return true;
   if (Array.isArray(data.followings) && data.followings.length) return true;
   if (Array.isArray(data.users) && data.users.length) return true;
   if (Array.isArray(data.retweeters) && data.retweeters.length) return true;
@@ -254,8 +256,8 @@ async function fromApiTwitterUser(username: string): Promise<any> {
   const clean = username.replace(/^@/, "").trim();
   try {
     const r = await apiTwitterResolve(
-      `/twitter/user/info?userName=${encodeURIComponent(clean)}`,
-      "/twitter/user/info",
+      `/twitter/user/${encodeURIComponent(clean)}`,
+      `/twitter/user/${encodeURIComponent(clean)}`,
       { userName: clean }
     );
     if (!r.ok || !r.data) {
@@ -1044,66 +1046,98 @@ export async function checkXFollowsTokenshit(username: string): Promise<{
     return val;
   };
 
-  // 1) ApiTwitter relationship (primary)
+  // 1) ApiTwitter official docs (www.apitwitter.com/docs)
+  //    GET /twitter/user/{user} + /following + /followers
+  //    No relationship endpoint. Newest followers of @Tokenshit_ first
+  //    (claim path is follow-then-claim). Then scan the claimer's following.
   if (apiTwitterKey()) {
     try {
-      const r = await apiTwitterResolve(
-        `/twitter/user/check_follow_relationship?source_user_name=${encodeURIComponent(user)}&target_user_name=${encodeURIComponent("Tokenshit_")}`,
-        "/twitter/user/check_follow_relationship",
-        {
-          source_user_name: user,
-          target_user_name: "Tokenshit_",
-          sourceUserName: user,
-          targetUserName: "Tokenshit_",
+      const hitIn = async (
+        pathBase: string,
+        listKey: "following" | "followers",
+        maxPages: number
+      ): Promise<"yes" | "no" | "unk"> => {
+        let cursor = "";
+        let saw = 0;
+        for (let page = 0; page < maxPages; page++) {
+          const q = cursor
+            ? `${pathBase}?count=200&cursor=${encodeURIComponent(cursor)}`
+            : `${pathBase}?count=200`;
+          const g = await apiTwitterGetJson(q, 15_000);
+          if (!g.ok) return "unk";
+          const blob = g.json?.data ?? g.json;
+          const list = Array.isArray(blob)
+            ? blob
+            : blob?.[listKey] ||
+              blob?.followings ||
+              blob?.users ||
+              blob?.data ||
+              [];
+          if (Array.isArray(list)) {
+            saw += list.length;
+            if (list.some((u: any) => isTokenshitFollowTarget(u))) return "yes";
+            if (listKey === "followers") {
+              const me = user.toLowerCase();
+              if (
+                list.some((u: any) => {
+                  const h = String(
+                    u?.userName || u?.username || u?.screen_name || ""
+                  )
+                    .replace(/^@/, "")
+                    .toLowerCase();
+                  return h === me || String(u?.id || "") === me;
+                })
+              )
+                return "yes";
+            }
+          }
+          const next =
+            (blob && (blob.next_cursor || blob.nextCursor || blob.cursor)) || "";
+          if (!next || next === cursor) return saw > 0 ? "no" : "unk";
+          cursor = String(next);
         }
-      );
-      if (r.ok && r.data) {
-        const flag = relationshipFollowingFlag(
-          r.data as Record<string, unknown>
-        );
-        if (flag !== null) {
-          return rememberFollow({
-            ok: true,
-            following: flag,
-            source: r.source,
-          });
-        }
-      }
-    } catch {
-      /* fall through */
-    }
+        return "unk";
+      };
 
-    // 2) ApiTwitter followings scan — POSITIVE only
-    try {
-      const r = await apiTwitterResolve(
-        `/twitter/user/following?userName=${encodeURIComponent(user)}`,
-        "/twitter/user/following",
-        { userName: user, count: 200 }
+      const recent = await hitIn(
+        `/twitter/user/Tokenshit_/followers`,
+        "followers",
+        8
       );
-      if (r.ok && r.data) {
-        const list = Array.isArray(r.data)
-          ? r.data
-          : (r.data as any).followings ||
-            (r.data as any).users ||
-            (r.data as any).data ||
-            [];
-        if (
-          Array.isArray(list) &&
-          list.some((u: any) => isTokenshitFollowTarget(u))
-        ) {
-          return rememberFollow({
-            ok: true,
-            following: true,
-            source: (r.source || "apitwitter") + "-following",
-          });
-        }
+      if (recent === "yes") {
+        return rememberFollow({
+          ok: true,
+          following: true,
+          source: "apitwitter-followers",
+        });
+      }
+
+      const theirs = await hitIn(
+        `/twitter/user/${encodeURIComponent(user)}/following`,
+        "following",
+        6
+      );
+      if (theirs === "yes") {
+        return rememberFollow({
+          ok: true,
+          following: true,
+          source: "apitwitter-following",
+        });
+      }
+
+      if (recent === "no" && theirs === "no") {
+        return rememberFollow({
+          ok: true,
+          following: false,
+          source: "apitwitter-following",
+        });
       }
     } catch {
       /* fall through */
     }
   }
 
-  // 3) twitterapi.io relationship (backup)
+  // 2) twitterapi.io relationship (backup)
   const ioKey = twitterApiIoKey();
   if (ioKey) {
     try {
