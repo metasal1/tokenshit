@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { EmojiIcon } from "@/components/EmojiIcon";
-import { KOL_SCOUT_REWARD_SHIT, MIN_KOL_FOLLOWERS } from "@/lib/shit-token";
+import { MIN_KOL_FOLLOWERS } from "@/lib/shit-token";
 
 type Props = {
   /** compact strip vs full card */
@@ -14,7 +14,6 @@ export default function ScoutPromoBanner({
   variant = "card",
   className = "",
 }: Props) {
-  const amount = KOL_SCOUT_REWARD_SHIT.toLocaleString();
   const min = MIN_KOL_FOLLOWERS.toLocaleString();
 
   if (variant === "strip") {
@@ -28,11 +27,10 @@ export default function ScoutPromoBanner({
         </span>
         <div className="min-w-0 flex-1">
           <p className="text-xs sm:text-sm font-bold text-white leading-tight">
-            KOL Scout · earn{" "}
-            <span className="text-neon font-mono">{amount}</span> $TOKENSHIT
+            KOL Scout · nominate CT voices
           </p>
           <p className="text-[10px] sm:text-xs text-zinc-500 truncate">
-            Nominate {min}+ CT voices → paid when accepted
+            Nominate {min}+ CT voices. No token reward.
           </p>
         </div>
         <span className="shrink-0 rounded-full bg-neon px-2.5 py-1 text-[10px] font-orbitron font-bold uppercase tracking-wide text-black group-hover:brightness-110">
@@ -56,17 +54,13 @@ export default function ScoutPromoBanner({
             </div>
             <div className="min-w-0">
               <p className="font-orbitron text-[10px] uppercase tracking-[0.2em] text-neon">
-                Earn while you scroll CT
+                KOL Scout
               </p>
               <h3 className="font-monoton text-2xl sm:text-3xl leading-none tracking-wide mt-1">
                 <span className="neon-text">SCOUT</span>
               </h3>
               <p className="mt-1.5 text-xs sm:text-sm text-zinc-400 leading-snug">
-                Spot a {min}+ KOL → we accept → you get{" "}
-                <span className="text-neon font-semibold font-mono">
-                  {amount}
-                </span>{" "}
-                $TOKENSHIT
+                Nominate a {min}+ CT voice. No token reward.
               </p>
             </div>
           </div>
