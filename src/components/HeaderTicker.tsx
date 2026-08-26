@@ -8,14 +8,23 @@ import { XLogo } from "@/components/XLogo";
 
 type Payload = {
   shit?: number;
+  sol?: number;
   pot?: { shit?: number; address?: string; sol?: number };
 };
+
+function fmtSol(n: number | null | undefined) {
+  if (n == null || !Number.isFinite(n)) return null;
+  if (n >= 100) return n.toLocaleString("en-US", { maximumFractionDigits: 1 });
+  if (n >= 1) return n.toFixed(2);
+  if (n >= 0.01) return n.toFixed(3);
+  return n.toFixed(4);
+}
 
 function fmt(n: number | null | undefined) {
   if (n == null || !Number.isFinite(n)) return null;
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(2)}M`;
   if (n >= 10_000) return `${(n / 1_000).toFixed(1)}K`;
-  // Fixed locale — browser default was causing React #418 hydration text mismatches
+  // Fixed locale - browser default was causing React #418 hydration text mismatches
   return n.toLocaleString("en-US", { maximumFractionDigits: 0 });
 }
 
@@ -175,6 +184,7 @@ export default function HeaderTicker() {
   }
 
   const bal = fmt(data?.shit);
+  const gasBal = fmtSol(data?.sol);
   const potBal = fmt(data?.pot?.shit);
   const usersLabel = fmt(users);
   const holdersLabel = fmt(holders);
@@ -199,6 +209,25 @@ export default function HeaderTicker() {
             <span className="text-neon font-semibold">
               {bal} ${SHIT_SYMBOL}
             </span>
+          )}
+        </a>
+      ),
+    },
+    {
+      key: "gas",
+      node: (
+        <a
+          href={treasurySolscanUrl()}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1.5 hover:text-neon transition-colors"
+          title="Treasury SOL (claim / play gas)"
+        >
+          <span className="text-zinc-500">Gas</span>
+          {treasuryLoading || gasBal == null ? (
+            <BalanceSkeleton />
+          ) : (
+            <span className="text-sky-300 font-semibold">{gasBal} SOL</span>
           )}
         </a>
       ),
@@ -336,7 +365,7 @@ export default function HeaderTicker() {
     >
       <div
         className="header-ticker-track absolute left-0 top-0 flex h-full items-center gap-0 whitespace-nowrap font-mono text-[11px] sm:text-xs text-zinc-300"
-        aria-label="Treasury, play pot, tokens, holders, users, X followers, and online ticker"
+        aria-label="Treasury, gas, play pot, tokens, holders, users, X followers, and online ticker"
       >
         {loop.map((it, i) => (
           <span key={`${it.key}-${i}`} className="inline-flex items-center">
