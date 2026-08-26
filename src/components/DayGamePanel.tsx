@@ -808,7 +808,7 @@ export default function DayGamePanel({
         <div className="flex shrink-0 items-center gap-2 bg-neon/10 px-3 py-2 text-[11px] leading-snug text-zinc-200">
           <span className="min-w-0 flex-1">
             <b className="text-neon">Play:</b> tap 1 UP and 1 DOWN, then Lock.{" "}
-            FREE · 1 UP + 1 DOWN · {DEFAULT_HOUR_PRIZE.toLocaleString()} ${SHIT_SYMBOL}/hr · jackpot rolls
+            FREE · 1 UP + 1 DOWN · top 3 win · {DEFAULT_HOUR_PRIZE.toLocaleString()} ${SHIT_SYMBOL}/hr · jackpot rolls
             pot.
           </span>
           <button

@@ -13,10 +13,10 @@ export const PLAY_PRODUCT = {
   /** Short nav label */
   nav: "Play",
   /** One-liner */
-  tagline: "FREE. 1 UP + 1 DOWN. Win the hour.",
+  tagline: "FREE. 1 UP + 1 DOWN. Top 3 win.",
   /** Rules blurb */
   blurb:
-    "FREE Play · 1 UP + 1 DOWN per hour · hold 10,000 · follow @Tokenshit_ · 10,000 $TOKENSHIT / hour · jackpot rolls",
+    "FREE Play · 1 UP + 1 DOWN · top 3 / bottom 3 win · hold 10,000 · follow @Tokenshit_ · 10,000 $TOKENSHIT / hour · jackpot rolls",
   /** Canonical public paths */
   path: "/play",
   winnersPath: "/winners",

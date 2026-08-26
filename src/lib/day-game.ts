@@ -18,6 +18,8 @@ export const FREE_PLAY = process.env.PLAY_FREE !== "0";
 export const PLAY_MAX_PER_SIDE = 1;
 /** Total slots = both sides (kept for API/UI that still read maxPicks) */
 export const PLAY_MAX_PICKS = PLAY_MAX_PER_SIDE * 2;
+/** Winning window: top N HIT % and bottom N SHIT % share the pot */
+export const PLAY_WIN_WINDOW = 3;
 /** Must still hold this much $TOKENSHIT (didn't dump claims) */
 export const PLAY_MIN_BALANCE = Number(process.env.PLAY_MIN_BALANCE || 10_000);
 /** Base prize each hour from SHTy; jackpot rolls on top if no winners */
@@ -1435,6 +1437,23 @@ function pickExtreme(
   return { assetId: top.assetId, pct: top.pct };
 }
 
+function pickWindow(
+  moves: Array<{ assetId: string; pct: number; volume24h: number }>,
+  mode: "max" | "min",
+  n: number
+): Array<{ assetId: string; pct: number }> {
+  if (!moves.length || n <= 0) return [];
+  const sorted = [...moves].sort((a, b) => {
+    if (mode === "max") {
+      if (b.pct !== a.pct) return b.pct - a.pct;
+    } else {
+      if (a.pct !== b.pct) return a.pct - b.pct;
+    }
+    return b.volume24h - a.volume24h;
+  });
+  return sorted.slice(0, n).map((m) => ({ assetId: m.assetId, pct: m.pct }));
+}
+
 /** Detect stale/flat price board (all majors frozen). */
 export function isPriceBoardHealthy(
   moves: Array<{ pct: number }>
@@ -1783,20 +1802,24 @@ export async function settleDay(
     if (alt) shitBag = { assetId: alt.assetId, pct: alt.pct };
   }
 
+  const hitWindow = pickWindow(moves, "max", PLAY_WIN_WINDOW);
+  let shitWindow = pickWindow(moves, "min", PLAY_WIN_WINDOW);
+  if (hitBag) {
+    shitWindow = shitWindow.filter((w) => w.assetId !== hitBag.assetId);
+  }
+  const hitIds = new Set(hitWindow.map((w) => w.assetId));
+  const shitIds = new Set(shitWindow.map((w) => w.assetId));
+
   const hitStakes = await listStakes(utcDay, "hit");
   const shitStakes = await listStakes(utcDay, "shit");
 
-  // Tickets = each play (same wallet can hold many tickets on the winning bag)
-  const hitTickets = hitBag
-    ? hitStakes
-        .filter((s) => s.assetId === hitBag.assetId)
-        .map((s) => s.wallet)
-    : [];
-  const shitTickets = shitBag
-    ? shitStakes
-        .filter((s) => s.assetId === shitBag.assetId)
-        .map((s) => s.wallet)
-    : [];
+  // Tickets = each play on any bag in the top/bottom window
+  const hitTickets = hitStakes
+    .filter((s) => hitIds.has(s.assetId))
+    .map((s) => s.wallet);
+  const shitTickets = shitStakes
+    .filter((s) => shitIds.has(s.assetId))
+    .map((s) => s.wallet);
 
   // ——— FREE PLAY settle: one prize pool from SHTy, share all correct picks ———
   if (FREE_PLAY) {
@@ -1896,6 +1919,9 @@ export async function settleDay(
       boardHealth,
       force: !!opts?.force,
       splitMode: true,
+      winWindow: PLAY_WIN_WINDOW,
+      hitWindow,
+      shitWindow,
     });
 
     await tursoExecute(
