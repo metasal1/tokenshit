@@ -175,6 +175,15 @@ export async function GET(request: NextRequest) {
       majors = await withTimeout(majorsFromOpenSnap(prev), 1_500, []);
     }
 
+    // Never show mega/stocks on Play — majors list only
+    if (majors.length > 40) {
+      const { fetchMajorsUniverse } = await import("@/lib/live-prices");
+      const allowed = new Set(
+        (await withTimeout(fetchMajorsUniverse(), 4_000, [])).map((u) => u.assetId)
+      );
+      if (allowed.size) majors = majors.filter((m) => allowed.has(m.assetId));
+    }
+
     const hitCount = stakes.filter((s) => s.side === "hit").length;
     const shitCount = stakes.filter((s) => s.side === "shit").length;
     const uniqueHit = new Set(

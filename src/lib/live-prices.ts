@@ -181,7 +181,15 @@ function num(v: unknown): number | null {
   return null;
 }
 
-/** Universe from Tokens.xyz mega (~485) + hard board symbols (Pyth-priced). */
+/** Universe from Tokens.xyz **majors** (~31). Stocks/mega are off the Play board. */
+export function playUniverseList(): string {
+  return (
+    process.env.PLAY_MAJORS_LIST?.trim() ||
+    process.env.TOKENS_XYZ_MAJORS_LIST?.trim() ||
+    "majors"
+  );
+}
+
 export async function fetchMajorsUniverse(): Promise<PriceHint[]> {
   // short in-memory cache — Tokens.xyz list is slow / flaky on Workers
   const g = globalThis as unknown as {
@@ -191,10 +199,7 @@ export async function fetchMajorsUniverse(): Promise<PriceHint[]> {
     return g.__tsMajorsUni.val;
   }
 
-  const list =
-    process.env.PLAY_MAJORS_LIST?.trim() ||
-    process.env.TOKENS_XYZ_MAJORS_LIST?.trim() ||
-    "mega"; // ~485 assets with logos
+  const list = playUniverseList();
 
   let data: Record<string, unknown> | null = null;
   try {
@@ -305,7 +310,7 @@ export async function fetchMajorsUniverse(): Promise<PriceHint[]> {
 
 /**
  * Resolve live USD — Pyth first, then Jup/CG/Dex, txyz last.
- * Large universes (mega ~485): txyz + Pyth board only (fast path).
+ * Small majors board: full multi-source OK. Mega is not the Play universe.
  */
 export async function priceMajorsLive(
   hints?: PriceHint[]

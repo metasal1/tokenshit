@@ -1058,6 +1058,15 @@ export async function recordStake(opts: {
   }
 
   if (FREE_PLAY) {
+    const { fetchMajorsUniverse } = await import("@/lib/live-prices");
+    const uni = await fetchMajorsUniverse();
+    if (!uni.some((u) => u.assetId === opts.assetId)) {
+      return {
+        ok: false,
+        error: "Play is majors only — pick a bag on the board",
+        status: 400,
+      };
+    }
     const tw = (opts.twitter || "").replace(/^@/, "").trim();
     const [sideUsed, dup, bal, followOk] = await Promise.all([
       countWalletSidePicks(hour, opts.wallet, opts.side),
@@ -1752,11 +1761,15 @@ export async function settleDay(
     openM = await loadPhase(utcDay, "open");
   }
 
-  const {
-    moves,
-    retries: priceRetries,
-    healthy: boardHealth,
-  } = await loadMovesWithCloseRetry(utcDay, openM);
+  const loaded = await loadMovesWithCloseRetry(utcDay, openM);
+  const { fetchMajorsUniverse } = await import("@/lib/live-prices");
+  const allowed = new Set((await fetchMajorsUniverse()).map((u) => u.assetId));
+  const moves =
+    allowed.size > 0
+      ? loaded.moves.filter((m) => allowed.has(m.assetId))
+      : loaded.moves;
+  const priceRetries = loaded.retries;
+  const boardHealth = loaded.healthy;
 
   const hitBag = pickExtreme(moves, "max");
   let shitBag = pickExtreme(moves, "min");
