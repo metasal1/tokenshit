@@ -46,8 +46,8 @@ export const CLAIM_GH_FORK = 7_500;
 export const CLAIM_JUP_VERIFIED = 5_000;
 /** Tweet + tag @Tokenshit_ — every 24h; tweet must be <24h old */
 export const CLAIM_X_TWEET = 2_500;
-/** Follow @Tokenshit_ (once) — minor */
-export const CLAIM_X_FOLLOW = 1_500;
+/** Follow @Tokenshit_ (once) */
+export const CLAIM_X_FOLLOW = 1_000;
 /** Retweet promo post (once) */
 export const CLAIM_X_RETWEET = 1_000;
 /** Target status for x_retweet claim */
