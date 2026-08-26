@@ -242,8 +242,20 @@ textarea,
 .header-ticker-track:hover {
   animation-play-state: paused;
 }
+.footer-ticker-track {
+  animation: header-ticker-scroll 48s linear infinite;
+  will-change: transform;
+}
+.footer-ticker-track-1 { animation-duration: 42s; }
+.footer-ticker-track-2 { animation-duration: 54s; }
+.footer-ticker-track-3 { animation-duration: 36s; }
+.footer-ticker-track-4 { animation-duration: 60s; }
+.footer-ticker-track:hover {
+  animation-play-state: paused;
+}
 @media (prefers-reduced-motion: reduce) {
-  .header-ticker-track {
+  .header-ticker-track,
+  .footer-ticker-track {
     animation: none;
   }
 }

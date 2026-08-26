@@ -1,18 +1,105 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 
 type Item = { assetId: string; symbol: string; pct: number | null };
 type Lane = { key: string; label: string; count: number; items: Item[] };
+
+const STORE = "tokenshit_footer_tickers";
+const ROW = 26;
 
 function fmtPct(n: number) {
   const sign = n > 0 ? "+" : "";
   return `${sign}${n.toFixed(1)}%`;
 }
 
+function LaneTape({
+  lane,
+  speedClass,
+}: {
+  lane: Lane;
+  speedClass: string;
+}) {
+  const chips = lane.items.map((it) => {
+    const up = it.pct != null && it.pct > 0;
+    const down = it.pct != null && it.pct < 0;
+    return (
+      <Link
+        key={it.assetId}
+        href={`/token/${encodeURIComponent(it.assetId)}`}
+        className="inline-flex items-center gap-1 hover:text-neon transition-colors px-2.5"
+      >
+        <span className="text-zinc-300">{it.symbol}</span>
+        {it.pct != null ? (
+          <span
+            className={
+              up ? "text-neon" : down ? "text-rose-400" : "text-zinc-500"
+            }
+          >
+            {fmtPct(it.pct)}
+          </span>
+        ) : null}
+      </Link>
+    );
+  });
+  const loop = chips.length ? [...chips, ...chips, ...chips] : chips;
+
+  return (
+    <div
+      className="flex h-[26px] items-center border-t border-border/50 bg-zinc-950/95 backdrop-blur"
+      style={{ height: ROW }}
+    >
+      <span className="shrink-0 z-10 flex items-center gap-1.5 px-2 sm:px-2.5 border-r border-border/60 bg-zinc-950 min-w-[5.5rem]">
+        <span className="text-neon font-orbitron uppercase tracking-wider text-[9px] sm:text-[10px]">
+          {lane.label}
+        </span>
+        <span className="text-white font-semibold font-mono text-[10px]">
+          {lane.count || "—"}
+        </span>
+      </span>
+      <div className="relative min-w-0 flex-1 overflow-hidden h-full">
+        <div
+          className={`${speedClass} absolute left-0 top-0 flex h-full items-center whitespace-nowrap font-mono text-[10px] sm:text-[11px] text-zinc-300`}
+        >
+          {loop.length ? (
+            loop.map((node, i) => (
+              <span key={i} className="inline-flex items-center">
+                {node}
+                <span className="text-zinc-700 select-none" aria-hidden>
+                  ◆
+                </span>
+              </span>
+            ))
+          ) : (
+            <span className="px-3 text-zinc-600">—</span>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function FooterCategoryTicker() {
   const [lanes, setLanes] = useState<Lane[] | null>(null);
+  const [open, setOpen] = useState(true);
+
+  useEffect(() => {
+    try {
+      const v = localStorage.getItem(STORE);
+      if (v === "0") setOpen(false);
+    } catch {
+      /* */
+    }
+  }, []);
+
+  useEffect(() => {
+    const h = open ? ROW * 4 : ROW;
+    document.documentElement.style.setProperty("--footer-ticker-h", `${h}px`);
+    return () => {
+      document.documentElement.style.removeProperty("--footer-ticker-h");
+    };
+  }, [open]);
 
   useEffect(() => {
     let alive = true;
@@ -32,81 +119,77 @@ export default function FooterCategoryTicker() {
     };
   }, []);
 
-  const chips: { key: string; node: ReactNode }[] = [];
-  for (const lane of lanes || []) {
-    chips.push({
-      key: `h-${lane.key}`,
-      node: (
-        <span className="inline-flex items-center gap-1.5">
-          <span className="text-neon font-orbitron uppercase tracking-wider text-[10px]">
-            {lane.label}
-          </span>
-          <span className="text-white font-semibold">{lane.count || "—"}</span>
-        </span>
-      ),
+  const toggle = () => {
+    setOpen((v) => {
+      const next = !v;
+      try {
+        localStorage.setItem(STORE, next ? "1" : "0");
+      } catch {
+        /* */
+      }
+      return next;
     });
-    for (const it of lane.items) {
-      const up = it.pct != null && it.pct > 0;
-      const down = it.pct != null && it.pct < 0;
-      chips.push({
-        key: `${lane.key}-${it.assetId}`,
-        node: (
-          <Link
-            href={`/token/${encodeURIComponent(it.assetId)}`}
-            className="inline-flex items-center gap-1.5 hover:text-neon transition-colors"
-          >
-            <span className="text-zinc-300">{it.symbol}</span>
-            {it.pct != null ? (
-              <span
-                className={
-                  up
-                    ? "text-neon"
-                    : down
-                      ? "text-rose-400"
-                      : "text-zinc-500"
-                }
-              >
-                {fmtPct(it.pct)}
-              </span>
-            ) : null}
-          </Link>
-        ),
-      });
-    }
-  }
+  };
 
-  if (!chips.length) {
-    return (
-      <div
-        className="relative w-full overflow-hidden border-t border-border/60 bg-zinc-950"
-        style={{ height: 32 }}
-        aria-hidden
-      />
-    );
-  }
-
-  const loop = [...chips, ...chips, ...chips];
+  const list = lanes || [];
 
   return (
     <div
-      className="relative w-full overflow-hidden border-t border-border/60 bg-zinc-950"
-      style={{ height: 32 }}
+      className="fixed inset-x-0 z-40 pointer-events-auto bottom-[calc(4.25rem+env(safe-area-inset-bottom,0px))] md:bottom-0"
+      role="region"
+      aria-label="Category tickers"
     >
-      <div
-        className="header-ticker-track absolute left-0 top-0 flex h-full items-center gap-0 whitespace-nowrap font-mono text-[11px] sm:text-xs text-zinc-300"
-        aria-label="Stocks, majors, metals, and RWA ticker"
+      <button
+        type="button"
+        onClick={toggle}
+        className="absolute -top-6 right-2 z-20 min-h-6 px-2 rounded-t-md border border-b-0 border-border/70 bg-zinc-950/95 text-[9px] font-orbitron uppercase tracking-wider text-zinc-400 hover:text-neon"
+        aria-expanded={open}
       >
-        {loop.map((it, i) => (
-          <span key={`${it.key}-${i}`} className="inline-flex items-center">
-            <span className="px-3 sm:px-4">{it.node}</span>
-            <span className="text-zinc-700 select-none" aria-hidden>
-              ◆
-            </span>
+        {open ? "Hide" : "Tickers"}
+      </button>
+
+      {open ? (
+        <div className="border-t border-border/70 shadow-[0_-8px_24px_rgba(0,0,0,0.35)]">
+          {list.map((lane, i) => (
+            <LaneTape
+              key={lane.key}
+              lane={lane}
+              speedClass={`footer-ticker-track footer-ticker-track-${i + 1}`}
+            />
+          ))}
+          {!list.length ? (
+            <div
+              className="border-t border-border/50 bg-zinc-950"
+              style={{ height: ROW * 4 }}
+              aria-hidden
+            />
+          ) : null}
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={toggle}
+          className="flex h-[26px] w-full items-center justify-between gap-2 border-t border-border/70 bg-zinc-950/95 px-3 font-mono text-[10px] text-zinc-400 hover:text-zinc-200"
+        >
+          <span className="truncate">
+            {(list.length ? list : [
+              { label: "Stocks", count: 0 },
+              { label: "Majors", count: 0 },
+              { label: "Metals", count: 0 },
+              { label: "RWA", count: 0 },
+            ]).map((l, i) => (
+              <span key={l.label}>
+                {i ? " · " : ""}
+                <span className="text-neon">{l.label}</span>{" "}
+                {l.count || "—"}
+              </span>
+            ))}
           </span>
-        ))}
-      </div>
-      <div className="pointer-events-none absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-background to-transparent z-10" />
-      <div className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-background to-transparent z-10" />
+          <span className="font-orbitron uppercase tracking-wider text-[9px] text-zinc-500 shrink-0">
+            Show
+          </span>
+        </button>
+      )}
     </div>
   );
 }
