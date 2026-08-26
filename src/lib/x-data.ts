@@ -988,7 +988,7 @@ const followCache = new Map<
 >();
 /** Positive follow hits stay longer; negatives / errors expire fast (just-followed UX). */
 const FOLLOW_CACHE_POS_MS = 30 * 60 * 1000;
-const FOLLOW_CACHE_NEG_MS = 2 * 60 * 1000;
+const FOLLOW_CACHE_NEG_MS = 15 * 1000;
 
 function isTokenshitFollowTarget(u: {
   id?: string | number | null;
@@ -1046,240 +1046,47 @@ export async function checkXFollowsTokenshit(username: string): Promise<{
     return val;
   };
 
-  // 1) ApiTwitter official docs (www.apitwitter.com/docs)
-  //    GET /twitter/user/{user} + /following + /followers
-  //    No relationship endpoint. Newest followers of @Tokenshit_ first
-  //    (claim path is follow-then-claim). Then scan the claimer's following.
+  // 1) Official ApiTwitter: newest @Tokenshit_ followers only (claim = follow then tap).
+  //    Do NOT scan the claimer's /following (11k follows = Worker timeout).
+  //    Do NOT fall through to twitterapi.io / official X (402).
   if (apiTwitterKey()) {
     try {
-      const hitIn = async (
-        pathBase: string,
-        listKey: "following" | "followers",
-        maxPages: number
-      ): Promise<"yes" | "no" | "unk"> => {
-        let cursor = "";
-        let saw = 0;
-        for (let page = 0; page < maxPages; page++) {
-          const q = cursor
-            ? `${pathBase}?count=200&cursor=${encodeURIComponent(cursor)}`
-            : `${pathBase}?count=200`;
-          const g = await apiTwitterGetJson(q, 15_000);
-          if (!g.ok) return "unk";
-          const blob = g.json?.data ?? g.json;
-          const list = Array.isArray(blob)
-            ? blob
-            : blob?.[listKey] ||
-              blob?.followings ||
-              blob?.users ||
-              blob?.data ||
-              [];
-          if (Array.isArray(list)) {
-            saw += list.length;
-            if (list.some((u: any) => isTokenshitFollowTarget(u))) return "yes";
-            if (listKey === "followers") {
-              const me = user.toLowerCase();
-              if (
-                list.some((u: any) => {
-                  const h = String(
-                    u?.userName || u?.username || u?.screen_name || ""
-                  )
-                    .replace(/^@/, "")
-                    .toLowerCase();
-                  return h === me || String(u?.id || "") === me;
-                })
-              )
-                return "yes";
-            }
-          }
-          const next =
-            (blob && (blob.next_cursor || blob.nextCursor || blob.cursor)) || "";
-          if (!next || next === cursor) return saw > 0 ? "no" : "unk";
-          cursor = String(next);
-        }
-        return "unk";
-      };
-
-      const recent = await hitIn(
-        `/twitter/user/Tokenshit_/followers`,
-        "followers",
-        3
+      const g = await apiTwitterGetJson(
+        `/twitter/user/Tokenshit_/followers?count=50`,
+        8_000
       );
-      if (recent === "yes") {
-        return rememberFollow({
-          ok: true,
-          following: true,
-          source: "apitwitter-followers",
-        });
-      }
-
-      const theirs = await hitIn(
-        `/twitter/user/${encodeURIComponent(user)}/following`,
-        "following",
-        3
-      );
-      if (theirs === "yes") {
-        return rememberFollow({
-          ok: true,
-          following: true,
-          source: "apitwitter-following",
-        });
-      }
-
-      if (recent === "no" && theirs === "no") {
-        return rememberFollow({
-          ok: true,
-          following: false,
-          source: "apitwitter-following",
-        });
-      }
-    } catch {
-      /* fall through */
-    }
-  }
-
-  // 2) twitterapi.io relationship (backup)
-  const ioKey = twitterApiIoKey();
-  if (ioKey) {
-    try {
-      const url = new URL(
-        `${TWITTERAPI_IO_BASE}/twitter/user/check_follow_relationship`
-      );
-      url.searchParams.set("source_user_name", user);
-      url.searchParams.set("target_user_name", "Tokenshit_");
-      const res = await fetchTimeout(
-        url.toString(),
-        { headers: { "X-API-Key": ioKey } },
-        10_000
-      );
-      if (res.ok) {
-        const json = (await res.json()) as {
-          status?: string;
-          data?: Record<string, unknown>;
-          msg?: string;
-        };
-        const flag = relationshipFollowingFlag(json.data);
-        if (flag !== null && (json.status === "success" || Boolean(json.data))) {
-          return rememberFollow({
-            ok: true,
-            following: flag,
-            source: "twitterapi.io",
+      if (g.ok) {
+        const blob = g.json?.data ?? g.json;
+        const list = Array.isArray(blob)
+          ? blob
+          : blob?.followers || blob?.users || blob?.data || [];
+        const me = user.toLowerCase();
+        const hit =
+          Array.isArray(list) &&
+          list.some((u: any) => {
+            const h = String(u?.userName || u?.username || u?.screen_name || "")
+              .replace(/^@/, "")
+              .toLowerCase();
+            return h === me || String(u?.id || "") === me;
           });
-        }
-      }
-    } catch {
-      /* fall through */
-    }
-
-    // 4) followings page scan — POSITIVE only.
-    try {
-      const url = `${TWITTERAPI_IO_BASE}/twitter/user/followings?userName=${encodeURIComponent(user)}`;
-      const res = await fetchTimeout(
-        url,
-        { headers: { "X-API-Key": ioKey } },
-        12_000
-      );
-      if (res.ok) {
-        const json = (await res.json()) as {
-          followings?: {
-            id?: string;
-            userName?: string;
-            screen_name?: string;
-            username?: string;
-          }[];
-          data?: {
-            followings?: {
-              id?: string;
-              userName?: string;
-              screen_name?: string;
-              username?: string;
-            }[];
-          };
-        };
-        const list = json.followings || json.data?.followings || [];
-        if (list.some((u) => isTokenshitFollowTarget(u))) {
+        if (hit) {
           return rememberFollow({
             ok: true,
             following: true,
-            source: "twitterapi.io-followings",
+            source: "apitwitter-followers",
           });
         }
-        // miss → fall through (do not cache false)
-      }
-    } catch {
-      /* fall through */
-    }
-  }
-
-  // Resolve source id for legacy providers
-  const profile = await fetchXUserPublic(user);
-  if (!profile.ok || !profile.id) {
-    return rememberFollow({
-      ok: false,
-      following: false,
-      error: profile.error || "user not found",
-    });
-  }
-
-  // TweetAPI friendship (legacy)
-  const key = tweetApiKey();
-  if (key) {
-    try {
-      const url = `${TWEETAPI_BASE}/user/friendship?subjectId=${encodeURIComponent(
-        profile.id
-      )}&targetId=${encodeURIComponent(TOKENSHIT_ID)}`;
-      const res = await fetch(url, {
-        headers: { "X-API-Key": key },
-        cache: "no-store",
-      });
-      if (res.ok) {
-        const json = await res.json();
-        const d = (json.data || json) as Record<string, unknown>;
-        const flag = relationshipFollowingFlag(d);
-        if (flag !== null) {
-          return rememberFollow({
-            ok: true,
-            following: flag,
-            source: "tweetapi",
-          });
-        }
-      }
-    } catch {
-      /* fall through */
-    }
-  }
-
-  // Official following pages are expensive (up to 3k follows) — skip if cooldown
-  const bearer = xBearer();
-  if (bearer && Date.now() >= officialXCooldownUntil) {
-    // single page max — was 3 pages and burned credits; POSITIVE only
-    const url = new URL(
-      `https://api.x.com/2/users/${profile.id}/following`
-    );
-    url.searchParams.set("max_results", "1000");
-    url.searchParams.set("user.fields", "username");
-    const fRes = await fetch(url.toString(), {
-      headers: { Authorization: `Bearer ${bearer}` },
-      cache: "no-store",
-    });
-    if (fRes.ok) {
-      const fJson = await fRes.json();
-      const list = (fJson.data || []) as { id: string; username?: string }[];
-      if (
-        list.some(
-          (u) =>
-            u.id === TOKENSHIT_ID ||
-            (u.username || "").toLowerCase() === TOKENSHIT_USER
-        )
-      ) {
+        // Not in newest page — inconclusive, not "not following"
         return rememberFollow({
-          ok: true,
-          following: true,
-          source: "x-official",
+          ok: false,
+          following: false,
+          error:
+            "Follow @Tokenshit_ on X, wait a few seconds, then claim.",
+          source: "apitwitter-followers",
         });
       }
-      // miss on one page is inconclusive — do not claim not-following
-    } else if (fRes.status === 402 || fRes.status === 429 || fRes.status === 401) {
-      officialXCooldownUntil = Date.now() + OFFICIAL_COOLDOWN_MS;
+    } catch {
+      /* fall through to fail-closed */
     }
   }
 
@@ -1287,7 +1094,7 @@ export async function checkXFollowsTokenshit(username: string): Promise<{
     ok: false,
     following: false,
     error:
-      "Could not verify follow. Try again in a few seconds, or ensure you follow @Tokenshit_.",
+      "Could not verify follow. Follow @Tokenshit_, wait a few seconds, then claim.",
   });
 }
 

@@ -203,8 +203,14 @@ export async function GET(request: NextRequest) {
         github,
         wallet,
       });
-      const f = await checkXFollowsTokenshit(twitter);
-      following = f.ok ? !!f.following : null;
+      if (kind === "x_follow") {
+        following = eligible ? true : null;
+      } else if (followClaimed) {
+        following = true;
+      } else {
+        const f = await checkXFollowsTokenshit(twitter);
+        following = f.ok ? !!f.following : null;
+      }
       if (kind !== "x_follow") {
         // Need durable follow claim; live not-following also blocks
         if (!followClaimed || following === false) {
