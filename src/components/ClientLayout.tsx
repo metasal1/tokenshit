@@ -425,7 +425,7 @@ function Layout({ children }: { children: React.ReactNode }) {
       <ClaimGlitchToast />
       <SignupGlitchToast />
       <EmailSignupModal />
-      <main className="flex-1 pb-[calc(4.25rem+env(safe-area-inset-bottom,0px))] md:pb-0">
+      <main className="flex-1 pb-[calc(4.25rem+env(safe-area-inset-bottom,0px)+var(--footer-ticker-h,0px))] md:pb-[var(--footer-ticker-h,0px)]">
         <PageTransition>{children}</PageTransition>
       </main>
 
@@ -556,7 +556,7 @@ function Layout({ children }: { children: React.ReactNode }) {
         </p>
       </footer>
       {/* Compact footer strip on mobile */}
-      <footer className="md:hidden border-t border-border py-3 text-center text-[10px] text-zinc-600 font-orbitron tracking-wide mb-[calc(4.25rem+env(safe-area-inset-bottom,0px))]">
+      <footer className="md:hidden border-t border-border py-3 text-center text-[10px] text-zinc-600 font-orbitron tracking-wide mb-[calc(4.25rem+env(safe-area-inset-bottom,0px)+var(--footer-ticker-h,0px))]">
         <p className="font-sans normal-case">
           TokenShit ·{" "}
           <Link href="/terms" className="hover:text-zinc-400">
