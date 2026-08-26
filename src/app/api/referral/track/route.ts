@@ -95,6 +95,26 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (referredWallet) {
+      const mule = await tursoExecute(
+        "SELECT id FROM referrals WHERE referred_wallet = ? LIMIT 1",
+        [referredWallet]
+      );
+      if (mule.rows.length > 0) {
+        return Response.json(
+          { error: "This wallet was already used for a referral", code: "wallet_reuse" },
+          { status: 409 }
+        );
+      }
+    }
+
+    if (isBlacklistedTwitter(referredTwitter)) {
+      return Response.json(
+        { error: "Invalid account", code: "referred_blocked" },
+        { status: 403 }
+      );
+    }
+
     await tursoExecute(
       "INSERT INTO referrals (referrer_twitter, referred_twitter, referred_wallet) VALUES (?, ?, ?)",
       [referrerTwitter, referredTwitter, referredWallet || null]
