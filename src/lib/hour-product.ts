@@ -1,22 +1,22 @@
 /**
- * Product brand: $HIT OF THE DAY (in-app)
- * Tweets / X copy: SH!T OF THE DAY (reads as SHIT, not $HIT)
+ * Product brand: PLAY FOR PRIZES (in-app + OG)
+ * Tweets / X copy: SH!T (reads as SHIT, not $HIT)
  * Game sides remain HIT / SHIT (mechanics).
  */
 export const PLAY_PRODUCT = {
   /** Full product name (UI) */
-  name: "$HIT OF THE DAY",
+  name: "PLAY FOR PRIZES",
   /** X / tweet / share product name */
-  tweetName: "SH!T OF THE DAY",
+  tweetName: "PLAY FOR PRIZES",
   /** Display without ticker $ for Monoton split if needed */
-  nameDisplay: "HIT OF THE DAY",
+  nameDisplay: "PLAY FOR PRIZES",
   /** Short nav label */
   nav: "Play",
   /** One-liner */
-  tagline: "Call HIT or SHIT. Play the bag.",
+  tagline: "FREE. 1 UP + 1 DOWN. Win the hour.",
   /** Rules blurb */
   blurb:
-    "1,000 $TOKENSHIT · house spark in the bag · best % HIT pot · worst % SHIT pot · prize split · 25% house",
+    "FREE Play · 1 UP + 1 DOWN per hour · hold 10,000 · follow @Tokenshit_ · 10,000 $TOKENSHIT / hour · jackpot rolls",
   /** Canonical public paths */
   path: "/play",
   winnersPath: "/winners",

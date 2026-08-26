@@ -338,7 +338,7 @@ def build() -> Image.Image:
 
     # rules card
     rules = [
-        ("FREE to play", "No stake  |  lock up to 5 bags at once"),
+        ("FREE to play", "No stake  |  1 UP + 1 DOWN per hour"),
         ("Hold 10,000 $TOKENSHIT", "Keep your claims  |  don't dump"),
         ("Follow @Tokenshit_", "Required before you Play"),
         ("Call UP or DOWN", "Best % = HIT  |  worst % = SHIT"),
