@@ -665,7 +665,7 @@ export default function DayGamePanel({
 
   if (!ready || loading || !status) {
     return (
-      <div className="flex h-full min-h-[12rem] flex-col items-center justify-center gap-3 rounded-3xl border border-border bg-card px-4">
+      <div className="flex h-full min-h-[12rem] flex-col items-center justify-center gap-3 px-4">
         {loadErr ? (
           <>
             <p className="text-center text-sm text-red-400">{loadErr}</p>
@@ -715,68 +715,42 @@ export default function DayGamePanel({
       className="flex h-full min-h-0 flex-col"
       onPointerDown={() => sfx.unlock()}
     >
-      {/* Slim HUD */}
-      <div className="shrink-0 rounded-t-3xl border border-b-0 border-neon/30 bg-[#0c0c12]">
-        <div className="flex items-center gap-2 px-3 py-2">
-          <div
-            className={`min-w-[4.5rem] rounded-xl border px-2 py-1 text-center ${
-              urgent
-                ? "border-amber-400/50 bg-amber-500/10"
-                : "border-neon/35 bg-black/50"
-            }`}
-          >
-            <div
-              className={`font-mono text-lg font-black tabular-nums leading-none ${
-                urgent ? "text-amber-300" : "text-neon"
-              }`}
-            >
-              {countdown}
+      {/* HUD — no card chrome */}
+      <div className="shrink-0">
+        <div className="flex items-end justify-between gap-3 px-3 py-2">
+          <div>
+            <div className="font-orbitron text-[9px] uppercase tracking-[0.18em] text-zinc-500">
+              Prize this hour
+            </div>
+            <div className="font-mono text-2xl font-black tabular-nums leading-none text-neon">
+              {fmt(
+                status?.prize?.total ??
+                  (hitPot + shitPot || DEFAULT_HOUR_PRIZE)
+              )}
             </div>
           </div>
-
-          <button
-            type="button"
-            onClick={() => setSideSafe("hit")}
-            className={`cursor-hit min-w-0 flex-1 rounded-xl px-2 py-1.5 text-left transition ${
-              side === "hit"
-                ? "bg-green-500/20 ring-1 ring-green-400/50"
-                : "bg-green-950/30 opacity-70"
-            }`}
-          >
-            <div className="font-orbitron text-[9px] uppercase tracking-wider text-green-400">
-              UP
+          <div className="flex items-end gap-2">
+            <div className="text-right">
+              <div className="font-orbitron text-[9px] uppercase tracking-wider text-zinc-500">
+                {urgent ? "Closing" : "Closes"}
+              </div>
+              <div
+                className={`font-mono text-2xl font-black tabular-nums leading-none ${
+                  urgent ? "text-amber-300" : "text-white"
+                }`}
+              >
+                {countdown}
+              </div>
             </div>
-            <div className="truncate font-mono text-base font-black tabular-nums text-green-300">
-              {fmt(hitPot)}
-            </div>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setSideSafe("shit")}
-            className={`cursor-shit min-w-0 flex-1 rounded-xl px-2 py-1.5 text-right transition ${
-              side === "shit"
-                ? "bg-red-500/20 ring-1 ring-red-400/50"
-                : "bg-red-950/30 opacity-70"
-            }`}
-          >
-            <div className="font-orbitron text-[9px] uppercase tracking-wider text-red-400">
-              DOWN
-            </div>
-            <div className="truncate font-mono text-base font-black tabular-nums text-red-300">
-              {fmt(shitPot)}
-            </div>
-          </button>
-
-          <button
-            type="button"
-            onClick={onMute}
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-zinc-800 text-sm"
-            aria-label={soundOn ? "Mute" : "Unmute"}
-            title={soundOn ? "Mute" : "Unmute"}
-          >
-            <EmojiIcon size={16}>{soundOn ? "🔊" : "🔇"}</EmojiIcon>
-          </button>
+            <button
+              type="button"
+              onClick={onMute}
+              className="mb-0.5 flex h-8 w-8 shrink-0 items-center justify-center text-sm opacity-70"
+              aria-label={soundOn ? "Mute" : "Unmute"}
+            >
+              <EmojiIcon size={16}>{soundOn ? "🔊" : "🔇"}</EmojiIcon>
+            </button>
+          </div>
         </div>
 
         {/* one-line leaders */}
@@ -831,7 +805,7 @@ export default function DayGamePanel({
       </div>
 
       {showTip && (
-        <div className="flex shrink-0 items-center gap-2 border-x border-border bg-neon/10 px-3 py-2 text-[11px] leading-snug text-zinc-200">
+        <div className="flex shrink-0 items-center gap-2 bg-neon/10 px-3 py-2 text-[11px] leading-snug text-zinc-200">
           <span className="min-w-0 flex-1">
             <b className="text-neon">Play:</b> tap 1 UP and 1 DOWN, then Lock.{" "}
             FREE · 1 UP + 1 DOWN · {DEFAULT_HOUR_PRIZE.toLocaleString()} ${SHIT_SYMBOL}/hr · jackpot rolls
@@ -848,7 +822,7 @@ export default function DayGamePanel({
       )}
 
 
-      <div className="flex shrink-0 items-center justify-center gap-3 border-x border-border bg-black/40 px-3 py-1.5 font-mono text-[11px] text-zinc-400">
+      <div className="flex shrink-0 items-center justify-center gap-3 bg-transparent px-3 py-1.5 font-mono text-[11px] text-zinc-400">
         <span>
           <b className="text-neon">{status?.stats?.players ?? 0}</b> playing
         </span>
@@ -877,7 +851,7 @@ export default function DayGamePanel({
         wallet &&
         solBalUi != null &&
         solBalUi < 0.002 && (
-          <div className="flex shrink-0 flex-col gap-1.5 border-x border-amber-500/30 bg-amber-500/10 px-3 py-2">
+          <div className="flex shrink-0 flex-col gap-1.5 border-y bg-amber-500/10 px-3 py-2">
             <p className="text-[11px] text-amber-100 leading-snug">
               <b className="text-amber-300">Low SOL</b> — need ~0.01 SOL for
               play fees
@@ -905,7 +879,7 @@ export default function DayGamePanel({
         shitBalUi != null &&
         shitBalUi < (status?.minBalance ?? DEFAULT_MIN_BAL) &&
         !(solBalUi != null && solBalUi < 0.002) && (
-          <div className="flex shrink-0 flex-col gap-1.5 border-x border-neon/25 bg-neon/5 px-3 py-2">
+          <div className="flex shrink-0 flex-col gap-1.5 border-y bg-neon/5 px-3 py-2">
             <p className="text-[11px] text-zinc-200 leading-snug">
               Need {(status?.minBalance ?? DEFAULT_MIN_BAL).toLocaleString()} ${SHIT_SYMBOL} held to play (have{" "}
               {fmt(shitBalUi)}).
@@ -928,7 +902,7 @@ export default function DayGamePanel({
         )}
 
       {/* Side pills */}
-      <div className="shrink-0 border-x border-border bg-card px-3 py-2">
+      <div className="shrink-0 px-3 py-2">
         <div className="grid grid-cols-2 gap-1.5 rounded-2xl bg-zinc-950 p-1">
           <button
             type="button"
@@ -956,7 +930,7 @@ export default function DayGamePanel({
       </div>
 
       {/* Bags */}
-      <div className="flex min-h-0 flex-1 flex-col border-x border-border bg-card">
+      <div className="flex min-h-0 flex-1 flex-col">
         <div className="flex shrink-0 items-center gap-2 px-3 pt-2">
           <input
             value={q}
