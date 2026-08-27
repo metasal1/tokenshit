@@ -20,6 +20,13 @@ type Poster = {
 
 const POSTERS: Poster[] = [
   {
+    title: "Massive play board",
+    blurb: "30 tokens available to play",
+    href: "/play",
+    src: "/brand/massive-play-poster.png",
+    src2x: "/brand/massive-play-poster@2x.png",
+  },
+  {
     title: "150k in the pot",
     blurb: "150,000 SH!T currently in the Play pot",
     href: "/play",
