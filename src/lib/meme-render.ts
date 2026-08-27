@@ -194,20 +194,40 @@ export function drawMonotonBox(
   ctx.restore();
 }
 
-function drawWatermark(ctx: CanvasRenderingContext2D, w: number, h: number) {
+function markText(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  x: number,
+  y: number,
+  size: number,
+  align: CanvasTextAlign,
+  baseline: CanvasTextBaseline
+) {
+  ctx.font = `600 ${size}px system-ui, -apple-system, sans-serif`;
+  ctx.textAlign = align;
+  ctx.textBaseline = baseline;
+  ctx.lineWidth = Math.max(1, size * 0.08);
+  ctx.strokeStyle = "rgba(0,0,0,0.45)";
+  ctx.fillStyle = "rgba(255,255,255,0.82)";
+  ctx.strokeText(text, x, y);
+  ctx.fillText(text, x, y);
+}
+
+function drawWatermark(
+  ctx: CanvasRenderingContext2D,
+  w: number,
+  h: number,
+  username?: string | null
+) {
   ctx.save();
-  const corner = Math.max(11, Math.round(Math.min(w, h) * 0.022));
-  ctx.font = `600 ${corner}px system-ui, -apple-system, sans-serif`;
-  ctx.textAlign = "left";
-  ctx.textBaseline = "bottom";
-  ctx.fillStyle = "rgba(255,255,255,0.22)";
-  ctx.strokeStyle = "rgba(0,0,0,0.18)";
-  ctx.lineWidth = 1;
-  ctx.strokeText("tokenshit.com/memes", 8, h - 6);
-  ctx.fillText("tokenshit.com/memes", 8, h - 6);
-  ctx.font = `500 ${Math.max(9, corner - 2)}px system-ui, sans-serif`;
-  ctx.fillStyle = "rgba(57,255,20,0.28)";
-  ctx.fillText("@Tokenshit_", 8, h - 6 - corner - 2);
+  const size = Math.max(12, Math.round(Math.min(w, h) * 0.028));
+  const pad = Math.max(8, Math.round(Math.min(w, h) * 0.018));
+  markText(ctx, "tokenshit.com/memes", pad, h - pad, size, "left", "bottom");
+  const handle = (username || "").trim();
+  if (handle) {
+    const label = handle.startsWith("@") ? handle : `@${handle}`;
+    markText(ctx, label, w - pad, pad, size, "right", "top");
+  }
   ctx.restore();
 }
 
@@ -320,7 +340,7 @@ export async function renderTokenshitMeme(
   blankUrl: string,
   boxes: MemeBox[],
   texts: string[],
-  opts?: { brand?: boolean }
+  opts?: { brand?: boolean; username?: string | null }
 ): Promise<string> {
   const canvas = await renderTokenshitMemeCanvas(blankUrl, boxes, texts, opts);
   try {
@@ -336,7 +356,7 @@ async function renderTokenshitMemeCanvas(
   blankUrl: string,
   boxes: MemeBox[],
   texts: string[],
-  opts?: { brand?: boolean }
+  opts?: { brand?: boolean; username?: string | null }
 ): Promise<HTMLCanvasElement> {
   await ensureMonotonFont();
   const src = blankSrc(blankUrl);
@@ -351,7 +371,7 @@ async function renderTokenshitMemeCanvas(
   boxes.forEach((box, i) => {
     drawMonotonBox(ctx, box, texts[i] || "", canvas.width, canvas.height);
   });
-  if (opts?.brand !== false) drawWatermark(ctx, canvas.width, canvas.height);
+  if (opts?.brand !== false) drawWatermark(ctx, canvas.width, canvas.height, opts?.username);
   return canvas;
 }
 
@@ -359,7 +379,7 @@ export async function renderTokenshitMemeBlob(
   blankUrl: string,
   boxes: MemeBox[],
   texts: string[],
-  opts?: { brand?: boolean }
+  opts?: { brand?: boolean; username?: string | null }
 ): Promise<Blob> {
   const canvas = await renderTokenshitMemeCanvas(blankUrl, boxes, texts, opts);
   const blob = await new Promise<Blob | null>((resolve) =>

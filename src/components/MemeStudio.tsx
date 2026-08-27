@@ -22,6 +22,8 @@ import {
   useState,
 } from "react";
 import Link from "next/link";
+import { usePrivy } from "@privy-io/react-auth";
+import { getDisplayHandle } from "@/lib/privy-identity";
 import { EmojiIcon } from "@/components/EmojiIcon";
 import { XLogo } from "@/components/XLogo";
 import MemeStage from "@/components/MemeStage";
@@ -91,6 +93,9 @@ function fileToDataUrl(file: Blob): Promise<string> {
 }
 
 export default function MemeStudio({ embedded = false }: { embedded?: boolean }) {
+  const { user, authenticated } = usePrivy();
+  const wmUser = authenticated ? getDisplayHandle(user) : "";
+
   const [items, setItems] = useState<MemeTemplate[]>([]);
   const [uploads, setUploads] = useState<MemeTemplate[]>([]);
   const [loading, setLoading] = useState(true);
@@ -415,6 +420,7 @@ export default function MemeStudio({ embedded = false }: { embedded?: boolean })
         try {
           const url = await renderTokenshitMeme(selected.blank, boxes, texts, {
             brand: true,
+            username: wmUser,
           });
           if (!cancelled) setPreview(url);
         } catch (e) {
@@ -429,7 +435,7 @@ export default function MemeStudio({ embedded = false }: { embedded?: boolean })
       cancelled = true;
       window.clearTimeout(t);
     };
-  }, [selected, texts, boxes]);
+  }, [selected, texts, boxes, wmUser]);
 
   /** Reliable PNG blob — prefer canvas.toBlob, then preview dataURL */
   const getMemeBlob = useCallback(async (): Promise<Blob> => {
@@ -438,6 +444,7 @@ export default function MemeStudio({ embedded = false }: { embedded?: boolean })
     try {
       return await renderTokenshitMemeBlob(selected.blank, boxes, texts, {
         brand: true,
+        username: wmUser,
       });
     } catch (e) {
       if (preview.startsWith("data:")) {
@@ -451,7 +458,7 @@ export default function MemeStudio({ embedded = false }: { embedded?: boolean })
       }
       throw e;
     }
-  }, [preview, selected, boxes, texts]);
+  }, [preview, selected, boxes, texts, wmUser]);
 
   const buildShareUrl = useCallback(() => {
     if (!selected || typeof window === "undefined") return "";
