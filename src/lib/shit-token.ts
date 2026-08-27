@@ -106,7 +106,7 @@ export const MAJOR_CLAIMS_PER_IP_DAY = Number(
   process.env.MAJOR_CLAIMS_PER_IP_DAY || 1
 );
 export const ABUSE_MIN_FOLLOWERS_CLAIM = Number(
-  process.env.MIN_X_FOLLOWERS_CLAIM || 500
+  process.env.MIN_X_FOLLOWERS_CLAIM || 100
 );
 export const ABUSE_MIN_FOLLOWERS_REFERRAL = Number(
   process.env.MIN_X_FOLLOWERS_REFERRAL || 500

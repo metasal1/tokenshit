@@ -975,7 +975,7 @@ export default function ClaimPanel() {
           statusLoading={statusLoading && authenticated}
           title={`1. Follow @${X_HANDLE} (required)`}
           amount={CLAIM_X_FOLLOW}
-          hint="1,000 once. If payout fails (no gas), tap Claim again later. We never send SOL."
+          hint="1,000 once. Follow then claim. If you followed earlier, unfollow + follow again, then Claim."
         >
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <a
