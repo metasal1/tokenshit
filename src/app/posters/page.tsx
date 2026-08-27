@@ -21,7 +21,7 @@ type Poster = {
 const POSTERS: Poster[] = [
   {
     title: "Free Play",
-    blurb: "10k/hr · 1 UP + 1 DOWN · hold 10k · follow",
+    blurb: "FREE · 1 UP + 1 DOWN · top 3 win · 10k/hr",
     href: "/play",
     src: "/brand/play-poster.png",
     src2x: "/brand/play-poster@2x.png",
