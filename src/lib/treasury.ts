@@ -503,16 +503,33 @@ async function sendShitFromPayer(opts: {
     );
   }
 
+  const destAcc = await getAccount(
+    conn,
+    toAta,
+    "confirmed",
+    TOKEN_2022_PROGRAM_ID
+  ).catch(() => null);
+
   const { memoInstruction, TX_MEMO_DEFAULT } = await import("@/lib/tx-memo");
-  const ix = [
-    createAssociatedTokenAccountIdempotentInstruction(
-      feePayer.publicKey,
-      toAta,
-      toOwner,
-      mint,
-      TOKEN_2022_PROGRAM_ID,
-      ASSOCIATED_TOKEN_PROGRAM_ID
-    ),
+  const ix = [];
+  if (!destAcc) {
+    // Claims: never pay ATA rent. Farmers dump 2500 SHIT then CloseAccount
+    // and pocket the rent we funded. Play pot may still create ATAs.
+    if (opts.applyTreasuryGates) {
+      throw new Error("recipient_needs_ata");
+    }
+    ix.push(
+      createAssociatedTokenAccountIdempotentInstruction(
+        feePayer.publicKey,
+        toAta,
+        toOwner,
+        mint,
+        TOKEN_2022_PROGRAM_ID,
+        ASSOCIATED_TOKEN_PROGRAM_ID
+      )
+    );
+  }
+  ix.push(
     createTransferCheckedInstruction(
       fromAta,
       mint,
@@ -523,8 +540,8 @@ async function sendShitFromPayer(opts: {
       [],
       TOKEN_2022_PROGRAM_ID
     ),
-    memoInstruction(opts.memo || TX_MEMO_DEFAULT, [feePayer.publicKey]),
-  ];
+    memoInstruction(opts.memo || TX_MEMO_DEFAULT, [feePayer.publicKey])
+  );
 
   const MAX_ATTEMPTS = opts.maxAttempts ?? 4;
   const confirmMs = opts.maxConfirmMs ?? 45_000;
