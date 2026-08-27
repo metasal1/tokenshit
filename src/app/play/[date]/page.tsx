@@ -9,6 +9,9 @@ import {
 import { tursoExecute } from "@/lib/turso";
 import { vrfExplorerLinks, type VrfRecord } from "@/lib/day-vrf-links";
 import { PLAY_PRODUCT } from "@/lib/hour-product";
+import { hourSettleTweet } from "@/lib/token-x-copy";
+import { getAssetX } from "@/lib/token-x";
+import { XLogo } from "@/components/XLogo";
 
 export const dynamic = "force-dynamic";
 
@@ -148,6 +151,33 @@ export default async function PlayReceiptPage({ params }: Props) {
     }
   }
 
+  const hitX = round?.hitAssetId
+    ? await getAssetX(round.hitAssetId, hitMeta?.symbol)
+    : "";
+  const shitX = round?.shitAssetId
+    ? await getAssetX(round.shitAssetId, shitMeta?.symbol)
+    : "";
+  const receiptUrl = `https://tokenshit.com/play/${encodeURIComponent(day)}`;
+  const tweetText =
+    round?.status === "settled"
+      ? `${hourSettleTweet({
+          hit: {
+            symbol: hitMeta?.symbol || round.hitAssetId || "",
+            handle: hitX,
+            pct: round.hitPct ?? null,
+            winner: round.hitWinner || null,
+            prize: round.hitPrize ?? null,
+          },
+          shit: {
+            symbol: shitMeta?.symbol || round.shitAssetId || "",
+            handle: shitX,
+            pct: round.shitPct ?? null,
+            winner: round.shitWinner || null,
+            prize: round.shitPrize ?? null,
+          },
+        })}\n${receiptUrl}`
+      : `${PLAY_PRODUCT.tweetName} · ${formatHourLabel(day)}\n\nPlay this hour. FREE. 1 UP + 1 DOWN. Top 3 win.\n\n${receiptUrl}`;
+
   return (
     <div className="mx-auto w-full max-w-lg px-3 sm:px-4 pt-6 pb-10 space-y-4">
       <div className="rounded-2xl border border-border bg-card p-5 space-y-3">
@@ -236,6 +266,16 @@ export default async function PlayReceiptPage({ params }: Props) {
             <VrfSection vrf={shitVrf} label="SHIT" />
           </div>
         </div>
+
+        <a
+          href={`https://x.com/intent/tweet?text=${encodeURIComponent(tweetText)}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="w-full min-h-11 rounded-xl bg-neon text-black font-bold text-sm inline-flex items-center justify-center gap-2 hover:brightness-110"
+        >
+          <XLogo size={15} className="text-black" />
+          Share to X
+        </a>
       </div>
 
       <p className="text-center text-[11px] text-zinc-600 space-x-2">
