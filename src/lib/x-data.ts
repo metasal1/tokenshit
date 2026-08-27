@@ -1017,6 +1017,75 @@ function relationshipFollowingFlag(data: Record<string, unknown> | null | undefi
   return null;
 }
 
+function listFromFollowJson(json: any): any[] {
+  const blob = json?.data ?? json;
+  if (Array.isArray(blob)) return blob;
+  const list =
+    blob?.followers ||
+    blob?.following ||
+    blob?.users ||
+    blob?.data ||
+    [];
+  return Array.isArray(list) ? list : [];
+}
+
+function handleOf(u: any): string {
+  return String(u?.userName || u?.username || u?.screen_name || "")
+    .replace(/^@/, "")
+    .toLowerCase();
+}
+
+function nextFollowCursor(json: any): string {
+  const blob = json?.data ?? json;
+  const c =
+    blob?.next_cursor ||
+    blob?.nextCursor ||
+    json?.next_cursor ||
+    json?.nextCursor ||
+    "";
+  return c && c !== "0" ? String(c) : "";
+}
+
+let followSeenReady = false;
+async function ensureFollowSeen() {
+  if (followSeenReady) return;
+  await tursoExecute(
+    `CREATE TABLE IF NOT EXISTS x_follow_seen (
+       twitter TEXT PRIMARY KEY,
+       source TEXT,
+       seen_at TEXT NOT NULL
+     )`
+  );
+  followSeenReady = true;
+}
+
+async function recallFollowSeen(user: string): Promise<boolean> {
+  try {
+    await ensureFollowSeen();
+    const r = await tursoExecute(
+      `SELECT 1 FROM x_follow_seen WHERE lower(twitter) = lower(?) LIMIT 1`,
+      [user]
+    );
+    return r.rows.length > 0;
+  } catch {
+    return false;
+  }
+}
+
+async function rememberFollowSeen(user: string, source: string) {
+  try {
+    await ensureFollowSeen();
+    await tursoExecute(
+      `INSERT INTO x_follow_seen (twitter, source, seen_at)
+       VALUES (?, ?, datetime('now'))
+       ON CONFLICT(twitter) DO UPDATE SET source = excluded.source, seen_at = excluded.seen_at`,
+      [user.toLowerCase(), source]
+    );
+  } catch {
+    /* ignore */
+  }
+}
+
 export async function checkXFollowsTokenshit(username: string): Promise<{
   ok: boolean;
   following: boolean;
@@ -1046,55 +1115,83 @@ export async function checkXFollowsTokenshit(username: string): Promise<{
     return val;
   };
 
-  // 1) Official ApiTwitter: newest @Tokenshit_ followers only (claim = follow then tap).
-  //    Do NOT scan the claimer's /following (11k follows = Worker timeout).
-  //    Do NOT fall through to twitterapi.io / official X (402).
-  if (apiTwitterKey()) {
-    try {
-      const g = await apiTwitterGetJson(
-        `/twitter/user/Tokenshit_/followers?count=50`,
+  if (await recallFollowSeen(user)) {
+    return rememberFollow({
+      ok: true,
+      following: true,
+      source: "turso-follow-seen",
+    });
+  }
+
+  if (!apiTwitterKey()) {
+    return rememberFollow({
+      ok: false,
+      following: false,
+      error:
+        "Could not verify follow. Follow @Tokenshit_, wait a few seconds, then claim.",
+    });
+  }
+
+  const me = user.toLowerCase();
+  const hitMe = (list: any[]) =>
+    list.some((u) => handleOf(u) === me || String(u?.id || "") === me);
+  const hitTokenshit = (list: any[]) =>
+    list.some(
+      (u) =>
+        isTokenshitFollowTarget(u) ||
+        handleOf(u) === TOKENSHIT_USER ||
+        String(u?.id || "") === TOKENSHIT_ID
+    );
+
+  try {
+    const [fol, ing] = await Promise.all([
+      apiTwitterGetJson(`/twitter/user/Tokenshit_/followers?count=50`, 8_000),
+      apiTwitterGetJson(
+        `/twitter/user/${encodeURIComponent(user)}/following?count=50`,
         8_000
+      ),
+    ]);
+    if (fol.ok && hitMe(listFromFollowJson(fol.json))) {
+      await rememberFollowSeen(user, "apitwitter-followers");
+      return rememberFollow({
+        ok: true,
+        following: true,
+        source: "apitwitter-followers",
+      });
+    }
+    if (ing.ok && hitTokenshit(listFromFollowJson(ing.json))) {
+      await rememberFollowSeen(user, "apitwitter-following");
+      return rememberFollow({
+        ok: true,
+        following: true,
+        source: "apitwitter-following",
+      });
+    }
+    const cur = ing.ok ? nextFollowCursor(ing.json) : "";
+    if (cur) {
+      const ing2 = await apiTwitterGetJson(
+        `/twitter/user/${encodeURIComponent(user)}/following?count=50&cursor=${encodeURIComponent(cur)}`,
+        6_000
       );
-      if (g.ok) {
-        const blob = g.json?.data ?? g.json;
-        const list = Array.isArray(blob)
-          ? blob
-          : blob?.followers || blob?.users || blob?.data || [];
-        const me = user.toLowerCase();
-        const hit =
-          Array.isArray(list) &&
-          list.some((u: any) => {
-            const h = String(u?.userName || u?.username || u?.screen_name || "")
-              .replace(/^@/, "")
-              .toLowerCase();
-            return h === me || String(u?.id || "") === me;
-          });
-        if (hit) {
-          return rememberFollow({
-            ok: true,
-            following: true,
-            source: "apitwitter-followers",
-          });
-        }
-        // Not in newest page — inconclusive, not "not following"
+      if (ing2.ok && hitTokenshit(listFromFollowJson(ing2.json))) {
+        await rememberFollowSeen(user, "apitwitter-following-p2");
         return rememberFollow({
-          ok: false,
-          following: false,
-          error:
-            "Follow @Tokenshit_ on X, wait a few seconds, then claim.",
-          source: "apitwitter-followers",
+          ok: true,
+          following: true,
+          source: "apitwitter-following-p2",
         });
       }
-    } catch {
-      /* fall through to fail-closed */
     }
+  } catch {
+    /* fail closed */
   }
 
   return rememberFollow({
     ok: false,
     following: false,
     error:
-      "Could not verify follow. Follow @Tokenshit_, wait a few seconds, then claim.",
+      "Follow @Tokenshit_ on X, wait a few seconds, then claim. If you followed earlier, unfollow + follow again.",
+    source: "apitwitter-follow-miss",
   });
 }
 
