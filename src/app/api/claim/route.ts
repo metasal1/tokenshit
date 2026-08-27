@@ -838,6 +838,22 @@ export async function POST(request: NextRequest) {
         );
       }
       const msg = err.message || String(e);
+      if (/recipient_needs_ata/i.test(msg)) {
+        return Response.json(
+          {
+            ok: true,
+            paid: false,
+            retry: true,
+            kind,
+            amount,
+            wallet,
+            code: "need_ata",
+            error:
+              "No $TOKENSHIT account on this wallet yet. We never pay gas. Add a tiny bit of SOL, open TOKENSHIT once, then claim.",
+          },
+          { status: 202 }
+        );
+      }
       if (/RPC HTTP 429|rate limit|RPC busy|too many requests/i.test(msg)) {
         return Response.json(
           {
