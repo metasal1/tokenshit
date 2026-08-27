@@ -11,6 +11,7 @@ import {
 } from "@/lib/day-game";
 import { sendTelegramMessage, escapeHtml } from "@/lib/telegram";
 import { seedPlayHour } from "@/lib/play-seed";
+import { getAssetX } from "@/lib/token-x";
 
 export const dynamic = "force-dynamic";
 
@@ -179,17 +180,23 @@ export async function POST(request: NextRequest) {
         };
         try {
           const extras = await hourReportExtras(prev);
+          const hitX = r.hitBag
+            ? await getAssetX(r.hitBag.assetId, null)
+            : "";
+          const shitX = r.shitBag
+            ? await getAssetX(r.shitBag.assetId, null)
+            : "";
           const lines = [
-            `🎬 <b>$HIT OF THE DAY</b> · finalize · ${escapeHtml(prev)}`,
+            `🎬 <b>PLAY FOR PRIZES</b> · finalize · ${escapeHtml(prev)}`,
             ...extras,
             r.hitBag
-              ? `🎯 HIT <code>${escapeHtml(r.hitBag.assetId)}</code> ${r.hitBag.pct.toFixed(2)}%`
+              ? `🎯 HIT <code>${escapeHtml(r.hitBag.assetId)}</code> ${r.hitBag.pct.toFixed(2)}%${hitX ? ` @${escapeHtml(hitX)}` : ""}`
               : "🎯 HIT bag: —",
             r.hit?.winner
               ? `💰 HIT pot <b>+${Number(r.hit.prize).toLocaleString()}</b> split → <code>${escapeHtml(r.hit.winner)}</code>${r.hit.prizeSig ? `\n<a href="https://solscan.io/tx/${escapeHtml(r.hit.prizeSig)}">payout tx</a>` : ""}`
               : "HIT → empty / house",
             r.shitBag
-              ? `💀 SHIT <code>${escapeHtml(r.shitBag.assetId)}</code> ${r.shitBag.pct.toFixed(2)}%`
+              ? `💀 SHIT <code>${escapeHtml(r.shitBag.assetId)}</code> ${r.shitBag.pct.toFixed(2)}%${shitX ? ` @${escapeHtml(shitX)}` : ""}`
               : "💀 SHIT bag: —",
             r.shit?.winner
               ? `💰 SHIT pot <b>+${Number(r.shit.prize).toLocaleString()}</b> split → <code>${escapeHtml(r.shit.winner)}</code>${r.shit.prizeSig ? `\n<a href="https://solscan.io/tx/${escapeHtml(r.shit.prizeSig)}">payout tx</a>` : ""}`
