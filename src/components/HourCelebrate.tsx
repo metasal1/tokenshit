@@ -1,6 +1,7 @@
 "use client";
 
 import { PLAY_PRODUCT } from "@/lib/hour-product";
+import { hourSettleTweet, knownTokenX } from "@/lib/token-x-copy";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { EmojiIcon } from "@/components/EmojiIcon";
@@ -17,6 +18,7 @@ export type HourSettlePayload = {
     symbol: string;
     name: string;
     logo: string;
+    twitter?: string | null;
     pct: number | null;
     winner: string | null;
     prize: number | null;
@@ -29,6 +31,7 @@ export type HourSettlePayload = {
     symbol: string;
     name: string;
     logo: string;
+    twitter?: string | null;
     pct: number | null;
     winner: string | null;
     prize: number | null;
@@ -264,29 +267,22 @@ export default function HourCelebrate({
   const showShitW = phase === "shit_wallet" || phase === "done";
 
   const tweetText = useMemo(() => {
-    const sym = (raw: string) => {
-      const t = (raw || "").replace(/^\$/, "").trim() || "?";
-      return `$${t}`;
-    };
-    const who = (w: string | null, prize: number | null) => {
-      if (w) return shortAddr(w);
-      return prize && prize > 0 ? "house" : "empty";
-    };
-    const prizeBit = (w: string | null, prize: number | null) => {
-      if (!w || prize == null || prize <= 0) return "";
-      return ` · ${fmtAmt(prize)} $TOKENSHIT`;
-    };
-    const hit = payload.hit;
-    const shit = payload.shit;
-    const lines = [
-      `${PLAY_PRODUCT.tweetName} just settled on @Tokenshit_`,
-      ``,
-      `🎯 HIT ${sym(hit.symbol)} ${fmtPct(hit.pct)} → ${who(hit.winner, hit.prize)}${prizeBit(hit.winner, hit.prize)}`,
-      `💀 SHIT ${sym(shit.symbol)} ${fmtPct(shit.pct)} → ${who(shit.winner, shit.prize)}${prizeBit(shit.winner, shit.prize)}`,
-      ``,
-      `Winners + payouts → https://tokenshit.com/winners`,
-    ];
-    return lines.join("\n");
+    return hourSettleTweet({
+      hit: {
+        symbol: payload.hit.symbol,
+        handle: payload.hit.twitter,
+        pct: payload.hit.pct,
+        winner: payload.hit.winner,
+        prize: payload.hit.prize,
+      },
+      shit: {
+        symbol: payload.shit.symbol,
+        handle: payload.shit.twitter,
+        pct: payload.shit.pct,
+        winner: payload.shit.winner,
+        prize: payload.shit.prize,
+      },
+    });
   }, [payload]);
 
   return (
@@ -410,8 +406,8 @@ export function settleToPayload(data: {
   utcHour?: string;
   hourLabel?: string;
   round?: Record<string, unknown> | null;
-  hitMeta?: { name?: string; symbol?: string; logo?: string } | null;
-  shitMeta?: { name?: string; symbol?: string; logo?: string } | null;
+  hitMeta?: { name?: string; symbol?: string; logo?: string; twitter?: string | null } | null;
+  shitMeta?: { name?: string; symbol?: string; logo?: string; twitter?: string | null } | null;
   hitVrf?: VrfRecord | null;
   shitVrf?: VrfRecord | null;
   meta?: { hitVrf?: VrfRecord; shitVrf?: VrfRecord } | null;
@@ -430,6 +426,10 @@ export function settleToPayload(data: {
       symbol: String(data.hitMeta?.symbol || r.hitAssetId || ""),
       name: String(data.hitMeta?.name || ""),
       logo: String(data.hitMeta?.logo || ""),
+      twitter:
+        data.hitMeta?.twitter ||
+        knownTokenX(r.hitAssetId ? String(r.hitAssetId) : "", data.hitMeta?.symbol) ||
+        null,
       pct: r.hitPct != null ? Number(r.hitPct) : null,
       winner: r.hitWinner ? String(r.hitWinner) : null,
       prize: r.hitPrize != null ? Number(r.hitPrize) : null,
@@ -442,6 +442,10 @@ export function settleToPayload(data: {
       symbol: String(data.shitMeta?.symbol || r.shitAssetId || ""),
       name: String(data.shitMeta?.name || ""),
       logo: String(data.shitMeta?.logo || ""),
+      twitter:
+        data.shitMeta?.twitter ||
+        knownTokenX(r.shitAssetId ? String(r.shitAssetId) : "", data.shitMeta?.symbol) ||
+        null,
       pct: r.shitPct != null ? Number(r.shitPct) : null,
       winner: r.shitWinner ? String(r.shitWinner) : null,
       prize: r.shitPrize != null ? Number(r.shitPrize) : null,

@@ -51,6 +51,8 @@ import {
   seedKnownLogos,
   upsertAssetLogos,
 } from "@/lib/asset-logos";
+import { getAssetXMap, seedKnownAssetX } from "@/lib/token-x";
+import { knownTokenX } from "@/lib/token-x-copy";
 
 export const dynamic = "force-dynamic";
 
@@ -236,6 +238,7 @@ export async function GET(request: NextRequest) {
         }))
       ),
       seedKnownLogos(),
+      seedKnownAssetX(),
     ]).catch(() => {});
 
     const logoMaps = await withTimeout(
@@ -245,6 +248,12 @@ export async function GET(request: NextRequest) {
       }),
       1_500,
       { byId: new Map<string, string>(), bySym: new Map<string, string>() }
+    );
+
+    const xMap = await withTimeout(
+      getAssetXMap(majors.map((m) => ({ assetId: m.assetId, symbol: m.symbol }))),
+      1_200,
+      new Map<string, string>()
     );
 
     const degraded =
@@ -306,11 +315,15 @@ export async function GET(request: NextRequest) {
         (m as { mint?: string | null }).mint
       );
 
+      const twitter =
+        xMap.get(m.assetId) || knownTokenX(m.assetId, m.symbol) || "";
+
       return {
         assetId: m.assetId,
         name: m.name,
         symbol: m.symbol,
         logo,
+        twitter: twitter || null,
         price: m.price,
         pct: pct != null && Number.isFinite(pct) ? pct : null,
         openPrice,

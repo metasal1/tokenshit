@@ -22,6 +22,7 @@ import {
 import Link from "next/link";
 import { EmojiIcon } from "@/components/EmojiIcon";
 import { HOUR_PRODUCT, PLAY_PRODUCT } from "@/lib/hour-product";
+import { knownTokenX } from "@/lib/token-x-copy";
 import { isMuted, sfx, toggleMuted } from "@/lib/sfx";
 
 const PLAY_STAKE = 0; // free play
@@ -41,6 +42,7 @@ type Major = {
   name: string;
   symbol: string;
   logo: string;
+  twitter?: string | null;
   price: number;
   pct?: number | null;
   openPrice?: number | null;
@@ -1089,7 +1091,17 @@ export default function DayGamePanel({
           <div className="flex gap-2">
             <a
               href={`https://x.com/intent/tweet?text=${encodeURIComponent(
-                `Locked ${sideLabel} on ${PLAY_PRODUCT.tweetName} @Tokenshit_ — FREE pick in the pot.\n\nhttps://tokenshit.com/play`
+                (() => {
+                  const handle =
+                    selected?.twitter ||
+                    knownTokenX(selected?.assetId, selected?.symbol);
+                  const tag = selected?.symbol
+                    ? `$${String(selected.symbol).replace(/^\$/, "")}`
+                    : "";
+                  return `Locked ${sideLabel}${tag ? ` ${tag}` : ""}${
+                    handle ? ` @${handle}` : ""
+                  } on ${PLAY_PRODUCT.tweetName} @Tokenshit_ — FREE pick in the pot.\n\nhttps://tokenshit.com/play`;
+                })()
               )}`}
               target="_blank"
               rel="noopener noreferrer"

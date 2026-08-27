@@ -6,6 +6,7 @@ import {
   utcHourString,
 } from "@/lib/day-game";
 import { tursoExecute } from "@/lib/turso";
+import { getAssetX } from "@/lib/token-x";
 
 export const dynamic = "force-dynamic";
 
@@ -56,6 +57,14 @@ export async function GET(_req: Request, ctx: Ctx) {
           logo: String(r.rows[0][2] || ""),
           closePrice: Number(r.rows[0][3]),
           volume24h: Number(r.rows[0][4] || 0),
+          twitter: await getAssetX(
+            round.hitAssetId,
+            String(r.rows[0][1] || "")
+          ),
+        };
+      } else {
+        hitMeta = {
+          twitter: await getAssetX(round.hitAssetId, null),
         };
       }
     }
@@ -72,6 +81,14 @@ export async function GET(_req: Request, ctx: Ctx) {
           logo: String(r.rows[0][2] || ""),
           closePrice: Number(r.rows[0][3]),
           volume24h: Number(r.rows[0][4] || 0),
+          twitter: await getAssetX(
+            round.shitAssetId,
+            String(r.rows[0][1] || "")
+          ),
+        };
+      } else {
+        shitMeta = {
+          twitter: await getAssetX(round.shitAssetId, null),
         };
       }
     }
