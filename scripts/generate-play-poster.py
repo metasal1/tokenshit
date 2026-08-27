@@ -282,8 +282,8 @@ def build() -> Image.Image:
     d = ImageDraw.Draw(img)
 
     f_eye = fnt("Orbitron-Bold.ttf", 18)
-    f_hero = fnt("Monoton-Regular.ttf", 112)
-    f_sub = fnt("Orbitron-Bold.ttf", 34)
+    f_hero = fnt("Monoton-Regular.ttf", 96)
+    f_sub = fnt("Monoton-Regular.ttf", 52)
     f_pill = fnt("Orbitron-Bold.ttf", 20)
     f_card_h = fnt("Orbitron-Bold.ttf", 18)
     f_rule = fnt("Inter-Bold.ttf", 26)
@@ -303,22 +303,23 @@ def build() -> Image.Image:
     d.line([(mid - 100, y), (mid + 100, y)], fill=LINE, width=2)
     y += 22
 
-    y = draw_centered(d, y, "PLAY RULES  |  FREE HOUR", f_eye, NEON) + 16
+    y = draw_centered(d, y, "PLAY FOR PRIZES", f_eye, NEON) + 10
 
-    # product line
-    hero = "SH!T"
-    hb = f_hero.getbbox(hero)
-    hx = center_x(f_hero, hero) - hb[0]
-    hy = y - hb[1]
-    for dx, dy in ((-2, 2), (2, 2), (0, 3)):
-        d.text((hx + dx, hy + dy), hero, font=f_hero, fill=(0, 0, 0, 130))
-    d.text((hx, hy), hero, font=f_hero, fill=CREAM)
-    y += (hb[3] - hb[1]) + 6
-
-    y = draw_centered(d, y, "OF THE HOUR", f_sub, GOLD) + 24
+    # stacked product
+    for line, font, fill in (
+        ("PLAY", f_hero, NEON),
+        ("FOR PRIZES", f_sub, CREAM),
+    ):
+        hb = font.getbbox(line)
+        hx = center_x(font, line) - hb[0]
+        hy = y - hb[1]
+        for dx, dy in ((-2, 2), (2, 2), (0, 3)):
+            d.text((hx + dx, hy + dy), line, font=font, fill=(0, 0, 0, 130))
+        d.text((hx, hy), line, font=font, fill=fill)
+        y += (hb[3] - hb[1]) + (4 if line == "PLAY" else 18)
 
     # prize pill
-    pill = "FREE PLAY  |  10,000 / HR  |  JACKPOT ROLLS"
+    pill = "FREE  |  1 UP + 1 DOWN  |  TOP 3 WIN"
     pw = tw(f_pill, pill) + 48
     ph = 50
     px = (S - pw) // 2
@@ -341,7 +342,7 @@ def build() -> Image.Image:
         ("FREE to play", "No stake  |  1 UP + 1 DOWN per hour"),
         ("Hold 10,000 $TOKENSHIT", "Keep your claims  |  don't dump"),
         ("Follow @Tokenshit_", "Required before you Play"),
-        ("Call UP or DOWN", "Best % = HIT  |  worst % = SHIT"),
+        ("Top 3 win", "Best 3 % = HIT  |  worst 3 % = SHIT"),
         ("10,000 prize / hour", "Winners split  |  no winners = jackpot rolls"),
     ]
 
