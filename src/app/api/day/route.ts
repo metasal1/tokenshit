@@ -46,6 +46,7 @@ import {
 import {
   knownLogo,
   loadLogoMaps,
+  orbLogo,
   resolveLogo,
   seedKnownLogos,
   upsertAssetLogos,
@@ -231,7 +232,7 @@ export async function GET(request: NextRequest) {
         [...majorsLive, ...majorsSnap, ...majors].map((m) => ({
           assetId: m.assetId,
           symbol: m.symbol,
-          logo: m.logo || knownLogo(m.symbol) || knownLogo(m.assetId),
+          logo: orbLogo((m as { mint?: string | null }).mint, m.symbol) || m.logo || knownLogo(m.symbol) || knownLogo(m.assetId),
         }))
       ),
       seedKnownLogos(),
@@ -297,7 +298,13 @@ export async function GET(request: NextRequest) {
       }
 
       const h = heat.get(m.assetId);
-      const logo = resolveLogo(m.assetId, m.symbol, m.logo, logoMaps);
+      const logo = resolveLogo(
+        m.assetId,
+        m.symbol,
+        m.logo,
+        logoMaps,
+        (m as { mint?: string | null }).mint
+      );
 
       return {
         assetId: m.assetId,
