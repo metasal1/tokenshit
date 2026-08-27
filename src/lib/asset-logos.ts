@@ -25,6 +25,19 @@ export async function ensureLogoSchema() {
 const SIMPLR =
   "https://cdn.jsdelivr.net/gh/simplr-sh/coin-logos/images";
 
+const WSOL = "So11111111111111111111111111111111111111112";
+
+/** Official on-chain Solana logos via Orb. */
+export function orbLogo(
+  mint?: string | null,
+  symbol?: string | null
+): string {
+  let m = (mint || "").trim();
+  if (!m && (symbol || "").toUpperCase() === "SOL") m = WSOL;
+  if (m.length < 32) return "";
+  return `https://orbmarkets.io/token/${m}/logo`;
+}
+
 /** CoinGecko id → logo via simplr CDN (no rate limit / bandwidth). */
 function cg(id: string): string {
   return `${SIMPLR}/${id}/standard.png`;
@@ -234,9 +247,15 @@ export function resolveLogo(
   assetId: string,
   symbol: string,
   current: string | null | undefined,
-  maps: { byId: Map<string, string>; bySym: Map<string, string> }
+  maps: { byId: Map<string, string>; bySym: Map<string, string> },
+  mint?: string | null
 ): string {
-  if (current && String(current).startsWith("http")) return String(current);
+  const orb = orbLogo(mint, symbol);
+  if (orb) return orb;
+  if (current && String(current).startsWith("http") && !/jsdelivr|coingecko/i.test(String(current)))
+    return String(current);
+  const orbFromCurrent = orbLogo(current);
+  if (orbFromCurrent) return orbFromCurrent;
   const sym = (symbol || "").toUpperCase();
   return (
     maps.byId.get(assetId) ||

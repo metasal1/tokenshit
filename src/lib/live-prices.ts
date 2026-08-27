@@ -10,6 +10,7 @@
  *   5. Tokens.xyz market (last — often stale 1h)
  */
 import { apiFetch } from "@/lib/api";
+import { orbLogo } from "@/lib/asset-logos";
 import {
   fetchPythUsdBySymbols,
   HOUR_BOARD_SYMBOLS,
@@ -263,7 +264,7 @@ export async function fetchMajorsUniverse(): Promise<PriceHint[]> {
       assetId,
       symbol,
       name: rowName(row as never) || assetId,
-      logo: logo || "",
+      logo: orbLogo(mint, symbol) || logo || "",
       mint,
       coinId,
       fallbackPrice: fallback > 0 ? fallback : 0,
