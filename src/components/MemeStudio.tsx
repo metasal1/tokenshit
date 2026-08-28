@@ -115,10 +115,20 @@ export default function MemeStudio({ embedded = false }: { embedded?: boolean })
   const [copyMsg, setCopyMsg] = useState("Copy image");
   const [statusMsg, setStatusMsg] = useState("");
   const [dragOver, setDragOver] = useState(false);
+  const [brandOn, setBrandOn] = useState(true);
+  const [brandPrompt, setBrandPrompt] = useState(false);
+  const [brandPw, setBrandPw] = useState("");
+  const [brandErr, setBrandErr] = useState("");
+  const BRAND_LS = "tokenshit.memes.brandOff.v1";
+  const BRAND_HASH = "b4cc6c14fe22bc2d57f65f8080f71d2c334ae77d4fdaadfbb8fd1f9e49b3d17f";
+
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     void ensureMonotonFont();
+    try {
+      if (localStorage.getItem(BRAND_LS) === "1") setBrandOn(false);
+    } catch { /* ignore */ }
   }, []);
 
   // Lock body scroll while editor open (mobile)
@@ -419,7 +429,7 @@ export default function MemeStudio({ embedded = false }: { embedded?: boolean })
         setImgLoading(true);
         try {
           const url = await renderTokenshitMeme(selected.blank, boxes, texts, {
-            brand: true,
+            brand: brandOn,
             username: wmUser,
           });
           if (!cancelled) setPreview(url);
@@ -435,7 +445,7 @@ export default function MemeStudio({ embedded = false }: { embedded?: boolean })
       cancelled = true;
       window.clearTimeout(t);
     };
-  }, [selected, texts, boxes, wmUser]);
+  }, [selected, texts, boxes, wmUser, brandOn]);
 
   /** Reliable PNG blob — prefer canvas.toBlob, then preview dataURL */
   const getMemeBlob = useCallback(async (): Promise<Blob> => {
@@ -443,7 +453,7 @@ export default function MemeStudio({ embedded = false }: { embedded?: boolean })
     // Fresh render is more reliable than stale preview (Safari clipboard)
     try {
       return await renderTokenshitMemeBlob(selected.blank, boxes, texts, {
-        brand: true,
+        brand: brandOn,
         username: wmUser,
       });
     } catch (e) {
@@ -458,7 +468,7 @@ export default function MemeStudio({ embedded = false }: { embedded?: boolean })
       }
       throw e;
     }
-  }, [preview, selected, boxes, texts, wmUser]);
+  }, [preview, selected, boxes, texts, wmUser, brandOn]);
 
   const buildShareUrl = useCallback(() => {
     if (!selected || typeof window === "undefined") return "";
@@ -1096,6 +1106,22 @@ export default function MemeStudio({ embedded = false }: { embedded?: boolean })
                     >
                       <XLogo size={14} /> Share
                     </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!brandOn) {
+                          setBrandOn(true);
+                          try { localStorage.removeItem(BRAND_LS); } catch { /* */ }
+                        } else setBrandPrompt(true);
+                      }}
+                      className={`inline-flex min-h-10 items-center justify-center gap-2 rounded-2xl border px-3 py-2 text-xs font-semibold ${
+                        brandOn
+                          ? "border-white/15 text-zinc-300 hover:bg-white/10"
+                          : "border-amber-400/40 text-amber-300 hover:bg-amber-400/10"
+                      }`}
+                    >
+                      {brandOn ? "Watermark on" : "Watermark off"}
+                    </button>
                     <p className="text-center text-[10px] text-zinc-600 pb-1">
                       {preview.startsWith("data:")
                         ? "Ready · Download / Copy / Share"
@@ -1106,6 +1132,49 @@ export default function MemeStudio({ embedded = false }: { embedded?: boolean })
                   </div>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {brandPrompt && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-2xl border border-white/10 bg-[#111] p-5">
+            <h2 className="text-base font-bold">Disable watermark</h2>
+            <p className="mt-1 text-xs text-zinc-400">
+              Password turns off tokenshit.com/memes + @user marks on export.
+            </p>
+            <input
+              type="password"
+              value={brandPw}
+              onChange={(e) => setBrandPw(e.target.value)}
+              onKeyDown={async (e) => {
+                if (e.key !== "Enter") return;
+                const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(brandPw.trim()));
+                const h = Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, "0")).join("");
+                if (h !== BRAND_HASH) { setBrandErr("Wrong password"); return; }
+                setBrandOn(false);
+                try { localStorage.setItem(BRAND_LS, "1"); } catch { /* */ }
+                setBrandPrompt(false); setBrandPw(""); setBrandErr("");
+              }}
+              placeholder="Password"
+              autoFocus
+              className="mt-4 w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm outline-none"
+            />
+            {brandErr && <p className="mt-2 text-xs text-red-400">{brandErr}</p>}
+            <div className="mt-4 flex gap-2">
+              <button type="button" onClick={() => { setBrandPrompt(false); setBrandPw(""); setBrandErr(""); }} className="flex-1 rounded-xl border border-white/10 px-3 py-2 text-sm font-semibold">Cancel</button>
+              <button
+                type="button"
+                onClick={async () => {
+                  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(brandPw.trim()));
+                  const h = Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, "0")).join("");
+                  if (h !== BRAND_HASH) { setBrandErr("Wrong password"); return; }
+                  setBrandOn(false);
+                  try { localStorage.setItem(BRAND_LS, "1"); } catch { /* */ }
+                  setBrandPrompt(false); setBrandPw(""); setBrandErr("");
+                }}
+                className="flex-1 rounded-xl bg-neon px-3 py-2 text-sm font-bold text-black"
+              >Unlock</button>
             </div>
           </div>
         </div>
@@ -1144,4 +1213,7 @@ function TemplateCard({
       </div>
     </button>
   );
+
+
+
 }
