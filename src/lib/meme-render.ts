@@ -203,12 +203,12 @@ function markText(
   align: CanvasTextAlign,
   baseline: CanvasTextBaseline
 ) {
-  ctx.font = `600 ${size}px system-ui, -apple-system, sans-serif`;
+  ctx.font = `500 ${size}px system-ui, -apple-system, sans-serif`;
   ctx.textAlign = align;
   ctx.textBaseline = baseline;
-  ctx.lineWidth = Math.max(1, size * 0.08);
-  ctx.strokeStyle = "rgba(0,0,0,0.45)";
-  ctx.fillStyle = "rgba(255,255,255,0.82)";
+  ctx.lineWidth = Math.max(0.6, size * 0.06);
+  ctx.strokeStyle = "rgba(0,0,0,0.18)";
+  ctx.fillStyle = "rgba(255,255,255,0.28)";
   ctx.strokeText(text, x, y);
   ctx.fillText(text, x, y);
 }
@@ -220,8 +220,8 @@ function drawWatermark(
   username?: string | null
 ) {
   ctx.save();
-  const size = Math.max(12, Math.round(Math.min(w, h) * 0.028));
-  const pad = Math.max(8, Math.round(Math.min(w, h) * 0.018));
+  const size = Math.max(7, Math.round(Math.min(w, h) * 0.012));
+  const pad = Math.max(5, Math.round(Math.min(w, h) * 0.01));
   markText(ctx, "tokenshit.com/memes", pad, h - pad, size, "left", "bottom");
   const handle = (username || "").trim();
   if (handle) {
