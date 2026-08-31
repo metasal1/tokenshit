@@ -49,11 +49,11 @@ export const CLAIM_X_TWEET = 2_500;
 /** Follow @Tokenshit_ (once) */
 export const CLAIM_X_FOLLOW = 1_000;
 /** Like the promo post (once) — smaller than follow */
-export const CLAIM_X_LIKE = 250;
-/** Retweet promo post (once) */
-export const CLAIM_X_RETWEET = 250;
-/** Target status for x_retweet claim */
-export const CLAIM_RT_TWEET_ID = "2091804745849774464";
+export const CLAIM_X_LIKE = 500;
+/** Retweet or quote the promo post (once) */
+export const CLAIM_X_RETWEET = 500;
+/** Target status for x_like / x_retweet */
+export const CLAIM_RT_TWEET_ID = "2094381999947690347";
 export const CLAIM_RT_TWEET_URL =
   process.env.NEXT_PUBLIC_CLAIM_RT_TWEET_URL ||
   `https://x.com/Tokenshit_/status/${CLAIM_RT_TWEET_ID}`;

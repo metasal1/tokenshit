@@ -1018,7 +1018,7 @@ export default function ClaimPanel() {
               >
                 this post
               </a>
-              {" "}(or like TOKENSHIT on Jupiter VRFD). 250 once.
+              {" "}(or like TOKENSHIT on Jupiter VRFD). 500 once.
             </>
           }
         >
@@ -1037,7 +1037,7 @@ export default function ClaimPanel() {
               onClick={() => claim("x_like")}
               className={BTN_SKY}
             >
-              {busy === "x_like" ? "Claiming…" : "Claim like 250"}
+              {busy === "x_like" ? "Claiming…" : "Claim like 500"}
             </button>
           </div>
         </RewardRow>
@@ -1046,7 +1046,7 @@ export default function ClaimPanel() {
           <div className="rounded-xl border border-amber-500/50 bg-amber-500/15 px-3 py-3 text-[13px] text-amber-50 leading-snug space-y-2">
             <p>
               <b className="text-amber-300">Follow + like + RT</b>
-              {" "}the promo. Then claim Follow once (1,000). Like and RT pay 250 each, once.
+              {" "}the promo. Then claim Follow once (1,000). Like / RT / QT pay 500 each, once.
             </p>
             <a
               href={followIntentUrl()}
@@ -1143,7 +1143,7 @@ export default function ClaimPanel() {
               >
                 this post
               </a>
-              . 250 once. Must also follow + like.
+              . 500 once (RT or quote). Must also follow + like.
             </>
           }
         >
@@ -1183,7 +1183,7 @@ export default function ClaimPanel() {
               onClick={() => claim("x_retweet")}
               className={BTN_SKY}
             >
-              {busy === "x_retweet" ? "Claiming…" : "Claim RT 250"}
+              {busy === "x_retweet" ? "Claiming…" : "Claim RT / QT 500"}
             </button>
           </div>
         </RewardRow>

@@ -330,7 +330,7 @@ export async function POST(request: NextRequest) {
       return Response.json(
         {
           error:
-            "That claim is off. Follow + like + RT the promo to earn. Follow once (1,000). Like 250. RT 250.",
+            "That claim is off. Follow + like + RT/QT the promo to earn. Follow once (1,000). Like 500. RT/QT 500.",
           code: "farm_off",
         },
         { status: 410 }
