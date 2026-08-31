@@ -16,6 +16,7 @@ export type PayoutKind =
   | "gh_fork"
   | "x_tweet"
   | "x_follow"
+  | "x_like"
   | "x_retweet"
   | "email_list"
   | "jup_verified"

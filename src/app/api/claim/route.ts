@@ -4,6 +4,7 @@ import {
   CLAIM_GH_FORK,
   CLAIM_JUP_VERIFIED,
   CLAIM_X_FOLLOW,
+  CLAIM_X_LIKE,
   CLAIM_X_RETWEET,
   CLAIM_RT_TWEET_ID,
   CLAIM_X_PREMIUM,
@@ -20,6 +21,7 @@ import {
   checkGhFork,
   checkXFollowsTokenshit,
   checkXRetweeted,
+  checkXLiked,
   checkXTweetTag,
   checkXVerified,
   getTweetClaimCooldown,
@@ -54,6 +56,7 @@ const AMOUNTS: Record<ClaimKind, number> = {
   gh_fork: CLAIM_GH_FORK,
   x_tweet: CLAIM_X_TWEET,
   x_follow: CLAIM_X_FOLLOW,
+  x_like: CLAIM_X_LIKE,
   x_retweet: CLAIM_X_RETWEET,
   email_list: CLAIM_EMAIL_LIST,
   jup_verified: CLAIM_JUP_VERIFIED,
@@ -63,6 +66,36 @@ const AMOUNTS: Record<ClaimKind, number> = {
 
 function isKind(k: string): k is ClaimKind {
   return k in AMOUNTS;
+}
+
+/** Tweet / email / Jup 5k / premium dump farms. */
+const FARM_OFF = new Set<ClaimKind>([
+  "x_tweet",
+  "email_list",
+  "jup_verified",
+  "x_verified",
+  "x_premium",
+  "gh_fork",
+]);
+
+async function checkEngage(twitter: string, quoteUrl?: string | null) {
+  const [f, liked, rt] = await Promise.all([
+    checkXFollowsTokenshit(twitter),
+    checkXLiked(twitter, CLAIM_RT_TWEET_ID),
+    checkXRetweeted(twitter, CLAIM_RT_TWEET_ID, quoteUrl || null),
+  ]);
+  const following = !!(f.ok && f.following);
+  const likeOk = !!(liked.ok && liked.liked);
+  const rtOk = !!(rt.ok && rt.retweeted);
+  return {
+    following,
+    liked: likeOk,
+    retweeted: rtOk,
+    ok: following && likeOk && rtOk,
+    followErr: f.ok ? null : f.error,
+    likeErr: liked.error,
+    rtErr: rt.error,
+  };
 }
 
 export async function GET(request: NextRequest) {
@@ -146,6 +179,12 @@ export async function GET(request: NextRequest) {
       const f = await checkXFollowsTokenshit(twitter);
       detail = f;
       eligible = f.ok && f.following;
+    } else if (kind === "x_like") {
+      if (!twitter)
+        return Response.json({ error: "twitter required" }, { status: 400 });
+      const liked = await checkXLiked(twitter, CLAIM_RT_TWEET_ID);
+      detail = liked;
+      eligible = liked.ok && liked.liked;
     } else if (kind === "x_retweet") {
       if (!twitter)
         return Response.json({ error: "twitter required" }, { status: 400 });
@@ -283,6 +322,16 @@ export async function POST(request: NextRequest) {
         {
           error: "No SOL on claims. Play is free — no gas drop.",
           code: "gas_claims_off",
+        },
+        { status: 410 }
+      );
+    }
+    if (FARM_OFF.has(kindRaw as ClaimKind)) {
+      return Response.json(
+        {
+          error:
+            "That claim is off. Follow + like + RT the promo to earn. Follow once (1,000). Like 250. RT 250.",
+          code: "farm_off",
         },
         { status: 410 }
       );
@@ -486,6 +535,26 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    if (!twitter) {
+      return Response.json({ error: "twitter required" }, { status: 400 });
+    }
+    const quoteUrl = body.tweetUrl ? String(body.tweetUrl).trim() : "";
+    const engage = await checkEngage(twitter, quoteUrl || null);
+    if (!engage.ok) {
+      return Response.json(
+        {
+          error:
+            "Follow @Tokenshit_, like the promo post, and RT it. Then claim.",
+          code: "need_engage",
+          following: engage.following,
+          liked: engage.liked,
+          retweeted: engage.retweeted,
+          target: CLAIM_RT_TWEET_ID,
+        },
+        { status: 403 }
+      );
+    }
+
     let amount = AMOUNTS[kind];
     let tweetId: string | undefined;
 
@@ -625,6 +694,21 @@ export async function POST(request: NextRequest) {
           { error: "Follow @Tokenshit_ on X, then claim." },
           { status: 403 }
         );
+    } else if (kind === "x_like") {
+      const liked = await checkXLiked(twitter, CLAIM_RT_TWEET_ID);
+      if (!liked.liked) {
+        return Response.json(
+          {
+            error:
+              liked.error ||
+              "Like the promo post (heart), then claim. Jupiter VRFD like also counts.",
+            code: "not_liked",
+            target: CLAIM_RT_TWEET_ID,
+          },
+          { status: 403 }
+        );
+      }
+      amount = CLAIM_X_LIKE;
     } else if (kind === "x_retweet") {
       const tweetUrl = body.tweetUrl ? String(body.tweetUrl).trim() : "";
       const r = await checkXRetweeted(twitter, CLAIM_RT_TWEET_ID, tweetUrl || null);

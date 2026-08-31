@@ -1997,3 +1997,122 @@ async function userInRetweeters(
   return { ok: true, found: false, source: "retweeters-miss" };
 }
 
+/**
+ * Verify user liked the promo tweet. ApiTwitter / official likers, then Jupiter VRFD like.
+ */
+export async function checkXLiked(
+  username: string,
+  targetTweetId: string
+): Promise<{
+  ok: boolean;
+  liked: boolean;
+  error?: string;
+  source?: string;
+}> {
+  const user = normalizeXHandle(username);
+  const target = String(targetTweetId || "").replace(/\D/g, "");
+  if (!user) return { ok: false, liked: false, error: "no username" };
+  if (!target) return { ok: false, liked: false, error: "no target tweet" };
+
+  const onList = await userInLikers(user, target);
+  if (onList.ok && onList.found) {
+    return { ok: true, liked: true, source: onList.source };
+  }
+
+  try {
+    const { userLikedTokenOnVrfd } = await import("@/lib/jup-vrfd");
+    const jup = await userLikedTokenOnVrfd({ twitter: user });
+    if (jup.liked) {
+      return { ok: true, liked: true, source: "jup-vrfd" };
+    }
+  } catch {
+    /* ignore */
+  }
+
+  if (onList.ok === false && onList.hardError) {
+    return {
+      ok: false,
+      liked: false,
+      error:
+        onList.error ||
+        "Could not verify like. Like the promo post (and/or like TOKENSHIT on Jupiter VRFD), then claim.",
+      source: onList.source,
+    };
+  }
+
+  return {
+    ok: true,
+    liked: false,
+    error: "Like the promo post (heart), then claim.",
+    source: onList.source,
+  };
+}
+
+async function userInLikers(
+  username: string,
+  tweetId: string
+): Promise<{
+  ok: boolean;
+  found: boolean;
+  hardError?: boolean;
+  error?: string;
+  source?: string;
+}> {
+  const user = username.toLowerCase();
+  const bearer = process.env.X_BEARER_TOKEN || process.env.TWITTER_BEARER_TOKEN || "";
+  if (bearer) {
+    try {
+      let url: string | null =
+        `https://api.twitter.com/2/tweets/${tweetId}/liking_users?max_results=100&user.fields=username`;
+      let pages = 0;
+      while (url && pages < 5) {
+        pages++;
+        const res = await fetchTimeout(
+          url,
+          { headers: { Authorization: `Bearer ${bearer}` } },
+          12_000
+        );
+        if (res.status === 402 || res.status === 429) break;
+        if (!res.ok) break;
+        const j = (await res.json()) as {
+          data?: { username?: string }[];
+          meta?: { next_token?: string };
+        };
+        if ((j.data || []).some((u) => (u.username || "").toLowerCase() === user)) {
+          return { ok: true, found: true, source: "x-api-liking_users" };
+        }
+        const nt = j.meta?.next_token;
+        url = nt
+          ? `https://api.twitter.com/2/tweets/${tweetId}/liking_users?max_results=100&user.fields=username&pagination_token=${encodeURIComponent(nt)}`
+          : null;
+      }
+    } catch {
+      /* fall through */
+    }
+  }
+
+  if (apiTwitterKey()) {
+    try {
+      const r = await apiTwitterResolve(
+        `/twitter/tweet/likers?tweetId=${encodeURIComponent(tweetId)}`,
+        "/twitter/tweet/likers",
+        { tweetId, tweet_id: tweetId }
+      );
+      if (r.ok && r.data) {
+        const blob = JSON.stringify(r.data).toLowerCase();
+        if (
+          blob.includes(`"username":"${user}"`) ||
+          blob.includes(`"screen_name":"${user}"`) ||
+          blob.includes(`"userName":"${user}"`.toLowerCase())
+        ) {
+          return { ok: true, found: true, source: "apitwitter-likers" };
+        }
+      }
+    } catch {
+      /* miss */
+    }
+  }
+
+  return { ok: true, found: false, source: "likers-miss" };
+}
+
