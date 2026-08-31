@@ -10,6 +10,7 @@ import {
   CLAIM_GH_FORK,
   CLAIM_JUP_VERIFIED,
   CLAIM_X_FOLLOW,
+  CLAIM_X_LIKE,
   CLAIM_X_RETWEET,
   CLAIM_RT_TWEET_URL,
   CLAIM_X_PREMIUM,
@@ -22,6 +23,7 @@ import {
   X_HANDLE,
   X_URL,
   followIntentUrl,
+  likeIntentUrl,
   retweetIntentUrl,
   quoteRetweetIntentUrl,
   treasurySolscanUrl,
@@ -45,6 +47,7 @@ type ClaimKind =
   | "gh_fork"
   | "x_tweet"
   | "x_follow"
+  | "x_like"
   | "x_retweet"
   | "email_list"
   | "jup_verified"
@@ -63,6 +66,7 @@ const BTN_CLAIMED = `${BTN} border border-neon/40 bg-neon/10 text-neon cursor-no
 const KIND_TITLE: Record<ClaimKind, string> = {
   x_tweet: "X · Tweet tag",
   x_follow: "X · Follow",
+  x_like: "X · Like promo",
   x_retweet: "X · Retweet promo",
   x_premium: "X Premium",
   x_verified: "X verified",
@@ -973,9 +977,9 @@ export default function ClaimPanel() {
           highlight
           claimed={!!claimedStatus.x_follow}
           statusLoading={statusLoading && authenticated}
-          title={`1. Follow @${X_HANDLE} (required)`}
+          title={`1. Follow @${X_HANDLE} (once)`}
           amount={CLAIM_X_FOLLOW}
-          hint="1,000 once. Follow then claim. If you followed earlier, unfollow + follow again, then Claim."
+          hint="1,000 once. Follow + like + RT the promo first. Unfollow/refollow if verify misses."
         >
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <a
@@ -997,11 +1001,52 @@ export default function ClaimPanel() {
           </div>
         </RewardRow>
 
+        <RewardRow
+          highlight
+          claimed={!!claimedStatus.x_like}
+          statusLoading={statusLoading && authenticated}
+          title="2. Like the promo"
+          amount={CLAIM_X_LIKE}
+          hint={
+            <>
+              Heart{" "}
+              <a
+                href={CLAIM_RT_TWEET_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-neon underline"
+              >
+                this post
+              </a>
+              {" "}(or like TOKENSHIT on Jupiter VRFD). 250 once.
+            </>
+          }
+        >
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <a
+              href={likeIntentUrl()}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={`${BTN_OUTLINE} text-center`}
+            >
+              <span className="inline-flex items-center justify-center gap-1.5"><XLogo size={14} /> Like</span>
+            </a>
+            <button
+              type="button"
+              disabled={busy !== null || !!claimedStatus.x_like}
+              onClick={() => claim("x_like")}
+              className={BTN_SKY}
+            >
+              {busy === "x_like" ? "Claiming…" : "Claim like 250"}
+            </button>
+          </div>
+        </RewardRow>
+
         {authenticated && !claimedStatus.x_follow && following !== true && (
           <div className="rounded-xl border border-amber-500/50 bg-amber-500/15 px-3 py-3 text-[13px] text-amber-50 leading-snug space-y-2">
             <p>
-              <b className="text-amber-300">Step 1 — Follow @{X_HANDLE}</b>
-              {" "}then claim Follow. RT / tweet stay locked until this is done.
+              <b className="text-amber-300">Follow + like + RT</b>
+              {" "}the promo. Then claim Follow once (1,000). Like and RT pay 250 each, once.
             </p>
             <a
               href={followIntentUrl()}
@@ -1015,7 +1060,7 @@ export default function ClaimPanel() {
         )}
         {authenticated && (!!claimedStatus.x_follow || following === true) && (
           <div className="rounded-lg border border-neon/25 bg-neon/5 px-3 py-1.5 text-[11px] text-neon/90">
-            Follow unlocked · you can claim RT / tweet / more
+            Follow + like + RT the promo, then claim each once.
           </div>
         )}
 
@@ -1085,7 +1130,7 @@ export default function ClaimPanel() {
         <RewardRow
           claimed={!!claimedStatus.x_retweet}
           statusLoading={statusLoading && authenticated}
-          title="Retweet promo"
+          title="3. Retweet promo"
           amount={CLAIM_X_RETWEET}
           hint={
             <>
@@ -1098,7 +1143,7 @@ export default function ClaimPanel() {
               >
                 this post
               </a>
-              {" "}after you follow + claim Follow (1,000).
+              . 250 once. Must also follow + like.
             </>
           }
         >
@@ -1134,11 +1179,11 @@ export default function ClaimPanel() {
             />
             <button
               type="button"
-              disabled={busy !== null || !canOtherClaims || !!claimedStatus.x_retweet}
+              disabled={busy !== null || !!claimedStatus.x_retweet}
               onClick={() => claim("x_retweet")}
               className={BTN_SKY}
             >
-              {busy === "x_retweet" ? "Claiming…" : "2. Claim 1,000 $TOKENSHIT"}
+              {busy === "x_retweet" ? "Claiming…" : "Claim RT 250"}
             </button>
           </div>
         </RewardRow>

@@ -48,8 +48,10 @@ export const CLAIM_JUP_VERIFIED = 5_000;
 export const CLAIM_X_TWEET = 2_500;
 /** Follow @Tokenshit_ (once) */
 export const CLAIM_X_FOLLOW = 1_000;
+/** Like the promo post (once) — smaller than follow */
+export const CLAIM_X_LIKE = 250;
 /** Retweet promo post (once) */
-export const CLAIM_X_RETWEET = 1_000;
+export const CLAIM_X_RETWEET = 250;
 /** Target status for x_retweet claim */
 export const CLAIM_RT_TWEET_ID = "2091804745849774464";
 export const CLAIM_RT_TWEET_URL =
@@ -214,6 +216,11 @@ export function tweetCAIntentUrl(): string {
 }
 export function followIntentUrl(): string {
   return `https://x.com/intent/follow?screen_name=${X_HANDLE}`;
+}
+
+/** Intent to like the promo status (x_like claim). */
+export function likeIntentUrl(tweetId = CLAIM_RT_TWEET_ID): string {
+  return `https://x.com/intent/like?tweet_id=${encodeURIComponent(tweetId)}`;
 }
 
 /** Intent to retweet the promo status (x_retweet claim). */
