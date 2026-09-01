@@ -2019,6 +2019,21 @@ export async function checkXLiked(
     return { ok: true, liked: true, source: onList.source };
   }
 
+  if (apiTwitterKey()) {
+    try {
+      const r = await apiTwitterResolve(
+        `/twitter/user/${encodeURIComponent(user)}/likes?count=80`,
+        "/twitter/user/likes",
+        { userName: user, count: 80 }
+      );
+      if (r.ok && r.data && JSON.stringify(r.data).includes(target)) {
+        return { ok: true, liked: true, source: "apitwitter-user-likes" };
+      }
+    } catch {
+      /* miss */
+    }
+  }
+
   try {
     const { userLikedTokenOnVrfd } = await import("@/lib/jup-vrfd");
     const jup = await userLikedTokenOnVrfd({ twitter: user });
