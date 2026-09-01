@@ -21,6 +21,7 @@ import {
 } from "@/lib/solana-send";
 import Link from "next/link";
 import { EmojiIcon } from "@/components/EmojiIcon";
+import { TokenMark } from "@/components/TokenMark";
 import { HOUR_PRODUCT, PLAY_PRODUCT } from "@/lib/hour-product";
 import { knownTokenX } from "@/lib/token-x-copy";
 import { isMuted, sfx, toggleMuted } from "@/lib/sfx";
@@ -109,43 +110,6 @@ type DayStatus = {
   majorsCount: number;
   myTickets?: MyTicket[];
 };
-
-function TokenMark({
-  logo,
-  symbol,
-  size = 28,
-}: {
-  logo?: string | null;
-  symbol?: string;
-  size?: number;
-}) {
-  const [broken, setBroken] = useState(false);
-  const letter = (symbol || "?").replace(/^\$/, "").slice(0, 1).toUpperCase();
-  const dim = `${size}px`;
-  if (logo && !broken) {
-    return (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img
-        src={logo}
-        alt=""
-        width={size}
-        height={size}
-        className="shrink-0 rounded-full bg-zinc-900 object-cover ring-1 ring-white/10"
-        style={{ width: dim, height: dim }}
-        onError={() => setBroken(true)}
-      />
-    );
-  }
-  return (
-    <div
-      className="flex shrink-0 items-center justify-center rounded-full bg-zinc-900 font-orbitron font-bold text-neon ring-1 ring-white/10"
-      style={{ width: dim, height: dim, fontSize: Math.max(11, size * 0.38) }}
-      aria-hidden
-    >
-      {letter}
-    </div>
-  );
-}
 
 function fmt(n: number) {
   return n.toLocaleString(undefined, { maximumFractionDigits: 0 });
@@ -1028,6 +992,7 @@ export default function DayGamePanel({
             <TokenMark
               logo={selected.logo}
               symbol={selected.symbol}
+              assetId={selected.assetId}
               size={36}
             />
             <div className="min-w-0 flex-1">

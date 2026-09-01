@@ -9,6 +9,7 @@ import { SHIT_SYMBOL } from "@/lib/shit-token";
 import type { VrfRecord } from "@/lib/day-vrf-links";
 import VrfProofLinks from "@/components/VrfProofLinks";
 import { XLogo } from "@/components/XLogo";
+import { TokenMark } from "@/components/TokenMark";
 
 export type HourSettlePayload = {
   utcHour: string;
@@ -147,20 +148,25 @@ function WinnerBlock({
         {hit ? "HIT of the hour" : "SHIT of the hour"}
       </div>
       <div className="flex items-center gap-3">
-        {data.logo ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={data.logo}
-            alt=""
-            className="h-12 w-12 rounded-full bg-zinc-900 ring-2 ring-white/10"
-          />
-        ) : (
-          <div className="h-12 w-12 rounded-full bg-zinc-900" />
-        )}
+        <TokenMark
+          logo={data.logo}
+          symbol={data.symbol}
+          assetId={data.assetId}
+          size={48}
+        />
         <div className="min-w-0 flex-1">
-          <div className="text-lg font-bold text-white truncate">
-            {data.symbol || data.name || "—"}
-          </div>
+          {data.assetId ? (
+            <Link
+              href={`/token/${encodeURIComponent(data.assetId)}`}
+              className="text-lg font-bold text-white truncate hover:text-neon block"
+            >
+              {data.symbol || data.name || "—"}
+            </Link>
+          ) : (
+            <div className="text-lg font-bold text-white truncate">
+              {data.symbol || data.name || "—"}
+            </div>
+          )}
           <div className="text-xs text-zinc-500 truncate">{data.name}</div>
         </div>
         <div
