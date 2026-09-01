@@ -7,6 +7,7 @@ import {
 } from "@/lib/day-game";
 import { tursoExecute } from "@/lib/turso";
 import { getAssetX } from "@/lib/token-x";
+import { knownLogo, orbLogo } from "@/lib/asset-logos";
 
 export const dynamic = "force-dynamic";
 
@@ -54,7 +55,10 @@ export async function GET(_req: Request, ctx: Ctx) {
         hitMeta = {
           name: String(r.rows[0][0] || ""),
           symbol: String(r.rows[0][1] || ""),
-          logo: String(r.rows[0][2] || ""),
+          logo:
+            String(r.rows[0][2] || "") ||
+            orbLogo(round.hitAssetId, String(r.rows[0][1] || "")) ||
+            knownLogo(String(r.rows[0][1] || "")),
           closePrice: Number(r.rows[0][3]),
           volume24h: Number(r.rows[0][4] || 0),
           twitter: await getAssetX(
@@ -78,7 +82,10 @@ export async function GET(_req: Request, ctx: Ctx) {
         shitMeta = {
           name: String(r.rows[0][0] || ""),
           symbol: String(r.rows[0][1] || ""),
-          logo: String(r.rows[0][2] || ""),
+          logo:
+            String(r.rows[0][2] || "") ||
+            orbLogo(round.shitAssetId, String(r.rows[0][1] || "")) ||
+            knownLogo(String(r.rows[0][1] || "")),
           closePrice: Number(r.rows[0][3]),
           volume24h: Number(r.rows[0][4] || 0),
           twitter: await getAssetX(

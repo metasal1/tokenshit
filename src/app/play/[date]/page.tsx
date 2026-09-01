@@ -11,7 +11,9 @@ import { vrfExplorerLinks, type VrfRecord } from "@/lib/day-vrf-links";
 import { PLAY_PRODUCT } from "@/lib/hour-product";
 import { hourSettleTweet } from "@/lib/token-x-copy";
 import { getAssetX } from "@/lib/token-x";
+import { knownLogo, orbLogo } from "@/lib/asset-logos";
 import { XLogo } from "@/components/XLogo";
+import { TokenMark } from "@/components/TokenMark";
 
 export const dynamic = "force-dynamic";
 
@@ -114,28 +116,36 @@ export default async function PlayReceiptPage({ params }: Props) {
   const day = resolveKey(raw);
 
   const round = await getRound(day);
-  let hitMeta: { name: string; symbol: string } | null = null;
-  let shitMeta: { name: string; symbol: string } | null = null;
+  let hitMeta: { name: string; symbol: string; logo?: string } | null = null;
+  let shitMeta: { name: string; symbol: string; logo?: string } | null = null;
   if (round?.hitAssetId) {
     const r = await tursoExecute(
-      `SELECT name, symbol FROM day_prices WHERE utc_day=? AND asset_id=? AND phase='close' LIMIT 1`,
+      `SELECT name, symbol, logo FROM day_prices WHERE utc_day=? AND asset_id=? AND phase='close' LIMIT 1`,
       [day, round.hitAssetId]
     );
     if (r.rows[0])
       hitMeta = {
         name: String(r.rows[0][0] || ""),
         symbol: String(r.rows[0][1] || ""),
+        logo:
+          String(r.rows[0][2] || "") ||
+          orbLogo(round.hitAssetId, String(r.rows[0][1] || "")) ||
+          knownLogo(String(r.rows[0][1] || "")),
       };
   }
   if (round?.shitAssetId) {
     const r = await tursoExecute(
-      `SELECT name, symbol FROM day_prices WHERE utc_day=? AND asset_id=? AND phase='close' LIMIT 1`,
+      `SELECT name, symbol, logo FROM day_prices WHERE utc_day=? AND asset_id=? AND phase='close' LIMIT 1`,
       [day, round.shitAssetId]
     );
     if (r.rows[0])
       shitMeta = {
         name: String(r.rows[0][0] || ""),
         symbol: String(r.rows[0][1] || ""),
+        logo:
+          String(r.rows[0][2] || "") ||
+          orbLogo(round.shitAssetId, String(r.rows[0][1] || "")) ||
+          knownLogo(String(r.rows[0][1] || "")),
       };
   }
 
@@ -198,14 +208,31 @@ export default async function PlayReceiptPage({ params }: Props) {
             <div className="text-[10px] uppercase text-green-500 font-orbitron tracking-wider">
               HIT bag
             </div>
-            <div className="text-white font-semibold">
-              {hitMeta?.symbol || round?.hitAssetId || "—"}{" "}
+            <div className="flex items-center gap-2">
+              <TokenMark
+                logo={hitMeta?.logo}
+                symbol={hitMeta?.symbol || round?.hitAssetId}
+                assetId={round?.hitAssetId}
+                size={36}
+              />
+              <div className="text-white font-semibold min-w-0">
+                {round?.hitAssetId ? (
+                  <Link
+                    href={`/token/${encodeURIComponent(round.hitAssetId)}`}
+                    className="hover:text-neon"
+                  >
+                    {hitMeta?.symbol || round.hitAssetId}
+                  </Link>
+                ) : (
+                  hitMeta?.symbol || "—"
+                )}{" "}
               {round?.hitPct != null && (
                 <span className="text-green-400 font-mono text-sm">
                   {round.hitPct >= 0 ? "+" : ""}
                   {round.hitPct.toFixed(2)}%
                 </span>
               )}
+            </div>
             </div>
             <div className="text-xs text-zinc-500">{hitMeta?.name}</div>
             <div className="text-xs font-mono text-zinc-400 break-all">
@@ -234,14 +261,31 @@ export default async function PlayReceiptPage({ params }: Props) {
             <div className="text-[10px] uppercase text-red-500 font-orbitron tracking-wider">
               SHIT bag
             </div>
-            <div className="text-white font-semibold">
-              {shitMeta?.symbol || round?.shitAssetId || "—"}{" "}
+            <div className="flex items-center gap-2">
+              <TokenMark
+                logo={shitMeta?.logo}
+                symbol={shitMeta?.symbol || round?.shitAssetId}
+                assetId={round?.shitAssetId}
+                size={36}
+              />
+              <div className="text-white font-semibold min-w-0">
+                {round?.shitAssetId ? (
+                  <Link
+                    href={`/token/${encodeURIComponent(round.shitAssetId)}`}
+                    className="hover:text-neon"
+                  >
+                    {shitMeta?.symbol || round.shitAssetId}
+                  </Link>
+                ) : (
+                  shitMeta?.symbol || "—"
+                )}{" "}
               {round?.shitPct != null && (
                 <span className="text-red-400 font-mono text-sm">
                   {round.shitPct >= 0 ? "+" : ""}
                   {round.shitPct.toFixed(2)}%
                 </span>
               )}
+              </div>
             </div>
             <div className="text-xs text-zinc-500">{shitMeta?.name}</div>
             <div className="text-xs font-mono text-zinc-400 break-all">

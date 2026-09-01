@@ -113,6 +113,9 @@ const KNOWN: Record<string, string> = {
   VIRTUAL: cg("virtual-protocol"),
   AI16Z: cg("ai16z"),
   GOAT: cg("goatseus-maximus"),
+  ARX: cg("arcium"),
+  BLEND: cg("fluent"),
+  FLUENT: cg("fluent"),
 };
 
 export function knownLogo(symbol: string | null | undefined): string {
