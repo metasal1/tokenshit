@@ -78,26 +78,6 @@ const FARM_OFF = new Set<ClaimKind>([
   "gh_fork",
 ]);
 
-async function checkEngage(twitter: string, quoteUrl?: string | null) {
-  const [f, liked, rt] = await Promise.all([
-    checkXFollowsTokenshit(twitter),
-    checkXLiked(twitter, CLAIM_RT_TWEET_ID),
-    checkXRetweeted(twitter, CLAIM_RT_TWEET_ID, quoteUrl || null),
-  ]);
-  const following = !!(f.ok && f.following);
-  const likeOk = !!(liked.ok && liked.liked);
-  const rtOk = !!(rt.ok && rt.retweeted);
-  return {
-    following,
-    liked: likeOk,
-    retweeted: rtOk,
-    ok: following && likeOk && rtOk,
-    followErr: f.ok ? null : f.error,
-    likeErr: liked.error,
-    rtErr: rt.error,
-  };
-}
-
 export async function GET(request: NextRequest) {
   const sp = request.nextUrl.searchParams;
   const kindRaw = sp.get("kind") || "";
@@ -537,22 +517,6 @@ export async function POST(request: NextRequest) {
 
     if (!twitter) {
       return Response.json({ error: "twitter required" }, { status: 400 });
-    }
-    const quoteUrl = body.tweetUrl ? String(body.tweetUrl).trim() : "";
-    const engage = await checkEngage(twitter, quoteUrl || null);
-    if (!engage.ok) {
-      return Response.json(
-        {
-          error:
-            "Follow @Tokenshit_, like the promo post, and RT it. Then claim.",
-          code: "need_engage",
-          following: engage.following,
-          liked: engage.liked,
-          retweeted: engage.retweeted,
-          target: CLAIM_RT_TWEET_ID,
-        },
-        { status: 403 }
-      );
     }
 
     let amount = AMOUNTS[kind];
