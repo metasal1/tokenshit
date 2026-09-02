@@ -6,6 +6,9 @@ import {
   FREE_PLAY,
   HOUR_PRIZE,
   PLAY_MAX_PICKS,
+  PLAY_STREAK_BONUS,
+  PLAY_STREAK_HOURS,
+  playStreakHours,
   PLAY_MAX_PER_SIDE,
   PLAY_MIN_BALANCE,
   PLAY_REQUIRE_FOLLOW,
@@ -212,8 +215,14 @@ export async function GET(request: NextRequest) {
       side: DaySide;
       tickets: number;
     }> = [];
+    let streakHours = 0;
     if (walletQ && isSolanaAddress(walletQ)) {
       myTickets = await withTimeout(getMyTickets(hour, walletQ), 2_000, []);
+      streakHours = await withTimeout(
+        playStreakHours(walletQ, hour),
+        1_500,
+        0
+      );
     }
 
     const pctMap = new Map(
@@ -353,6 +362,11 @@ export async function GET(request: NextRequest) {
       minBalance: PLAY_MIN_BALANCE,
       requireFollow: PLAY_REQUIRE_FOLLOW,
       prize: prizePool,
+      streak: {
+        hours: streakHours,
+        need: PLAY_STREAK_HOURS,
+        bonus: PLAY_STREAK_BONUS,
+      },
       multiTicket: true,
       treasury: TREASURY_ADDRESS,
       pot: PLAY_POT_ADDRESS,

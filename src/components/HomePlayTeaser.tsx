@@ -60,7 +60,7 @@ export default function HomePlayTeaser() {
 
   const cd = msLeft == null ? "—:— " : fmtCd(msLeft);
   const urgent = msLeft != null && msLeft > 0 && msLeft < 5 * 60_000;
-  const prize = Number(data?.prize?.total ?? 20_000);
+  const prize = Number(data?.prize?.total ?? 30_000);
   const players = Number(data?.stats?.players ?? 0);
 
   return (
