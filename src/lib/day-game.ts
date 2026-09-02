@@ -23,8 +23,11 @@ export const PLAY_WIN_WINDOW = 3;
 /** Must still hold this much $TOKENSHIT (didn't dump claims) */
 export const PLAY_MIN_BALANCE = Number(process.env.PLAY_MIN_BALANCE || 10_000);
 /** Base prize each hour from SHTy; jackpot rolls on top if no winners */
-export const HOUR_PRIZE = Number(process.env.PLAY_HOUR_PRIZE || 20_000);
+export const HOUR_PRIZE = Number(process.env.PLAY_HOUR_PRIZE || 30_000);
 export const PLAY_REQUIRE_FOLLOW = process.env.PLAY_REQUIRE_FOLLOW !== "0";
+/** Consecutive UTC hours of Play. Win that hour → extra SHTy bonus. */
+export const PLAY_STREAK_HOURS = 5;
+export const PLAY_STREAK_BONUS = Number(process.env.PLAY_STREAK_BONUS || 5_000);
 
 /** Round length */
 export const ROUND_MS = 60 * 60 * 1000;
@@ -45,6 +48,38 @@ export function utcDayString(d = new Date()): string {
 export function previousUtcHour(hourKey: string): string {
   const t = Date.parse(hourKey + ":00:00.000Z") - ROUND_MS;
   return utcHourString(new Date(t));
+}
+
+/** Consecutive Play hours ending at hourKey (this hour first). */
+export async function playStreakHours(
+  wallet: string,
+  hourKey: string
+): Promise<number> {
+  const w = String(wallet || "").trim().toLowerCase();
+  if (!w) return 0;
+  const keys: string[] = [hourKey];
+  let k = hourKey;
+  for (let i = 1; i < PLAY_STREAK_HOURS; i++) {
+    k = previousUtcHour(k);
+    keys.push(k);
+  }
+  const ph = keys.map(() => "?").join(",");
+  try {
+    const r = await tursoExecute(
+      `SELECT DISTINCT utc_day FROM day_stakes
+       WHERE lower(wallet) = ? AND utc_day IN (${ph})`,
+      [w, ...keys]
+    );
+    const have = new Set(r.rows.map((row) => String(row[0] || "")));
+    let n = 0;
+    for (const key of keys) {
+      if (!have.has(key)) break;
+      n += 1;
+    }
+    return n;
+  } catch {
+    return 0;
+  }
 }
 
 /** @deprecated */
@@ -1841,11 +1876,18 @@ export async function settleDay(
       tickets: number;
       amount: number;
       sig: string | null;
+      streakBonus?: number;
+      streakSig?: string | null;
     };
     const winners: W[] = [];
     let paidTotal = 0;
     let firstSig: string | null = null;
     let rolled = 0;
+    const streakPays: Array<{
+      wallet: string;
+      amount: number;
+      sig: string | null;
+    }> = [];
 
     if (totalTickets <= 0 || prizePool <= 0) {
       // No winners → roll jackpot to next hour
@@ -1891,6 +1933,29 @@ export async function settleDay(
           winners.push({ ...s, sig: paid.signature });
           paidTotal += s.amount;
           if (!firstSig) firstSig = paid.signature;
+          const streakN = await playStreakHours(s.wallet, utcDay);
+          if (streakN >= PLAY_STREAK_HOURS && PLAY_STREAK_BONUS > 0) {
+            try {
+              const extra = await sendShitFromTreasury(
+                s.wallet,
+                PLAY_STREAK_BONUS
+              );
+              winners[winners.length - 1]!.streakBonus = PLAY_STREAK_BONUS;
+              winners[winners.length - 1]!.streakSig = extra.signature;
+              paidTotal += PLAY_STREAK_BONUS;
+              streakPays.push({
+                wallet: s.wallet,
+                amount: PLAY_STREAK_BONUS,
+                sig: extra.signature,
+              });
+            } catch {
+              streakPays.push({
+                wallet: s.wallet,
+                amount: 0,
+                sig: null,
+              });
+            }
+          }
         } catch {
           winners.push({ ...s, sig: null });
         }
@@ -1912,6 +1977,9 @@ export async function settleDay(
       rolledOut: rolled,
       totalCorrectPicks: totalTickets,
       winners,
+      streakPays,
+      streakHours: PLAY_STREAK_HOURS,
+      streakBonus: PLAY_STREAK_BONUS,
       hitTickets: hitTickets.length,
       shitTickets: shitTickets.length,
       moveCount: moves.length,

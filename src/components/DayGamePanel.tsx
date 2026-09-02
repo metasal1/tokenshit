@@ -29,7 +29,7 @@ import { isMuted, sfx, toggleMuted } from "@/lib/sfx";
 const PLAY_STAKE = 0; // free play
 const DEFAULT_MAX_PICKS = 2;
 const DEFAULT_MIN_BAL = 10_000;
-const DEFAULT_HOUR_PRIZE = 20_000;
+const DEFAULT_HOUR_PRIZE = 30_000;
 const TIP_KEY = "tokenshit_play_tip_v3";
 
 function fmtPct(n: number | null | undefined): string {
@@ -78,6 +78,7 @@ type DayStatus = {
   minBalance?: number;
   requireFollow?: boolean;
   prize?: { base: number; jackpot: number; total: number };
+  streak?: { hours: number; need: number; bonus: number };
   multiTicket?: boolean;
   houseSpark?: {
     enabled?: boolean;
@@ -774,7 +775,7 @@ export default function DayGamePanel({
         <div className="flex shrink-0 items-center gap-2 bg-neon/10 px-3 py-2 text-[11px] leading-snug text-zinc-200">
           <span className="min-w-0 flex-1">
             <b className="text-neon">Play:</b> tap 1 UP and 1 DOWN, then Lock.{" "}
-            FREE · 1 UP + 1 DOWN · top 3 win · {DEFAULT_HOUR_PRIZE.toLocaleString()} ${SHIT_SYMBOL}/hr · jackpot rolls
+            FREE · 1 UP + 1 DOWN · top 3 win · {DEFAULT_HOUR_PRIZE.toLocaleString()} ${SHIT_SYMBOL}/hr · 5-hour streak · jackpot rolls
             pot.
           </span>
           <button
@@ -1133,6 +1134,9 @@ export default function DayGamePanel({
           {fmt(status?.prize?.total ?? DEFAULT_HOUR_PRIZE)} ${SHIT_SYMBOL}/hr
           {(status?.prize?.jackpot || 0) > 0
             ? ` · jackpot +${fmt(status!.prize!.jackpot)}`
+            : ""}
+          {status?.streak
+            ? ` · streak ${status.streak.hours}/${status.streak.need} · win +${fmt(status.streak.bonus)}`
             : ""}
           {" · "}
           <Link href={HOUR_PRODUCT.winnersPath} className="text-zinc-400">
