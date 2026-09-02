@@ -20,6 +20,13 @@ type Poster = {
 
 const POSTERS: Poster[] = [
   {
+    title: "75M locked",
+    blurb: "75,000,000 SH!T locked on-chain via Streamflow",
+    href: "https://app.streamflow.finance/contract/solana/mainnet/46bwTG4jLFxfEUm3MBpBuKoFk6komK7UafUZcaswoz5s",
+    src: "/brand/lock-75m-poster.png",
+    src2x: "/brand/lock-75m-poster@2x.png",
+  },
+  {
     title: "Massive play board",
     blurb: "30 tokens available to play",
     href: "/play",
