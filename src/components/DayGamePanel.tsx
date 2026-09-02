@@ -29,7 +29,7 @@ import { isMuted, sfx, toggleMuted } from "@/lib/sfx";
 const PLAY_STAKE = 0; // free play
 const DEFAULT_MAX_PICKS = 2;
 const DEFAULT_MIN_BAL = 10_000;
-const DEFAULT_HOUR_PRIZE = 10_000;
+const DEFAULT_HOUR_PRIZE = 20_000;
 const TIP_KEY = "tokenshit_play_tip_v3";
 
 function fmtPct(n: number | null | undefined): string {

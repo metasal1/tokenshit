@@ -23,7 +23,7 @@ export const PLAY_WIN_WINDOW = 3;
 /** Must still hold this much $TOKENSHIT (didn't dump claims) */
 export const PLAY_MIN_BALANCE = Number(process.env.PLAY_MIN_BALANCE || 10_000);
 /** Base prize each hour from SHTy; jackpot rolls on top if no winners */
-export const HOUR_PRIZE = Number(process.env.PLAY_HOUR_PRIZE || 10_000);
+export const HOUR_PRIZE = Number(process.env.PLAY_HOUR_PRIZE || 20_000);
 export const PLAY_REQUIRE_FOLLOW = process.env.PLAY_REQUIRE_FOLLOW !== "0";
 
 /** Round length */
