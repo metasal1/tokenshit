@@ -76,6 +76,7 @@ const KNOWN: Record<string, string> = {
   DOT: cg("polkadot"),
   LTC: cg("litecoin"),
   XRP: cg("ripple"),
+  RIPPLE: cg("ripple"),
   TON: cg("the-open-network"),
   TRX: cg("tron"),
   ADA: cg("cardano"),
