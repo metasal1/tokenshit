@@ -32,5 +32,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
     row("/privacy", 0.5, "monthly"),
     row("/search", 0.65, "daily"),
     row("/brand", 0.4, "monthly"),
+    row("/store", 0.7, "weekly"),
   ];
 }

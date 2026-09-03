@@ -23,6 +23,7 @@ Play $HIT OF THE DAY, free arena votes, claims, swap, whales.
 - Winners: https://tokenshit.com/winners
 - Referrals: https://tokenshit.com/referrals
 - Brand: https://tokenshit.com/brand
+- Store: https://tokenshit.com/store
 - Search: https://tokenshit.com/search
 - Seeker: https://tokenshit.com/seeker
 - Terms: https://tokenshit.com/terms
