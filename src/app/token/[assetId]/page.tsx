@@ -18,6 +18,9 @@ import { extractMint, resolveAssetMeta } from "@/lib/resolveMeta";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import CopyableAddress from "@/components/CopyableAddress";
+import { TokenMark } from "@/components/TokenMark";
+import { knownLogo } from "@/lib/asset-logos";
+import { fetchRealMajorsLive } from "@/lib/day-game";
 
 interface Props {
   params: Promise<{ assetId: string }>;
@@ -169,20 +172,54 @@ export default async function TokenPage({ params, searchParams }: Props) {
   if (price == null && mintParam) {
     price = await jupiterPrice(mintParam);
   }
-  const marketCap = (profileData.marketCap ??
+  let marketCap = (profileData.marketCap ??
     stats.marketCap ??
     null) as number | null;
-  const volume24h = (profileData.volume24h ??
+  let volume24h = (profileData.volume24h ??
     stats.volume24hUSD ??
     null) as number | null;
-  const liquidity = (stats.liquidity ??
+  let liquidity = (stats.liquidity ??
     primaryMarket.liquidity ??
     null) as number | null;
-  const fdv = (profileData.fdv ?? null) as number | null;
-  const priceChange24h = (stats.priceChange24hPercent ??
+  let fdv = (profileData.fdv ?? null) as number | null;
+  let priceChange24h = (stats.priceChange24hPercent ??
     profileData.priceChange24h ??
     null) as number | null;
-  const priceChange1h = (stats.priceChange1hPercent ?? null) as number | null;
+  let priceChange1h = (stats.priceChange1hPercent ?? null) as number | null;
+
+  logo =
+    knownLogo(symbol) ||
+    knownLogo(name) ||
+    (logo && String(logo).startsWith("http") ? logo : "") ||
+    "";
+
+  if (
+    price == null ||
+    volume24h == null ||
+    marketCap == null ||
+    !logo
+  ) {
+    try {
+      const majors = await fetchRealMajorsLive();
+      const u = (symbol || name || "").toUpperCase();
+      const hit = majors.find(
+        (m) =>
+          m.assetId === assetId ||
+          m.symbol.toUpperCase() === u ||
+          m.name.toUpperCase() === u ||
+          (u === "RIPPLE" && m.symbol.toUpperCase() === "XRP")
+      );
+      if (hit) {
+        if (price == null && Number.isFinite(hit.price)) price = hit.price;
+        if (volume24h == null && hit.volume24h) volume24h = hit.volume24h;
+        if (!logo && hit.logo) logo = hit.logo;
+        if (priceChange1h == null && hit.change1h != null)
+          priceChange1h = hit.change1h;
+      }
+    } catch {
+      /* majors miss */
+    }
+  }
 
   const marketScore = (riskIncludeData.marketScore ||
     riskData.marketScore ||
@@ -209,22 +246,14 @@ export default async function TokenPage({ params, searchParams }: Props) {
         {/* Compact token header */}
         <header className="rounded-2xl border border-border bg-card p-3.5 sm:p-5">
           <div className="flex items-center gap-3 sm:gap-4">
-            {logo ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={logo}
-                alt={symbol || name}
-                className="h-14 w-14 sm:h-16 sm:w-16 rounded-full bg-zinc-800 shrink-0 border border-zinc-700"
-              />
-            ) : (
-              <div className="h-14 w-14 sm:h-16 sm:w-16 rounded-full bg-zinc-800 flex items-center justify-center text-xl font-bold text-zinc-400 shrink-0">
-                {(symbol || name)?.slice(0, 2)}
-              </div>
-            )}
+            <TokenMark
+              logo={logo}
+              symbol={symbol || name}
+              assetId={assetId}
+              mint={mintParam || null}
+              size={64}
+            />
             <div className="min-w-0 flex-1">
-              <p className="text-[10px] font-mono uppercase tracking-[0.16em] text-zinc-500">
-                Rate this bag
-              </p>
               <h1 className="text-xl sm:text-2xl font-black text-foreground truncate leading-tight">
                 {name}
               </h1>
@@ -262,7 +291,9 @@ export default async function TokenPage({ params, searchParams }: Props) {
               { label: "Vol 24h", value: formatLargeNumber(volume24h) },
               { label: "Liq", value: formatLargeNumber(liquidity) },
               { label: "FDV", value: formatLargeNumber(fdv) },
-            ].map((s) => (
+            ]
+              .filter((s) => s.value !== "—")
+              .map((s) => (
               <div
                 key={s.label}
                 className="rounded-lg border border-border/80 bg-zinc-950/70 px-2.5 py-2"
@@ -451,8 +482,8 @@ export default async function TokenPage({ params, searchParams }: Props) {
         ) : null}
 
         <p className="text-center text-[11px] text-zinc-600 pb-2">
-          <Link href="/" className="text-neon-blue hover:underline">
-            Back to arena
+          <Link href="/play" className="text-neon-blue hover:underline">
+            Play FOR PRIZES
           </Link>
           {" · "}
           swipe for next bag
