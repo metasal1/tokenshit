@@ -527,6 +527,13 @@ function Layout({ children }: { children: React.ReactNode }) {
           </a>
           <span className="text-zinc-700">·</span>
           <Link
+            href="/store"
+            className="text-zinc-500 hover:text-zinc-300 transition-colors"
+          >
+            Store
+          </Link>
+          <span className="text-zinc-700">·</span>
+          <Link
             href="/brand"
             className="text-zinc-500 hover:text-zinc-300 transition-colors"
           >
