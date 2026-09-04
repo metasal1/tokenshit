@@ -7,7 +7,6 @@ import {
   CLAIM_X_LIKE,
   CLAIM_X_RETWEET,
   CLAIM_RT_TWEET_ID,
-  CLAIM_PUMPFAST,
   CLAIM_X_PREMIUM,
   CLAIM_X_TWEET,
   CLAIM_X_VERIFIED,
@@ -63,7 +62,6 @@ const AMOUNTS: Record<ClaimKind, number> = {
   jup_verified: CLAIM_JUP_VERIFIED,
   /** SOL amount (not $TOKENSHIT) — 67 plays of gas */
   sol_gas_love: PLAY_GAS_DROP_SOL,
-  pumpfast: CLAIM_PUMPFAST,
 };
 
 function isKind(k: string): k is ClaimKind {
@@ -190,11 +188,6 @@ export async function GET(request: NextRequest) {
       const like = await userLikedTokenOnVrfd({ twitter });
       detail = like;
       eligible = like.liked;
-    } else if (kind === "pumpfast") {
-      const { checkPumpfastToken } = await import("@/lib/pumpfast");
-      const pf = await checkPumpfastToken();
-      detail = pf;
-      eligible = pf.ok && pf.listed;
     } else if (kind === "sol_gas_love") {
       if (!twitter)
         return Response.json({ error: "twitter required" }, { status: 400 });
@@ -748,32 +741,6 @@ export async function POST(request: NextRequest) {
         );
       }
       amount = CLAIM_JUP_VERIFIED;
-    } else if (kind === "pumpfast") {
-      const { checkPumpfastToken, PUMPFAST_TOKEN_URL } = await import(
-        "@/lib/pumpfast"
-      );
-      const pf = await checkPumpfastToken();
-      if (!pf.ok) {
-        return Response.json(
-          {
-            error: pf.error || "pumpfa.st check failed",
-            code: "pumpfast_down",
-          },
-          { status: 502 }
-        );
-      }
-      if (!pf.listed) {
-        return Response.json(
-          {
-            error:
-              "TOKENSHIT is not listed on pumpfa.st. Open the token page, boost or upvote, then claim.",
-            code: "not_on_pumpfast",
-            url: PUMPFAST_TOKEN_URL,
-          },
-          { status: 403 }
-        );
-      }
-      amount = CLAIM_PUMPFAST;
     }
 
     if (await hasClaimed(kind, { twitter, github, wallet })) {
