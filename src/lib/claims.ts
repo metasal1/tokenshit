@@ -10,7 +10,8 @@ export type ClaimKind =
   | "x_retweet"
   | "email_list"
   | "jup_verified"
-  | "sol_gas_love";
+  | "sol_gas_love"
+  | "pumpfast";
 
 /** Tweet claim cooldown + max tweet age */
 export const TWEET_CLAIM_COOLDOWN_MS = 24 * 60 * 60 * 1000;
