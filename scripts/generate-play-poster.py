@@ -339,11 +339,11 @@ def build() -> Image.Image:
 
     # rules card
     rules = [
-        ("FREE to play", "No stake  |  1 UP + 1 DOWN per hour"),
-        ("Hold 10,000 $TOKENSHIT", "Keep your claims  |  don't dump"),
+        ("FREE to play", "No entry fee  |  1 UP + 1 DOWN per hour"),
+        ("Hold 2,000 SH!T", "Claim follow + like + RT unlocks Play"),
         ("Follow @Tokenshit_", "Required before you Play"),
         ("Top 3 win", "Best 3 % = HIT  |  worst 3 % = SHIT"),
-        ("10,000 prize / hour", "Winners split  |  no winners = jackpot rolls"),
+        ("30,000 prize / hour", "Winners split  |  no winners = jackpot rolls"),
     ]
 
     inner_x = M + 4
