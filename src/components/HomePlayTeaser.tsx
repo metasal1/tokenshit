@@ -78,7 +78,7 @@ export default function HomePlayTeaser() {
             </h2>
             <p className="mt-2 text-sm text-zinc-300 max-w-sm leading-snug">
               <span className="text-neon font-semibold">FREE</span> · 1 UP + 1
-              DOWN · top 3 win · hold 10k ·{" "}
+              DOWN · top 3 win · hold 2k ·{" "}
               <span className="text-green-400 font-semibold">HIT</span> or{" "}
               <span className="text-red-400 font-semibold">SHIT</span>
             </p>
