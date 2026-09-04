@@ -87,6 +87,7 @@ export const TOKEN_X_BY_ID: Record<string, string> = {
   "arbitrum": "arbitrum",
   "mantle": "Mantle_Official",
   "berachain-bera": "berachain",
+  pons: "ponsdotfamily",
 };
 
 export const TOKEN_X_BY_SYM: Record<string, string> = {
@@ -144,4 +145,5 @@ export const TOKEN_X_BY_SYM: Record<string, string> = {
   INJ: "injective",
   OP: "Optimism",
   ARB: "arbitrum",
+  PONS: "ponsdotfamily",
 };
