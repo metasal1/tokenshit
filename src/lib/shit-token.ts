@@ -52,8 +52,6 @@ export const CLAIM_X_FOLLOW = 1_000;
 export const CLAIM_X_LIKE = 500;
 /** Retweet or quote the promo post (once) */
 export const CLAIM_X_RETWEET = 500;
-/** Boost or upvote TOKENSHIT on pumpfa.st (once) */
-export const CLAIM_PUMPFAST = 500;
 /** Target status for x_like / x_retweet */
 export const CLAIM_RT_TWEET_ID = "2094381999947690347";
 export const CLAIM_RT_TWEET_URL =
