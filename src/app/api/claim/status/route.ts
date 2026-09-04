@@ -11,6 +11,7 @@ import {
   CLAIM_X_FOLLOW,
   CLAIM_X_LIKE,
   CLAIM_X_RETWEET,
+  CLAIM_PUMPFAST,
   CLAIM_X_PREMIUM,
   CLAIM_X_TWEET,
   CLAIM_X_VERIFIED,
@@ -33,6 +34,7 @@ const KINDS: ClaimKind[] = [
   "email_list",
   "jup_verified",
   "sol_gas_love",
+  "pumpfast",
 ];
 
 const AMOUNTS: Record<ClaimKind, number> = {
@@ -46,6 +48,7 @@ const AMOUNTS: Record<ClaimKind, number> = {
   email_list: CLAIM_EMAIL_LIST,
   jup_verified: CLAIM_JUP_VERIFIED,
   sol_gas_love: PLAY_GAS_DROP_SOL,
+  pumpfast: CLAIM_PUMPFAST,
 };
 
 /**

@@ -77,7 +77,7 @@ function withSecurityHeaders(res: NextResponse): NextResponse {
       "font-src 'self' data: https://fonts.gstatic.com",
       "img-src 'self' data: blob: https:",
       "connect-src 'self' https: wss: https://*.privy.io https://auth.privy.io https://api.mainnet-beta.solana.com wss://api.mainnet-beta.solana.com https://quote-api.jup.ag https://api.jup.ag https://lite-api.jup.ag https://api.tokens.xyz https://api.dexscreener.com https://api.coingecko.com https://www.google-analytics.com https://region1.google-analytics.com https://*.turso.io",
-      "frame-src 'self' https://*.privy.io https://auth.privy.io https://challenges.cloudflare.com https://*.moonpay.com https://buy.moonpay.com https://*.crossmint.com https://www.crossmint.com https://staging.crossmint.com",
+      "frame-src 'self' https://*.privy.io https://auth.privy.io https://challenges.cloudflare.com https://*.moonpay.com https://buy.moonpay.com https://*.crossmint.com https://www.crossmint.com https://staging.crossmint.com https://pumpfa.st",
       "frame-ancestors 'none'",
       "base-uri 'self'",
       "form-action 'self' https://*.privy.io",
