@@ -38,6 +38,7 @@ import {
   type MemeBox,
   type MemeTemplate,
 } from "@/lib/meme-render";
+import { parseMemesSearch, writeMemesSearch } from "@/lib/meme-templates";
 
 type FaceDef = {
   id: string;
@@ -123,12 +124,15 @@ export default function MemeStudio({ embedded = false }: { embedded?: boolean })
   const BRAND_HASH = "b4cc6c14fe22bc2d57f65f8080f71d2c334ae77d4fdaadfbb8fd1f9e49b3d17f";
 
   const fileRef = useRef<HTMLInputElement>(null);
+  const deepLinkDone = useRef(false);
 
   useEffect(() => {
     void ensureMonotonFont();
     try {
       if (localStorage.getItem(BRAND_LS) === "1") setBrandOn(false);
     } catch { /* ignore */ }
+    const { face: faceQ } = parseMemesSearch(window.location.search);
+    if (faceQ) setFace(faceQ);
   }, []);
 
   // Lock body scroll while editor open (mobile)
@@ -191,28 +195,51 @@ export default function MemeStudio({ embedded = false }: { embedded?: boolean })
     load();
   }, [load]);
 
-  // Deep link ?t=id&top=&bottom=
+  // Deep link ?t=id / ?meme=id  and  ?face= / ?f=
   useEffect(() => {
-    if (typeof window === "undefined" || !items.length) return;
-    const sp = new URLSearchParams(window.location.search);
-    const tid = sp.get("t");
-    if (!tid) return;
-    const match =
-      items.find((t) => t.id === tid) ||
-      uploads.find((t) => t.id === tid);
-    if (!match) return;
-    open(match);
-    const top = sp.get("top");
-    const bottom = sp.get("bottom");
-    if (top || bottom) {
-      setTexts((prev) => {
-        const next = [...prev];
-        if (top != null) next[0] = top;
-        if (bottom != null) next[1] = bottom;
-        return next;
-      });
+    if (typeof window === "undefined" || deepLinkDone.current) return;
+    const { t: tid, top, bottom } = parseMemesSearch(window.location.search);
+    if (!tid) {
+      if (items.length) deepLinkDone.current = true;
+      return;
     }
-    // only once per id load
+    const apply = (match: MemeTemplate) => {
+      deepLinkDone.current = true;
+      open(match);
+      if (top || bottom) {
+        setTexts((prev) => {
+          const next = [...prev];
+          if (top) next[0] = top;
+          if (bottom) next[1] = bottom;
+          return next;
+        });
+      }
+    };
+    const local =
+      items.find((t) => t.id === tid) || uploads.find((t) => t.id === tid);
+    if (local) {
+      apply(local);
+      return;
+    }
+    if (!items.length) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/memes/templates?limit=200&source=local", {
+          cache: "no-store",
+        });
+        const data = await res.json();
+        const raw = (data.items || []) as MemeTemplate[];
+        const hit = raw.find((t) => t.id === tid);
+        if (!cancelled && hit) apply(hit);
+        else if (!cancelled) deepLinkDone.current = true;
+      } catch {
+        if (!cancelled) deepLinkDone.current = true;
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [items]);
 
@@ -232,7 +259,8 @@ export default function MemeStudio({ embedded = false }: { embedded?: boolean })
     setTexts(b.map(() => ""));
     setActiveBox(0);
     setPreview("");
-  }, []);
+    writeMemesSearch({ face, t: tpl.id });
+  }, [face]);
 
   const openFromBlob = useCallback(
     async (blob: Blob, nameHint = "Upload") => {
@@ -811,7 +839,16 @@ export default function MemeStudio({ embedded = false }: { embedded?: boolean })
               <button
                 key={f.id}
                 type="button"
-                onClick={() => setFace(f.id)}
+                onClick={() => {
+                  setFace(f.id);
+                  writeMemesSearch({
+                    face: f.id,
+                    t:
+                      selected && !selected.id.startsWith("upload-")
+                        ? selected.id
+                        : null,
+                  });
+                }}
                 className={`rounded-full px-3 py-1.5 text-xs font-semibold border transition-colors ${
                   on
                     ? active
@@ -913,7 +950,10 @@ export default function MemeStudio({ embedded = false }: { embedded?: boolean })
                 </button>
                 <button
                   type="button"
-                  onClick={() => setSelected(null)}
+                  onClick={() => {
+                    setSelected(null);
+                    writeMemesSearch({ face, t: null });
+                  }}
                   className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 text-lg text-zinc-300 hover:bg-white/10"
                   aria-label="Close"
                 >
