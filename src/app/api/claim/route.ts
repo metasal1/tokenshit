@@ -7,6 +7,7 @@ import {
   CLAIM_X_LIKE,
   CLAIM_X_RETWEET,
   CLAIM_RT_TWEET_ID,
+  CLAIM_PUMPFAST,
   CLAIM_X_PREMIUM,
   CLAIM_X_TWEET,
   CLAIM_X_VERIFIED,
@@ -62,6 +63,7 @@ const AMOUNTS: Record<ClaimKind, number> = {
   jup_verified: CLAIM_JUP_VERIFIED,
   /** SOL amount (not $TOKENSHIT) — 67 plays of gas */
   sol_gas_love: PLAY_GAS_DROP_SOL,
+  pumpfast: CLAIM_PUMPFAST,
 };
 
 function isKind(k: string): k is ClaimKind {
@@ -172,6 +174,13 @@ export async function GET(request: NextRequest) {
       const r = await checkXRetweeted(twitter, CLAIM_RT_TWEET_ID, tweetUrl);
       detail = r;
       eligible = r.ok && r.retweeted;
+    } else if (kind === "pumpfast") {
+      if (!twitter)
+        return Response.json({ error: "twitter required" }, { status: 400 });
+      const { checkPumpfastUpvote } = await import("@/lib/pumpfast");
+      const pf = await checkPumpfastUpvote({ twitter });
+      detail = pf;
+      eligible = pf.ok && pf.upvoted;
     } else if (kind === "email_list") {
       const email = sp.get("email");
       const list = await isOnEmailList({
@@ -700,6 +709,32 @@ export async function POST(request: NextRequest) {
       }
       amount = CLAIM_X_RETWEET;
       if (r.evidenceTweetId) tweetId = r.evidenceTweetId;
+    } else if (kind === "pumpfast") {
+      const { checkPumpfastUpvote, PUMPFAST_TOKEN_URL } = await import(
+        "@/lib/pumpfast"
+      );
+      const pf = await checkPumpfastUpvote({
+        twitter,
+        twitterId: auth.id.twitterId,
+      });
+      if (!pf.ok) {
+        return Response.json(
+          { error: pf.error || "PumpFast upvote check failed", code: "pumpfast_check_failed" },
+          { status: 502 }
+        );
+      }
+      if (!pf.upvoted) {
+        return Response.json(
+          {
+            error:
+              "Upvote TOKENSHIT on pumpfa.st with this X account, then claim. Same @handle as login.",
+            code: "not_upvoted",
+            upvoteUrl: PUMPFAST_TOKEN_URL,
+          },
+          { status: 403 }
+        );
+      }
+      amount = CLAIM_PUMPFAST;
     } else if (kind === "email_list") {
       const emailRaw = body.email ? String(body.email).trim().toLowerCase() : "";
       const list = await isOnEmailList({
