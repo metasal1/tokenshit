@@ -142,6 +142,7 @@ const KIND_LABEL: Record<string, string> = {
   x_follow: "Follow",
   x_like: "Like",
   x_retweet: "Retweet",
+  pumpfast: "PumpFast upvote",
   referral: "Referral",
 };
 

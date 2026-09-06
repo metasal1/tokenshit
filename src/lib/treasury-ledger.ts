@@ -22,6 +22,7 @@ export type PayoutKind =
   | "jup_verified"
   | "referral"
   | "kol_scout"
+  | "pumpfast"
   | "play_seed"
   | "day_hit"
   | "day_shit"
