@@ -108,6 +108,8 @@ export const BRAND = {
       playPoster: "/brand/play-poster.png",
       playPoster2x: "/brand/play-poster@2x.png",
       playSquare: "/posters/play-square.png",
+      memesPoster: "/brand/memes-poster.png",
+      memesPoster2x: "/brand/memes-poster@2x.png",
       kolsPoster: "/brand/kols-poster.png",
       kolsPoster2x: "/brand/kols-poster@2x.png",
     },

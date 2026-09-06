@@ -20,6 +20,13 @@ type Poster = {
 
 const POSTERS: Poster[] = [
   {
+    title: "Meme Studio",
+    blurb: "Welcome to the TOKENSHIT meme studio",
+    href: "/memes",
+    src: "/brand/memes-poster.png",
+    src2x: "/brand/memes-poster@2x.png",
+  },
+  {
     title: "75M locked",
     blurb: "75,000,000 SH!T locked on-chain via Streamflow",
     href: "https://app.streamflow.finance/contract/solana/mainnet/46bwTG4jLFxfEUm3MBpBuKoFk6komK7UafUZcaswoz5s",
