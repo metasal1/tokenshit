@@ -13,6 +13,7 @@ import {
   CLAIM_X_LIKE,
   CLAIM_X_RETWEET,
   CLAIM_RT_TWEET_URL,
+  CLAIM_PUMPFAST,
   CLAIM_X_PREMIUM,
   CLAIM_X_TWEET,
   CLAIM_X_VERIFIED,
@@ -40,6 +41,7 @@ import { pickSolanaAddress } from "@/lib/privy-identity";
 import { EmojiIcon } from "@/components/EmojiIcon";
 import { XLogo } from "@/components/XLogo";
 import Link from "next/link";
+import { PUMPFAST_TOKEN_URL } from "@/lib/pumpfast";
 
 type ClaimKind =
   | "x_verified"
@@ -51,7 +53,8 @@ type ClaimKind =
   | "x_retweet"
   | "email_list"
   | "jup_verified"
-  | "sol_gas_love";
+  | "sol_gas_love"
+  | "pumpfast";
 
 type ClaimPhase = null | "session" | "verify" | "send" | "done" | "error";
 
@@ -74,6 +77,7 @@ const KIND_TITLE: Record<ClaimKind, string> = {
   gh_fork: "GitHub fork",
   jup_verified: "Jupiter like",
   sol_gas_love: "Love gas (SOL)",
+  pumpfast: "PumpFast upvote",
 };
 
 function fmt(n: number) {
@@ -1184,6 +1188,47 @@ export default function ClaimPanel() {
               className={BTN_SKY}
             >
               {busy === "x_retweet" ? "Claiming…" : "Claim RT / QT 500"}
+            </button>
+          </div>
+        </RewardRow>
+
+        <RewardRow
+          highlight
+          claimed={!!claimedStatus.pumpfast}
+          statusLoading={statusLoading && authenticated}
+          title="4. Upvote on PumpFast"
+          amount={CLAIM_PUMPFAST}
+          hint={
+            <>
+              Upvote TOKENSHIT on{" "}
+              <a
+                href={PUMPFAST_TOKEN_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-neon underline"
+              >
+                pumpfa.st
+              </a>{" "}
+              with the same X account. 1,000 once. Follow first.
+            </>
+          }
+        >
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <a
+              href={PUMPFAST_TOKEN_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={`${BTN_OUTLINE} text-center`}
+            >
+              Upvote TOKENSHIT
+            </a>
+            <button
+              type="button"
+              disabled={busy !== null || !!claimedStatus.pumpfast}
+              onClick={() => claim("pumpfast")}
+              className={BTN_SKY}
+            >
+              {busy === "pumpfast" ? "Claiming…" : "Claim upvote 1,000"}
             </button>
           </div>
         </RewardRow>
