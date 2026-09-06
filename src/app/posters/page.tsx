@@ -20,6 +20,13 @@ type Poster = {
 
 const POSTERS: Poster[] = [
   {
+    title: "PumpFast upvote",
+    blurb: "Upvote TOKENSHIT on pumpfa.st. Claim 1,000 once.",
+    href: "/claim",
+    src: "/brand/pumpfast-poster.png",
+    src2x: "/brand/pumpfast-poster@2x.png",
+  },
+  {
     title: "Meme Studio",
     blurb: "Welcome to the TOKENSHIT meme studio",
     href: "/memes",
