@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import Link from "next/link";
 import ShareRefButton from "@/components/ShareRefButton";
 import { SHIT_MINT, SHIT_SYMBOL } from "@/lib/shit-token";
+import { parseWalletBalances } from "@/lib/wallet-balance-parse";
 
 type Balances = {
   sol: number;
@@ -57,18 +58,13 @@ export default function WalletSheet({
     fetch(`/api/wallet/balances?address=${encodeURIComponent(address)}`, {
       cache: "no-store",
     })
-      .then((r) => r.json())
-      .then((d) => {
+      .then((r) => r.json().then((d) => ({ ok: r.ok, d })))
+      .then(({ ok, d }) => {
         if (!alive) return;
-        setBal({
-          sol: Number(d.sol) || 0,
-          usdc: Number(d.usdc) || 0,
-          shit: Number(d.shit) || 0,
-        });
+        const next = ok ? parseWalletBalances(d) : null;
+        if (next) setBal(next);
       })
-      .catch(() => {
-        if (alive) setBal({ sol: 0, usdc: 0, shit: 0 });
-      })
+      .catch(() => {})
       .finally(() => {
         if (alive) setLoadingBal(false);
       });

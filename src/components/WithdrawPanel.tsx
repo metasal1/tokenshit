@@ -11,6 +11,7 @@ import { useSafeLogin } from "@/hooks/useSafeLogin";
 import { SHIT_SYMBOL } from "@/lib/shit-token";
 import { friendlySolanaSendError } from "@/lib/solana-send";
 import { sendSponsoredSolanaTx } from "@/lib/sponsor-send";
+import { parseWalletBalances } from "@/lib/wallet-balance-parse";
 import { BalanceSkeleton } from "@/components/StatLoader";
 import { EmojiIcon } from "@/components/EmojiIcon";
 import Link from "next/link";
@@ -59,14 +60,11 @@ export default function WithdrawPanel({
     fetch(`/api/wallet/balances?address=${encodeURIComponent(from)}`, {
       cache: "no-store",
     })
-      .then((r) => r.json())
-      .then((d) =>
-        setBals({
-          sol: Number(d.sol),
-          usdc: Number(d.usdc),
-          shit: Number(d.shit ?? d.tokenshit),
-        })
-      )
+      .then((r) => r.json().then((d) => ({ ok: r.ok, d })))
+      .then(({ ok, d }) => {
+        const next = ok ? parseWalletBalances(d) : null;
+        if (next) setBals(next);
+      })
       .catch(() => {});
   }, [from]);
 

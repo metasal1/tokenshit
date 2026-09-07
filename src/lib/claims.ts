@@ -13,6 +13,16 @@ export type ClaimKind =
   | "sol_gas_love"
   | "pumpfast";
 
+/** Tweet / email / Jup 5k / premium dump farms — API 410 + hidden in UI. */
+export const CLAIM_FARM_OFF = new Set<ClaimKind>([
+  "x_tweet",
+  "email_list",
+  "jup_verified",
+  "x_verified",
+  "x_premium",
+  "gh_fork",
+]);
+
 /** Tweet claim cooldown + max tweet age */
 export const TWEET_CLAIM_COOLDOWN_MS = 24 * 60 * 60 * 1000;
 export const TWEET_MAX_AGE_MS = 24 * 60 * 60 * 1000;

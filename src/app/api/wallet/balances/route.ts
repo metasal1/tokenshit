@@ -1,37 +1,35 @@
 import { type NextRequest } from "next/server";
 import { SHIT_DECIMALS, SHIT_MINT, SHIT_SYMBOL } from "@/lib/shit-token";
 import { USDC_MINT } from "@/lib/buy-fee";
+import { rpc } from "@/lib/treasury";
 
 export const dynamic = "force-dynamic";
 
-const HELIUS =
-  process.env.HELIUS_RPC_URL ||
-  process.env.NEXT_PUBLIC_SOLANA_RPC_URL ||
-  "https://viviyan-bkj12u-fast-mainnet.helius-rpc.com";
-
 const USDC_DECIMALS = 6;
-
-async function rpc(method: string, params: unknown[]) {
-  const res = await fetch(HELIUS, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
-    cache: "no-store",
-  });
-  return res.json();
-}
 
 async function tokenUiBalance(
   owner: string,
   mint: string,
   fallbackDecimals: number
 ): Promise<{ raw: string; ui: number; decimals: number }> {
-  const json = await rpc("getTokenAccountsByOwner", [
+  const result = await rpc<{
+    value: {
+      account?: {
+        data?: {
+          parsed?: {
+            info?: {
+              tokenAmount?: { amount?: string; decimals?: number };
+            };
+          };
+        };
+      };
+    }[];
+  }>("getTokenAccountsByOwner", [
     owner,
     { mint },
     { encoding: "jsonParsed", commitment: "confirmed" },
   ]);
-  const accounts = json?.result?.value || [];
+  const accounts = result?.value || [];
   let raw = 0;
   let decimals = fallbackDecimals;
   for (const a of accounts) {
@@ -63,12 +61,15 @@ export async function GET(request: NextRequest) {
   if (limited) return limited;
 
   try {
-    const [balJson, usdc, shit] = await Promise.all([
-      rpc("getBalance", [address, { commitment: "confirmed" }]),
+    const [bal, usdc, shit] = await Promise.all([
+      rpc<{ value: number }>("getBalance", [
+        address,
+        { commitment: "confirmed" },
+      ]),
       tokenUiBalance(address, USDC_MINT, USDC_DECIMALS),
       tokenUiBalance(address, SHIT_MINT, SHIT_DECIMALS),
     ]);
-    const lamports = Number(balJson?.result?.value ?? 0);
+    const lamports = Number(bal?.value ?? 0);
     const sol = lamports / 1e9;
 
     return Response.json(

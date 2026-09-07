@@ -42,6 +42,7 @@ import { EmojiIcon } from "@/components/EmojiIcon";
 import { XLogo } from "@/components/XLogo";
 import Link from "next/link";
 import { PUMPFAST_TOKEN_URL } from "@/lib/pumpfast";
+import { CLAIM_FARM_OFF } from "@/lib/claims";
 
 type ClaimKind =
   | "x_verified"
@@ -593,6 +594,13 @@ export default function ClaimPanel() {
       setErr("Claims paused. Play for prizes instead.");
       return;
     }
+    if (CLAIM_FARM_OFF.has(kind)) {
+      setErr(
+        "That claim is off. Follow + like + RT/QT the promo to earn. Follow once (1,000). Like 500. RT/QT 500."
+      );
+      setClaimPhase("error");
+      return;
+    }
     setErr(null);
     setMsg(null);
     setSig(null);
@@ -879,7 +887,7 @@ export default function ClaimPanel() {
       ) : (
         <p className="text-[11px] text-zinc-500 leading-snug">
           <span className="text-neon font-semibold">X required</span>
-          {" "}· PFP · {ABUSE_MIN_FOLLOWERS_CLAIM}+ followers · tweet every 24h
+          {" "}· PFP · {ABUSE_MIN_FOLLOWERS_CLAIM}+ followers · follow + like + RT
         </p>
       )}
 
@@ -1068,6 +1076,7 @@ export default function ClaimPanel() {
           </div>
         )}
 
+        {!CLAIM_FARM_OFF.has("x_tweet") && (
         <RewardRow
           highlight
           claimed={!!tweetData?.onCooldown}
@@ -1130,6 +1139,7 @@ export default function ClaimPanel() {
             </button>
           </div>
         </RewardRow>
+        )}
 
         <RewardRow
           claimed={!!claimedStatus.x_retweet}
@@ -1233,6 +1243,13 @@ export default function ClaimPanel() {
           </div>
         </RewardRow>
 
+        {CLAIM_FARM_OFF.has("x_tweet") && (
+          <p className="text-[11px] text-zinc-500 leading-snug px-0.5">
+            Tweet, email, Premium, and Jupiter claims are off. Follow + like + RT/QT the promo to earn.
+          </p>
+        )}
+
+        {!CLAIM_FARM_OFF.has("email_list") && (
         <details className="rounded-xl border border-border/70 bg-zinc-950/30 group">
           <summary className="cursor-pointer list-none px-3.5 py-3 text-sm font-semibold text-zinc-300 flex items-center justify-between gap-2">
             <span>More rewards</span>
@@ -1374,6 +1391,7 @@ export default function ClaimPanel() {
             </RewardRow>
           </div>
         </details>
+        )}
 
       </div>
 
