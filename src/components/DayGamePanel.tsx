@@ -79,6 +79,17 @@ type DayStatus = {
   requireFollow?: boolean;
   prize?: { base: number; jackpot: number; total: number };
   streak?: { hours: number; need: number; bonus: number };
+  funded?: boolean | null;
+  treasuryPlay?: {
+    ok: boolean;
+    shit: number;
+    sol: number;
+    needShit: number;
+    needSol: number;
+    shitOk: boolean;
+    solOk: boolean;
+    code?: string | null;
+  } | null;
   multiTicket?: boolean;
   houseSpark?: {
     enabled?: boolean;
@@ -489,6 +500,13 @@ export default function DayGamePanel({
       sfx.error();
       return;
     }
+    if (status?.funded === false) {
+      setErr(
+        "Play payouts paused. Treasury needs more $TOKENSHIT and SOL."
+      );
+      sfx.error();
+      return;
+    }
 
     const maxP = status?.maxPicks ?? DEFAULT_MAX_PICKS;
     const minBal = status?.minBalance ?? DEFAULT_MIN_BAL;
@@ -671,7 +689,9 @@ export default function DayGamePanel({
     ? phase || "Working…"
     : !authenticated
       ? "Login to play"
-      : cartN > 0
+      : status?.funded === false
+        ? "Payouts paused"
+        : cartN > 0
         ? `Lock ${cartN} free pick${cartN === 1 ? "" : "s"} · ${sideLabel}`
         : playedN >= maxPui
           ? "Max 1 UP + 1 DOWN this hour"
@@ -719,6 +739,26 @@ export default function DayGamePanel({
             </button>
           </div>
         </div>
+
+        {status?.funded === false && (
+          <div className="border-t border-amber-400/40 bg-amber-500/15 px-3 py-2">
+            <p className="text-[11px] font-semibold text-amber-100 leading-snug">
+              Play payouts paused. House needs{" "}
+              {status.treasuryPlay && !status.treasuryPlay.shitOk
+                ? `${status.treasuryPlay.needShit.toLocaleString()} $TOKENSHIT`
+                : ""}
+              {status.treasuryPlay &&
+              !status.treasuryPlay.shitOk &&
+              !status.treasuryPlay.solOk
+                ? " and "
+                : ""}
+              {status.treasuryPlay && !status.treasuryPlay.solOk
+                ? `${status.treasuryPlay.needSol} SOL`
+                : ""}
+              {!status.treasuryPlay ? "more $TOKENSHIT and SOL" : ""}. Locks are off until refill.
+            </p>
+          </div>
+        )}
 
         {/* one-line leaders */}
         {(L?.hitting || L?.shitting) && (
@@ -1113,7 +1153,12 @@ export default function DayGamePanel({
 
         <button
           type="button"
-          disabled={busy || !status.enabled || (authenticated && cart.length === 0)}
+          disabled={
+            busy ||
+            !status.enabled ||
+            status.funded === false ||
+            (authenticated && cart.length === 0)
+          }
           onClick={() => void play()}
           className={`flex min-h-[3.25rem] w-full items-center justify-center gap-2 rounded-2xl font-orbitron text-sm font-black uppercase tracking-wide transition active:scale-[0.99] disabled:opacity-40 ${
             side === "hit"

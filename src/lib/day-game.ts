@@ -28,6 +28,55 @@ export const PLAY_REQUIRE_FOLLOW = process.env.PLAY_REQUIRE_FOLLOW !== "0";
 /** Consecutive UTC hours of Play. Win that hour → extra SHTy bonus. */
 export const PLAY_STREAK_HOURS = 5;
 export const PLAY_STREAK_BONUS = Number(process.env.PLAY_STREAK_BONUS || 5_000);
+/** SHTy must hold at least one hour prize before Play accepts locks */
+export const PLAY_MIN_TREASURY_SHIT = Number(
+  process.env.PLAY_MIN_TREASURY_SHIT || HOUR_PRIZE
+);
+/** SHTy SOL for prize sends. Claims gate is ~0.002; Play needs headroom. */
+export const PLAY_MIN_TREASURY_SOL = Number(
+  process.env.PLAY_MIN_TREASURY_SOL || 0.05
+);
+
+export type PlayTreasuryHealth = {
+  ok: boolean;
+  shit: number;
+  sol: number;
+  needShit: number;
+  needSol: number;
+  shitOk: boolean;
+  solOk: boolean;
+  code:
+    | "play_treasury_shit_low"
+    | "play_treasury_sol_low"
+    | "play_treasury_low"
+    | null;
+};
+
+export async function playTreasuryHealth(): Promise<PlayTreasuryHealth> {
+  const { getTreasuryBalances } = await import("@/lib/treasury");
+  const bal = await getTreasuryBalances();
+  const needShit = PLAY_MIN_TREASURY_SHIT;
+  const needSol = PLAY_MIN_TREASURY_SOL;
+  const shitOk = Number(bal.shit) >= needShit;
+  const solOk = Number(bal.sol) >= needSol;
+  const ok = shitOk && solOk;
+  let code: PlayTreasuryHealth["code"] = null;
+  if (!ok) {
+    if (!shitOk && !solOk) code = "play_treasury_low";
+    else if (!shitOk) code = "play_treasury_shit_low";
+    else code = "play_treasury_sol_low";
+  }
+  return {
+    ok,
+    shit: Number(bal.shit) || 0,
+    sol: Number(bal.sol) || 0,
+    needShit,
+    needSol,
+    shitOk,
+    solOk,
+    code,
+  };
+}
 
 /** Round length */
 export const ROUND_MS = 60 * 60 * 1000;
@@ -1862,6 +1911,7 @@ export async function settleDay(
     const prizePool = pool.total;
     const allTickets = [...hitTickets, ...shitTickets];
     const { sendShitFromTreasury } = await import("@/lib/treasury");
+    const treas = await playTreasuryHealth();
 
     const counts = new Map<string, number>();
     for (const w of allTickets) {
@@ -1890,8 +1940,12 @@ export async function settleDay(
     }> = [];
 
     if (totalTickets <= 0 || prizePool <= 0) {
-      // No winners → roll jackpot to next hour
-      rolled = prizePool > 0 ? prizePool : HOUR_PRIZE + pool.jackpot;
+      // No winners → roll jackpot to next hour. Do not roll a prize we cannot pay.
+      rolled = treas.ok
+        ? prizePool > 0
+          ? prizePool
+          : HOUR_PRIZE + pool.jackpot
+        : pool.jackpot;
       const nextHour = (() => {
         const t = Date.parse(
           utcDay.includes("T") ? utcDay + ":00:00.000Z" : utcDay + "T00:00:00.000Z"
@@ -1925,6 +1979,10 @@ export async function settleDay(
       }
       for (const s of shares) {
         if (s.amount <= 0) {
+          winners.push({ ...s, sig: null });
+          continue;
+        }
+        if (!treas.ok) {
           winners.push({ ...s, sig: null });
           continue;
         }
@@ -1988,6 +2046,7 @@ export async function settleDay(
       force: !!opts?.force,
       splitMode: true,
       winWindow: PLAY_WIN_WINDOW,
+      treasurySkip: treas.ok ? null : treas,
       hitWindow,
       shitWindow,
     });

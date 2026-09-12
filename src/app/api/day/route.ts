@@ -25,6 +25,7 @@ import {
   listStakes,
   majorsFromOpenSnap,
   nextUtcHourMs,
+  playTreasuryHealth,
   recordStake,
   utcHourString,
   type DaySide,
@@ -138,6 +139,7 @@ export async function GET(request: NextRequest) {
       leaders,
       heat,
       hourSeed,
+      treasHealth,
     ] = await Promise.all([
       withTimeout(ensureRound(hour), 2_000, undefined as void),
       withTimeout(getRound(hour), 2_500, null),
@@ -160,6 +162,7 @@ export async function GET(request: NextRequest) {
         new Map() as Awaited<ReturnType<typeof getTicketHeat>>
       ),
       withTimeout(getHourSeed(hour), 2_000, emptySeed),
+      withTimeout(playTreasuryHealth(), 2_500, null),
     ]);
 
     const prizePool = await withTimeout(
@@ -371,6 +374,8 @@ export async function GET(request: NextRequest) {
       treasury: TREASURY_ADDRESS,
       pot: PLAY_POT_ADDRESS,
       mint: SHIT_MINT,
+      funded: treasHealth ? treasHealth.ok : null,
+      treasuryPlay: treasHealth,
       degraded,
       ms: Date.now() - t0,
       houseSpark: {
@@ -456,6 +461,19 @@ export async function POST(request: NextRequest) {
   try {
     if (!DAY_GAME_ENABLED) {
       return Response.json({ error: "Hour game paused" }, { status: 503 });
+    }
+    const treas = await playTreasuryHealth();
+    if (!treas.ok) {
+      return Response.json(
+        {
+          error: !treas.shitOk
+            ? "Play payouts paused. Treasury needs more $TOKENSHIT for the hour prize."
+            : "Play payouts paused. Treasury needs more SOL for sends.",
+          code: treas.code,
+          treasuryPlay: treas,
+        },
+        { status: 503 }
+      );
     }
     const ip = getClientIp(request);
     const limited = await rateLimitIp({

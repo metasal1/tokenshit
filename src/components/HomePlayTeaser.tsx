@@ -10,6 +10,7 @@ type DayLite = {
   nextCloseAt?: string;
   prize?: { total?: number; base?: number; jackpot?: number };
   stats?: { plays?: number; players?: number };
+  funded?: boolean | null;
 };
 
 function fmt(n: number) {
@@ -62,6 +63,7 @@ export default function HomePlayTeaser() {
   const urgent = msLeft != null && msLeft > 0 && msLeft < 5 * 60_000;
   const prize = Number(data?.prize?.total ?? 30_000);
   const players = Number(data?.stats?.players ?? 0);
+  const paused = data?.funded === false;
 
   return (
     <section className="rounded-2xl border-2 border-neon/50 bg-gradient-to-b from-neon/15 via-card to-card overflow-hidden h-full flex flex-col shadow-[0_0_40px_rgba(57,255,20,0.12)]">
@@ -69,7 +71,7 @@ export default function HomePlayTeaser() {
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 text-left">
             <p className="text-[10px] font-orbitron uppercase tracking-[0.22em] text-neon">
-              Free · this hour
+              {paused ? "Payouts paused" : "Free · this hour"}
             </p>
             <h2 className="mt-1 text-2xl sm:text-3xl md:text-[1.75rem] lg:text-4xl font-monoton leading-[0.95] text-cream">
               PLAY
@@ -108,10 +110,12 @@ export default function HomePlayTeaser() {
             This hour
           </div>
           <div className="mt-0.5 text-3xl sm:text-4xl font-mono font-black text-neon tabular-nums">
-            {fmt(prize)}
+            {paused ? "PAUSED" : fmt(prize)}
           </div>
           <div className="text-[11px] text-zinc-500 font-mono">
-            ${SHIT_SYMBOL} prize · {players} playing
+            {paused
+              ? "House refill needed"
+              : `$${SHIT_SYMBOL} prize · ${players} playing`}
           </div>
         </div>
 
@@ -120,7 +124,7 @@ export default function HomePlayTeaser() {
           className="mt-auto flex w-full min-h-14 items-center justify-center gap-2 rounded-xl bg-neon text-black text-base sm:text-lg font-bold font-orbitron tracking-wide uppercase hover:brightness-110 active:scale-[0.99] transition shadow-[0_0_32px_rgba(57,255,20,0.35)]"
         >
           <EmojiIcon size={20}>🎯</EmojiIcon>
-          Play for prizes
+          {paused ? "See Play" : "Play for prizes"}
         </Link>
       </div>
     </section>
