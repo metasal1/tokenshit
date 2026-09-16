@@ -139,6 +139,44 @@ export async function addAudienceContact(opts: {
   return { id: data.id };
 }
 
+/** Mark a TOKENSHIT audience contact unsubscribed. Always ok if missing. */
+export async function setAudienceUnsubscribed(
+  emailRaw: string
+): Promise<{ ok: boolean; error?: string }> {
+  if (!RESEND_API_KEY) {
+    return { ok: false, error: "RESEND_API_KEY not configured" };
+  }
+  const audienceId = RESEND_AUDIENCE_ID.trim();
+  const email = emailRaw.trim().toLowerCase();
+  if (!email || !email.includes("@")) {
+    return { ok: false, error: "invalid email" };
+  }
+  const headers = {
+    Authorization: `Bearer ${RESEND_API_KEY}`,
+    "Content-Type": "application/json",
+  };
+  const encoded = encodeURIComponent(email);
+  const patch = await fetch(
+    `https://api.resend.com/audiences/${encodeURIComponent(audienceId)}/contacts/${encoded}`,
+    {
+      method: "PATCH",
+      headers,
+      body: JSON.stringify({ unsubscribed: true }),
+    }
+  );
+  if (patch.ok || patch.status === 404) {
+    if (patch.status === 404) {
+      await addAudienceContact({ email, unsubscribed: true });
+    }
+    return { ok: true };
+  }
+  const data = (await patch.json().catch(() => ({}))) as { message?: string };
+  return {
+    ok: false,
+    error: data.message || `Resend unsub ${patch.status}`,
+  };
+}
+
 /** Send via Resend hosted template id when configured; else inline HTML. */
 export async function sendTemplateEmail(opts: {
   to: string;

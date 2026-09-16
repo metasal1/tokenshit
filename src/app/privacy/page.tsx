@@ -112,7 +112,12 @@ export default function PrivacyPage() {
         <ul className="list-disc list-inside space-y-1 text-zinc-400">
           <li>Disconnect wallet / log out</li>
           <li>Unlink social accounts in Privy where available</li>
-          <li>Unsubscribe from email list via provider tools or contact us</li>
+          <li>
+            Unsubscribe from the email list at{" "}
+            <Link href="/unsubscribe" className="text-neon-blue hover:underline">
+              tokenshit.com/unsubscribe
+            </Link>
+          </li>
           <li>Request deletion of off-chain account rows where feasible</li>
         </ul>
       </section>
