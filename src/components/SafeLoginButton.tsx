@@ -29,7 +29,6 @@ export default function SafeLoginButton({
     safeLogin,
     loginModal,
     loginWithTwitter,
-    loginWithGithub,
     busy,
     error,
     clearError,
@@ -145,15 +144,6 @@ export default function SafeLoginButton({
               className="w-full min-h-11 rounded-xl border border-zinc-600 text-zinc-100 text-sm font-semibold disabled:opacity-50"
             >
               Email magic link
-            </button>
-
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => void loginWithGithub()}
-              className="w-full min-h-11 rounded-xl border border-zinc-700 text-zinc-400 text-xs font-orbitron uppercase tracking-wider disabled:opacity-50"
-            >
-              GitHub
             </button>
 
             <p className="text-[10px] text-zinc-600 text-center leading-relaxed">

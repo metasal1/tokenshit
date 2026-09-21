@@ -43,7 +43,7 @@ export default function PrivacyPage() {
         <ul className="list-disc list-inside space-y-1 text-zinc-400">
           <li>
             <strong className="text-zinc-200">Account / auth</strong> — via
-            Privy: email, X handle, GitHub username, linked Solana wallet
+            Privy: email, X handle, linked Solana wallet
             addresses, and session tokens.
           </li>
           <li>
@@ -85,7 +85,7 @@ export default function PrivacyPage() {
         <p className="text-zinc-400">
           Typical vendors: Privy (auth/wallets), Cloudflare (hosting), Turso
           (app DB), Helius (RPC), Jupiter (swaps), Resend (email list), Google
-          Analytics, X/GitHub (if you connect). On-chain data is public by
+          Analytics, X (if you connect). On-chain data is public by
           design.
         </p>
       </section>

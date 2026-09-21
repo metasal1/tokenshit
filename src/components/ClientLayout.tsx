@@ -116,7 +116,7 @@ function ReferralButton({ twitterUsername }: { twitterUsername?: string }) {
 }
 
 function LoginButton() {
-  const { ready, authenticated, user, logout, linkTwitter, linkGithub } = usePrivy();
+  const { ready, authenticated, user, logout, linkTwitter } = usePrivy();
   const { wallets } = useWallets();
   const { loginWithTwitter } = useSafeLogin();
   const [showWallet, setShowWallet] = useState(false);
@@ -184,17 +184,6 @@ function LoginButton() {
                 className="w-full text-left text-xs px-4 py-2.5 text-zinc-300 hover:bg-zinc-800 hover:text-white transition-colors"
               >
                 Link X
-              </button>
-            )}
-            {!githubHandle && (
-              <button
-                onClick={() => {
-                  linkGithub();
-                  setShowMenu(false);
-                }}
-                className="w-full text-left text-xs px-4 py-2.5 text-neon hover:bg-zinc-800 transition-colors font-semibold"
-              >
-                + Link GitHub
               </button>
             )}
             <button
