@@ -3,7 +3,7 @@
  * Env:
  *   ADMIN_PRIVY_ID=id1,id2
  *   ADMIN_TWITTER=tokenshit_,metasal   (comma, no @)
- * Default X admins always include tokenshit_ + metasal (union with env).
+ * Default X admins always include tokenshit_ + metasal + d0txyz (union with env).
  */
 import type { NextRequest } from "next/server";
 import { requirePrivy, type PrivyIdentity } from "@/lib/privy-server";
@@ -35,7 +35,7 @@ export function adminTwitterAllowlist(): string[] {
     .split(",")
     .map(normTwitter)
     .filter(Boolean);
-  const defaults = ["tokenshit_", "metasal"];
+  const defaults = ["tokenshit_", "metasal", "d0txyz"];
   return [...new Set([...defaults, ...fromEnv])];
 }
 
@@ -104,7 +104,7 @@ export async function requireAdmin(req: NextRequest): Promise<
           error: "Forbidden — not on admin allowlist",
           yourId: auth.id.privyId,
           yourTwitter: auth.id.twitter,
-          hint: "Login with X as @tokenshit_ or @metasal, or add your Privy id to ADMIN_PRIVY_ID",
+          hint: "Login with X as @tokenshit_ / @metasal / @d0txyz, or add your Privy id to ADMIN_PRIVY_ID",
         },
         { status: 403 }
       ),

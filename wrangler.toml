@@ -6,6 +6,7 @@ main = ".open-next/worker.js"
 [vars]
 PRIVY_APP_ID = "cmdz9woca0012ky0bgpyfqept"
 NEXT_PUBLIC_PRIVY_APP_ID = "cmdz9woca0012ky0bgpyfqept"
+ADMIN_TWITTER = "d0txyz"
 
 [env.production]
 name = "tokenshit"
@@ -13,6 +14,7 @@ name = "tokenshit"
 [env.production.vars]
 PRIVY_APP_ID = "cmdz9woca0012ky0bgpyfqept"
 NEXT_PUBLIC_PRIVY_APP_ID = "cmdz9woca0012ky0bgpyfqept"
+ADMIN_TWITTER = "d0txyz"
 
 [assets]
 directory = ".open-next/assets"
