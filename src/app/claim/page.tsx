@@ -1,5 +1,6 @@
 import ClaimPanel from "@/components/ClaimPanel";
 import WithdrawPanel from "@/components/WithdrawPanel";
+import EmailCaptureCard from "@/components/EmailCaptureCard";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { EmojiIcon } from "@/components/EmojiIcon";
@@ -52,6 +53,7 @@ export default function ClaimPage() {
       </header>
 
       <div className="mx-auto w-full max-w-xl px-4 sm:px-5 pt-5 sm:pt-6 space-y-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+        <EmailCaptureCard source="claim-public" />
         <ClaimPanel />
         <details className="rounded-xl border border-border bg-card/60 open:bg-card group">
           <summary className="cursor-pointer list-none px-4 py-3 text-sm font-semibold text-zinc-300 flex items-center justify-between">
