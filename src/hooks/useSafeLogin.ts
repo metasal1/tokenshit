@@ -10,7 +10,7 @@ import {
 
 /**
  * Login that works in installed PWA (iOS/Android standalone).
- * Popups are blocked / break OAuth in PWAs — use full-page initOAuth for X/GitHub.
+ * Popups are blocked / break OAuth in PWAs — use full-page initOAuth for X.
  */
 export function useSafeLogin() {
   const { login, ready, authenticated } = usePrivy();
@@ -47,18 +47,6 @@ export function useSafeLogin() {
     }
   }, [initOAuth]);
 
-  const loginWithGithub = useCallback(async () => {
-    setError(null);
-    setBusy(true);
-    stashOAuthReturnPath();
-    try {
-      await initOAuth({ provider: "github" });
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "GitHub login failed");
-      setBusy(false);
-    }
-  }, [initOAuth]);
-
   /**
    * Smart entry: PWA → open login sheet (full-page X); browser → Privy modal.
    */
@@ -85,7 +73,6 @@ export function useSafeLogin() {
     safeLogin,
     loginModal,
     loginWithTwitter,
-    loginWithGithub,
     oauthState: state,
     isPwa: typeof window !== "undefined" ? needsPwaOAuth() : false,
     oauthReturnUrl: oauthReturnUrl(),

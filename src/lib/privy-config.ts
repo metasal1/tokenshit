@@ -40,11 +40,7 @@ export function getPrivyConfig(opts?: { oauthRedirectUrl?: string }) {
       : SOLANA_HTTP_RPC;
 
   return {
-    loginMethods: ["email", "twitter", "github"] as (
-      | "email"
-      | "twitter"
-      | "github"
-    )[],
+    loginMethods: ["email", "twitter"] as ("email" | "twitter")[],
     appearance: {
       theme: "dark" as const,
       accentColor: "#39ff14" as `#${string}`,

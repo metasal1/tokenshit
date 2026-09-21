@@ -433,7 +433,7 @@ function ClaimStatusBar({
 }
 
 export default function ClaimPanel() {
-  const { ready, authenticated, user, getAccessToken, linkTwitter, linkGithub } =
+  const { ready, authenticated, user, getAccessToken, linkTwitter } =
     usePrivy();
   const { safeLogin, loginWithTwitter } = useSafeLogin();
   const { wallets } = useWallets();
@@ -914,15 +914,7 @@ export default function ClaimPanel() {
               <span className="font-mono text-zinc-400 px-2 py-1 rounded bg-zinc-900 border border-zinc-800">
                 gh/{github}
               </span>
-            ) : (
-              <button
-                type="button"
-                onClick={() => linkGithub()}
-                className="min-h-9 px-3 rounded-md border border-neon/50 bg-neon/10 text-neon font-semibold"
-              >
-                + Link GitHub
-              </button>
-            )}
+            ) : null}
             {wallet ? (
               <span className="font-mono text-zinc-400 text-[10px] sm:text-xs truncate max-w-[40vw] sm:max-w-none px-2 py-1 rounded bg-zinc-900 border border-zinc-800">
                 {wallet.slice(0, 4)}…{wallet.slice(-4)}

@@ -40,7 +40,7 @@ Every token is shit until proven otherwise. Vote HIT or SHIT on Solana Foundatio
 - Real majors only
 
 ## Auth
-- Privy: email + X + GitHub
+- Privy: email + X
 - Solana wallets only
 
 ## Contact

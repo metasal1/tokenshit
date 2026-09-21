@@ -61,7 +61,7 @@ export default function TermsPage() {
       <section className="space-y-3">
         <h2 className="text-base font-semibold text-white">4. Accounts & wallets</h2>
         <p>
-          Login may use Privy (email, X, GitHub) and Solana wallets. You control
+          Login may use Privy (email, X) and Solana wallets. You control
           your keys and devices. We never custody your seed phrase. You are
           responsible for wallet security and for transactions you approve.
         </p>
