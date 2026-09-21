@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { EmojiIcon } from "@/components/EmojiIcon";
 import { KOL_OG_QUOTE } from "@/lib/kol-og-quote";
 import { XLogo } from "@/components/XLogo";
@@ -30,6 +30,7 @@ export default function KolLoveCard({
   const [pngUrl, setPngUrl] = useState<string | null>(null);
   const [pngReady, setPngReady] = useState(false);
   const [pngErr, setPngErr] = useState(false);
+  const blobRef = useRef<Blob | null>(null);
 
   const h = handle.replace(/^@/, "");
 
@@ -69,28 +70,43 @@ export default function KolLoveCard({
       .replace("_bigger", "_400x400") ||
     `https://unavatar.io/twitter/${encodeURIComponent(h)}`;
 
-  // Prefetch PNG in background (uses CDN/memory cache after first hit)
+  const absoluteCardUrl = useMemo(() => {
+    if (typeof window !== "undefined") {
+      return `${window.location.origin}${cardApi}`;
+    }
+    return `https://tokenshit.com${cardApi}`;
+  }, [cardApi]);
+
   useEffect(() => {
     let dead = false;
     let objectUrl: string | null = null;
+    blobRef.current = null;
     setPngReady(false);
     setPngErr(false);
     setPngUrl(null);
 
     (async () => {
       try {
+        const ctrl = new AbortController();
+        const t = window.setTimeout(() => ctrl.abort(), 20_000);
         const res = await fetch(cardApi, {
-          // allow browser HTTP cache — second visit is instant
-          cache: "force-cache",
+          cache: "no-store",
+          signal: ctrl.signal,
         });
+        window.clearTimeout(t);
         if (!res.ok) throw new Error(String(res.status));
         const blob = await res.blob();
         if (blob.size < 64) throw new Error("empty");
-        objectUrl = URL.createObjectURL(blob);
+        const png =
+          blob.type === "image/png"
+            ? blob
+            : new Blob([await blob.arrayBuffer()], { type: "image/png" });
+        objectUrl = URL.createObjectURL(png);
         if (dead) {
           URL.revokeObjectURL(objectUrl);
           return;
         }
+        blobRef.current = png;
         setPngUrl(objectUrl);
         setPngReady(true);
       } catch {
@@ -104,74 +120,87 @@ export default function KolLoveCard({
     };
   }, [cardApi]);
 
+  const saveViaAnchor = useCallback(() => {
+    const href = blobRef.current
+      ? URL.createObjectURL(blobRef.current)
+      : absoluteCardUrl;
+    const a = document.createElement("a");
+    a.href = href;
+    a.download = `tokenshit-kol-${h}.png`;
+    a.rel = "noopener";
+    a.target = "_blank";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setMsg("Saving…");
+  }, [absoluteCardUrl, h]);
+
   const getBlob = useCallback(async () => {
-    if (pngUrl) {
-      const r = await fetch(pngUrl);
-      const b = await r.blob();
-      if (b.size >= 64) return b;
-    }
-    const res = await fetch(cardApi, { cache: "force-cache" });
-    if (!res.ok) throw new Error(`Image ${res.status}`);
-    const blob = await res.blob();
-    if (blob.size < 64) throw new Error("empty image");
-    return blob.type === "image/png"
-      ? blob
-      : new Blob([await blob.arrayBuffer()], { type: "image/png" });
-  }, [pngUrl, cardApi]);
+    if (blobRef.current && blobRef.current.size >= 64) return blobRef.current;
+    return null;
+  }, []);
 
   const download = useCallback(async () => {
     setBusy("dl");
-    setMsg(pngReady ? "Saving…" : "Generating PNG…");
+    setMsg(pngReady ? "Saving…" : "Opening PNG…");
     try {
       const blob = await getBlob();
-      const file = new File([blob], `tokenshit-kol-${h}.png`, {
-        type: "image/png",
-      });
-      if (
-        typeof navigator.share === "function" &&
-        typeof navigator.canShare === "function" &&
-        navigator.canShare({ files: [file] })
-      ) {
-        await navigator.share({
-          files: [file],
-          title: `@${h} — ${KOL_OG_QUOTE}`,
-          text: shareText,
-          url: pageUrl,
+      if (blob) {
+        const file = new File([blob], `tokenshit-kol-${h}.png`, {
+          type: "image/png",
         });
-        setMsg("Shared ✓");
+        if (
+          typeof navigator.share === "function" &&
+          typeof navigator.canShare === "function" &&
+          navigator.canShare({ files: [file] })
+        ) {
+          try {
+            await navigator.share({
+              files: [file],
+              title: `@${h} - ${KOL_OG_QUOTE}`,
+              text: shareText,
+            });
+            setMsg("Shared");
+            return;
+          } catch (e) {
+            if (e instanceof Error && e.name === "AbortError") {
+              setMsg("");
+              return;
+            }
+          }
+        }
+      }
+      saveViaAnchor();
+    } catch (e) {
+      if (e instanceof Error && e.name === "AbortError") {
+        setMsg("");
         return;
       }
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `tokenshit-kol-${h}.png`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-      setMsg("Downloaded ✓");
-    } catch (e) {
-      setMsg(e instanceof Error ? e.message : "Download failed");
+      saveViaAnchor();
     } finally {
       setBusy(null);
-      window.setTimeout(() => setMsg(""), 2000);
+      window.setTimeout(() => setMsg(""), 2200);
     }
-  }, [getBlob, h, pageUrl, shareText, pngReady]);
+  }, [getBlob, h, shareText, pngReady, saveViaAnchor]);
 
   const copyImage = useCallback(async () => {
     setBusy("copy");
-    setMsg(pngReady ? "Copying…" : "Generating PNG…");
+    setMsg(pngReady ? "Copying…" : "Opening PNG…");
     try {
       const blob = await getBlob();
+      if (!blob) {
+        saveViaAnchor();
+        return;
+      }
       if (
         typeof ClipboardItem !== "undefined" &&
         navigator.clipboard &&
         typeof navigator.clipboard.write === "function"
       ) {
         await navigator.clipboard.write([
-          new ClipboardItem({ "image/png": Promise.resolve(blob) }),
+          new ClipboardItem({ "image/png": blob }),
         ]);
-        setMsg("Image copied ✓");
+        setMsg("Image copied");
         return;
       }
       const file = new File([blob], `tokenshit-kol-${h}.png`, {
@@ -181,18 +210,29 @@ export default function KolLoveCard({
         typeof navigator.share === "function" &&
         navigator.canShare?.({ files: [file] })
       ) {
-        await navigator.share({ files: [file], url: pageUrl });
-        setMsg("Shared ✓");
-        return;
+        try {
+          await navigator.share({ files: [file] });
+          setMsg("Shared");
+          return;
+        } catch (e) {
+          if (e instanceof Error && e.name === "AbortError") {
+            setMsg("");
+            return;
+          }
+        }
       }
       setMsg("Long-press image to copy");
     } catch (e) {
-      setMsg(e instanceof Error ? e.message : "Copy failed");
+      if (e instanceof Error && e.name === "AbortError") {
+        setMsg("");
+        return;
+      }
+      saveViaAnchor();
     } finally {
       setBusy(null);
       window.setTimeout(() => setMsg(""), 2200);
     }
-  }, [getBlob, h, pageUrl, pngReady]);
+  }, [getBlob, h, pngReady, saveViaAnchor]);
 
   const copyLink = useCallback(async () => {
     try {

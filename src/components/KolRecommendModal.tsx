@@ -24,15 +24,36 @@ export default function KolRecommendModal({ open, onClose, prefillHandle = "" }:
 
   async function doLookupPrefilled(h: string) {
     if (!h) return;
-    setErr(null); setMsg(null); setLookup(null);
+    setErr(null);
+    setMsg(null);
+    setLookup(null);
     setBusy("lookup");
     try {
-      const res = await fetch(`/api/kols/nominate?handle=${encodeURIComponent(h)}`, { cache: "no-store" });
-      const j = await res.json();
-      if (res.ok && j.ok) { setLookup(j); } 
-      else { setErr(j.error || "Lookup failed"); }
-    } catch {}
-    finally { setBusy(null); }
+      const ctrl = new AbortController();
+      const t = window.setTimeout(() => ctrl.abort(), 15_000);
+      const res = await fetch(
+        `/api/kols/nominate?handle=${encodeURIComponent(h)}`,
+        { cache: "no-store", signal: ctrl.signal }
+      );
+      window.clearTimeout(t);
+      const j = await res.json().catch(() => ({}));
+      if (res.ok && j.ok) {
+        setLookup(j);
+      } else {
+        setErr(j.error || "Lookup failed");
+      }
+    } catch (e: unknown) {
+      const name = e instanceof Error ? e.name : "";
+      setErr(
+        name === "AbortError"
+          ? "X lookup timed out. Try again."
+          : e instanceof Error
+            ? e.message
+            : "Lookup failed"
+      );
+    } finally {
+      setBusy(null);
+    }
   }
 
   useEffect(() => {
@@ -51,26 +72,49 @@ export default function KolRecommendModal({ open, onClose, prefillHandle = "" }:
   async function doLookup() {
     setErr(null);
     setMsg(null);
-    setLookup(null);
     const h = raw.trim();
     if (!h) {
       setErr("Paste an X handle");
       return;
     }
+    const already =
+      lookup?.ok &&
+      String(lookup.handle || "").toLowerCase() ===
+        h.replace(/^@/, "").toLowerCase();
+    if (already && lookup.handle) {
+      window.open(`https://x.com/${lookup.handle}`, "_blank", "noopener,noreferrer");
+      return;
+    }
+    setLookup(null);
     setBusy("lookup");
     try {
-      const res = await fetch(`/api/kols/nominate?handle=${encodeURIComponent(h)}`, { cache: "no-store" });
-      const j = await res.json();
+      const ctrl = new AbortController();
+      const t = window.setTimeout(() => ctrl.abort(), 15_000);
+      const res = await fetch(
+        `/api/kols/nominate?handle=${encodeURIComponent(h)}`,
+        { cache: "no-store", signal: ctrl.signal }
+      );
+      window.clearTimeout(t);
+      const j = await res.json().catch(() => ({}));
       if (!res.ok || !j.ok) {
-        setErr(j.error || `Lookup failed`);
+        setErr(j.error || "Lookup failed");
         return;
       }
       setLookup(j);
       if (!j.meetsMin) {
-        setErr(`@${j.handle} has ${j.followers.toLocaleString()} followers — needs ${MIN_KOL_FOLLOWERS.toLocaleString()}+`);
+        setErr(
+          `@${j.handle} has ${j.followers.toLocaleString()} followers - needs ${MIN_KOL_FOLLOWERS.toLocaleString()}+`
+        );
       }
-    } catch (e: any) {
-      setErr(e?.message || "Lookup failed");
+    } catch (e: unknown) {
+      const name = e instanceof Error ? e.name : "";
+      setErr(
+        name === "AbortError"
+          ? "X lookup timed out. Try again."
+          : e instanceof Error
+            ? e.message
+            : "Lookup failed"
+      );
     } finally {
       setBusy(null);
     }
@@ -146,9 +190,10 @@ export default function KolRecommendModal({ open, onClose, prefillHandle = "" }:
           />
 
           <button
+            type="button"
             onClick={() => void doLookup()}
             disabled={busy !== null || !raw.trim()}
-            className="w-full rounded-lg border border-zinc-600 py-2 text-sm font-semibold disabled:opacity-50"
+            className="w-full min-h-11 rounded-lg border border-zinc-600 py-2 text-sm font-semibold disabled:opacity-50"
           >
             {busy === "lookup" ? "Looking up…" : "Lookup on X"}
           </button>
@@ -162,6 +207,14 @@ export default function KolRecommendModal({ open, onClose, prefillHandle = "" }:
               <div className="min-w-0 flex-1 text-sm">
                 <div className="font-semibold truncate">{lookup.displayName || `@${lookup.handle}`}</div>
                 <div className="text-xs text-zinc-400">@{lookup.handle} · {lookup.followers.toLocaleString()} followers</div>
+                <a
+                  href={`https://x.com/${lookup.handle}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[11px] text-neon underline"
+                >
+                  Open on X
+                </a>
               </div>
               <div className={lookup.meetsMin ? "text-neon text-xs" : "text-amber-400 text-xs"}>{lookup.meetsMin ? "OK" : "LOW"}</div>
             </div>
