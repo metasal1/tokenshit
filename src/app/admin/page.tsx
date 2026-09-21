@@ -95,7 +95,7 @@ export default function AdminPage() {
         const d = await res.json().catch(() => ({}));
         throw new Error(
           (d as { error?: string }).error ||
-            "Forbidden — login with @tokenshit_ / @metasal X, or ADMIN_PRIVY_ID"
+            "Forbidden - login with @tokenshit_ / @metasal / @d0txyz X, or ADMIN_PRIVY_ID"
         );
       }
       if (res.status === 503) {
