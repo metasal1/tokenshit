@@ -43,6 +43,8 @@ interface AdminData {
     displayName?: string | null;
     avatarUrl?: string | null;
     source?: string | null;
+    alreadyOnRoster?: boolean;
+    rosterStatus?: "live" | "accepted" | null;
   }[];
 }
 
@@ -576,7 +578,8 @@ export default function AdminPage() {
         <div className="space-y-3">
           <div className="flex flex-wrap items-center gap-2">
             <p className="text-xs text-zinc-500 font-mono flex-1">
-              Submissions → Turso <code className="text-neon">kol_nominations</code>. Accept = shortlist · Live = on roster · Reject = no.
+              Adding to the public /kols list is <span className="text-neon">manual</span>.
+              Accept = shortlist. Live = on roster. ON ROSTER = already accepted or live.
             </p>
             {(["pending", "accepted", "live", "rejected", "all"] as const).map((f) => (
               <button
@@ -635,6 +638,23 @@ export default function AdminPage() {
                             {n.displayName}
                           </div>
                         ) : null}
+                        {n.alreadyOnRoster ? (
+                          <div className="mt-0.5 inline-block rounded px-1.5 py-0.5 text-[9px] font-orbitron uppercase tracking-wide bg-neon/15 text-neon border border-neon/40">
+                            {n.rosterStatus === "live" ? "ON ROSTER" : "SHORTLIST"}
+                          </div>
+                        ) : n.status === "live" ? (
+                          <div className="mt-0.5 inline-block rounded px-1.5 py-0.5 text-[9px] font-orbitron uppercase tracking-wide bg-neon/15 text-neon border border-neon/40">
+                            ON ROSTER
+                          </div>
+                        ) : n.status === "accepted" ? (
+                          <div className="mt-0.5 inline-block rounded px-1.5 py-0.5 text-[9px] font-orbitron uppercase tracking-wide border border-amber-600/50 text-amber-300">
+                            SHORTLIST
+                          </div>
+                        ) : (
+                          <div className="mt-0.5 inline-block rounded px-1.5 py-0.5 text-[9px] font-orbitron uppercase tracking-wide border border-zinc-700 text-zinc-500">
+                            NEW
+                          </div>
+                        )}
                       </td>
                       <td className="px-3 py-2 font-mono text-[11px]">
                         <div className="flex flex-col gap-1 min-w-[9rem]">
