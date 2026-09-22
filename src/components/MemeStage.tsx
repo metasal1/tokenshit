@@ -209,11 +209,23 @@ export default function MemeStage({
                 style={{
                   fontSize: `${fontPx}px`,
                   fontFamily:
-                    'Monoton, "Monoton Regular", cursive, system-ui, sans-serif',
-                  color: dark ? "#0a0a0f" : "#fff8e7",
-                  textShadow: dark
-                    ? "0 0 1px rgba(255,255,255,0.35)"
-                    : "0 0 10px rgba(240,192,64,0.75), 0 0 2px rgba(57,255,20,0.35), 0 1px 2px rgba(0,0,0,0.85)",
+                    box.font === "impact"
+                      ? 'Impact, ImpactMeme, Haettenschweiler, "Arial Black", sans-serif'
+                      : 'Monoton, "Monoton Regular", cursive, system-ui, sans-serif',
+                  fontWeight: box.font === "impact" ? 900 : 400,
+                  color: dark ? "#0a0a0f" : box.font === "impact" ? "#ffffff" : "#fff8e7",
+                  WebkitTextStroke:
+                    box.font === "impact"
+                      ? dark
+                        ? "2px #fff8e7"
+                        : "2px #000"
+                      : undefined,
+                  textShadow:
+                    box.font === "impact"
+                      ? "none"
+                      : dark
+                        ? "0 0 1px rgba(255,255,255,0.35)"
+                        : "0 0 10px rgba(240,192,64,0.75), 0 0 2px rgba(57,255,20,0.35), 0 1px 2px rgba(0,0,0,0.85)",
                   whiteSpace: "pre-wrap",
                   wordBreak: "break-word",
                   justifyContent:
@@ -244,7 +256,7 @@ export default function MemeStage({
               </div>
               <div
                 onPointerDown={(e) => startDrag(e, i, "resize")}
-                className="absolute bottom-0 right-0 h-4 w-4 translate-x-1/3 translate-y-1/3 rounded-sm bg-neon shadow"
+                className="absolute bottom-0 right-0 h-8 w-8 translate-x-1/4 translate-y-1/4 rounded-sm bg-neon shadow md:h-4 md:w-4 md:translate-x-1/3 md:translate-y-1/3"
                 style={{ cursor: "nwse-resize" }}
                 aria-label="Resize caption"
               />
