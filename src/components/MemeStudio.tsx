@@ -31,7 +31,7 @@ import {
   blankSrc,
   defaultBoxes,
   ensureMonotonFont,
-  ensureOrbitronFont,
+  ensureImpactFont,
   isDarkStyle,
   proxiedBlank,
   renderTokenshitMeme,
@@ -119,13 +119,18 @@ export default function MemeStudio({ embedded = false }: { embedded?: boolean })
   const [dragOver, setDragOver] = useState(false);
   const [brandOn, setBrandOn] = useState(true);
   const BRAND_LS = "tokenshit.memes.brandOff.v1";
+  const [captionFont, setCaptionFontState] = useState<"monoton" | "impact">(
+    "monoton"
+  );
+  const textsRef = useRef<string[]>([]);
 
   const fileRef = useRef<HTMLInputElement>(null);
   const deepLinkDone = useRef(false);
+  textsRef.current = texts;
 
   useEffect(() => {
     void ensureMonotonFont();
-    void ensureOrbitronFont();
+    void ensureImpactFont();
     try {
       if (localStorage.getItem(BRAND_LS) === "1") setBrandOn(false);
     } catch { /* ignore */ }
@@ -251,14 +256,16 @@ export default function MemeStudio({ embedded = false }: { embedded?: boolean })
             ...x,
             style: (isDarkStyle(x.style) ? "dark" : "light") as MemeBox["style"],
             fontScale: x.fontScale ?? 1,
+            font: captionFont,
           }))
-        : defaultBoxes(n);
+        : defaultBoxes(n).map((x) => ({ ...x, font: captionFont }));
+    const kept = textsRef.current;
     setBoxes(b);
-    setTexts(b.map(() => ""));
+    setTexts(b.map((_, i) => kept[i] ?? ""));
     setActiveBox(0);
     setPreview("");
     writeMemesSearch({ face, t: tpl.id });
-  }, [face]);
+  }, [face, captionFont]);
 
   const openFromBlob = useCallback(
     async (blob: Blob, nameHint = "Upload") => {
@@ -408,11 +415,9 @@ export default function MemeStudio({ embedded = false }: { embedded?: boolean })
     );
   };
 
-  const setCaptionFont = (font: "monoton" | "orbitron") => {
-    if (activeBox < 0 || !boxes[activeBox]) return;
-    setBoxes((prev) =>
-      prev.map((b, i) => (i === activeBox ? { ...b, font } : b))
-    );
+  const setCaptionFont = (font: "monoton" | "impact") => {
+    setCaptionFontState(font);
+    setBoxes((prev) => prev.map((b) => ({ ...b, font })));
   };
 
   const setActiveTone = (dark: boolean) => {
@@ -943,7 +948,7 @@ export default function MemeStudio({ embedded = false }: { embedded?: boolean })
                 <button
                   type="button"
                   onClick={() => goTemplate(-1)}
-                  className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 text-xl text-zinc-300 hover:bg-white/10"
+                  className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 text-xl text-zinc-300 hover:bg-white/10"
                   aria-label="Previous"
                 >
                   ‹
@@ -951,7 +956,7 @@ export default function MemeStudio({ embedded = false }: { embedded?: boolean })
                 <button
                   type="button"
                   onClick={() => goTemplate(1)}
-                  className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 text-xl text-zinc-300 hover:bg-white/10"
+                  className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 text-xl text-zinc-300 hover:bg-white/10"
                   aria-label="Next"
                 >
                   ›
@@ -962,7 +967,7 @@ export default function MemeStudio({ embedded = false }: { embedded?: boolean })
                     setSelected(null);
                     writeMemesSearch({ face, t: null });
                   }}
-                  className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 text-lg text-zinc-300 hover:bg-white/10"
+                  className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 text-lg text-zinc-300 hover:bg-white/10"
                   aria-label="Close"
                 >
                   ✕
@@ -1082,12 +1087,12 @@ export default function MemeStudio({ embedded = false }: { embedded?: boolean })
                       <span className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-zinc-500">
                         Font
                       </span>
-                      <div className="flex gap-2">
+                      <div className="grid grid-cols-2 gap-2">
                         <button
                           type="button"
                           onClick={() => setCaptionFont("monoton")}
-                          className={`min-h-11 flex-1 rounded-xl border px-3 py-2.5 text-sm ${
-                            (boxes[activeBox].font || "monoton") === "monoton"
+                          className={`min-h-12 rounded-xl border px-3 py-3 text-sm ${
+                            captionFont === "monoton"
                               ? "border-neon bg-neon/15 text-zinc-100"
                               : "border-white/10 text-zinc-400"
                           }`}
@@ -1100,15 +1105,18 @@ export default function MemeStudio({ embedded = false }: { embedded?: boolean })
                         </button>
                         <button
                           type="button"
-                          onClick={() => setCaptionFont("orbitron")}
-                          className={`min-h-11 flex-1 rounded-xl border px-3 py-2.5 text-sm font-semibold ${
-                            boxes[activeBox].font === "orbitron"
-                              ? "border-neon bg-neon/15 text-neon"
+                          onClick={() => setCaptionFont("impact")}
+                          className={`min-h-12 rounded-xl border px-3 py-3 text-sm font-black uppercase tracking-wide ${
+                            captionFont === "impact"
+                              ? "border-neon bg-neon/15 text-zinc-100"
                               : "border-white/10 text-zinc-400"
                           }`}
-                          style={{ fontFamily: "Orbitron, sans-serif" }}
+                          style={{
+                            fontFamily:
+                              'Impact, ImpactMeme, Haettenschweiler, "Arial Black", sans-serif',
+                          }}
                         >
-                          Orbitron
+                          Impact
                         </button>
                       </div>
                     </div>

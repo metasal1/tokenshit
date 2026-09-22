@@ -15,7 +15,7 @@ export type MemeBox = {
   align?: "center" | "left" | "right";
   fontScale?: number;
   /** Caption face. Default Monoton. */
-  font?: "monoton" | "orbitron";
+  font?: "monoton" | "impact";
 };
 
 export type MemeTemplate = {
@@ -37,8 +37,8 @@ export const MEMES_API = "https://memes.sol.new";
 
 const MONOTON_STACK =
   'Monoton, "Monoton Regular", cursive, system-ui, sans-serif';
-const ORBITRON_STACK =
-  'Orbitron, "Orbitron Bold", sans-serif, system-ui';
+const IMPACT_STACK =
+  'Impact, ImpactMeme, Haettenschweiler, "Arial Black", sans-serif';
 
 const CREAM = "#fff8e7";
 const GOLD = "#f0c040";
@@ -70,30 +70,29 @@ export async function ensureMonotonFont(): Promise<void> {
   }
 }
 
-export async function ensureOrbitronFont(): Promise<void> {
+export async function ensureImpactFont(): Promise<void> {
   if (typeof document === "undefined") return;
   try {
-    await document.fonts.load(`700 64px ${ORBITRON_STACK}`);
-    if (document.fonts.check(`700 64px Orbitron`)) return;
+    if (document.fonts.check(`400 64px ImpactMeme`)) return;
   } catch {
-    /* continue */
+    /* load */
   }
   try {
     const face = new FontFace(
-      "Orbitron",
-      "url(/brand/fonts/Orbitron-Bold.ttf)",
-      { weight: "700", style: "normal" }
+      "ImpactMeme",
+      "url(/brand/fonts/Anton-Regular.ttf)",
+      { weight: "400", style: "normal" }
     );
     const loaded = await face.load();
     document.fonts.add(loaded);
-    await document.fonts.load(`700 64px Orbitron`);
+    await document.fonts.load(`400 64px ImpactMeme`);
   } catch {
     /* fall back */
   }
 }
 
 function captionFontCss(size: number, font?: MemeBox["font"]): string {
-  if (font === "orbitron") return `700 ${size}px ${ORBITRON_STACK}`;
+  if (font === "impact") return `900 ${size}px ${IMPACT_STACK}`;
   return `400 ${size}px ${MONOTON_STACK}`;
 }
 
@@ -197,7 +196,14 @@ export function drawMonotonBox(
     ctx.lineJoin = "round";
     ctx.miterLimit = 2;
 
-    if (dark) {
+    if (box.font === "impact") {
+      ctx.shadowBlur = 0;
+      ctx.lineWidth = Math.max(4, size * 0.12);
+      ctx.strokeStyle = dark ? CREAM : "#000000";
+      ctx.fillStyle = dark ? DARK : "#ffffff";
+      ctx.strokeText(line, cx, cy, w * 0.96);
+      ctx.fillText(line, cx, cy, w * 0.96);
+    } else if (dark) {
       ctx.shadowBlur = 0;
       ctx.lineWidth = Math.max(1.5, size * 0.04);
       ctx.strokeStyle = "rgba(255,255,255,0.25)";
@@ -390,7 +396,7 @@ async function renderTokenshitMemeCanvas(
   texts: string[],
   opts?: { brand?: boolean; username?: string | null }
 ): Promise<HTMLCanvasElement> {
-  await Promise.all([ensureMonotonFont(), ensureOrbitronFont()]);
+  await Promise.all([ensureMonotonFont(), ensureImpactFont()]);
   const src = blankSrc(blankUrl);
   const img = await loadImage(src);
   const canvas = document.createElement("canvas");
