@@ -31,6 +31,7 @@ import {
   blankSrc,
   defaultBoxes,
   ensureMonotonFont,
+  ensureOrbitronFont,
   isDarkStyle,
   proxiedBlank,
   renderTokenshitMeme,
@@ -117,17 +118,14 @@ export default function MemeStudio({ embedded = false }: { embedded?: boolean })
   const [statusMsg, setStatusMsg] = useState("");
   const [dragOver, setDragOver] = useState(false);
   const [brandOn, setBrandOn] = useState(true);
-  const [brandPrompt, setBrandPrompt] = useState(false);
-  const [brandPw, setBrandPw] = useState("");
-  const [brandErr, setBrandErr] = useState("");
   const BRAND_LS = "tokenshit.memes.brandOff.v1";
-  const BRAND_HASH = "b4cc6c14fe22bc2d57f65f8080f71d2c334ae77d4fdaadfbb8fd1f9e49b3d17f";
 
   const fileRef = useRef<HTMLInputElement>(null);
   const deepLinkDone = useRef(false);
 
   useEffect(() => {
     void ensureMonotonFont();
+    void ensureOrbitronFont();
     try {
       if (localStorage.getItem(BRAND_LS) === "1") setBrandOn(false);
     } catch { /* ignore */ }
@@ -363,15 +361,18 @@ export default function MemeStudio({ embedded = false }: { embedded?: boolean })
       }
     }
     if (q.trim()) {
-      const needle = q.trim().toLowerCase();
-      list = list.filter(
-        (t) =>
-          t.name.toLowerCase().includes(needle) ||
-          t.id.toLowerCase().includes(needle) ||
-          (t.keywords || []).some((k) => k.toLowerCase().includes(needle)) ||
-          (t.tag || "").toLowerCase().includes(needle) ||
-          faceOf(t).includes(needle)
-      );
+      const raw = q.trim().toLowerCase();
+      const needle = raw.replace(/[-_/]+/g, " ").replace(/\s+/g, " ").trim();
+      const toks = needle.split(" ").filter((w) => w.length > 1 && !["a","an","the","of"].includes(w));
+      const hit = (t: MemeTemplate) => {
+        const hay = [t.id, t.name, t.tag || "", faceOf(t), ...(t.keywords || [])]
+          .join(" ")
+          .toLowerCase()
+          .replace(/[-_/]+/g, " ");
+        if (hay.includes(needle)) return true;
+        return toks.every((tok) => hay.includes(tok));
+      };
+      list = list.filter(hit);
     }
     return list;
   }, [allTemplates, face, q, faceOf]);
@@ -404,6 +405,13 @@ export default function MemeStudio({ embedded = false }: { embedded?: boolean })
     if (activeBox < 0 || !boxes[activeBox]) return;
     setBoxes((prev) =>
       prev.map((b, i) => (i === activeBox ? { ...b, fontScale: v } : b))
+    );
+  };
+
+  const setCaptionFont = (font: "monoton" | "orbitron") => {
+    if (activeBox < 0 || !boxes[activeBox]) return;
+    setBoxes((prev) =>
+      prev.map((b, i) => (i === activeBox ? { ...b, font } : b))
     );
   };
 
@@ -1072,6 +1080,41 @@ export default function MemeStudio({ embedded = false }: { embedded?: boolean })
 
                     <div>
                       <span className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-zinc-500">
+                        Font
+                      </span>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setCaptionFont("monoton")}
+                          className={`min-h-11 flex-1 rounded-xl border px-3 py-2.5 text-sm ${
+                            (boxes[activeBox].font || "monoton") === "monoton"
+                              ? "border-neon bg-neon/15 text-zinc-100"
+                              : "border-white/10 text-zinc-400"
+                          }`}
+                          style={{
+                            fontFamily:
+                              'Monoton, "Monoton Regular", cursive, system-ui',
+                          }}
+                        >
+                          Monoton
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setCaptionFont("orbitron")}
+                          className={`min-h-11 flex-1 rounded-xl border px-3 py-2.5 text-sm font-semibold ${
+                            boxes[activeBox].font === "orbitron"
+                              ? "border-neon bg-neon/15 text-neon"
+                              : "border-white/10 text-zinc-400"
+                          }`}
+                          style={{ fontFamily: "Orbitron, sans-serif" }}
+                        >
+                          Orbitron
+                        </button>
+                      </div>
+                    </div>
+
+                    <div>
+                      <span className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-zinc-500">
                         Colour
                       </span>
                       <div className="flex gap-2">
@@ -1149,10 +1192,12 @@ export default function MemeStudio({ embedded = false }: { embedded?: boolean })
                     <button
                       type="button"
                       onClick={() => {
-                        if (!brandOn) {
-                          setBrandOn(true);
-                          try { localStorage.removeItem(BRAND_LS); } catch { /* */ }
-                        } else setBrandPrompt(true);
+                        const next = !brandOn;
+                        setBrandOn(next);
+                        try {
+                          if (next) localStorage.removeItem(BRAND_LS);
+                          else localStorage.setItem(BRAND_LS, "1");
+                        } catch { /* */ }
                       }}
                       className={`inline-flex min-h-10 items-center justify-center gap-2 rounded-2xl border px-3 py-2 text-xs font-semibold ${
                         brandOn
@@ -1172,49 +1217,6 @@ export default function MemeStudio({ embedded = false }: { embedded?: boolean })
                   </div>
                 </div>
               </div>
-            </div>
-          </div>
-        </div>
-      )}
-      {brandPrompt && (
-        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-sm rounded-2xl border border-white/10 bg-[#111] p-5">
-            <h2 className="text-base font-bold">Disable watermark</h2>
-            <p className="mt-1 text-xs text-zinc-400">
-              Password turns off tokenshit.com/memes + @user marks on export.
-            </p>
-            <input
-              type="password"
-              value={brandPw}
-              onChange={(e) => setBrandPw(e.target.value)}
-              onKeyDown={async (e) => {
-                if (e.key !== "Enter") return;
-                const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(brandPw.trim()));
-                const h = Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, "0")).join("");
-                if (h !== BRAND_HASH) { setBrandErr("Wrong password"); return; }
-                setBrandOn(false);
-                try { localStorage.setItem(BRAND_LS, "1"); } catch { /* */ }
-                setBrandPrompt(false); setBrandPw(""); setBrandErr("");
-              }}
-              placeholder="Password"
-              autoFocus
-              className="mt-4 w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm outline-none"
-            />
-            {brandErr && <p className="mt-2 text-xs text-red-400">{brandErr}</p>}
-            <div className="mt-4 flex gap-2">
-              <button type="button" onClick={() => { setBrandPrompt(false); setBrandPw(""); setBrandErr(""); }} className="flex-1 rounded-xl border border-white/10 px-3 py-2 text-sm font-semibold">Cancel</button>
-              <button
-                type="button"
-                onClick={async () => {
-                  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(brandPw.trim()));
-                  const h = Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, "0")).join("");
-                  if (h !== BRAND_HASH) { setBrandErr("Wrong password"); return; }
-                  setBrandOn(false);
-                  try { localStorage.setItem(BRAND_LS, "1"); } catch { /* */ }
-                  setBrandPrompt(false); setBrandPw(""); setBrandErr("");
-                }}
-                className="flex-1 rounded-xl bg-neon px-3 py-2 text-sm font-bold text-black"
-              >Unlock</button>
             </div>
           </div>
         </div>
