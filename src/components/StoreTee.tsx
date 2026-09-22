@@ -28,23 +28,28 @@ export default function StoreTee() {
         <p className="font-orbitron text-[10px] uppercase tracking-wider text-zinc-500 mb-2">
           Size
         </p>
-        <div className="flex flex-wrap gap-2">
+        <div className="relative z-50 flex flex-wrap gap-2">
           {SIZES.map((s) => {
             const on = s === size;
             return (
-              <button
+              <label
                 key={s}
-                type="button"
-                onClick={() => setSize(s)}
-                aria-pressed={on}
-                className={`min-w-11 min-h-11 inline-flex items-center justify-center rounded-md border px-3 text-sm font-orbitron ${
+                className={`relative min-w-11 min-h-11 inline-flex items-center justify-center rounded-md border px-3 text-sm font-orbitron cursor-pointer select-none touch-manipulation ${
                   on
                     ? "border-neon bg-neon/15 text-neon"
                     : "border-zinc-700 text-zinc-200 hover:border-zinc-400"
                 }`}
               >
-                {s}
-              </button>
+                <input
+                  type="radio"
+                  name="tee-size"
+                  value={s}
+                  checked={on}
+                  onChange={() => setSize(s)}
+                  className="absolute inset-0 z-10 cursor-pointer opacity-0"
+                />
+                <span className="relative z-0">{s}</span>
+              </label>
             );
           })}
         </div>
