@@ -65,7 +65,7 @@ export default function StoreTee() {
         Order on X
       </a>
       <p className="text-xs text-zinc-600">
-        DM @Tokenshit_ with size {size}. We fulfill via Yoycol.
+        DM @Tokenshit_ with size {size}.
       </p>
     </div>
   );
