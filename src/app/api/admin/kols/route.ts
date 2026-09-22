@@ -21,8 +21,24 @@ export async function GET(req: NextRequest) {
   for (const n of counts) {
     byStatus[n.status] = (byStatus[n.status] || 0) + 1;
   }
+  const rosterByHandle: Record<string, "live" | "accepted"> = {};
+  for (const n of counts) {
+    const h = String(n.handle || "").toLowerCase();
+    if (!h) continue;
+    if (n.status === "live") rosterByHandle[h] = "live";
+    else if (n.status === "accepted" && rosterByHandle[h] !== "live") {
+      rosterByHandle[h] = "accepted";
+    }
+  }
+  const nomsOut = noms.map((n) => {
+    const h = String(n.handle || "").toLowerCase();
+    const roster = rosterByHandle[h] || null;
+    const alreadyOnRoster =
+      !!roster && n.status !== "live" && n.status !== "accepted";
+    return { ...n, alreadyOnRoster, rosterStatus: roster };
+  });
   return Response.json(
-    { noms, byStatus, filter: status },
+    { noms: nomsOut, byStatus, filter: status, rosterByHandle },
     {
       headers: {
         "Cache-Control": "no-store",
