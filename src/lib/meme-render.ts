@@ -14,6 +14,8 @@ export type MemeBox = {
   style?: "impact" | "plain" | "monoton" | "light" | "dark";
   align?: "center" | "left" | "right";
   fontScale?: number;
+  /** Caption face. Default Monoton. */
+  font?: "monoton" | "orbitron";
 };
 
 export type MemeTemplate = {
@@ -35,6 +37,8 @@ export const MEMES_API = "https://memes.sol.new";
 
 const MONOTON_STACK =
   'Monoton, "Monoton Regular", cursive, system-ui, sans-serif';
+const ORBITRON_STACK =
+  'Orbitron, "Orbitron Bold", sans-serif, system-ui';
 
 const CREAM = "#fff8e7";
 const GOLD = "#f0c040";
@@ -64,6 +68,33 @@ export async function ensureMonotonFont(): Promise<void> {
   } catch {
     /* fall back */
   }
+}
+
+export async function ensureOrbitronFont(): Promise<void> {
+  if (typeof document === "undefined") return;
+  try {
+    await document.fonts.load(`700 64px ${ORBITRON_STACK}`);
+    if (document.fonts.check(`700 64px Orbitron`)) return;
+  } catch {
+    /* continue */
+  }
+  try {
+    const face = new FontFace(
+      "Orbitron",
+      "url(/brand/fonts/Orbitron-Bold.ttf)",
+      { weight: "700", style: "normal" }
+    );
+    const loaded = await face.load();
+    document.fonts.add(loaded);
+    await document.fonts.load(`700 64px Orbitron`);
+  } catch {
+    /* fall back */
+  }
+}
+
+function captionFontCss(size: number, font?: MemeBox["font"]): string {
+  if (font === "orbitron") return `700 ${size}px ${ORBITRON_STACK}`;
+  return `400 ${size}px ${MONOTON_STACK}`;
 }
 
 export function wrapLines(
@@ -100,12 +131,13 @@ export function fitFontSize(
   text: string,
   maxW: number,
   maxH: number,
-  fontScale: number
+  fontScale: number,
+  font?: MemeBox["font"]
 ): number {
   let size = Math.min(maxH * 0.48, maxW * 0.16, 100) * fontScale;
   const min = 14;
   while (size > min) {
-    ctx.font = `400 ${size}px ${MONOTON_STACK}`;
+    ctx.font = captionFontCss(size, font);
     const lines = wrapLines(ctx, text, maxW * 0.94);
     const lineH = size * 1.2;
     const totalH = Math.max(lineH, lines.length * lineH);
@@ -134,13 +166,13 @@ export function drawMonotonBox(
   const w = Math.max(8, box.w * imgW);
   const h = Math.max(8, box.h * imgH);
   const fontScale = box.fontScale ?? 1;
-  const size = fitFontSize(ctx, t, w, h, fontScale);
+  const size = fitFontSize(ctx, t, w, h, fontScale, box.font);
   const dark = isDarkStyle(box.style);
 
   ctx.save();
   // Ensure no accidental mirror transforms
   ctx.setTransform(1, 0, 0, 1, 0, 0);
-  ctx.font = `400 ${size}px ${MONOTON_STACK}`;
+  ctx.font = captionFontCss(size, box.font);
   ctx.textBaseline = "middle";
   const align = box.align || "center";
   ctx.textAlign = align;
@@ -358,7 +390,7 @@ async function renderTokenshitMemeCanvas(
   texts: string[],
   opts?: { brand?: boolean; username?: string | null }
 ): Promise<HTMLCanvasElement> {
-  await ensureMonotonFont();
+  await Promise.all([ensureMonotonFont(), ensureOrbitronFont()]);
   const src = blankSrc(blankUrl);
   const img = await loadImage(src);
   const canvas = document.createElement("canvas");
