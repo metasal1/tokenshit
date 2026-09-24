@@ -11,6 +11,7 @@ import { pickSolanaAddress } from "@/lib/privy-identity";
 import { EmojiIcon } from "@/components/EmojiIcon";
 import { BalanceSkeleton } from "@/components/StatLoader";
 import { PlayMatchShell } from "@/components/PlayMatchShell";
+import { referralClaimLocked } from "@/lib/wallet-balance-parse";
 
 interface LeaderboardEntry {
   username: string;
@@ -23,6 +24,7 @@ interface UserStats {
   paidCount?: number;
   unpaidCount?: number;
   paidAmount?: number;
+  detail?: boolean;
   referrals: Array<{
     referred_twitter: string;
     created_at: string;
@@ -79,12 +81,26 @@ export default function ReferralsPage() {
 
     const handle = user?.twitter?.username?.toLowerCase();
     if (authenticated && handle) {
-      fetch(`/api/referral/stats?username=${encodeURIComponent(handle)}`)
-        .then((r) => r.json())
-        .then((d) => setUserStats(d))
-        .catch(() => {});
+      void (async () => {
+        try {
+          const token = await getAccessToken();
+          const headers: Record<string, string> = {};
+          if (token) {
+            headers.Authorization = `Bearer ${token}`;
+            headers["x-privy-token"] = token;
+          }
+          const r = await fetch(
+            `/api/referral/stats?username=${encodeURIComponent(handle)}`,
+            { headers, cache: "no-store" }
+          );
+          const d = await r.json();
+          setUserStats(d);
+        } catch {
+          /* ignore */
+        }
+      })();
     }
-  }, [authenticated, user]);
+  }, [authenticated, user, getAccessToken]);
 
   const twitterHandle = user?.twitter?.username?.toLowerCase();
   const wallet = useMemo(
@@ -160,12 +176,22 @@ export default function ReferralsPage() {
                 : "Nothing to claim")
       );
       if (twitterHandle) {
-        fetch(
-          `/api/referral/stats?username=${encodeURIComponent(twitterHandle)}`
-        )
-          .then((r) => r.json())
-          .then((d) => setUserStats(d))
-          .catch(() => {});
+        try {
+          const t2 = await getAccessToken();
+          const headers: Record<string, string> = {};
+          if (t2) {
+            headers.Authorization = `Bearer ${t2}`;
+            headers["x-privy-token"] = t2;
+          }
+          const st = await fetch(
+            `/api/referral/stats?username=${encodeURIComponent(twitterHandle)}`,
+            { headers, cache: "no-store" }
+          );
+          const d = await st.json();
+          setUserStats(d);
+        } catch {
+          /* ignore */
+        }
       }
     } catch (e) {
       const msg =
@@ -277,7 +303,12 @@ export default function ReferralsPage() {
                 type="button"
                 onClick={claimRewards}
                 disabled={
-                  claimBusy || !wallet || (userStats?.unpaidCount ?? 0) === 0
+                  claimBusy ||
+                  referralClaimLocked({
+                    wallet,
+                    unpaidCount: userStats?.unpaidCount,
+                    detail: userStats?.detail,
+                  })
                 }
                 className="w-full min-h-12 rounded-xl bg-neon text-black text-sm font-bold font-orbitron uppercase tracking-wide hover:brightness-110 disabled:opacity-45 disabled:cursor-not-allowed transition"
               >
@@ -285,7 +316,11 @@ export default function ReferralsPage() {
                   ? "Paying…"
                   : !wallet
                     ? "Waiting for wallet…"
-                    : (userStats?.unpaidCount ?? 0) === 0
+                    : referralClaimLocked({
+                        wallet,
+                        unpaidCount: userStats?.unpaidCount,
+                        detail: userStats?.detail,
+                      })
                       ? "Nothing to claim"
                       : `Claim ${unpaidAmt.toLocaleString()} $${SHIT_SYMBOL}`}
               </button>

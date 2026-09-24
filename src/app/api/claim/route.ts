@@ -32,6 +32,7 @@ import {
   recordClaim,
   clearStalePendingClaims,
   tweetIdAlreadyClaimed,
+  CLAIM_FARM_OFF,
   type ClaimKind,
 } from "@/lib/claims";
 import { getTreasuryBalances, getPlayPotBalances } from "@/lib/treasury";
@@ -70,16 +71,6 @@ function isKind(k: string): k is ClaimKind {
   return k in AMOUNTS;
 }
 
-/** Tweet / email / Jup 5k / premium dump farms. */
-const FARM_OFF = new Set<ClaimKind>([
-  "x_tweet",
-  "email_list",
-  "jup_verified",
-  "x_verified",
-  "x_premium",
-  "gh_fork",
-]);
-
 export async function GET(request: NextRequest) {
   const sp = request.nextUrl.searchParams;
   const kindRaw = sp.get("kind") || "";
@@ -104,6 +95,7 @@ export async function GET(request: NextRequest) {
       amounts: AMOUNTS,
       treasury: TREASURY_ADDRESS,
       paused: process.env.CLAIMS_ENABLED === "0",
+      farmOff: [...CLAIM_FARM_OFF],
       rules: {
         xRequired: true,
         minFollowers: ABUSE_MIN_FOLLOWERS_CLAIM,
@@ -315,7 +307,7 @@ export async function POST(request: NextRequest) {
         { status: 410 }
       );
     }
-    if (FARM_OFF.has(kindRaw as ClaimKind)) {
+    if (CLAIM_FARM_OFF.has(kindRaw as ClaimKind)) {
       return Response.json(
         {
           error:

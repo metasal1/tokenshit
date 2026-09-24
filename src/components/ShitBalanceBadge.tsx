@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { usePrivy } from "@privy-io/react-auth";
 import { useWallets } from "@privy-io/react-auth/solana";
 import { SHIT_SYMBOL } from "@/lib/shit-token";
+import { parseShitBalance } from "@/lib/wallet-balance-parse";
 import { BalanceSkeleton } from "@/components/StatLoader";
 
 function fmt(n: number) {
@@ -49,15 +50,13 @@ export default function ShitBalanceBadge({
     setLoading(true);
     const load = () => {
       fetch(`/api/wallet/shit-balance?address=${encodeURIComponent(address)}`)
-        .then((r) => r.json())
-        .then((d) => {
+        .then((r) => r.json().then((d) => ({ ok: r.ok, d })))
+        .then(({ ok, d }) => {
           if (!alive) return;
-          if (typeof d.balance === "number") setBal(d.balance);
-          else setBal(0);
+          const n = ok ? parseShitBalance(d) : null;
+          if (n != null) setBal(n);
         })
-        .catch(() => {
-          if (alive) setBal(null);
-        })
+        .catch(() => {})
         .finally(() => {
           if (alive) setLoading(false);
         });
