@@ -18,6 +18,10 @@ export const BRAND = {
   site: "https://tokenshit.com",
   x: "https://x.com/Tokenshit_",
   xHandle: "Tokenshit_",
+  /** Public member chat (invite). Site path /chat 302s here. */
+  telegram: "https://t.me/+ulIwqDAawm02M2Vl",
+  /** Sticker pack. Site path /stickers 302s here. Pack lives in the member chat until a public addstickers URL exists. */
+  telegramStickers: "https://t.me/+ulIwqDAawm02M2Vl",
   mint: "fEbiuDdZZ1QaWYpJFPqk23ZkaRnAyHg4aivhrCTshit",
   treasury: "SHTy7yoA5uAZoevKT3BFcSeDeFaHEyqWc55uApd3MJB",
   /** Play pot escrow */
@@ -114,6 +118,10 @@ export const BRAND = {
       pumpfastPoster2x: "/brand/pumpfast-poster@2x.png",
       kolsPoster: "/brand/kols-poster.png",
       kolsPoster2x: "/brand/kols-poster@2x.png",
+      chatPoster: "/brand/chat-poster.png",
+      chatPoster2x: "/brand/chat-poster@2x.png",
+      stickersPoster: "/brand/stickers-poster.png",
+      stickersPoster2x: "/brand/stickers-poster@2x.png",
     },
   },
 

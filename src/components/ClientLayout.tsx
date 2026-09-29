@@ -523,6 +523,20 @@ function Layout({ children }: { children: React.ReactNode }) {
           </Link>
           <span className="text-zinc-700">·</span>
           <Link
+            href="/chat"
+            className="text-zinc-500 hover:text-zinc-300 transition-colors"
+          >
+            Chat
+          </Link>
+          <span className="text-zinc-700">·</span>
+          <Link
+            href="/stickers"
+            className="text-zinc-500 hover:text-zinc-300 transition-colors"
+          >
+            Stickers
+          </Link>
+          <span className="text-zinc-700">·</span>
+          <Link
             href="/brand"
             className="text-zinc-500 hover:text-zinc-300 transition-colors"
           >
@@ -555,6 +569,14 @@ function Layout({ children }: { children: React.ReactNode }) {
       <footer className="md:hidden border-t border-border py-3 text-center text-[10px] text-zinc-600 font-orbitron tracking-wide mb-[calc(4.25rem+env(safe-area-inset-bottom,0px)+var(--footer-ticker-h,0px))]">
         <p className="font-sans normal-case">
           TokenShit ·{" "}
+          <Link href="/chat" className="hover:text-zinc-400">
+            Chat
+          </Link>
+          {" · "}
+          <Link href="/stickers" className="hover:text-zinc-400">
+            Stickers
+          </Link>
+          {" · "}
           <Link href="/terms" className="hover:text-zinc-400">
             Terms
           </Link>

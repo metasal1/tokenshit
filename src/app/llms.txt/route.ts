@@ -35,6 +35,8 @@ Play $HIT OF THE DAY, free arena votes, claims, swap, whales.
 - Mint: fEbiuDdZZ1QaWYpJFPqk23ZkaRnAyHg4aivhrCTshit
 - Treasury: SHTy7yoA5uAZoevKT3BFcSeDeFaHEyqWc55uApd3MJB
 - X: https://x.com/Tokenshit_
+- Chat: https://tokenshit.com/chat
+- Stickers: https://tokenshit.com/stickers
 - Registry: https://github.com/solana-foundation/tokens
 - Data: **Tokens.xyz** (source of truth) · https://tokens.xyz · https://docs.tokens.xyz
 - Prices: Tokens.xyz market first; Jupiter / CoinGecko / Dex as fallback only
