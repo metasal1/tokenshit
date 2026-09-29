@@ -28,7 +28,7 @@ const POSTERS: Poster[] = [
   },
   {
     title: "Sticker pack",
-    blurb: "TOKENSHIT stickers. Add from the member chat.",
+    blurb: "TOKENSHIT sticker pack. t.me/addstickers/TOKENSHIT_by_Metasal",
     href: "/stickers",
     src: "/brand/stickers-poster.png",
     src2x: "/brand/stickers-poster@2x.png",

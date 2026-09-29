@@ -36,6 +36,20 @@ export function middleware(request: NextRequest) {
 
   const path = request.nextUrl.pathname;
 
+  if (path === "/chat") {
+    return withSecurityHeaders(
+      NextResponse.redirect("https://t.me/+ulIwqDAawm02M2Vl", 302)
+    );
+  }
+  if (path === "/stickers") {
+    return withSecurityHeaders(
+      NextResponse.redirect(
+        "https://t.me/addstickers/TOKENSHIT_by_Metasal",
+        302
+      )
+    );
+  }
+
   // Voting removed — old HIT/SHIT court URLs go to Play
   if (
     /^\/(hit|shit|boards|hitters|shitters)(\/|$)/i.test(path) ||

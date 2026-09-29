@@ -20,8 +20,8 @@ export const BRAND = {
   xHandle: "Tokenshit_",
   /** Public member chat (invite). Site path /chat 302s here. */
   telegram: "https://t.me/+ulIwqDAawm02M2Vl",
-  /** Sticker pack. Site path /stickers 302s here. Pack lives in the member chat until a public addstickers URL exists. */
-  telegramStickers: "https://t.me/+ulIwqDAawm02M2Vl",
+  /** Sticker pack. Site path /stickers 302s here. */
+  telegramStickers: "https://t.me/addstickers/TOKENSHIT_by_Metasal",
   mint: "fEbiuDdZZ1QaWYpJFPqk23ZkaRnAyHg4aivhrCTshit",
   treasury: "SHTy7yoA5uAZoevKT3BFcSeDeFaHEyqWc55uApd3MJB",
   /** Play pot escrow */

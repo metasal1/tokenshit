@@ -82,7 +82,7 @@ def build(kind: str) -> Image.Image:
         eye = "STICKER PACK"
         hero = "ADD"
         sub = "STICKERS"
-        p1, p2, p3 = "TOKENSHIT PACK", "IN THE MEMBER CHAT", "TAP ADD  |  USE IN TG"
+        p1, p2, p3 = "TOKENSHIT PACK", "ADDSTICKERS", "TOKENSHIT_by_Metasal"
         cta = "tokenshit.com/stickers"
     img = Image.alpha_composite(img, glow.filter(ImageFilter.GaussianBlur(72)))
     g.scatter_icons(img, __import__("random").Random(seed))
