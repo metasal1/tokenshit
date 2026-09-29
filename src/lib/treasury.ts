@@ -6,12 +6,18 @@ import {
   shitToRaw,
 } from "@/lib/shit-token";
 
-/** Prefer paid Helius, then PublicNode, then Solana labs public. */
+/** Prefer env, then cassandra → viviyan → aex402 → public. 403 = skip (Helius IP allowlist). */
+const FALLBACK_RPCS = [
+  "https://cassandra-bq5oqs-fast-mainnet.helius-rpc.com",
+  "https://viviyan-bkj12u-fast-mainnet.helius-rpc.com",
+  "https://rpc.aex402.com",
+  "https://solana.publicnode.com",
+  "https://api.mainnet-beta.solana.com",
+];
 const RPC_URLS: string[] = [
   process.env.SOLANA_RPC_URL,
   process.env.HELIUS_RPC_URL,
-  "https://solana.publicnode.com",
-  "https://api.mainnet-beta.solana.com",
+  ...FALLBACK_RPCS,
 ].filter((u, i, a): u is string => Boolean(u) && a.indexOf(u) === i);
 
 /** @deprecated use RPC_URLS[0] — kept for Connection callers that need a string */
@@ -26,7 +32,7 @@ function sleep(ms: number) {
 
 function isTransientRpc(err: unknown): boolean {
   const msg = err instanceof Error ? err.message : String(err);
-  return /RPC HTTP (429|402|5\d\d)|429|rate limit|too many|load.?shed|ECONNRESET|fetch failed|socket|timeout|503|502|504/i.test(
+  return /RPC HTTP (403|401|429|402|5\d\d)|403|401|429|rate limit|too many|load.?shed|ECONNRESET|fetch failed|socket|timeout|503|502|504|forbidden|unauthorized/i.test(
     msg
   );
 }
@@ -50,7 +56,13 @@ export async function rpc<T = unknown>(
         });
         if (!res.ok) {
           lastErr = new Error(`RPC HTTP ${res.status}`);
-          if (res.status === 429 || res.status === 402 || res.status >= 500) {
+          if (
+            res.status === 403 ||
+            res.status === 401 ||
+            res.status === 429 ||
+            res.status === 402 ||
+            res.status >= 500
+          ) {
             await sleep(150 + attempt * 250 + Math.floor(Math.random() * 100));
             continue;
           }

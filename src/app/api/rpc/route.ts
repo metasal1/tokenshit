@@ -12,13 +12,14 @@ const PRIMARY =
   process.env.SOLANA_RPC_URL ||
   process.env.HELIUS_RPC_URL ||
   process.env.NEXT_PUBLIC_SOLANA_RPC_URL ||
-  "https://viviyan-bkj12u-fast-mainnet.helius-rpc.com";
+  "https://cassandra-bq5oqs-fast-mainnet.helius-rpc.com";
 
-/** PublicNode — secondary only (stress-tested 2026-08: 0/50 fail, ~300ms p50). */
-const SECONDARY = "https://solana.publicnode.com";
+const SECONDARY = "https://viviyan-bkj12u-fast-mainnet.helius-rpc.com";
+const AEX = "https://rpc.aex402.com";
+const PUBLICNODE = "https://solana.publicnode.com";
 const TERTIARY = "https://api.mainnet-beta.solana.com";
 
-const UPSTREAMS = [PRIMARY, SECONDARY, TERTIARY].filter(
+const UPSTREAMS = [PRIMARY, SECONDARY, AEX, PUBLICNODE, TERTIARY].filter(
   (u, i, a) => u && a.indexOf(u) === i
 );
 
@@ -115,6 +116,8 @@ export async function POST(req: NextRequest) {
           upstream.ok ||
           (upstream.status !== 429 &&
             upstream.status !== 402 &&
+            upstream.status !== 403 &&
+            upstream.status !== 401 &&
             upstream.status < 500)
         ) {
           return new Response(text, {

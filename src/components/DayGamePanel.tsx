@@ -611,7 +611,14 @@ export default function DayGamePanel({
       load();
     } catch (e) {
       setPhase(null);
-      setErr(e instanceof Error ? e.message : String(e));
+      const raw = e instanceof Error ? e.message : String(e);
+      setErr(
+        /RPC HTTP 403|RPC HTTP 401|forbidden/i.test(raw)
+          ? "Solana RPC blocked. Try Lock again."
+          : /RPC HTTP 429|rate limit|RPC busy/i.test(raw)
+            ? "Solana RPC busy. Wait a few seconds and Lock again."
+            : raw
+      );
       sfx.error();
     } finally {
       setBusy(false);
