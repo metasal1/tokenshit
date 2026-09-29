@@ -20,6 +20,20 @@ type Poster = {
 
 const POSTERS: Poster[] = [
   {
+    title: "Member chat",
+    blurb: "TOKENSHIT Telegram member chat",
+    href: "/chat",
+    src: "/brand/chat-poster.png",
+    src2x: "/brand/chat-poster@2x.png",
+  },
+  {
+    title: "Sticker pack",
+    blurb: "TOKENSHIT stickers. Add from the member chat.",
+    href: "/stickers",
+    src: "/brand/stickers-poster.png",
+    src2x: "/brand/stickers-poster@2x.png",
+  },
+  {
     title: "PumpFast upvote",
     blurb: "Upvote TOKENSHIT on pumpfa.st. Claim 1,000 once.",
     href: "/claim",
