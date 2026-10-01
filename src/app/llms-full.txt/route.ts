@@ -21,6 +21,7 @@ Every token is shit until proven otherwise. Vote HIT or SHIT on Solana Foundatio
 | /winners | Past HIT/SHIT bags |
 | /referrals | Referral program |
 | /brand | Brand kit |
+| /shitpaper | Token, Streamflow lock, fees |
 
 ## Token
 - Name: TokenShit
