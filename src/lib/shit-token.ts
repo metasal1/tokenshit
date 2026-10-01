@@ -36,6 +36,12 @@ export const PLAY_REV_ADDRESS =
   process.env.NEXT_PUBLIC_PLAY_REV_ADDRESS ||
   "revn2bE1MtTvn5cBXguuAuuSyEC2VbiyRE2imFMAX7U";
 
+/** 75,000,000 SH!T locked on Streamflow. Checkable on-chain. */
+export const STREAMFLOW_LOCK_AMOUNT = 75_000_000;
+export const STREAMFLOW_CONTRACT =
+  "46bwTG4jLFxfEUm3MBpBuKoFk6komK7UafUZcaswoz5s";
+export const STREAMFLOW_URL = `https://app.streamflow.finance/contract/solana/mainnet/${STREAMFLOW_CONTRACT}`;
+
 /** One-time claim amounts (Metasal — halved) */
 export const CLAIM_X_VERIFIED = 5_000;
 /** X Premium (blue) */

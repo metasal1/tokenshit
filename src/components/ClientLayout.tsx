@@ -537,6 +537,13 @@ function Layout({ children }: { children: React.ReactNode }) {
           </Link>
           <span className="text-zinc-700">·</span>
           <Link
+            href="/shitpaper"
+            className="text-zinc-500 hover:text-zinc-300 transition-colors"
+          >
+            Shitpaper
+          </Link>
+          <span className="text-zinc-700">·</span>
+          <Link
             href="/brand"
             className="text-zinc-500 hover:text-zinc-300 transition-colors"
           >
@@ -575,6 +582,10 @@ function Layout({ children }: { children: React.ReactNode }) {
           {" · "}
           <Link href="/stickers" className="hover:text-zinc-400">
             Stickers
+          </Link>
+          {" · "}
+          <Link href="/shitpaper" className="hover:text-zinc-400">
+            Shitpaper
           </Link>
           {" · "}
           <Link href="/terms" className="hover:text-zinc-400">

@@ -35,6 +35,7 @@ export const SITE_NAV: NavItem[] = [
   { href: "/whales", label: "Whales", primary: false, match: "prefix" },
   { href: "/chat", label: "Chat", primary: false, match: "exact" },
   { href: "/stickers", label: "Stickers", primary: false, match: "exact" },
+  { href: "/shitpaper", label: "Shitpaper", primary: false, match: "prefix" },
 ];
 
 /** Mobile bottom dock */
