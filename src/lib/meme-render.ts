@@ -43,6 +43,8 @@ const IMPACT_STACK =
 const CREAM = "#fff8e7";
 const GOLD = "#f0c040";
 const DARK = "#0a0a0f";
+const NEON = "#39ff14";
+const ORBITRON_STACK = 'Orbitron, "Orbitron Bold", sans-serif';
 
 export function isDarkStyle(style?: string): boolean {
   return style === "plain" || style === "dark";
@@ -86,6 +88,27 @@ export async function ensureImpactFont(): Promise<void> {
     const loaded = await face.load();
     document.fonts.add(loaded);
     await document.fonts.load(`400 64px ImpactMeme`);
+  } catch {
+    /* fall back */
+  }
+}
+
+export async function ensureOrbitronFont(): Promise<void> {
+  if (typeof document === "undefined") return;
+  try {
+    if (document.fonts.check(`700 48px Orbitron`)) return;
+  } catch {
+    /* load */
+  }
+  try {
+    const face = new FontFace(
+      "Orbitron",
+      "url(/brand/fonts/Orbitron-Bold.ttf)",
+      { weight: "700", style: "normal" }
+    );
+    const loaded = await face.load();
+    document.fonts.add(loaded);
+    await document.fonts.load(`700 48px Orbitron`);
   } catch {
     /* fall back */
   }
@@ -269,6 +292,86 @@ function drawWatermark(
   ctx.restore();
 }
 
+/** Thick gold + neon certificate frame. Copy/download only. */
+function wrapCertifiedFrame(src: HTMLCanvasElement): HTMLCanvasElement {
+  const w = src.width;
+  const h = src.height;
+  const m = Math.min(w, h);
+  const pad = Math.max(28, Math.round(m * 0.055));
+  const plaque = Math.max(36, Math.round(m * 0.078));
+  const out = document.createElement("canvas");
+  out.width = w + pad * 2;
+  out.height = h + pad * 2 + plaque;
+  const ctx = out.getContext("2d");
+  if (!ctx) return src;
+
+  ctx.fillStyle = DARK;
+  ctx.fillRect(0, 0, out.width, out.height);
+
+  const goldW = Math.max(10, Math.round(pad * 0.42));
+  ctx.strokeStyle = GOLD;
+  ctx.lineWidth = goldW;
+  ctx.strokeRect(
+    goldW / 2,
+    goldW / 2,
+    out.width - goldW,
+    out.height - goldW
+  );
+
+  const neonW = Math.max(5, Math.round(pad * 0.22));
+  ctx.strokeStyle = NEON;
+  ctx.lineWidth = neonW;
+  const inset = goldW + neonW * 0.15;
+  ctx.strokeRect(
+    inset,
+    inset,
+    out.width - inset * 2,
+    out.height - inset * 2
+  );
+
+  ctx.strokeStyle = CREAM;
+  ctx.lineWidth = Math.max(2, Math.round(pad * 0.08));
+  const hair = inset + neonW * 0.85;
+  ctx.strokeRect(
+    hair,
+    hair,
+    out.width - hair * 2,
+    out.height - hair * 2
+  );
+
+  ctx.drawImage(src, pad, pad, w, h);
+
+  const barY = pad + h + plaque * 0.18;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  const certSize = Math.max(11, Math.round(plaque * 0.28));
+  ctx.font = `700 ${certSize}px ${ORBITRON_STACK}`;
+  ctx.fillStyle = GOLD;
+  ctx.fillText("CERTIFIED", out.width / 2, barY);
+
+  const lockSize = Math.max(16, Math.round(plaque * 0.42));
+  ctx.font = `400 ${lockSize}px ${MONOTON_STACK}`;
+  const token = "TOKEN";
+  const hit = "HIT";
+  const dollar = "$";
+  const tw = ctx.measureText(token).width;
+  const dw = ctx.measureText(dollar).width;
+  const hw = ctx.measureText(hit).width;
+  const total = tw + dw + hw;
+  let x = (out.width - total) / 2;
+  const ly = barY + plaque * 0.38;
+  ctx.fillStyle = CREAM;
+  ctx.fillText(token, x + tw / 2, ly);
+  x += tw;
+  ctx.fillStyle = NEON;
+  ctx.fillText(dollar, x + dw / 2, ly);
+  x += dw;
+  ctx.fillStyle = CREAM;
+  ctx.fillText(hit, x + hw / 2, ly);
+
+  return out;
+}
+
 export function defaultBoxes(n: number): MemeBox[] {
   if (n <= 0) return [];
   if (n === 1) {
@@ -378,7 +481,7 @@ export async function renderTokenshitMeme(
   blankUrl: string,
   boxes: MemeBox[],
   texts: string[],
-  opts?: { brand?: boolean; username?: string | null }
+  opts?: { brand?: boolean; username?: string | null; frame?: boolean }
 ): Promise<string> {
   const canvas = await renderTokenshitMemeCanvas(blankUrl, boxes, texts, opts);
   try {
@@ -394,9 +497,13 @@ async function renderTokenshitMemeCanvas(
   blankUrl: string,
   boxes: MemeBox[],
   texts: string[],
-  opts?: { brand?: boolean; username?: string | null }
+  opts?: { brand?: boolean; username?: string | null; frame?: boolean }
 ): Promise<HTMLCanvasElement> {
-  await Promise.all([ensureMonotonFont(), ensureImpactFont()]);
+  await Promise.all([
+    ensureMonotonFont(),
+    ensureImpactFont(),
+    opts?.frame ? ensureOrbitronFont() : Promise.resolve(),
+  ]);
   const src = blankSrc(blankUrl);
   const img = await loadImage(src);
   const canvas = document.createElement("canvas");
@@ -410,6 +517,7 @@ async function renderTokenshitMemeCanvas(
     drawMonotonBox(ctx, box, texts[i] || "", canvas.width, canvas.height);
   });
   if (opts?.brand !== false) drawWatermark(ctx, canvas.width, canvas.height, opts?.username);
+  if (opts?.frame) return wrapCertifiedFrame(canvas);
   return canvas;
 }
 
@@ -417,9 +525,12 @@ export async function renderTokenshitMemeBlob(
   blankUrl: string,
   boxes: MemeBox[],
   texts: string[],
-  opts?: { brand?: boolean; username?: string | null }
+  opts?: { brand?: boolean; username?: string | null; frame?: boolean }
 ): Promise<Blob> {
-  const canvas = await renderTokenshitMemeCanvas(blankUrl, boxes, texts, opts);
+  const canvas = await renderTokenshitMemeCanvas(blankUrl, boxes, texts, {
+    ...opts,
+    frame: opts?.frame !== false,
+  });
   const blob = await new Promise<Blob | null>((resolve) =>
     canvas.toBlob((b) => resolve(b), "image/png")
   );
