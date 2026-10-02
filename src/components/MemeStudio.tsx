@@ -123,6 +123,8 @@ export default function MemeStudio({ embedded = false }: { embedded?: boolean })
     "monoton"
   );
   const textsRef = useRef<string[]>([]);
+  /** Never truncated on template switch (1-line blanks used to wipe line 2). */
+  const persistCaptionsRef = useRef<string[]>([]);
 
   const fileRef = useRef<HTMLInputElement>(null);
   const deepLinkDone = useRef(false);
@@ -259,9 +261,10 @@ export default function MemeStudio({ embedded = false }: { embedded?: boolean })
             font: captionFont,
           }))
         : defaultBoxes(n).map((x) => ({ ...x, font: captionFont }));
-    const kept = textsRef.current;
+    const kept = persistCaptionsRef.current;
+    const next = b.map((_, i) => kept[i] ?? "");
     setBoxes(b);
-    setTexts(b.map((_, i) => kept[i] ?? ""));
+    setTexts(next);
     setActiveBox(0);
     setPreview("");
     writeMemesSearch({ face, t: tpl.id });
@@ -404,6 +407,9 @@ export default function MemeStudio({ embedded = false }: { embedded?: boolean })
     setTexts((prev) => {
       const next = [...prev];
       next[i] = v;
+      const persist = persistCaptionsRef.current.slice();
+      persist[i] = v;
+      persistCaptionsRef.current = persist;
       return next;
     });
   };
@@ -446,7 +452,7 @@ export default function MemeStudio({ embedded = false }: { embedded?: boolean })
         fontScale: 1,
       },
     ]);
-    setTexts((prev) => [...prev, ""]);
+    setTexts((prev) => [...prev, persistCaptionsRef.current[i] ?? ""]);
     setActiveBox(i);
   };
 
