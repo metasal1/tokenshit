@@ -292,13 +292,58 @@ function drawWatermark(
   ctx.restore();
 }
 
-/** Thick gold + neon certificate frame. Copy/download only. */
+/** Thick cream/gold + neon-$ glow, same as .neon-text / .neon-dollar. Copy/download only. */
+function glowStrokeRect(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  lineW: number,
+  color: string,
+  halo: string,
+  layers: number[]
+) {
+  ctx.save();
+  ctx.lineJoin = "round";
+  ctx.strokeStyle = color;
+  ctx.lineWidth = lineW;
+  for (const blur of layers) {
+    ctx.shadowColor = halo;
+    ctx.shadowBlur = blur;
+    ctx.strokeRect(x, y, w, h);
+  }
+  ctx.shadowBlur = 0;
+  ctx.strokeRect(x, y, w, h);
+  ctx.restore();
+}
+
+function glowFillText(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  x: number,
+  y: number,
+  fill: string,
+  halo: string
+) {
+  ctx.save();
+  ctx.fillStyle = fill;
+  for (const blur of [11, 19, 40, 80]) {
+    ctx.shadowColor = halo;
+    ctx.shadowBlur = blur;
+    ctx.fillText(text, x, y);
+  }
+  ctx.shadowBlur = 0;
+  ctx.fillText(text, x, y);
+  ctx.restore();
+}
+
 function wrapCertifiedFrame(src: HTMLCanvasElement): HTMLCanvasElement {
   const w = src.width;
   const h = src.height;
   const m = Math.min(w, h);
-  const pad = Math.max(28, Math.round(m * 0.055));
-  const plaque = Math.max(36, Math.round(m * 0.078));
+  const pad = Math.max(32, Math.round(m * 0.06));
+  const plaque = Math.max(40, Math.round(m * 0.08));
   const out = document.createElement("canvas");
   out.width = w + pad * 2;
   out.height = h + pad * 2 + plaque;
@@ -308,48 +353,44 @@ function wrapCertifiedFrame(src: HTMLCanvasElement): HTMLCanvasElement {
   ctx.fillStyle = DARK;
   ctx.fillRect(0, 0, out.width, out.height);
 
-  const goldW = Math.max(10, Math.round(pad * 0.42));
-  ctx.strokeStyle = GOLD;
-  ctx.lineWidth = goldW;
-  ctx.strokeRect(
-    goldW / 2,
-    goldW / 2,
-    out.width - goldW,
-    out.height - goldW
+  const creamW = Math.max(12, Math.round(pad * 0.38));
+  const creamX = creamW / 2;
+  glowStrokeRect(
+    ctx,
+    creamX,
+    creamX,
+    out.width - creamW,
+    out.height - creamW,
+    creamW,
+    CREAM,
+    GOLD,
+    [12, 28, 56, 90]
   );
 
-  const neonW = Math.max(5, Math.round(pad * 0.22));
-  ctx.strokeStyle = NEON;
-  ctx.lineWidth = neonW;
-  const inset = goldW + neonW * 0.15;
-  ctx.strokeRect(
+  const neonW = Math.max(4, Math.round(pad * 0.14));
+  const inset = creamW + neonW;
+  glowStrokeRect(
+    ctx,
     inset,
     inset,
     out.width - inset * 2,
-    out.height - inset * 2
-  );
-
-  ctx.strokeStyle = CREAM;
-  ctx.lineWidth = Math.max(2, Math.round(pad * 0.08));
-  const hair = inset + neonW * 0.85;
-  ctx.strokeRect(
-    hair,
-    hair,
-    out.width - hair * 2,
-    out.height - hair * 2
+    out.height - inset * 2,
+    neonW,
+    NEON,
+    "#00ffaa",
+    [8, 22, 48]
   );
 
   ctx.drawImage(src, pad, pad, w, h);
 
-  const barY = pad + h + plaque * 0.18;
+  const barY = pad + h + plaque * 0.2;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  const certSize = Math.max(11, Math.round(plaque * 0.28));
+  const certSize = Math.max(12, Math.round(plaque * 0.28));
   ctx.font = `700 ${certSize}px ${ORBITRON_STACK}`;
-  ctx.fillStyle = GOLD;
-  ctx.fillText("CERTIFIED", out.width / 2, barY);
+  glowFillText(ctx, "CERTIFIED", out.width / 2, barY, CREAM, GOLD);
 
-  const lockSize = Math.max(16, Math.round(plaque * 0.42));
+  const lockSize = Math.max(18, Math.round(plaque * 0.44));
   ctx.font = `400 ${lockSize}px ${MONOTON_STACK}`;
   const token = "TOKEN";
   const hit = "HIT";
@@ -359,15 +400,12 @@ function wrapCertifiedFrame(src: HTMLCanvasElement): HTMLCanvasElement {
   const hw = ctx.measureText(hit).width;
   const total = tw + dw + hw;
   let x = (out.width - total) / 2;
-  const ly = barY + plaque * 0.38;
-  ctx.fillStyle = CREAM;
-  ctx.fillText(token, x + tw / 2, ly);
+  const ly = barY + plaque * 0.4;
+  glowFillText(ctx, token, x + tw / 2, ly, CREAM, GOLD);
   x += tw;
-  ctx.fillStyle = NEON;
-  ctx.fillText(dollar, x + dw / 2, ly);
+  glowFillText(ctx, dollar, x + dw / 2, ly, NEON, "#00ffaa");
   x += dw;
-  ctx.fillStyle = CREAM;
-  ctx.fillText(hit, x + hw / 2, ly);
+  glowFillText(ctx, hit, x + hw / 2, ly, CREAM, GOLD);
 
   return out;
 }
