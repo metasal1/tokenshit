@@ -96,6 +96,10 @@ if (!errors.some((e) => e.includes("meme-render"))) {
   }
 }
 
+if (!src.includes("persistCaptionsRef")) {
+  errors.push("CAPTION LOCK broken: persistCaptionsRef missing (text must survive meme changes)");
+}
+
 if (errors.length) {
   console.error("\n❌ memes-lock FAILED — do not ship:\n");
   for (const e of errors) console.error(" -", e);
