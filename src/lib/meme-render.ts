@@ -544,17 +544,36 @@ async function renderTokenshitMemeCanvas(
   ]);
   const src = blankSrc(blankUrl);
   const img = await loadImage(src);
+  const imgW = img.naturalWidth || img.width;
+  const imgH = img.naturalHeight || img.height;
+  let extraL = 0;
+  let extraT = 0;
+  let extraR = 0;
+  let extraB = 0;
+  for (const box of boxes) {
+    extraL = Math.max(extraL, -box.x);
+    extraT = Math.max(extraT, -box.y);
+    extraR = Math.max(extraR, box.x + box.w - 1);
+    extraB = Math.max(extraB, box.y + box.h - 1);
+  }
   const canvas = document.createElement("canvas");
-  canvas.width = img.naturalWidth || img.width;
-  canvas.height = img.naturalHeight || img.height;
+  canvas.width = Math.max(1, Math.round(imgW * (1 + extraL + extraR)));
+  canvas.height = Math.max(1, Math.round(imgH * (1 + extraT + extraB)));
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("canvas unsupported");
   ctx.setTransform(1, 0, 0, 1, 0, 0);
-  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = DARK;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  const ox = extraL * imgW;
+  const oy = extraT * imgH;
+  ctx.drawImage(img, ox, oy, imgW, imgH);
+  ctx.save();
+  ctx.translate(ox, oy);
   boxes.forEach((box, i) => {
-    drawMonotonBox(ctx, box, texts[i] || "", canvas.width, canvas.height);
+    drawMonotonBox(ctx, box, texts[i] || "", imgW, imgH);
   });
-  if (opts?.brand !== false) drawWatermark(ctx, canvas.width, canvas.height, opts?.username);
+  if (opts?.brand !== false) drawWatermark(ctx, imgW, imgH, opts?.username);
+  ctx.restore();
   if (opts?.frame) return wrapCertifiedFrame(canvas);
   return canvas;
 }
