@@ -87,6 +87,15 @@ if (tpls.includes("memes.sal.fun") && !tpls.includes("memes.sol.new")) {
   errors.push("TEMPLATES API broken: still only sal.fun upstream");
 }
 
+const renderPath = resolve(root, "src/lib/meme-render.ts");
+mustExist(renderPath, "meme-render");
+if (!errors.some((e) => e.includes("meme-render"))) {
+  const render = read(renderPath);
+  if (!render.includes("wrapCertifiedFrame") || !render.includes("CERTIFIED")) {
+    errors.push("FRAME LOCK broken: copy/download missing CERTIFIED TOKENSHIT frame");
+  }
+}
+
 if (errors.length) {
   console.error("\n❌ memes-lock FAILED — do not ship:\n");
   for (const e of errors) console.error(" -", e);
