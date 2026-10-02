@@ -103,14 +103,14 @@ export default function MemeStage({
       if (d.mode === "move") {
         next[d.index] = {
           ...o,
-          x: clamp(o.x + dx, 0, 1 - o.w),
-          y: clamp(o.y + dy, 0, 1 - o.h),
+          x: clamp(o.x + dx, -0.55, 1.05),
+          y: clamp(o.y + dy, -0.55, 1.05),
         };
       } else {
         next[d.index] = {
           ...o,
-          w: clamp(o.w + dx, 0.12, 1 - o.x),
-          h: clamp(o.h + dy, 0.08, 1 - o.y),
+          w: clamp(o.w + dx, 0.12, 1.6),
+          h: clamp(o.h + dy, 0.08, 1.6),
         };
       }
       onBoxesChange(next);
@@ -158,7 +158,7 @@ export default function MemeStage({
   return (
     <div
       ref={stageRef}
-      className="relative w-full touch-pan-y select-none overflow-hidden rounded-xl border border-white/10 bg-black"
+      className="relative w-full touch-pan-y select-none overflow-visible rounded-xl border border-white/10 bg-black"
       onPointerDown={(e) => {
         if (e.button !== 0) return;
         onActiveChange(-1);

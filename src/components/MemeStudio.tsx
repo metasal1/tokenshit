@@ -983,7 +983,7 @@ export default function MemeStudio({ embedded = false }: { embedded?: boolean })
 
             <div className="grid min-h-0 flex-1 gap-0 overflow-y-auto overscroll-contain md:grid-cols-2">
               <div className="flex items-center justify-center bg-black p-3 sm:p-4 md:p-8">
-                <div className="relative w-full max-w-md">
+                <div className="relative w-full max-w-md overflow-visible">
                   {(imgLoading || (!preview && selected)) && (
                     <div className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center rounded-xl bg-black/30">
                       <EmojiIcon size={22} className="animate-spin">
