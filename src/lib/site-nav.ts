@@ -22,6 +22,7 @@ export const SITE_NAV: NavItem[] = [
     badge: "2.5K",
   },
   { href: "/memes", label: "Memes", primary: true, match: "prefix" },
+  { href: "/make", label: "Make", primary: true, accent: "neon", match: "prefix" },
   {
     href: "/referrals",
     label: "Refer",
