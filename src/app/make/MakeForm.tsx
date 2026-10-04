@@ -2,13 +2,16 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { usePrivy } from "@privy-io/react-auth";
-import { MAKE_PAYER, MAKE_FIRST_BUY_USD } from "@/lib/make-token";
+import { MAKE_PAYER, MAKE_FIRST_BUY_USD, MAKE_MIN_HOLD } from "@/lib/make-token";
 
 type Status = {
   payer: string;
   sol: number;
   funded: boolean;
   firstBuyUsd: number;
+  needHold: number;
+  hold: number;
+  qualified: boolean;
   hitLeft: number | null;
   shitLeft: number | null;
 };
@@ -47,7 +50,12 @@ export default function MakeForm() {
 
   const load = useCallback(async () => {
     try {
-      const res = await fetch("/api/make", { cache: "no-store" });
+      const headers: Record<string, string> = {};
+      if (authenticated) {
+        const token = await getAccessToken();
+        if (token) headers.Authorization = `Bearer ${token}`;
+      }
+      const res = await fetch("/api/make", { cache: "no-store", headers });
       const data = (await res.json()) as Status;
       setStatus(data);
     } catch {
@@ -56,11 +64,14 @@ export default function MakeForm() {
         sol: 0,
         funded: false,
         firstBuyUsd: MAKE_FIRST_BUY_USD,
+        needHold: MAKE_MIN_HOLD,
+        hold: 0,
+        qualified: false,
         hitLeft: null,
         shitLeft: null,
       });
     }
-  }, []);
+  }, [authenticated, getAccessToken]);
 
   useEffect(() => {
     void load();
@@ -132,6 +143,10 @@ export default function MakeForm() {
       login();
       return;
     }
+    if (!status?.qualified) {
+      setMsg(`Hold ${MAKE_MIN_HOLD.toLocaleString()} TOKENSHIT to make`);
+      return;
+    }
     if (!imageData && !imageUrl.trim()) {
       setMsg("Upload, paste, or paste a https image URL");
       return;
@@ -178,6 +193,9 @@ export default function MakeForm() {
 
   const payer = status?.payer || MAKE_PAYER;
   const funded = !!status?.funded;
+  const need = status?.needHold ?? MAKE_MIN_HOLD;
+  const hold = status?.hold ?? 0;
+  const qualified = !!status?.qualified;
 
   return (
     <form onSubmit={submit} className="space-y-4">
@@ -191,6 +209,33 @@ export default function MakeForm() {
             ? `Funded · ${status?.sol ?? 0} SOL`
             : `Send SOL here. Create + $${MAKE_FIRST_BUY_USD} first buy come from this wallet.`}
         </p>
+      </div>
+
+      <div
+        className={`rounded-2xl border p-4 space-y-2 ${
+          qualified ? "border-neon/40 bg-zinc-950" : "border-amber-500/40 bg-zinc-950"
+        }`}
+      >
+        <p className="font-orbitron text-[10px] uppercase tracking-wider text-zinc-500">
+          Hold to qualify
+        </p>
+        <p className="text-sm text-zinc-300">
+          Need {need.toLocaleString()} TOKENSHIT. You have{" "}
+          {Math.floor(hold).toLocaleString()}.
+        </p>
+        {!authenticated ? (
+          <p className="text-sm text-zinc-400">Log in to check your bag.</p>
+        ) : !qualified ? (
+          <p className="text-sm text-zinc-400">
+            Buy on{" "}
+            <a href="/swap" className="text-neon hover:underline">
+              /swap
+            </a>{" "}
+            then refresh.
+          </p>
+        ) : (
+          <p className="text-sm text-neon">Qualified.</p>
+        )}
       </div>
 
       <label className="block">
@@ -395,7 +440,7 @@ export default function MakeForm() {
 
       <button
         type="submit"
-        disabled={busy}
+        disabled={busy || (authenticated && !qualified)}
         className="flex min-h-12 w-full items-center justify-center rounded-xl bg-neon px-4 font-orbitron text-sm uppercase tracking-wide text-black hover:brightness-110 disabled:opacity-50"
       >
         {busy ? "Working" : authenticated ? "Make token" : "Log in to make"}
