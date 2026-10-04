@@ -208,7 +208,7 @@ export async function POST(req: NextRequest) {
   if (sol < MAKE_MIN_SOL) {
     return Response.json(
       {
-        error: `Payer needs SOL. Send to ${MAKE_PAYER}`,
+        error: `Payer needs ${MAKE_MIN_SOL} SOL (has ${sol.toFixed(4)}). Send to ${MAKE_PAYER}`,
         code: "payer_unfunded",
         payer: MAKE_PAYER,
         sol,
