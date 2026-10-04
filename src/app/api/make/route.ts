@@ -11,6 +11,7 @@ import {
   vanityTable,
   type MakeSide,
 } from "@/lib/make-token";
+import { pumpCreateAndFirstBuy } from "@/lib/make-pump";
 
 export const dynamic = "force-dynamic";
 
@@ -215,23 +216,65 @@ export async function POST(req: NextRequest) {
       { status: 503 }
     );
   }
+  if (!process.env.MAKE_PAYER_SECRET) {
+    return Response.json(
+      { error: "Payer secret not on Worker", code: "payer_secret_missing" },
+      { status: 503 }
+    );
+  }
+  if (!vanityConfigured()) {
+    return Response.json(
+      { error: "Mint pool not configured", code: "vanity_missing" },
+      { status: 503 }
+    );
+  }
 
-  return Response.json(
-    {
-      error:
-        "Payer is funded. Launch tx wiring next. Form saved nothing. Do not send again yet.",
-      code: "launch_pending",
-      payer: MAKE_PAYER,
-      receive,
-      side,
+  const claimed = await vanitySql(
+    `SELECT id, public_key, private_key, secret_key_json FROM shit_keypairs WHERE COALESCE(consumed,0)=0 AND substr(public_key, -4)='shit' LIMIT 1`
+  );
+  const row = claimed.rows[0];
+  if (!row) {
+    return Response.json(
+      { error: "No shit mints left", code: "mint_pool_empty" },
+      { status: 503 }
+    );
+  }
+  const id = Number(row[0]);
+  const mintPub = String(row[1] || "");
+  const mintPrivate = String(row[2] || "");
+  const mintSecretJson = row[3] != null ? String(row[3]) : null;
+  await vanitySql(`UPDATE shit_keypairs SET consumed=1 WHERE id=?`, [id]);
+
+  try {
+    const launched = await pumpCreateAndFirstBuy({
       name,
       symbol,
       description,
       twitter,
       telegram,
       website,
-      hasImage: Boolean(imageData || imageUrl),
-    },
-    { status: 503 }
-  );
+      imageUrl,
+      imageData,
+      receive,
+      mintPrivateKey: mintPrivate,
+      mintSecretJson,
+    });
+    return Response.json({
+      ok: true,
+      mint: launched.mint,
+      sig: launched.sig,
+      buySig: launched.buySig,
+      receive,
+      side: "shit",
+    });
+  } catch (e) {
+    await vanitySql(`UPDATE shit_keypairs SET consumed=0 WHERE id=?`, [id]).catch(
+      () => null
+    );
+    const msg = e instanceof Error ? e.message : "launch failed";
+    return Response.json(
+      { error: msg, code: "launch_failed", mint: mintPub },
+      { status: 500 }
+    );
+  }
 }
