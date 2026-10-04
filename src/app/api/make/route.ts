@@ -105,6 +105,11 @@ export async function POST(req: NextRequest) {
   const name = String(body.name || "").trim();
   const symbol = String(body.symbol || "").trim();
   const imageUrl = String(body.imageUrl || "").trim();
+  const imageData = String(body.imageData || "").trim();
+  const description = String(body.description || "").trim().slice(0, 500);
+  const twitter = String(body.twitter || "").trim().slice(0, 80);
+  const telegram = String(body.telegram || "").trim().slice(0, 120);
+  const website = String(body.website || "").trim().slice(0, 200);
   const side = String(body.side || "") === "hit" ? "hit" : "shit";
   const receive = String(body.receive || "").trim();
 
@@ -120,7 +125,16 @@ export async function POST(req: NextRequest) {
     return Response.json({ error: "Invalid receive wallet" }, { status: 400 });
   }
   if (imageUrl && !/^https:\/\//i.test(imageUrl)) {
-    return Response.json({ error: "Image must be https" }, { status: 400 });
+    return Response.json({ error: "Image URL must be https" }, { status: 400 });
+  }
+  if (imageData && !/^data:image\//i.test(imageData)) {
+    return Response.json({ error: "Upload a PNG, JPG, or WebP" }, { status: 400 });
+  }
+  if (!imageUrl && !imageData) {
+    return Response.json({ error: "Upload, paste, or https image" }, { status: 400 });
+  }
+  if (website && !/^https:\/\//i.test(website)) {
+    return Response.json({ error: "Website must be https" }, { status: 400 });
   }
 
   const sol = await payerSol();
@@ -146,6 +160,11 @@ export async function POST(req: NextRequest) {
       side,
       name,
       symbol,
+      description,
+      twitter,
+      telegram,
+      website,
+      hasImage: Boolean(imageData || imageUrl),
     },
     { status: 503 }
   );
