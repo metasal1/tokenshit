@@ -1,9 +1,11 @@
 import { NextRequest } from "next/server";
 import { PublicKey } from "@solana/web3.js";
-import { requirePrivy } from "@/lib/privy-server";
+import { requirePrivy, tokenFromRequest } from "@/lib/privy-server";
 import { rpc } from "@/lib/treasury";
+import { SHIT_DECIMALS, SHIT_MINT } from "@/lib/shit-token";
 import {
   MAKE_FIRST_BUY_USD,
+  MAKE_MIN_HOLD,
   MAKE_MIN_SOL,
   MAKE_PAYER,
   vanityTable,
@@ -70,6 +72,45 @@ async function payerSol(): Promise<number> {
   }
 }
 
+async function shitUi(wallet: string): Promise<number> {
+  try {
+    const r = await rpc<{
+      value?: Array<{
+        account?: {
+          data?: {
+            parsed?: {
+              info?: { tokenAmount?: { amount?: string; decimals?: number } };
+            };
+          };
+        };
+      }>;
+    }>("getTokenAccountsByOwner", [
+      wallet,
+      { mint: SHIT_MINT },
+      { encoding: "jsonParsed", commitment: "confirmed" },
+    ]);
+    const accounts = r?.value || [];
+    let raw = 0;
+    let decimals = SHIT_DECIMALS;
+    for (const a of accounts) {
+      const info = a?.account?.data?.parsed?.info?.tokenAmount;
+      if (!info) continue;
+      raw += Number(info.amount || 0);
+      if (typeof info.decimals === "number") decimals = info.decimals;
+    }
+    return raw / Math.pow(10, decimals);
+  } catch {
+    return 0;
+  }
+}
+
+async function holdForWallets(wallets: string[]): Promise<number> {
+  const uniq = [...new Set(wallets.filter(Boolean))];
+  let total = 0;
+  for (const w of uniq) total += await shitUi(w);
+  return total;
+}
+
 async function left(side: MakeSide): Promise<number | null> {
   if (!vanityConfigured()) return null;
   const table = vanityTable(side);
@@ -84,14 +125,26 @@ async function left(side: MakeSide): Promise<number | null> {
   }
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const sol = await payerSol();
   const [hitLeft, shitLeft] = await Promise.all([left("hit"), left("shit")]);
+  let hold = 0;
+  let qualified = false;
+  if (tokenFromRequest(req, null)) {
+    const auth = await requirePrivy(req);
+    if (auth.ok) {
+      hold = await holdForWallets(auth.id.wallets);
+      qualified = hold >= MAKE_MIN_HOLD;
+    }
+  }
   return Response.json({
     payer: MAKE_PAYER,
     sol,
     funded: sol >= MAKE_MIN_SOL,
     firstBuyUsd: MAKE_FIRST_BUY_USD,
+    needHold: MAKE_MIN_HOLD,
+    hold,
+    qualified,
     hitLeft,
     shitLeft,
   });
@@ -101,6 +154,19 @@ export async function POST(req: NextRequest) {
   const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
   const auth = await requirePrivy(req, { body });
   if (!auth.ok) return auth.res;
+
+  const hold = await holdForWallets(auth.id.wallets);
+  if (hold < MAKE_MIN_HOLD) {
+    return Response.json(
+      {
+        error: `Hold ${MAKE_MIN_HOLD.toLocaleString()} TOKENSHIT to make. You have ${Math.floor(hold).toLocaleString()}.`,
+        code: "need_hold",
+        needHold: MAKE_MIN_HOLD,
+        hold,
+      },
+      { status: 403 }
+    );
+  }
 
   const name = String(body.name || "").trim();
   const symbol = String(body.symbol || "").trim();
