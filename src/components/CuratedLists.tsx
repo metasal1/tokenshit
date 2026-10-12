@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import TokenCard from "./TokenCard";
 import { CURATED_LISTS } from "@/lib/lists";
+import { EmojiIcon } from "@/components/EmojiIcon";
 
 interface AssetItem {
   assetId: string;
@@ -28,6 +29,7 @@ export default function CuratedLists({
   const [assets, setAssets] = useState<AssetItem[]>(initialAssets ?? []);
   const [loading, setLoading] = useState(!initialAssets);
   const [count, setCount] = useState(initialAssets?.length ?? 0);
+  const [q, setQ] = useState("");
 
   useEffect(() => {
     if (active === initialList && initialAssets && initialAssets.length > 0) {
@@ -82,26 +84,47 @@ export default function CuratedLists({
     };
   }, [active, initialAssets, initialList]);
 
+  const shown = q.trim()
+    ? assets.filter((a) => {
+        const n = q.trim().toLowerCase();
+        return (
+          a.name.toLowerCase().includes(n) ||
+          a.symbol.toLowerCase().includes(n) ||
+          a.assetId.toLowerCase().includes(n)
+        );
+      })
+    : assets;
+
   return (
     <section>
-      <div className="flex items-center gap-2 overflow-x-auto pb-2 mb-2 scrollbar-none">
+      <div className="flex items-center gap-2 overflow-x-auto pb-2 mb-3 scrollbar-none">
         {CURATED_LISTS.map((l) => (
           <button
             key={l.key}
+            type="button"
             onClick={() => setActive(l.key)}
-            className={`shrink-0 rounded-lg px-4 py-2 text-sm font-medium transition-all ${
+            className={`shrink-0 min-h-12 rounded-lg px-4 py-2 text-sm font-medium transition-all inline-flex items-center gap-1.5 ${
               active === l.key
                 ? "bg-neon text-black"
                 : "bg-card border border-border text-zinc-400 hover:text-foreground hover:border-zinc-600"
             }`}
           >
-            <span className="emoji mr-1">{l.emoji}</span>{l.label}
+            <EmojiIcon size={16}>{l.emoji}</EmojiIcon>
+            {l.label}
           </button>
         ))}
       </div>
+      <input
+        className="mb-4 w-full max-w-md rounded-xl border border-border bg-zinc-950 px-3 py-3 text-base text-white outline-none focus:border-neon"
+        value={q}
+        onChange={(e) => setQ(e.target.value)}
+        placeholder="Search name or ticker"
+        autoComplete="off"
+      />
       {!loading && (
         <p className="text-xs text-zinc-600 mb-4">
-          {count} asset{count === 1 ? "" : "s"}
+          {shown.length}
+          {q.trim() ? ` of ${count}` : ""} asset{count === 1 ? "" : "s"}
           {active === "lsts" ? " · expanded from Foundation LST registry" : ""}
         </p>
       )}
@@ -124,13 +147,13 @@ export default function CuratedLists({
             </div>
           ))}
         </div>
-      ) : assets.length === 0 ? (
+      ) : shown.length === 0 ? (
         <p className="text-center text-zinc-500 py-12">
           No tokens found for this list. Try another category.
         </p>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {assets.map((a, i) => (
+          {shown.map((a, i) => (
             <TokenCard
               key={`${a.assetId}-${a.mint || a.symbol}-${i}`}
               assetId={a.assetId}

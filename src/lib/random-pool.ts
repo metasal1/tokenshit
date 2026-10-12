@@ -1,5 +1,5 @@
-import { apiFetch } from "@/lib/api";
 import { tursoExecute } from "@/lib/turso";
+import { fetchCuratedList } from "@/lib/curatedAssets";
 
 export interface PoolToken {
   assetId: string;
@@ -44,6 +44,7 @@ const SPICY_IDS = new Set([
 ]);
 
 const LISTS = [
+  "all",
   "majors",
   "lsts",
   "currencies",
@@ -61,41 +62,14 @@ let orderedIds: string[] = [];
 
 async function fetchList(list: string): Promise<PoolToken[]> {
   try {
-    const data = await apiFetch(
-      `/assets/curated?list=${encodeURIComponent(list)}&groupBy=asset`
-    );
-    const assets = (data?.assets ||
-      data?.results ||
-      data?.data ||
-      []) as Record<string, unknown>[];
-    return assets
-      .map((a) => {
-        const asset = (a.asset || a) as Record<string, unknown>;
-        const pv = (asset.primaryVariant ||
-          a.primaryVariant ||
-          {}) as Record<string, unknown>;
-        const market = (pv.market || {}) as Record<string, unknown>;
-        const name = String(
-          asset.name || a.name || pv.name || pv.symbol || ""
-        ).trim();
-        const symbol = String(
-          asset.symbol || a.symbol || pv.symbol || pv.name || ""
-        ).trim();
-        const logo = String(
-          asset.imageUrl || market.logoURI || a.imageUrl || ""
-        ).trim();
-        const assetId = String(
-          asset.assetId || asset.id || a.assetId || a.id || ""
-        );
-        return {
-          assetId,
-          name: name || symbol || assetId.slice(0, 12) || "Unknown",
-          symbol: symbol || (name ? name.slice(0, 12) : assetId.slice(0, 8)),
-          logo,
-          list,
-        };
-      })
-      .filter((t) => t.assetId);
+    const assets = await fetchCuratedList(list);
+    return assets.map((a) => ({
+      assetId: a.assetId,
+      name: a.name,
+      symbol: a.symbol,
+      logo: a.logo || "",
+      list,
+    }));
   } catch {
     return [];
   }

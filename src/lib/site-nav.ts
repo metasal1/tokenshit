@@ -23,6 +23,7 @@ export const SITE_NAV: NavItem[] = [
   },
   { href: "/memes", label: "Memes", primary: true, match: "prefix" },
   { href: "/make", label: "Make", primary: true, accent: "neon", match: "prefix" },
+  { href: "/tokens", label: "Tokens", primary: false, match: "prefix" },
   {
     href: "/referrals",
     label: "Refer",

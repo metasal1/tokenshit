@@ -74,13 +74,27 @@ export async function fetchCuratedList(
   if (list === "lsts") {
     return fetchLstsExpanded();
   }
-  const data = await apiFetch(
-    `/assets/curated?list=${encodeURIComponent(list)}&groupBy=asset`
-  );
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const raw: any[] = Array.isArray(data)
-    ? data
-    : data.assets || data.results || data.items || [];
+  const PAGE = 500;
+  const raw: unknown[] = [];
+  let offset = 0;
+  for (let i = 0; i < 40; i++) {
+    const data = await apiFetch(
+      `/assets/curated?list=${encodeURIComponent(list)}&groupBy=asset&limit=${PAGE}&offset=${offset}`
+    );
+    const batch: unknown[] = Array.isArray(data)
+      ? data
+      : data.assets || data.results || data.items || [];
+    raw.push(...batch);
+    const pag = data?.pagination as
+      | { hasMore?: boolean; nextOffset?: number | null }
+      | undefined;
+    if (pag?.hasMore && typeof pag.nextOffset === "number") {
+      offset = pag.nextOffset;
+      continue;
+    }
+    if (batch.length < PAGE) break;
+    offset += batch.length;
+  }
   return raw.map(mapCuratedRow).filter((a) => a.assetId);
 }
 
