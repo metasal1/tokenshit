@@ -20,6 +20,7 @@ Play $HIT OF THE DAY, free arena votes, claims, swap, whales.
 - Claim: https://tokenshit.com/claim
 - Memes: https://tokenshit.com/memes
 - Make: https://tokenshit.com/make
+- Tokens: https://tokenshit.com/tokens
 - Stats: https://tokenshit.com/stats
 - Winners: https://tokenshit.com/winners
 - Referrals: https://tokenshit.com/referrals

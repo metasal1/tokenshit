@@ -40,9 +40,11 @@ export default function StatsCategoryGrid() {
     };
   }, []);
 
-  const total = counts
-    ? Object.values(counts).reduce((a, b) => a + b, 0)
-    : null;
+  const total = counts?.all ?? (counts
+    ? Object.entries(counts)
+        .filter(([k]) => k !== "all")
+        .reduce((a, [, n]) => a + n, 0)
+    : null);
 
   return (
     <section className="rounded-2xl border border-border bg-card overflow-hidden">
@@ -59,7 +61,7 @@ export default function StatsCategoryGrid() {
       </div>
 
       <div className="p-3 sm:p-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2.5 sm:gap-3">
-        {CURATED_LISTS.map((c) => (
+        {CURATED_LISTS.filter((c) => c.key !== "all").map((c) => (
           <div
             key={c.key}
             className="rounded-xl border border-border bg-zinc-950/50 hover:border-zinc-600 transition-colors p-3 sm:p-3.5 flex items-center gap-2.5 min-h-[3.5rem]"

@@ -1,5 +1,6 @@
 /** Foundation Tokens.xyz curated list ids + UI labels (Noto emoji) */
 export const CURATED_LISTS = [
+  { key: "all", label: "All", short: "All", emoji: "◎" },
   { key: "majors", label: "Crypto", short: "Crypto", emoji: "🪙" },
   { key: "lsts", label: "Staking", short: "LSTs", emoji: "🥩" },
   { key: "currencies", label: "Stables", short: "FX", emoji: "💵" },
