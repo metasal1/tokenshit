@@ -12,7 +12,7 @@ import {
 } from "@/lib/notifications";
 import PwaBootSplash from "@/components/PwaBootSplash";
 
-type BannerKind = "install" | "ios-install" | "notify" | "update" | null;
+type BannerKind = "install" | "ios-install" | "notify" | null;
 
 function isStandalone(): boolean {
   if (typeof window === "undefined") return false;
@@ -46,37 +46,9 @@ export default function PwaProvider({
   const [deferred, setDeferred] = useState<BeforeInstallPromptEvent | null>(
     null
   );
-  const [waitingWorker, setWaitingWorker] = useState<ServiceWorker | null>(
-    null
-  );
 
   useEffect(() => {
-    void ensureSw().then(() => {
-      if (!("serviceWorker" in navigator)) return;
-      navigator.serviceWorker.getRegistration().then((reg) => {
-        if (!reg) return;
-        if (reg.waiting) {
-          setWaitingWorker(reg.waiting);
-          setBanner("update");
-        }
-        reg.addEventListener("updatefound", () => {
-          const nw = reg.installing;
-          if (!nw) return;
-          nw.addEventListener("statechange", () => {
-            if (nw.state === "installed" && navigator.serviceWorker.controller) {
-              setWaitingWorker(nw);
-              setBanner("update");
-            }
-          });
-        });
-      });
-      let refreshing = false;
-      navigator.serviceWorker.addEventListener("controllerchange", () => {
-        if (refreshing) return;
-        refreshing = true;
-        window.location.reload();
-      });
-    });
+    void ensureSw();
     resumeDropReminderIfArmed();
 
     if (isStandalone()) {
@@ -110,7 +82,7 @@ export default function PwaProvider({
       if (!localStorage.getItem("tokenshit_install_dismiss_v2")) {
         const t = window.setTimeout(() => {
           setBanner((b) => {
-            if (b === "install" || b === "update") return b;
+            if (b === "install") return b;
             if (isIosSafari()) return "ios-install";
             return b;
           });
@@ -165,11 +137,6 @@ export default function PwaProvider({
     localStorage.setItem("tokenshit_install_dismiss_v2", "1");
   }
 
-  function applyUpdate() {
-    waitingWorker?.postMessage({ type: "SKIP_WAITING" });
-    setBanner(null);
-  }
-
   function dismiss() {
     if (banner === "notify") {
       localStorage.setItem("tokenshit_notify_prompt_v2", "1");
@@ -185,18 +152,14 @@ export default function PwaProvider({
       ? "Get pinged when the treasury reloads?"
       : banner === "ios-install"
         ? "Add TOKEN$HIT to your Home Screen"
-        : banner === "update"
-          ? "Update available"
-          : "Install TOKEN$HIT as an app";
+        : "Install TOKEN$HIT as an app";
 
   const body =
     banner === "notify"
       ? null
       : banner === "ios-install"
         ? "Tap Share → Add to Home Screen. Full screen, boot splash, faster loads."
-        : banner === "update"
-          ? "A new TOKEN$HIT build is ready. Reload to get the latest."
-          : deferred
+        : deferred
             ? "One tap — home screen icon, full screen, loading splash."
             : "Use your browser menu → Install app / Add to Home Screen.";
 
@@ -235,14 +198,6 @@ export default function PwaProvider({
               >
                 Enable
               </button>
-            ) : banner === "update" ? (
-              <button
-                type="button"
-                onClick={applyUpdate}
-                className="flex-1 min-h-11 rounded-lg bg-neon text-black text-sm font-bold"
-              >
-                Reload
-              </button>
             ) : banner === "ios-install" ? (
               <button
                 type="button"
@@ -279,9 +234,7 @@ export default function PwaProvider({
           <p className="text-[10px] text-zinc-600 font-mono">
             {banner === "notify"
               ? "/test · notifications"
-              : banner === "update"
-                ? "PWA · tokenshit-v8"
-                : "PWA · home screen"}
+              : "PWA · home screen"}
           </p>
         </div>
       )}

@@ -50,8 +50,12 @@ export async function ensureSw(): Promise<ServiceWorkerRegistration | null> {
     } catch {
       /* ignore */
     }
+    // Do not call reg.update() on every land. iOS + skipWaiting was
+    // showing "Reload for the update" on every visit.
     try {
-      await reg.update();
+      if (reg.waiting) {
+        reg.waiting.postMessage({ type: "SKIP_WAITING" });
+      }
     } catch {
       /* ignore */
     }
